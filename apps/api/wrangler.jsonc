@@ -5,6 +5,9 @@
   "compatibility_date": "2026-08-16",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
+  "routes": [
+    { "pattern": "api.groxbot.com", "custom_domain": true },
+  ],
   "dev": {
     "ip": "127.0.0.1",
     "port": 3100,
@@ -29,10 +32,10 @@
   ],
   "vars": {
     "NODE_ENV": "production",
-    "BETTER_AUTH_URL": "https://groxbot-api.qalam.workers.dev",
-    "API_URL": "https://groxbot-api.qalam.workers.dev",
-    "WEB_ORIGIN": "https://groxbot-web.qalam.workers.dev",
-    "CORS_ORIGINS": "https://groxbot-web.qalam.workers.dev,https://groxbot-landing.qalam.workers.dev",
+    "BETTER_AUTH_URL": "https://api.groxbot.com",
+    "API_URL": "https://api.groxbot.com",
+    "WEB_ORIGIN": "https://app.groxbot.com",
+    "CORS_ORIGINS": "https://app.groxbot.com,https://groxbot.com,https://www.groxbot.com",
     "SANDBOX_PROVIDER": "fake",
     "AGENT_RUNTIME": "flue",
     "WAKEUP_KIND": "durable-object",

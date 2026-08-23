@@ -5,6 +5,9 @@
   // dashboard — do not put account IDs or secrets here.
   "compatibility_date": "2026-08-16",
   "workers_dev": true,
+  "routes": [
+    { "pattern": "app.groxbot.com", "custom_domain": true },
+  ],
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application",

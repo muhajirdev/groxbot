@@ -6,6 +6,10 @@
   "compatibility_date": "2026-08-16",
   "workers_dev": true,
   "compatibility_flags": ["nodejs_compat"],
+  "routes": [
+    { "pattern": "groxbot.com", "custom_domain": true },
+    { "pattern": "www.groxbot.com", "custom_domain": true },
+  ],
   "main": "@tanstack/react-start/server-entry",
   "observability": {
     "enabled": true
