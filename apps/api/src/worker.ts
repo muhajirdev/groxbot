@@ -36,6 +36,7 @@ export interface WorkerEnv {
   COMPOSIO_API_KEY?: string;
   BOT_ACTOR: DurableObjectNamespace;
   APP_RUNTIME: DurableObjectNamespace;
+  LOADER: unknown;
 }
 
 type StoredJob = {
@@ -101,7 +102,10 @@ export class BotActor extends DurableObject<WorkerEnv> {
           }
         }
       }
-      await this.ctx.storage.put(`job:${job.jobKey ?? crypto.randomUUID()}`, job);
+      await this.ctx.storage.put(
+        `job:${job.jobKey ?? crypto.randomUUID()}`,
+        job,
+      );
       await this.scheduleAlarm();
       return new Response("scheduled", { status: 202 });
     }
@@ -159,6 +163,8 @@ export default {
       close,
       wakeup: new DurableObjectWakeupDriver(env.BOT_ACTOR),
       appStore: new DurableObjectAppStore(env.APP_RUNTIME),
+      connectApp: (appId, request) =>
+        new DurableObjectAppStore(env.APP_RUNTIME).connect(appId, request),
     });
     return handles.app.fetch(request);
   },

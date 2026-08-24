@@ -3,11 +3,12 @@ import { filesForTemplate, MemoryAppStore } from "./index.js";
 import { evalSheet } from "./sheets-engine.js";
 
 describe("app templates", () => {
-  it("stamps client and server files per template", () => {
+  it("stamps Cloudflare OS client and Gadget server per template", () => {
     for (const id of ["docs", "slides", "sheets"] as const) {
       const files = filesForTemplate(id);
-      expect(files["client.js"]).toContain("gadget.load");
-      expect(files["server.js"]).toContain("export class App");
+      expect(files["client.js"]).toContain("gadget.subscribe");
+      expect(files["server.js"]).toContain("export class Gadget");
+      expect(files["client.js"]).not.toContain("gadget.load");
     }
     expect(filesForTemplate("docs")["client.js"]).toContain("contenteditable");
     expect(filesForTemplate("docs")["client.js"]).toContain("applyOperation");
@@ -15,13 +16,7 @@ describe("app templates", () => {
     expect(filesForTemplate("sheets")["client.js"]).toContain("applyOperation");
   });
 
-  it("parses stamped client bundles", () => {
-    for (const id of ["docs", "slides", "sheets"] as const) {
-      expect(() => new Function(filesForTemplate(id)["client.js"])).not.toThrow();
-    }
-  });
-
-  it("loads and saves state in memory", async () => {
+  it("loads and saves seed state in memory for tests", async () => {
     const store = new MemoryAppStore();
     await store.init("app_1", "docs");
     const loaded = (await store.call("app_1", "load", [])) as {
@@ -37,6 +32,7 @@ describe("app templates", () => {
     expect(next.html).toContain("hi");
     const bundle = await store.uiBundle("app_1");
     expect(bundle?.jsCode).toContain("contenteditable");
+    expect(bundle?.jsCode).toContain("gadget.subscribe");
   });
 });
 

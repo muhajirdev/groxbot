@@ -1,16 +1,69 @@
-/** Cloudflare-only. Excluded from `tsc`. Source + document state for one workspace app. */
+/** Cloudflare-only. Excluded from `tsc`. Supervisor for one workspace app. */
 import { DurableObject } from "cloudflare:workers";
 import type { AppStore } from "@groxbot/adapter-kit";
-import { filesForTemplate, initialState } from "@groxbot/app-runtime";
-import type { TemplateId } from "@groxbot/contracts";
+import { filesForTemplate } from "@groxbot/app-runtime";
+import { newWorkersRpcResponse, RpcTarget } from "capnweb";
 
-export class AppRuntime extends DurableObject {
+type LoaderWorker = {
+  getDurableObjectClass(name: string): unknown;
+};
+
+type WorkerLoader = {
+  get(
+    name: string,
+    getCode: () => Promise<{
+      compatibilityDate: string;
+      compatibilityFlags?: string[];
+      mainModule: string;
+      modules: Record<string, string>;
+      globalOutbound: null;
+    }>,
+  ): LoaderWorker;
+};
+
+type FacetState = {
+  facets: {
+    get(
+      name: string,
+      create: () => { class: unknown; id?: string },
+    ): GadgetFacet;
+  };
+};
+
+type GadgetFacet = {
+  getDocument(): Promise<Record<string, unknown>>;
+  getDeck(): Promise<Record<string, unknown>>;
+  setDeck(deck: unknown): Promise<void>;
+  initializeBlocks(args: unknown): Promise<unknown>;
+  applyOperation(operation: unknown): Promise<unknown>;
+  [key: string]: unknown;
+};
+
+type AppRuntimeEnv = {
+  LOADER: WorkerLoader;
+};
+
+/** Browser-facing host. Do not expose init/call on this object. */
+class AppHost extends RpcTarget {
+  constructor(private readonly runtime: AppRuntime) {
+    super();
+  }
+
+  getUiBundle(): Promise<{ jsCode: string } | null> {
+    return this.runtime.uiBundle();
+  }
+
+  connectToGadget(): RpcTarget {
+    return this.runtime.gadgetTarget();
+  }
+}
+
+export class AppRuntime extends DurableObject<AppRuntimeEnv> {
   async init(templateId: string): Promise<void> {
     const files = filesForTemplate(templateId);
     await this.ctx.storage.put("files", files);
     await this.ctx.storage.put("templateId", templateId);
     await this.ctx.storage.put("codeVersion", 1);
-    await this.ctx.storage.put("state", initialState(templateId as TemplateId));
   }
 
   async uiBundle(): Promise<{ jsCode: string } | null> {
@@ -19,15 +72,128 @@ export class AppRuntime extends DurableObject {
     return jsCode ? { jsCode } : null;
   }
 
+  gadgetTarget(): RpcTarget {
+    const facet = this.gadgetFacet();
+    return new Proxy(new RpcTarget(), {
+      get(target, prop, receiver) {
+        if (typeof prop === "symbol" || prop in target) {
+          return Reflect.get(target, prop, receiver);
+        }
+        const method = (facet as GadgetFacet)[String(prop)];
+        if (typeof method !== "function") return method;
+        return (...args: unknown[]) => Reflect.apply(method, facet, args);
+      },
+    });
+  }
+
   async call(method: string, args: unknown[]): Promise<unknown> {
-    if (method === "load") {
-      return (await this.ctx.storage.get("state")) ?? null;
-    }
+    const facet = this.gadgetFacet();
+    if (method === "load") return this.snapshot(facet);
     if (method === "save") {
-      await this.ctx.storage.put("state", args[0]);
+      await this.hydrate(facet, args[0]);
       return args[0];
     }
-    throw new Error(`Unknown app method: ${method}`);
+    const fn = facet[method];
+    if (typeof fn !== "function") {
+      throw new Error(`Unknown app method: ${method}`);
+    }
+    return fn.apply(facet, args);
+  }
+
+  async fetch(request: Request): Promise<Response> {
+    if (request.headers.get("Upgrade") !== "websocket") {
+      return new Response("Expected WebSocket", { status: 426 });
+    }
+    return newWorkersRpcResponse(request, new AppHost(this));
+  }
+
+  private gadgetFacet(): GadgetFacet {
+    const facets = (this.ctx as DurableObjectState & FacetState).facets;
+    return facets.get("gadget", () => {
+      const worker = this.loadWorker();
+      return {
+        class: worker.getDurableObjectClass("Gadget"),
+        id: "gadget",
+      };
+    });
+  }
+
+  private loadWorker(): LoaderWorker {
+    const loader = this.env.LOADER;
+    return loader.get(`app:${this.ctx.id.toString()}`, async () => {
+      const files = await this.ctx.storage.get<{
+        "client.js"?: string;
+        "server.js"?: string;
+      }>("files");
+      const server = files?.["server.js"];
+      if (!server) throw new Error("App has no server.js");
+      return {
+        compatibilityDate: "2026-08-16",
+        mainModule: "server.js",
+        modules: {
+          "server.js": server,
+          "client.js": files?.["client.js"] ?? "",
+        },
+        globalOutbound: null,
+      };
+    });
+  }
+
+  private async snapshot(facet: GadgetFacet): Promise<unknown> {
+    const templateId = await this.ctx.storage.get<string>("templateId");
+    if (templateId === "slides") return facet.getDeck();
+    return facet.getDocument();
+  }
+
+  private async hydrate(facet: GadgetFacet, state: unknown): Promise<void> {
+    if (!state || typeof state !== "object") return;
+    const templateId = await this.ctx.storage.get<string>("templateId");
+    const rec = state as Record<string, unknown>;
+    if (templateId === "slides") {
+      await facet.setDeck(state);
+      return;
+    }
+    if (templateId === "sheets") {
+      const doc = await facet.getDocument();
+      const sheetId = String(
+        Array.isArray(doc.sheetOrder) ? doc.sheetOrder[0] : "",
+      );
+      if (
+        rec.cells &&
+        typeof rec.cells === "object" &&
+        !rec.sheetOrder &&
+        sheetId
+      ) {
+        const cellOps = Object.entries(
+          rec.cells as Record<string, unknown>,
+        ).map(([ref, value]) => ({
+          sheetId,
+          ref,
+          value:
+            value != null && typeof value === "object" && "value" in value
+              ? String((value as { value: unknown }).value ?? "")
+              : String(value ?? ""),
+          baseVersion: 0,
+        }));
+        await facet.applyOperation({ senderId: "system", cellOps });
+      }
+      if (typeof rec.title === "string") {
+        await facet.applyOperation({
+          senderId: "system",
+          structure: {
+            title: rec.title,
+            sheetOrder: doc.sheetOrder,
+            sheets: doc.sheets,
+          },
+        });
+      }
+      return;
+    }
+    await facet.initializeBlocks({
+      blocks: Array.isArray(rec.blocks) ? rec.blocks : [],
+      title: typeof rec.title === "string" ? rec.title : "Untitled",
+      senderId: "system",
+    });
   }
 }
 
@@ -37,6 +203,7 @@ type AppNamespace = {
     init(templateId: string): Promise<void>;
     uiBundle(): Promise<{ jsCode: string } | null>;
     call(method: string, args: unknown[]): Promise<unknown>;
+    fetch(request: Request): Promise<Response>;
   };
 };
 
@@ -57,5 +224,9 @@ export class DurableObjectAppStore implements AppStore {
 
   call(appId: string, method: string, args: unknown[]): Promise<unknown> {
     return this.stub(appId).call(method, args);
+  }
+
+  connect(appId: string, request: Request): Promise<Response> {
+    return this.stub(appId).fetch(request);
   }
 }

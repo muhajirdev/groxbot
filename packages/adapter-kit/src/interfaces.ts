@@ -74,7 +74,7 @@ export interface AgentRuntime {
   abort(runId: string): Promise<void>;
 }
 
-/** Per-app Durable Object (or in-memory stand-in). Source + document state. */
+/** Per-app Durable Object supervisor (or in-memory stand-in). Code files only; document state lives on the Gadget facet. */
 export interface AppStore {
   init(appId: string, templateId: string): Promise<void>;
   uiBundle(appId: string): Promise<{ jsCode: string } | null>;

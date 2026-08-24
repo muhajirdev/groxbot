@@ -7,6 +7,7 @@ licensed under the Apache License, Version 2.0.
 
 The Docs, Slides, and Sheets templates in
 `packages/app-runtime/vendor/cloudflare-os/` are adapted from Cloudflare OS
-as `client.js` / `server.js` source (not `.gadget` archives). Groxbot
-persists them with `gadget.load` / `gadget.save` over oRPC and does not
-include Cap’n Web, Yjs, or the Cloudflare OS Overseer.
+as `client.js` / `server.js` source (not `.gadget` archives). Groxbot runs
+`server.js` as a Dynamic Worker Facet of the App Durable Object and bridges
+the sandboxed iframe with Cap’n Web. It does not include Yjs, `.gadget`
+archives, or the Cloudflare OS Overseer.

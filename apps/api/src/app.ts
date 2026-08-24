@@ -6,8 +6,14 @@ import {
 import { MemoryAppStore } from "@groxbot/app-runtime";
 import { createAuth } from "@groxbot/auth";
 import { groxbotCookieDomain } from "@groxbot/contracts";
-import { GuestHub, handleGuestRequest } from "@groxbot/core";
+import {
+  AppError,
+  GuestHub,
+  getWorkspaceApp,
+  handleGuestRequest,
+} from "@groxbot/core";
 import type { Database } from "@groxbot/db";
+import { ORPCError } from "@orpc/server";
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -18,6 +24,7 @@ import { healthPayload } from "./health.js";
 import { createMailer } from "./mail.js";
 import { completePluginCallback, pluginCallbackPage } from "./plugins.js";
 import { mountRpc } from "./rpc.js";
+import { requireActor } from "./session.js";
 
 export interface AppHandles extends Omit<RpcContext, "headers"> {
   app: Hono;
@@ -31,6 +38,7 @@ export function createApp(
     close: () => Promise<void>;
     wakeup?: WakeupDriver;
     appStore?: AppStore;
+    connectApp?: (appId: string, request: Request) => Promise<Response>;
   },
 ): AppHandles {
   const oauth = oauthCredentials(env);
@@ -79,6 +87,36 @@ export function createApp(
   };
   mountRpc(app, handles);
   mountDiscovery(app, env.webOrigin);
+
+  if (opts.connectApp) {
+    const connectApp = opts.connectApp;
+    app.get("/apps/:appId/rpc", async (c) => {
+      const origin = c.req.header("Origin");
+      if (origin && !env.corsOrigins.includes(origin)) {
+        return c.text("Forbidden", 403);
+      }
+      try {
+        const actor = await requireActor({
+          ...handles,
+          headers: c.req.raw.headers,
+        });
+        await getWorkspaceApp(
+          handles.db,
+          actor.workspaceId,
+          c.req.param("appId"),
+        );
+      } catch (error) {
+        if (error instanceof AppError) {
+          return c.text(error.message, 404);
+        }
+        if (error instanceof ORPCError) {
+          return new Response(error.message, { status: error.status });
+        }
+        throw error;
+      }
+      return connectApp(c.req.param("appId"), c.req.raw);
+    });
+  }
 
   app.get("/api/plugins/callback", async (c) => {
     await completePluginCallback(handles, {

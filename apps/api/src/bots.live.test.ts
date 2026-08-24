@@ -706,7 +706,7 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
     })) as { slides?: Array<{ title?: string }> };
     expect(state.slides?.[0]?.title).toBe("Q3");
     const bundle = await rpc.apps.uiBundle({ appId });
-    expect(bundle?.jsCode).toContain("gadget.load");
+    expect(bundle?.jsCode).toContain("gadget.subscribe");
   }, 15_000);
 });
 

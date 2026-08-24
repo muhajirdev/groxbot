@@ -1,9 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import capnwebBundle from "capnweb?raw";
+import { newMessagePortRpcSession, newWebSocketRpcSession } from "capnweb";
+import { useEffect, useRef, useState } from "react";
 import { APP_KIND_LABEL } from "../lib/app-kind";
+import { appRpcUrl } from "../lib/app-rpc";
 import { appSrcDoc } from "../lib/app-srcdoc";
-import { client } from "../lib/rpc";
 import { CloseIcon } from "./Icons";
+
+type AppHost = {
+  getUiBundle(): Promise<{ jsCode: string } | null>;
+  connectToGadget(): unknown;
+};
 
 export function AppPane(props: {
   appId: string;
@@ -37,62 +43,64 @@ export function AppPane(props: {
 function AppFrame(props: { appId: string; title: string }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [error, setError] = useState("");
-  const bundleQuery = useQuery({
-    queryKey: ["app-bundle", props.appId],
-    queryFn: () => client.apps.uiBundle({ appId: props.appId }),
-    staleTime: 60_000,
-  });
-  const srcDoc = useMemo(() => {
-    const js = bundleQuery.data?.jsCode;
-    return js ? appSrcDoc(js) : "";
-  }, [bundleQuery.data?.jsCode]);
+  const [srcDoc, setSrcDoc] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-    void srcDoc;
+    let cancelled = false;
+    const host = newWebSocketRpcSession<AppHost>(appRpcUrl(props.appId));
+    const iframeSessions: Array<{ [Symbol.dispose]?: () => void }> = [];
+
+    void host
+      .getUiBundle()
+      .then((bundle) => {
+        if (cancelled) return;
+        if (!bundle?.jsCode) {
+          setError("Could not open this.");
+          setLoading(false);
+          return;
+        }
+        setSrcDoc(appSrcDoc(bundle.jsCode, capnwebBundle));
+        setLoading(false);
+      })
+      .catch((caught: unknown) => {
+        if (cancelled) return;
+        setError(
+          caught instanceof Error ? caught.message : "Could not open this.",
+        );
+        setLoading(false);
+      });
+
     const onMessage = (event: MessageEvent) => {
-      if (event.source !== iframe.contentWindow) return;
-      const data = event.data as {
-        type?: string;
-        id?: number;
-        method?: string;
-        args?: unknown[];
-      };
-      if (data?.type !== "gadget:call" || data.id == null) return;
-      const method = data.method ?? "";
-      void client.apps
-        .call({
-          appId: props.appId,
-          method,
-          args: data.args ?? [],
-        })
-        .then((result) => {
-          iframe.contentWindow?.postMessage(
-            { type: "gadget:result", id: data.id, result },
-            "*",
-          );
-        })
-        .catch((caught: unknown) => {
-          const message =
-            caught instanceof Error ? caught.message : "Could not save";
-          setError(message);
-          iframe.contentWindow?.postMessage(
-            { type: "gadget:result", id: data.id, error: message },
-            "*",
-          );
-        });
+      const frame = iframeRef.current?.contentWindow;
+      if (!frame || event.source !== frame || event.origin !== "null") return;
+      if (event.data !== "handshake" || !event.ports?.[0]) return;
+      const port = event.ports[0];
+      try {
+        const gadget = host.connectToGadget();
+        iframeSessions.push(newMessagePortRpcSession(port, gadget as object));
+      } catch (caught: unknown) {
+        port.close();
+        setError(
+          caught instanceof Error ? caught.message : "Could not connect",
+        );
+      }
     };
     window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, [props.appId, srcDoc]);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("message", onMessage);
+      for (const session of iframeSessions) session[Symbol.dispose]?.();
+      host[Symbol.dispose]?.();
+    };
+  }, [props.appId]);
 
   return (
     <div className="app-frame-wrap">
-      {bundleQuery.isPending ? (
+      {loading ? (
         <p className="desk-empty">Opening…</p>
-      ) : bundleQuery.error || !srcDoc ? (
-        <p className="desk-empty">Could not open this.</p>
+      ) : error || !srcDoc ? (
+        <p className="desk-empty">{error || "Could not open this."}</p>
       ) : (
         <iframe
           ref={iframeRef}
@@ -103,7 +111,6 @@ function AppFrame(props: { appId: string; title: string }) {
           srcDoc={srcDoc}
         />
       )}
-      {error ? <p className="error">{error}</p> : null}
     </div>
   );
 }

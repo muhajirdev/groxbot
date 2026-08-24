@@ -12,7 +12,6 @@
     "check": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@hono/node-server": "^1.19.1",
     "@groxbot/adapter-kit": "workspace:*",
     "@groxbot/adapters": "workspace:*",
     "@groxbot/app-runtime": "workspace:*",
@@ -21,7 +20,9 @@
     "@groxbot/core": "workspace:*",
     "@groxbot/db": "workspace:*",
     "@groxbot/seo": "workspace:*",
+    "@hono/node-server": "^1.19.1",
     "@orpc/server": "^1.10.0",
+    "capnweb": "^0.12.0",
     "dotenv": "^17.2.1",
     "drizzle-orm": "^0.44.5",
     "hono": "^4.9.6"

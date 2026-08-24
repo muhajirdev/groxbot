@@ -1,29 +1,30 @@
 import type { AppStore } from "@groxbot/adapter-kit";
 import type { TemplateId } from "@groxbot/contracts";
 import { docsClientJs } from "./generated/docs.client.js";
+import { docsServerJs } from "./generated/docs.server.js";
 import { sheetsClientJs } from "./generated/sheets.client.js";
+import { sheetsServerJs } from "./generated/sheets.server.js";
 import { slidesClientJs } from "./generated/slides.client.js";
+import { slidesServerJs } from "./generated/slides.server.js";
 import { initialState } from "./initial-state.js";
-import { APP_SERVER_JS } from "./server-js.js";
 
 export { initialState } from "./initial-state.js";
-export { APP_SERVER_JS } from "./server-js.js";
 export { evalSheet } from "./sheets-engine.js";
 
 export const APP_TEMPLATES = {
   docs: {
     clientJs: docsClientJs,
-    serverJs: APP_SERVER_JS,
+    serverJs: docsServerJs,
     title: "Untitled doc",
   },
   slides: {
     clientJs: slidesClientJs,
-    serverJs: APP_SERVER_JS,
+    serverJs: slidesServerJs,
     title: "Untitled slides",
   },
   sheets: {
     clientJs: sheetsClientJs,
-    serverJs: APP_SERVER_JS,
+    serverJs: sheetsServerJs,
     title: "Untitled sheet",
   },
 } as const;
@@ -44,6 +45,7 @@ type AppRecord = {
   state: unknown;
 };
 
+/** Node/test stand-in. Hosted apps use AppRuntime + a Gadget facet, not this JSON store. */
 export class MemoryAppStore implements AppStore {
   private readonly apps = new Map<string, AppRecord>();
 

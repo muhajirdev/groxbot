@@ -28,6 +28,11 @@
       },
     ],
   },
+  "worker_loaders": [
+    {
+      "binding": "LOADER",
+    },
+  ],
   "migrations": [
     {
       "tag": "v1",

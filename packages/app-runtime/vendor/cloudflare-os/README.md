@@ -7,11 +7,12 @@ workspace Docs, Slides, and Sheets. Groxbot keeps them as source files, not
 Copyright Cloudflare, Inc. Licensed under the Apache License, Version 2.0.
 See the project `NOTICE` and `LICENSE` files.
 
-The iframe talks to the parent with `gadget.load` / `gadget.save` only. A small
-host in the iframe implements subscribe / applyOperation / getDeck against that
-snapshot. No Cap’n Web, Yjs, Overseer, or archive format.
+The live app is Cloudflare-only: `AppRuntime` loads `server.js` with the
+Worker Loader and runs `export class Gadget` as a Durable Object Facet.
+The iframe talks Cap'n Web over a MessagePort; the parent holds the
+WebSocket. No in-iframe fake Gadget, no Yjs, no Overseer, no archive format.
 
-Rebuild stamped `src/generated/*.client.ts` with:
+Rebuild stamped `src/generated/*.ts` with:
 
 ```
 node packages/app-runtime/scripts/bundle-templates.mjs

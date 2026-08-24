@@ -1,5 +1,5 @@
-/* Groxbot host: run the template server class in the iframe.
- * Parent still only bridges gadget.load / gadget.save. No Cap'n Web, no .gadget archives. */
+/* Groxbot Node test double: run the template Gadget class without Worker Loader.
+ * Product path: AppRuntime Dynamic Worker Facet + Cap'n Web. */
 class RpcTarget {
   dup() {
     return this;
