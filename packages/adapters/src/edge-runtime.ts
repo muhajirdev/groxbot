@@ -1,12 +1,10 @@
 import type { AgentRuntime } from "@groxbot/adapter-kit";
+import { DEFAULT_AI_GATEWAY_ID } from "@groxbot/contracts";
 import type { GatewayEnv } from "./gateway.js";
 import {
   createHostedAgentRuntime,
-  createScriptedOrGatewayRuntime,
-  DEFAULT_AGENT_RUNTIME,
   GatewayAgentRuntime,
   isOfflineAgentRuntime,
-  OFFLINE_AGENT_RUNTIME,
   parsePokePrompt,
   resolveAgentRuntimeKind,
   ScriptedAgentRuntime,
@@ -16,10 +14,8 @@ import { type WorkersAiBinding, WorkersAiRuntime } from "./workers-ai.js";
 export type { WorkersAiBinding };
 export {
   createHostedAgentRuntime,
-  DEFAULT_AGENT_RUNTIME,
   GatewayAgentRuntime,
   isOfflineAgentRuntime,
-  OFFLINE_AGENT_RUNTIME,
   parsePokePrompt,
   resolveAgentRuntimeKind,
   ScriptedAgentRuntime,
@@ -27,15 +23,13 @@ export {
 };
 
 export function createEdgeAgentRuntime(
-  kind = OFFLINE_AGENT_RUNTIME,
   source: GatewayEnv | NodeJS.ProcessEnv = {},
   fetchImpl?: typeof fetch,
 ): AgentRuntime {
-  return createScriptedOrGatewayRuntime(kind, source, fetchImpl);
+  return createHostedAgentRuntime(source, { fetch: fetchImpl });
 }
 
 export function bindEdgeAgentRuntime(
-  kind: string | undefined,
   overlay: { env: NodeJS.ProcessEnv; model: string; hosted?: boolean },
   options?: { fetch?: typeof fetch; ai?: WorkersAiBinding },
 ): AgentRuntime {
@@ -43,12 +37,11 @@ export function bindEdgeAgentRuntime(
     return new WorkersAiRuntime({
       ai: options.ai,
       model: overlay.model,
-      gatewayId: overlay.env.CLOUDFLARE_AI_GATEWAY_ID || "default",
+      gatewayId:
+        overlay.env.CLOUDFLARE_AI_GATEWAY_ID?.trim() || DEFAULT_AI_GATEWAY_ID,
     });
   }
-  return createEdgeAgentRuntime(
-    resolveAgentRuntimeKind(kind),
-    overlay.env,
-    options?.fetch,
-  );
+  return createHostedAgentRuntime(overlay.env, {
+    fetch: options?.fetch,
+  });
 }

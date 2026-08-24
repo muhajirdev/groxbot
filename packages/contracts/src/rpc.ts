@@ -24,7 +24,13 @@ import {
 } from "./domain.js";
 import { ProductEventSchema } from "./events.js";
 import { GuestAgentKind, Id } from "./ids.js";
-import { ModelSettingsSchema, SaveModelSettingsInput } from "./models.js";
+import {
+  MailKind,
+  ModelSettingsSchema,
+  PRODUCT_RUNTIME,
+  SaveModelSettingsInput,
+  WakeupKind,
+} from "./models.js";
 
 const botId = z.object({ botId: Id });
 
@@ -33,11 +39,11 @@ export const appContract = oc.router({
     z.object({
       ok: z.literal(true),
       version: z.string(),
-      runtime: z.string(),
+      runtime: z.literal(PRODUCT_RUNTIME),
       sandbox: z.string(),
-      wakeup: z.string(),
+      wakeup: WakeupKind,
       oauth: z.array(z.enum(["google", "github"])),
-      mail: z.enum(["cloudflare", "log"]),
+      mail: MailKind,
       composio: z.boolean(),
     }),
   ),

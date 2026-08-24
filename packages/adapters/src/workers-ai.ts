@@ -4,6 +4,7 @@ import type {
   AgentRuntime,
   AgentRuntimeEvent,
 } from "@groxbot/adapter-kit";
+import { DEFAULT_AI_GATEWAY_ID } from "@groxbot/contracts";
 import {
   chatMessages,
   completionUsage,
@@ -69,7 +70,7 @@ export class WorkersAiRuntime implements AgentRuntime {
         { messages: chatMessages(request), stream: true },
         {
           gateway: {
-            id: this.options.gatewayId || "default",
+            id: this.options.gatewayId || DEFAULT_AI_GATEWAY_ID,
             metadata: {
               workspaceId: context.workspaceId,
               userId: context.userId,

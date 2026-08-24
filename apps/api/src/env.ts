@@ -1,13 +1,21 @@
-import { resolveAgentRuntimeKind } from "@groxbot/adapters/edge";
 import {
   CLOUD_API_ORIGIN,
   CLOUD_LANDING_ORIGIN,
   CLOUD_WEB_ORIGIN,
+  DURABLE_OBJECT_WAKEUP,
+  FAKE_SANDBOX,
+  HOSTED_AI_ENV,
+  HOSTED_AI_FLAG,
+  HTTP_WAKEUP,
   hostedCloudflareGateway,
+  IN_PROCESS_WAKEUP,
   STAGING_API_ORIGIN,
   STAGING_LANDING_ORIGIN,
   STAGING_WEB_ORIGIN,
+  type WakeupKind,
 } from "@groxbot/contracts";
+
+export { DURABLE_OBJECT_WAKEUP, HTTP_WAKEUP, IN_PROCESS_WAKEUP };
 
 export type OAuthProviderId = "google" | "github";
 
@@ -18,7 +26,6 @@ export interface Env {
   webOrigin: string;
   corsOrigins: string[];
   sandboxProvider: string;
-  agentRuntime: string;
   workerUrl?: string;
   apiUrl?: string;
   guestUrl?: string;
@@ -35,7 +42,7 @@ export interface Env {
   encryptionKey?: string;
   composioApiKey?: string;
   production: boolean;
-  wakeupKind: "in-process" | "http" | "durable-object";
+  wakeupKind: WakeupKind;
 }
 
 function pair(
@@ -110,8 +117,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
       "http://127.0.0.1:8081",
       "http://localhost:8081",
     ]),
-    sandboxProvider: source.SANDBOX_PROVIDER ?? "fake",
-    agentRuntime: resolveAgentRuntimeKind(source.AGENT_RUNTIME),
+    sandboxProvider: source.SANDBOX_PROVIDER ?? FAKE_SANDBOX,
     workerUrl: source.WORKER_URL,
     apiUrl: source.API_URL ?? "http://127.0.0.1:3100",
     guestUrl: source.GUEST_URL,
@@ -130,11 +136,11 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     composioApiKey: source.COMPOSIO_API_KEY?.trim() || undefined,
     production: source.NODE_ENV === "production",
     wakeupKind:
-      source.WAKEUP_KIND === "durable-object"
-        ? "durable-object"
+      source.WAKEUP_KIND === DURABLE_OBJECT_WAKEUP
+        ? DURABLE_OBJECT_WAKEUP
         : source.WORKER_URL
-          ? "http"
-          : "in-process",
+          ? HTTP_WAKEUP
+          : IN_PROCESS_WAKEUP,
   };
 }
 
@@ -142,7 +148,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
 export function agentRuntimeSource(env: Env): NodeJS.ProcessEnv {
   const hosted = env.hostedAiBinding
     ? hostedCloudflareGateway({
-        GROXBOT_HOSTED_AI: "1",
+        [HOSTED_AI_ENV]: HOSTED_AI_FLAG,
         CLOUDFLARE_AI_GATEWAY_ID: env.cloudflareAiGatewayId,
       })
     : hostedCloudflareGateway({
@@ -152,14 +158,13 @@ export function agentRuntimeSource(env: Env): NodeJS.ProcessEnv {
         CLOUDFLARE_AI_GATEWAY_ID: env.cloudflareAiGatewayId,
       });
   return {
-    AGENT_RUNTIME: env.agentRuntime,
     WEB_ORIGIN: env.webOrigin,
     ENCRYPTION_KEY: env.encryptionKey,
     BETTER_AUTH_SECRET: env.authSecret,
     NODE_ENV: env.production ? "production" : "development",
     ...(hosted?.kind === "binding"
       ? {
-          GROXBOT_HOSTED_AI: "1",
+          [HOSTED_AI_ENV]: HOSTED_AI_FLAG,
           CLOUDFLARE_AI_GATEWAY_ID: hosted.gatewayId,
           CLOUDFLARE_GATEWAY_ID: hosted.gatewayId,
         }

@@ -1,4 +1,8 @@
 import {
+  CLOUDFLARE_PROVIDER,
+  DEFAULT_AI_GATEWAY_ID,
+  HOSTED_AI_ENV,
+  HOSTED_AI_FLAG,
   HOSTED_STARTER_MODEL,
   hostedCloudflareGateway,
 } from "@groxbot/contracts";
@@ -47,12 +51,12 @@ describe("redactSecrets", () => {
 describe("hosted Cloudflare overlay", () => {
   it("injects Groxbot’s gateway and leaves workspace BYOK in place", () => {
     const hosted = hostedCloudflareGateway({
-      GROXBOT_HOSTED_AI: "1",
+      [HOSTED_AI_ENV]: HOSTED_AI_FLAG,
     });
     const empty: NodeJS.ProcessEnv = {};
     expect(applyHostedCloudflareEnv(empty, hosted)).toBe(true);
-    expect(empty.GROXBOT_HOSTED_AI).toBe("1");
-    expect(empty.CLOUDFLARE_AI_GATEWAY_ID).toBe("default");
+    expect(empty[HOSTED_AI_ENV]).toBe(HOSTED_AI_FLAG);
+    expect(empty.CLOUDFLARE_AI_GATEWAY_ID).toBe(DEFAULT_AI_GATEWAY_ID);
     expect(empty.CLOUDFLARE_API_TOKEN).toBeUndefined();
 
     const workspace: NodeJS.ProcessEnv = {
@@ -61,15 +65,14 @@ describe("hosted Cloudflare overlay", () => {
     };
     expect(applyHostedCloudflareEnv(workspace, hosted)).toBe(false);
     expect(workspace.CLOUDFLARE_API_TOKEN).toBe("own-token");
-    expect(workspace.GROXBOT_HOSTED_AI).toBeUndefined();
+    expect(workspace[HOSTED_AI_ENV]).toBeUndefined();
   });
 
   it("falls back to the hosted Workers AI starter when OpenRouter has no key", () => {
     expect(
       fallbackRunnableModel(
         "openrouter/deepseek/deepseek-v4-flash",
-        ["cloudflare"],
-        "gateway",
+        [CLOUDFLARE_PROVIDER],
         true,
       ),
     ).toBe(HOSTED_STARTER_MODEL);

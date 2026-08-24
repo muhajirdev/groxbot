@@ -1,14 +1,14 @@
-/** Node Flue actor. Product wakeup is Durable Object `BotActor` on the API Worker. */
+/** Node self-host actor. Product wakeup is Durable Object `BotActor` on the API Worker. */
 import { existsSync } from "node:fs";
 import { createServer } from "node:http";
 import path from "node:path";
 import type { WakeupJob } from "@groxbot/adapter-kit";
 import {
   bindAgentRuntime,
-  createAgentRuntime,
+  createHostedAgentRuntime,
   createPluginTools,
-  resolveAgentRuntimeKind,
 } from "@groxbot/adapters";
+import { IN_PROCESS_WAKEUP, PRODUCT_RUNTIME } from "@groxbot/contracts";
 import {
   createWakeHandlers,
   GuestHub,
@@ -55,8 +55,7 @@ async function main() {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL is required");
   const { db } = createDb(databaseUrl);
-  const agentRuntime = resolveAgentRuntimeKind(process.env.AGENT_RUNTIME);
-  const runtime = createAgentRuntime(agentRuntime);
+  const runtime = createHostedAgentRuntime(process.env);
   const guests = new GuestHub();
   let enqueue: (job: WakeupJob) => Promise<void> = async () => {};
   const handlers = createWakeHandlers({
@@ -66,7 +65,7 @@ async function main() {
     enqueue: (job) => enqueue(job),
     guests,
     initApp: async () => {},
-    bindRuntime: (overlay) => bindAgentRuntime(agentRuntime, overlay),
+    bindRuntime: (overlay) => bindAgentRuntime(overlay),
     pluginTools: (input) => createPluginTools(input),
   });
   enqueue = async (job) => {
@@ -85,8 +84,8 @@ async function main() {
         res.end(
           JSON.stringify({
             ok: true,
-            wakeup: "in-process",
-            runtime: agentRuntime,
+            wakeup: IN_PROCESS_WAKEUP,
+            runtime: PRODUCT_RUNTIME,
           }),
         );
         return;

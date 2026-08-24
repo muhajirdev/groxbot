@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { createAgentRuntime } from "../runtime.js";
+import { createAgentRuntime, FLUE_ECHO_RUNTIME } from "../runtime.js";
 import { ECHO_MODEL } from "./echo.js";
 import {
   FlueAgentRuntime,
@@ -63,7 +63,7 @@ describe("FlueAgentRuntime", () => {
   });
 
   it("echoes through the Pi harness with poke mounted", async () => {
-    const runtime = createAgentRuntime("flue-echo");
+    const runtime = createAgentRuntime(FLUE_ECHO_RUNTIME);
     const events = [];
     for await (const event of runtime.run(
       {
@@ -87,7 +87,7 @@ describe("FlueAgentRuntime", () => {
   });
 
   it("echoes through the Pi harness with Composio tools mounted", async () => {
-    const runtime = createAgentRuntime("flue-echo");
+    const runtime = createAgentRuntime(FLUE_ECHO_RUNTIME);
     const events = [];
     for await (const event of runtime.run(
       {
@@ -117,7 +117,7 @@ describe("FlueAgentRuntime", () => {
   });
 
   it("echoes through the Pi harness offline", async () => {
-    const runtime = createAgentRuntime("flue-echo");
+    const runtime = createAgentRuntime(FLUE_ECHO_RUNTIME);
     const events = [];
     for await (const event of runtime.run(runRequest, adapterContext)) {
       events.push(event);
@@ -134,7 +134,7 @@ describe("FlueAgentRuntime", () => {
   });
 
   it("honors a per-turn model id", async () => {
-    const runtime = createAgentRuntime("flue-echo");
+    const runtime = createAgentRuntime(FLUE_ECHO_RUNTIME);
     const events = [];
     for await (const event of runtime.run(
       { ...runRequest, model: "groxbot-echo/echo" },

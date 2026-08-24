@@ -1,3 +1,11 @@
+import {
+  CLOUDFLARE_PROVIDER,
+  DEFAULT_AI_GATEWAY_ID,
+  HOSTED_AI_ENV,
+  HOSTED_AI_FLAG,
+  OPENROUTER_PROVIDER,
+  PRODUCT_RUNTIME,
+} from "@groxbot/contracts";
 import { describe, expect, it } from "vitest";
 import {
   CLOUDFLARE_DEEPSEEK_V4_FLASH,
@@ -16,9 +24,9 @@ import {
 import {
   agentRuntimeNeedsModel,
   createAgentRuntime,
-  DEFAULT_AGENT_RUNTIME,
+  FLUE_ECHO_RUNTIME,
+  FLUE_RUNTIME,
   GatewayAgentRuntime,
-  OFFLINE_AGENT_RUNTIME,
   parsePokePrompt,
   resolveAgentRuntimeKind,
   ScriptedAgentRuntime,
@@ -61,11 +69,13 @@ describe("loadGatewayConfig", () => {
       CLOUDFLARE_ACCOUNT_ID: "acct_123",
       CLOUDFLARE_API_TOKEN: "cf-token",
     });
-    expect(config.provider).toBe("cloudflare");
+    expect(config.provider).toBe(CLOUDFLARE_PROVIDER);
     expect(config.model).toBe(CLOUDFLARE_DEEPSEEK_V4_FLASH);
-    expect(config.gatewayId).toBe("default");
+    expect(config.gatewayId).toBe(DEFAULT_AI_GATEWAY_ID);
     expect(gatewayChatUrl(config)).toBe(cloudflareChatUrl("acct_123"));
-    expect(gatewayHeaders(config)["cf-aig-gateway-id"]).toBe("default");
+    expect(gatewayHeaders(config)["cf-aig-gateway-id"]).toBe(
+      DEFAULT_AI_GATEWAY_ID,
+    );
     expect(gatewayHeaders(config).authorization).toBe("Bearer cf-token");
   });
 
@@ -73,7 +83,7 @@ describe("loadGatewayConfig", () => {
     const config = loadGatewayConfig({
       OPENROUTER_API_KEY: "sk-or-test",
     });
-    expect(config.provider).toBe("openrouter");
+    expect(config.provider).toBe(OPENROUTER_PROVIDER);
     expect(config.model).toBe(OPENROUTER_DEEPSEEK_V4_FLASH);
     expect(gatewayChatUrl(config)).toBe(
       "https://openrouter.ai/api/v1/chat/completions",
@@ -87,17 +97,17 @@ describe("loadGatewayConfig", () => {
       CLOUDFLARE_API_TOKEN: "cf-token",
       OPENROUTER_API_KEY: "sk-or-test",
     });
-    expect(config.provider).toBe("cloudflare");
+    expect(config.provider).toBe(CLOUDFLARE_PROVIDER);
   });
 
   it("honors an explicit OpenRouter provider", () => {
     const config = loadGatewayConfig({
-      AI_GATEWAY_PROVIDER: "openrouter",
+      AI_GATEWAY_PROVIDER: OPENROUTER_PROVIDER,
       OPENROUTER_API_KEY: "sk-or-test",
       CLOUDFLARE_ACCOUNT_ID: "acct_123",
       CLOUDFLARE_API_TOKEN: "cf-token",
     });
-    expect(config.provider).toBe("openrouter");
+    expect(config.provider).toBe(OPENROUTER_PROVIDER);
   });
 
   it("accepts CLOUDFLARE_AI_GATEWAY_TOKEN and defaults the gateway id", () => {
@@ -106,7 +116,7 @@ describe("loadGatewayConfig", () => {
       CLOUDFLARE_AI_GATEWAY_TOKEN: "gw-token",
       CLOUDFLARE_AI_GATEWAY_ID: "office",
     });
-    expect(config.provider).toBe("cloudflare");
+    expect(config.provider).toBe(CLOUDFLARE_PROVIDER);
     expect(config.apiKey).toBe("gw-token");
     expect(config.gatewayId).toBe("office");
     expect(gatewayHeaders(config).authorization).toBe("Bearer gw-token");
@@ -231,7 +241,7 @@ describe("GatewayAgentRuntime", () => {
       {
         url: cloudflareChatUrl("acct_123"),
         model: CLOUDFLARE_DEEPSEEK_V4_FLASH,
-        gateway: "default",
+        gateway: DEFAULT_AI_GATEWAY_ID,
         metadata: JSON.stringify({
           workspaceId: "ws-1",
           userId: "user-1",
@@ -299,7 +309,7 @@ describe("GatewayAgentRuntime", () => {
     let url = "";
     let model = "";
     const runtime = createAgentRuntime(
-      "openrouter",
+      OPENROUTER_PROVIDER,
       { OPENROUTER_API_KEY: "sk-or-test" },
       async (input, init) => {
         url = String(input);
@@ -399,40 +409,36 @@ describe("GatewayAgentRuntime", () => {
 });
 
 describe("createAgentRuntime", () => {
-  it("defaults the hosted brain to gateway", () => {
-    expect(DEFAULT_AGENT_RUNTIME).toBe("gateway");
-    expect(resolveAgentRuntimeKind()).toBe("gateway");
-    expect(resolveAgentRuntimeKind("")).toBe("gateway");
-    expect(resolveAgentRuntimeKind("scripted")).toBe("scripted");
-    expect(createAgentRuntime()).toBeInstanceOf(ScriptedAgentRuntime);
-    expect(OFFLINE_AGENT_RUNTIME).toBe("scripted");
+  it("defaults the hosted brain to Cloudflare", () => {
+    expect(resolveAgentRuntimeKind()).toBe(PRODUCT_RUNTIME);
+    expect(resolveAgentRuntimeKind("")).toBe(PRODUCT_RUNTIME);
+    expect(() => createAgentRuntime()).toThrow(/AI binding/);
   });
 
-  it("needs a model id for live flue, not for offline stubs", () => {
-    expect(agentRuntimeNeedsModel("scripted", {})).toBe(false);
-    expect(agentRuntimeNeedsModel("flue-echo", {})).toBe(false);
-    expect(agentRuntimeNeedsModel("flue", {})).toBe(true);
+  it("needs a model id for live flue, not for the echo harness", () => {
+    expect(agentRuntimeNeedsModel(FLUE_ECHO_RUNTIME, {})).toBe(false);
+    expect(agentRuntimeNeedsModel(FLUE_RUNTIME, {})).toBe(true);
     expect(
-      agentRuntimeNeedsModel("flue", {
+      agentRuntimeNeedsModel(FLUE_RUNTIME, {
         GROXBOT_MODEL: "openai/gpt-4o-mini",
       }),
     ).toBe(false);
-    expect(agentRuntimeNeedsModel("gateway", {})).toBe(true);
+    expect(agentRuntimeNeedsModel(PRODUCT_RUNTIME, {})).toBe(true);
     expect(
-      agentRuntimeNeedsModel("gateway", {
+      agentRuntimeNeedsModel(PRODUCT_RUNTIME, {
         CLOUDFLARE_ACCOUNT_ID: "acct",
         CLOUDFLARE_AI_GATEWAY_TOKEN: "gw-token",
       }),
     ).toBe(false);
     expect(
-      agentRuntimeNeedsModel("gateway", {
-        GROXBOT_HOSTED_AI: "1",
+      agentRuntimeNeedsModel(PRODUCT_RUNTIME, {
+        [HOSTED_AI_ENV]: HOSTED_AI_FLAG,
       }),
     ).toBe(false);
   });
 
   it("keeps the scripted echo for offline tests", async () => {
-    const runtime = createAgentRuntime("scripted");
+    const runtime = new ScriptedAgentRuntime();
     const events = [];
     for await (const event of runtime.run(runRequest, adapterContext)) {
       events.push(event);
@@ -494,6 +500,6 @@ describe("createAgentRuntime", () => {
   });
 
   it("rejects unknown runtimes", () => {
-    expect(() => createAgentRuntime("pi")).toThrow(/Unknown AGENT_RUNTIME/);
+    expect(() => createAgentRuntime("pi")).toThrow(/Unknown agent runtime/);
   });
 });

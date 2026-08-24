@@ -1,3 +1,4 @@
+import { MAIL_CLOUDFLARE, MAIL_LOG } from "@groxbot/contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cloudflareMailConfigured, createMailer, parseFrom } from "./mail.js";
 
@@ -21,7 +22,7 @@ describe("createMailer", () => {
 
   it("is log-only without the EMAIL binding", () => {
     expect(cloudflareMailConfigured({})).toBe(false);
-    expect(createMailer({}).kind).toBe("log");
+    expect(createMailer({}).kind).toBe(MAIL_LOG);
     expect(
       cloudflareMailConfigured({
         emailFrom: "Groxbot <noreply@groxbot.com>",
@@ -42,7 +43,7 @@ describe("createMailer", () => {
       emailFrom: "Groxbot <noreply@groxbot.com>",
       email: { send },
     });
-    expect(mailer.kind).toBe("cloudflare");
+    expect(mailer.kind).toBe(MAIL_CLOUDFLARE);
     await mailer.sendMagicLink({
       email: "you@example.com",
       url: "https://app.groxbot.com/api/auth/magic-link/verify?token=abc",

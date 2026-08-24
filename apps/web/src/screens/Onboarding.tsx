@@ -4,7 +4,10 @@ import type {
   ModelProvider,
 } from "@groxbot/contracts";
 import {
+  CLOUDFLARE_PROVIDER,
+  DEFAULT_AI_GATEWAY_ID,
   PROVIDER_META,
+  PROVIDER_ORDER,
   providerForModel,
   SUGGESTED_STARTER_MODEL,
 } from "@groxbot/contracts";
@@ -50,13 +53,6 @@ const MODEL_MARKS = [
   { name: "DeepSeek", src: "/models/deepseek.svg", tone: "light" },
 ] as const;
 
-const PROVIDER_ORDER: ModelProvider[] = [
-  "openrouter",
-  "anthropic",
-  "openai",
-  "cloudflare",
-];
-
 export function Onboarding(props: { invite?: string }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -95,7 +91,7 @@ export function Onboarding(props: { invite?: string }) {
   const [openaiKey, setOpenaiKey] = useState("");
   const [cloudflareToken, setCloudflareToken] = useState("");
   const [cfAccount, setCfAccount] = useState("");
-  const [cfGateway, setCfGateway] = useState("default");
+  const [cfGateway, setCfGateway] = useState(DEFAULT_AI_GATEWAY_ID);
 
   const selectedModel =
     defaultModel ?? settings?.defaultModelId ?? SUGGESTED_STARTER_MODEL;
@@ -273,15 +269,15 @@ export function Onboarding(props: { invite?: string }) {
         keys.push({ provider: "openai", secret: openaiKey.trim() });
       }
       if (
-        selectedProvider === "cloudflare" ||
+        selectedProvider === CLOUDFLARE_PROVIDER ||
         cloudflareToken.trim() ||
         cfAccount.trim()
       ) {
         keys.push({
-          provider: "cloudflare",
+          provider: CLOUDFLARE_PROVIDER,
           secret: cloudflareToken.trim() || undefined,
           accountId: cfAccount.trim() || undefined,
-          gatewayId: cfGateway.trim() || "default",
+          gatewayId: cfGateway.trim() || DEFAULT_AI_GATEWAY_ID,
         });
       }
       if (keys.length === 0 && !providerStatus?.configured) {
@@ -688,7 +684,7 @@ export function Onboarding(props: { invite?: string }) {
                   />
                 </Field>
               ) : null}
-              {selectedProvider === "cloudflare" ? (
+              {selectedProvider === CLOUDFLARE_PROVIDER ? (
                 <>
                   <Field
                     label="Cloudflare API token"
@@ -725,7 +721,7 @@ export function Onboarding(props: { invite?: string }) {
                   </Field>
                   <Field label="AI Gateway id">
                     <Input
-                      placeholder="default"
+                      placeholder={DEFAULT_AI_GATEWAY_ID}
                       spellCheck={false}
                       autoComplete="off"
                       value={cfGateway}

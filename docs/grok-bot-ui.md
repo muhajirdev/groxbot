@@ -204,7 +204,7 @@ Empty composer and New Agent must still work without those.
 1. Welcome → sign in → **create or join a workspace** → tour → tools → **models (BYOK)** → “meet a teammate” (name, title, description, color+shape).
 2. Sidebar of Bots; click = that office thread.
 3. Chat transcript with inline “working,” files, approval.
-4. Computer pane: this bot’s Think workspace (scripted/empty first). No takeover, no desk RPC. Wakeup is the bot’s actor, not a queue UI.
+4. Computer pane: this bot’s Think workspace (empty first). No takeover, no desk RPC. Wakeup is the bot’s actor, not a queue UI.
 5. Edit profile on the Bot, not a separate admin app.
 6. First-run does not require Composio.
 7. **Models on first-run + Settings → Models**: Groxbot hosted Workers AI (`env.AI` through Cloudflare AI Gateway) plus workspace BYOK keys (encrypted). BYOK wins. Default model is hosted Workers AI when no key is pasted. A bot can override. Hosted token usage is counted per workspace. Messaging fails closed until a matching key or the hosted gateway exists (office banner as fallback).

@@ -1,3 +1,4 @@
+import { HOSTED_AI_ENV, HOSTED_AI_FLAG } from "@groxbot/contracts";
 import { describe, expect, it } from "vitest";
 import { agentRuntimeSource, loadEnv } from "./env.js";
 
@@ -12,7 +13,7 @@ describe("agentRuntimeSource", () => {
     env.hostedAiBinding = true;
     env.cloudflareAiGatewayId = "office";
     const source = agentRuntimeSource(env);
-    expect(source.GROXBOT_HOSTED_AI).toBe("1");
+    expect(source[HOSTED_AI_ENV]).toBe(HOSTED_AI_FLAG);
     expect(source.CLOUDFLARE_AI_GATEWAY_ID).toBe("office");
     expect(source.CLOUDFLARE_API_TOKEN).toBeUndefined();
     expect(source.CLOUDFLARE_ACCOUNT_ID).toBeUndefined();
@@ -26,12 +27,13 @@ describe("agentRuntimeSource", () => {
     });
     const source = agentRuntimeSource(env);
     expect(source.CLOUDFLARE_API_TOKEN).toBe("gw-token");
-    expect(source.GROXBOT_HOSTED_AI).toBeUndefined();
+    expect(source[HOSTED_AI_ENV]).toBeUndefined();
   });
 
   it("omits gateway keys without a binding or REST pack", () => {
     const source = agentRuntimeSource(loadEnv(base));
     expect(source.CLOUDFLARE_API_TOKEN).toBeUndefined();
-    expect(source.GROXBOT_HOSTED_AI).toBeUndefined();
+    expect(source[HOSTED_AI_ENV]).toBeUndefined();
+    expect(source.AGENT_RUNTIME).toBeUndefined();
   });
 });

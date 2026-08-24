@@ -6,12 +6,18 @@ import {
   createPluginTools,
   type WorkersAiBinding,
 } from "@groxbot/adapters/edge";
+import { DEFAULT_AI_GATEWAY_ID } from "@groxbot/contracts";
 import { createWakeHandlers } from "@groxbot/core";
 import { createNeonHttpDb } from "@groxbot/db/neon";
 import { createApp } from "./app.js";
 import { AppRuntime, DurableObjectAppStore } from "./app-runtime-do.js";
 import { enqueueOnBot } from "./bot-enqueue.js";
-import { agentRuntimeSource, type Env, loadEnv } from "./env.js";
+import {
+  agentRuntimeSource,
+  DURABLE_OBJECT_WAKEUP,
+  type Env,
+  loadEnv,
+} from "./env.js";
 import type { SendEmailBinding } from "./mail.js";
 
 export { AppRuntime };
@@ -25,8 +31,6 @@ export interface WorkerEnv {
   WEB_ORIGIN: string;
   CORS_ORIGINS?: string;
   SANDBOX_PROVIDER?: string;
-  AGENT_RUNTIME?: string;
-  WAKEUP_KIND?: string;
   NODE_ENV?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
@@ -49,6 +53,7 @@ function productEnv(env: WorkerEnv): Env {
   const loaded = loadEnv(env as unknown as NodeJS.ProcessEnv);
   loaded.emailBinding = Boolean(env.EMAIL);
   loaded.hostedAiBinding = Boolean(env.AI);
+  loaded.wakeupKind = DURABLE_OBJECT_WAKEUP;
   return loaded;
 }
 
@@ -74,7 +79,7 @@ export class BotActor extends DurableObject<WorkerEnv> {
     const source = agentRuntimeSource(env);
     const runtime = createHostedAgentRuntime(source, {
       ai: this.env.AI,
-      gatewayId: env.cloudflareAiGatewayId || "default",
+      gatewayId: env.cloudflareAiGatewayId || DEFAULT_AI_GATEWAY_ID,
     });
     const apps = new DurableObjectAppStore(this.env.APP_RUNTIME);
     this.handlers = createWakeHandlers({
@@ -83,8 +88,7 @@ export class BotActor extends DurableObject<WorkerEnv> {
       env: source,
       enqueue: (job) => enqueueOnBot(this.env.BOT_ACTOR, job),
       initApp: (appId, templateId, opts) => apps.init(appId, templateId, opts),
-      bindRuntime: (overlay) =>
-        bindAgentRuntime(env.agentRuntime, overlay, { ai: this.env.AI }),
+      bindRuntime: (overlay) => bindAgentRuntime(overlay, { ai: this.env.AI }),
       pluginTools: (input) =>
         createPluginTools({
           ...input,

@@ -301,12 +301,12 @@ A: Self-host and the office stays in your Postgres and sandboxes — groxbot.com
 ---
 
 Q: What models does it use?
-A: Bring your own keys (Pi catalog). Tests use a scripted runtime so they stay offline.
+A: Bring your own keys, or Groxbot’s hosted Workers AI on the Worker AI binding. Tests construct ScriptedAgentRuntime so they stay offline.
 
 ---
 
 Q: Can Hermes or OpenClaw connect?
-A: Guest runtimes are opt-in per bot and off by default. They dial out to Groxbot. Default teammates use gateway or scripted until Flue’s Cloudflare target.
+A: Guest runtimes are opt-in per bot and off by default. They dial out to Groxbot. Default teammates use the Worker AI binding or a workspace BYOK key.
 
 ---
 
@@ -391,11 +391,11 @@ Use 127.0.0.1, not localhost, for OAuth callbacks. Neon DATABASE_URL is required
 - POST ${abs(api, "/rpc")} — signed-in product API (oRPC)
 - POST ${abs(api, "/api/auth/*")} — Better Auth
 
-Do not import fs, dockerode, or Cloudflare bindings from the Pi/executor. The API Worker uses @groxbot/adapters/edge (scripted / gateway).
+Do not import fs, dockerode, or Cloudflare bindings from the Pi/executor. The API Worker uses @groxbot/adapters/edge (Workers AI binding / REST gateway).
 
 ## Tests
 
-Stay offline: AGENT_RUNTIME=scripted. No live OpenRouter, Cloudflare Computer, Cloudflare Sandbox, or E2B.
+Stay offline: construct ScriptedAgentRuntime in tests. No live OpenRouter, Cloudflare Computer, Cloudflare Sandbox, or E2B.
 
 ## Source layout
 

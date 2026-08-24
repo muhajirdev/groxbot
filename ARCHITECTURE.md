@@ -67,7 +67,7 @@ createWakeHandlers({ db, runtime, enqueue, bindRuntime, pluginTools })
 | Marketing | `apps/landing` |
 | Office SPA | `apps/web` |
 | API | `apps/api` + Neon HTTP. Local: `wrangler dev` |
-| Brain | Think on `BotActor` (tests: scripted) |
+| Brain | Think on `BotActor` (tests: `ScriptedAgentRuntime`) |
 | Apps | `AppRuntime` per `appId` |
 | Data | Neon Postgres |
 | Auth email | Worker `EMAIL` (`send_email`) |

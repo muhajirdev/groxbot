@@ -4,6 +4,7 @@ import type {
   AgentRuntime,
   AgentRuntimeEvent,
 } from "@groxbot/adapter-kit";
+import { DEFAULT_AI_GATEWAY_ID, PRODUCT_RUNTIME } from "@groxbot/contracts";
 import {
   chatMessages,
   completionUsage,
@@ -224,24 +225,22 @@ export function parsePokePrompt(
   return { name: match[1], message: match[2].trim() };
 }
 
-/** Product default on the Worker: AI Gateway chat completions. */
-export const DEFAULT_AGENT_RUNTIME = "gateway";
-
-/** Offline stub for tests and CI. */
-export const OFFLINE_AGENT_RUNTIME = "scripted";
+export const FLUE_RUNTIME = "flue" as const;
+export const FLUE_ECHO_RUNTIME = "flue-echo" as const;
 
 export function resolveAgentRuntimeKind(kind?: string | null): string {
   const runtime = kind?.trim();
-  return runtime || DEFAULT_AGENT_RUNTIME;
+  return runtime || PRODUCT_RUNTIME;
 }
 
+/** Flue echo harness only. Tests construct `ScriptedAgentRuntime` in code. */
 export function isOfflineAgentRuntime(kind: string): boolean {
-  return kind === "scripted" || kind === "flue-echo";
+  return kind === FLUE_ECHO_RUNTIME;
 }
 
 /**
- * Hosted Worker brain: `env.AI` binding, else REST gateway keys, else scripted echo.
- * Call this from the Worker entry instead of a kind string.
+ * Hosted Worker brain: `env.AI` binding, else REST gateway keys.
+ * Tests construct `ScriptedAgentRuntime` instead of selecting a kind.
  */
 export function createHostedAgentRuntime(
   source: GatewayEnv | NodeJS.ProcessEnv = {},
@@ -257,37 +256,15 @@ export function createHostedAgentRuntime(
       gatewayId:
         options.gatewayId ||
         source.CLOUDFLARE_AI_GATEWAY_ID?.trim() ||
-        "default",
+        DEFAULT_AI_GATEWAY_ID,
     });
   }
-  if (!gatewayConfigured(source)) return new ScriptedAgentRuntime();
+  if (!gatewayConfigured(source)) {
+    throw new Error(
+      "Hosted brain needs the Worker AI binding or a Cloudflare/OpenRouter gateway key.",
+    );
+  }
   return new GatewayAgentRuntime(
     loadGatewayConfig(source, { fetch: options?.fetch }),
-  );
-}
-
-/**
- * Worker-safe runtimes: scripted echo, or chat-completions gateway.
- * Prefer `createHostedAgentRuntime` at product call sites.
- */
-export function createScriptedOrGatewayRuntime(
-  kind = OFFLINE_AGENT_RUNTIME,
-  source: GatewayEnv | NodeJS.ProcessEnv = {},
-  fetchImpl?: typeof fetch,
-): AgentRuntime {
-  const runtime = resolveAgentRuntimeKind(kind);
-  if (runtime === "scripted" || runtime === "flue-echo") {
-    return new ScriptedAgentRuntime();
-  }
-  if (
-    runtime === "flue" ||
-    runtime === "gateway" ||
-    runtime === "openrouter" ||
-    runtime === "cloudflare"
-  ) {
-    return createHostedAgentRuntime(source, { fetch: fetchImpl });
-  }
-  throw new Error(
-    `Unknown AGENT_RUNTIME "${kind}". Use scripted, gateway, openrouter, or cloudflare.`,
   );
 }

@@ -1,5 +1,9 @@
 import type { Bot, GuestAgentKind } from "@groxbot/contracts";
-import { PROVIDER_META } from "@groxbot/contracts";
+import {
+  CUSTOM_MODEL_SENTINEL,
+  PROVIDER_META,
+  PROVIDER_ORDER,
+} from "@groxbot/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { AVATAR_COLORS, AVATAR_SHAPES } from "../lib/jobs";
@@ -42,7 +46,7 @@ export function BotSettingsPane(props: {
     )?.label ?? "workspace default";
   const listed = catalog.some((item) => item.id === bot.model);
   const [model, setModel] = useState(
-    listed || !bot.model ? bot.model : "custom",
+    listed || !bot.model ? bot.model : CUSTOM_MODEL_SENTINEL,
   );
   const [customModel, setCustomModel] = useState(listed ? "" : bot.model);
 
@@ -55,7 +59,7 @@ export function BotSettingsPane(props: {
     setColor(bot.avatarColor);
     setShape(bot.avatarShape);
     setNotify(readNotify(bot.id));
-    setModel(inCatalog || !bot.model ? bot.model : "custom");
+    setModel(inCatalog || !bot.model ? bot.model : CUSTOM_MODEL_SENTINEL);
     setCustomModel(inCatalog ? "" : bot.model);
     setIssued(null);
     setGuestError("");
@@ -161,30 +165,28 @@ export function BotSettingsPane(props: {
             onChange={(e) => {
               const next = e.target.value;
               setModel(next);
-              if (next !== "custom") void save({ model: next });
+              if (next !== CUSTOM_MODEL_SENTINEL) void save({ model: next });
             }}
           >
             <option value="">Workspace default ({defaultLabel})</option>
-            {(["openrouter", "anthropic", "openai", "cloudflare"] as const)
-              .filter((provider) =>
-                catalog.some((item) => item.provider === provider),
-              )
-              .map((provider) => (
-                <optgroup key={provider} label={PROVIDER_META[provider].label}>
-                  {catalog
-                    .filter((item) => item.provider === provider)
-                    .map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.label}
-                        {item.available ? "" : " — needs key"}
-                      </option>
-                    ))}
-                </optgroup>
-              ))}
-            <option value="custom">Custom…</option>
+            {PROVIDER_ORDER.filter((provider) =>
+              catalog.some((item) => item.provider === provider),
+            ).map((provider) => (
+              <optgroup key={provider} label={PROVIDER_META[provider].label}>
+                {catalog
+                  .filter((item) => item.provider === provider)
+                  .map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                      {item.available ? "" : " — needs key"}
+                    </option>
+                  ))}
+              </optgroup>
+            ))}
+            <option value={CUSTOM_MODEL_SENTINEL}>Custom…</option>
           </select>
         </label>
-        {model === "custom" ? (
+        {model === CUSTOM_MODEL_SENTINEL ? (
           <label className="field">
             <span>Model id</span>
             <input

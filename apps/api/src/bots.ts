@@ -1,4 +1,3 @@
-import { isOfflineAgentRuntime } from "@groxbot/adapters/edge";
 import { type Bot, type Routine, validateModelId } from "@groxbot/contracts";
 import {
   appendEvent,
@@ -284,24 +283,22 @@ export async function sendMessage(
 ) {
   const { bot, thread } = await getBotThread(context, actor, botId);
   assertBotActive(bot);
-  if (!isOfflineAgentRuntime(context.env.agentRuntime)) {
-    const overlay = await resolveRunModel(
-      context.db,
-      bot,
-      agentRuntimeSource(context.env),
-      encryptionSecret(
-        {
-          ENCRYPTION_KEY: context.env.encryptionKey,
-          BETTER_AUTH_SECRET: context.env.authSecret,
-        },
-        context.env.production,
-      ),
-    );
-    if (!overlay.configured) {
-      throw new ORPCError("PRECONDITION_FAILED", {
-        message: missingModelMessage(overlay.model),
-      });
-    }
+  const overlay = await resolveRunModel(
+    context.db,
+    bot,
+    agentRuntimeSource(context.env),
+    encryptionSecret(
+      {
+        ENCRYPTION_KEY: context.env.encryptionKey,
+        BETTER_AUTH_SECRET: context.env.authSecret,
+      },
+      context.env.production,
+    ),
+  );
+  if (!overlay.configured) {
+    throw new ORPCError("PRECONDITION_FAILED", {
+      message: missingModelMessage(overlay.model),
+    });
   }
   const seq = await nextSeq(context.db, messages, thread.id);
   const messageId = newId();

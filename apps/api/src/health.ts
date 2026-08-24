@@ -1,10 +1,10 @@
+import { MAIL_CLOUDFLARE, MAIL_LOG, PRODUCT_RUNTIME } from "@groxbot/contracts";
 import { type Env, oauthProviders } from "./env.js";
 import { cloudflareMailConfigured } from "./mail.js";
 
 export function healthPayload(
   env: Pick<
     Env,
-    | "agentRuntime"
     | "sandboxProvider"
     | "workerUrl"
     | "googleClientId"
@@ -20,13 +20,11 @@ export function healthPayload(
   return {
     ok: true as const,
     version: "0.0.1",
-    runtime: env.agentRuntime,
+    runtime: PRODUCT_RUNTIME,
     sandbox: env.sandboxProvider,
     wakeup: env.wakeupKind,
     oauth: oauthProviders(env),
-    mail: cloudflareMailConfigured(env)
-      ? ("cloudflare" as const)
-      : ("log" as const),
+    mail: cloudflareMailConfigured(env) ? MAIL_CLOUDFLARE : MAIL_LOG,
     composio: Boolean(env.composioApiKey?.trim()),
   };
 }

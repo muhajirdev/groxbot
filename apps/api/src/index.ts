@@ -1,7 +1,7 @@
 /** Node self-host entry. Product path is `worker.ts` (`pnpm dev` → wrangler). */
 import {
   bindAgentRuntime,
-  createAgentRuntime,
+  createHostedAgentRuntime,
   createPluginTools,
 } from "@groxbot/adapters";
 import { createWakeHandlers } from "@groxbot/core";
@@ -17,7 +17,7 @@ import { agentRuntimeSource, loadEnv } from "./env.js";
 async function main() {
   const env = loadEnv();
   const { db, close } = createDb(env.databaseUrl);
-  const runtime = createAgentRuntime(env.agentRuntime, agentRuntimeSource(env));
+  const runtime = createHostedAgentRuntime(agentRuntimeSource(env));
   let enqueue: (job: {
     botId: string;
     name: string;
@@ -28,7 +28,7 @@ async function main() {
     runtime,
     env: agentRuntimeSource(env),
     enqueue: (job) => enqueue(job),
-    bindRuntime: (overlay) => bindAgentRuntime(env.agentRuntime, overlay),
+    bindRuntime: (overlay) => bindAgentRuntime(overlay),
     pluginTools: (input) =>
       createPluginTools({
         ...input,
