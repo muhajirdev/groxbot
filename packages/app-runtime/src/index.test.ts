@@ -16,23 +16,9 @@ describe("app templates", () => {
     expect(filesForTemplate("sheets")["client.js"]).toContain("applyOperation");
   });
 
-  it("loads and saves seed state in memory for tests", async () => {
+  it("inits an in-memory app id for tests", async () => {
     const store = new MemoryAppStore();
-    await store.init("app_1", "docs");
-    const loaded = (await store.call("app_1", "load", [])) as {
-      title: string;
-    };
-    expect(loaded.title).toBe("Untitled");
-    await store.call("app_1", "save", [{ title: "Q3", html: "<p>hi</p>" }]);
-    const next = (await store.call("app_1", "load", [])) as {
-      title: string;
-      html: string;
-    };
-    expect(next.title).toBe("Q3");
-    expect(next.html).toContain("hi");
-    const bundle = await store.uiBundle("app_1");
-    expect(bundle?.jsCode).toContain("contenteditable");
-    expect(bundle?.jsCode).toContain("gadget.subscribe");
+    await store.init("app_1", "docs", { workspaceId: "ws_1", title: "Q3" });
   });
 });
 

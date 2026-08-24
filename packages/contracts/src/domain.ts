@@ -298,22 +298,3 @@ export const MeSchema = z.object({
   modelWarning: z.string().nullable(),
 });
 export type Me = z.infer<typeof MeSchema>;
-
-export const AppSchema = z.object({
-  id: Id,
-  workspaceId: Id,
-  templateId: TemplateId,
-  title: z.string(),
-  createdByBotId: Id.nullable(),
-  createdFromThreadId: Id.nullable(),
-  codeVersion: z.number().int(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-});
-export type WorkspaceApp = z.infer<typeof AppSchema>;
-
-export const CreateAppInput = z.object({
-  templateId: TemplateId,
-  title: z.string().min(1).max(120),
-  botId: Id.optional(),
-});

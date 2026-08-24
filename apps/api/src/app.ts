@@ -6,12 +6,7 @@ import {
 import { MemoryAppStore } from "@groxbot/app-runtime";
 import { createAuth } from "@groxbot/auth";
 import { groxbotCookieDomain } from "@groxbot/contracts";
-import {
-  AppError,
-  GuestHub,
-  getWorkspaceApp,
-  handleGuestRequest,
-} from "@groxbot/core";
+import { GuestHub, handleGuestRequest } from "@groxbot/core";
 import type { Database } from "@groxbot/db";
 import { ORPCError } from "@orpc/server";
 import { sql } from "drizzle-orm";
@@ -38,7 +33,11 @@ export function createApp(
     close: () => Promise<void>;
     wakeup?: WakeupDriver;
     appStore?: AppStore;
-    connectApp?: (appId: string, request: Request) => Promise<Response>;
+    connectApp?: (
+      appId: string,
+      request: Request,
+      workspaceId: string,
+    ) => Promise<Response>;
   },
 ): AppHandles {
   const oauth = oauthCredentials(env);
@@ -100,21 +99,13 @@ export function createApp(
           ...handles,
           headers: c.req.raw.headers,
         });
-        await getWorkspaceApp(
-          handles.db,
-          actor.workspaceId,
-          c.req.param("appId"),
-        );
+        return connectApp(c.req.param("appId"), c.req.raw, actor.workspaceId);
       } catch (error) {
-        if (error instanceof AppError) {
-          return c.text(error.message, 404);
-        }
         if (error instanceof ORPCError) {
           return new Response(error.message, { status: error.status });
         }
         throw error;
       }
-      return connectApp(c.req.param("appId"), c.req.raw);
     });
   }
 

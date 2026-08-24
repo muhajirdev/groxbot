@@ -35,42 +35,46 @@ export const computers = pgTable("computers", {
     .defaultNow(),
 });
 
-export const bots = pgTable("bots", {
-  id: text("id").primaryKey(),
-  workspaceId: text("workspace_id")
-    .notNull()
-    .references(() => organization.id, { onDelete: "cascade" }),
-  userId: text("user_id")
-    .notNull()
-    .references(() => user.id),
-  computerId: text("computer_id")
-    .notNull()
-    .references(() => computers.id, { onDelete: "restrict" }),
-  name: text("name").notNull(),
-  title: text("title").notNull().default(""),
-  description: text("description").notNull().default(""),
-  instructions: text("instructions").notNull().default(""),
-  avatarColor: text("avatar_color").notNull().default("#5b7cff"),
-  avatarShape: text("avatar_shape").notNull().default("circle"),
-  parentBotId: text("parent_bot_id"),
-  /** off | hermes | openclaw | generic. Default off = Groxbot runtime. */
-  guestKind: text("guest_kind").notNull().default("off"),
-  /** Empty = workspace default model from user_model_credentials. */
-  model: text("model").notNull().default(""),
-  /** Set when the teammate is archived (hidden + paused). Null = active. */
-  archivedAt: timestamp("archived_at", { withTimezone: true }),
-  /** Sidebar office. Extra human↔bot threads for this bot are allowed; v1 never creates them. */
-  homeThreadId: text("home_thread_id").references(
-    (): AnyPgColumn => threads.id,
-    { onDelete: "set null" },
-  ),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-}, (t) => [uniqueIndex("bots_home_thread_id_unique").on(t.homeThreadId)]);
+export const bots = pgTable(
+  "bots",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id),
+    computerId: text("computer_id")
+      .notNull()
+      .references(() => computers.id, { onDelete: "restrict" }),
+    name: text("name").notNull(),
+    title: text("title").notNull().default(""),
+    description: text("description").notNull().default(""),
+    instructions: text("instructions").notNull().default(""),
+    avatarColor: text("avatar_color").notNull().default("#5b7cff"),
+    avatarShape: text("avatar_shape").notNull().default("circle"),
+    parentBotId: text("parent_bot_id"),
+    /** off | hermes | openclaw | generic. Default off = Groxbot runtime. */
+    guestKind: text("guest_kind").notNull().default("off"),
+    /** Empty = workspace default model from user_model_credentials. */
+    model: text("model").notNull().default(""),
+    /** Set when the teammate is archived (hidden + paused). Null = active. */
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    /** Sidebar office. Extra human↔bot threads for this bot are allowed; v1 never creates them. */
+    homeThreadId: text("home_thread_id").references(
+      (): AnyPgColumn => threads.id,
+      { onDelete: "set null" },
+    ),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("bots_home_thread_id_unique").on(t.homeThreadId)],
+);
 
 export const threads = pgTable(
   "threads",
@@ -377,32 +381,4 @@ export const pluginConnections = pgTable(
       t.toolkit,
     ),
   ],
-);
-
-/** Workspace-owned doc/slides/sheet. Source + state live on the App Durable Object. */
-export const apps = pgTable(
-  "apps",
-  {
-    id: text("id").primaryKey(),
-    workspaceId: text("workspace_id")
-      .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
-    templateId: text("template_id").notNull(),
-    title: text("title").notNull(),
-    createdByBotId: text("created_by_bot_id").references(() => bots.id, {
-      onDelete: "set null",
-    }),
-    createdFromThreadId: text("created_from_thread_id").references(
-      () => threads.id,
-      { onDelete: "set null" },
-    ),
-    codeVersion: integer("code_version").notNull().default(1),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (t) => [index("apps_workspace_id").on(t.workspaceId)],
 );

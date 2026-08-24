@@ -1,12 +1,10 @@
 import type { AppStore } from "@groxbot/adapter-kit";
-import type { TemplateId } from "@groxbot/contracts";
 import { docsClientJs } from "./generated/docs.client.js";
 import { docsServerJs } from "./generated/docs.server.js";
 import { sheetsClientJs } from "./generated/sheets.client.js";
 import { sheetsServerJs } from "./generated/sheets.server.js";
 import { slidesClientJs } from "./generated/slides.client.js";
 import { slidesServerJs } from "./generated/slides.server.js";
-import { initialState } from "./initial-state.js";
 
 export { initialState } from "./initial-state.js";
 export { evalSheet } from "./sheets-engine.js";
@@ -40,38 +38,16 @@ export function filesForTemplate(templateId: string): {
   return { "client.js": t.clientJs, "server.js": t.serverJs };
 }
 
-type AppRecord = {
-  files: Record<string, string>;
-  state: unknown;
-};
-
-/** Node/test stand-in. Hosted apps use AppRuntime + a Gadget facet, not this JSON store. */
+/** Node/test stand-in. Hosted apps use AppRuntime + a Gadget facet. */
 export class MemoryAppStore implements AppStore {
-  private readonly apps = new Map<string, AppRecord>();
+  private readonly apps = new Set<string>();
 
-  async init(appId: string, templateId: string): Promise<void> {
-    const files = filesForTemplate(templateId);
-    this.apps.set(appId, {
-      files: { ...files },
-      state: structuredClone(initialState(templateId as TemplateId)),
-    });
-  }
-
-  async uiBundle(appId: string): Promise<{ jsCode: string } | null> {
-    const rec = this.apps.get(appId);
-    const jsCode = rec?.files["client.js"];
-    if (!jsCode) return null;
-    return { jsCode };
-  }
-
-  async call(appId: string, method: string, args: unknown[]): Promise<unknown> {
-    const rec = this.apps.get(appId);
-    if (!rec) throw new Error("App not found");
-    if (method === "load") return rec.state;
-    if (method === "save") {
-      rec.state = args[0];
-      return rec.state;
-    }
-    throw new Error(`Unknown app method: ${method}`);
+  async init(
+    appId: string,
+    templateId: string,
+    _opts: { workspaceId: string; title: string },
+  ): Promise<void> {
+    filesForTemplate(templateId);
+    this.apps.add(appId);
   }
 }

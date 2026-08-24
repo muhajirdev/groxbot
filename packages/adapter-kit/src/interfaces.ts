@@ -74,11 +74,13 @@ export interface AgentRuntime {
   abort(runId: string): Promise<void>;
 }
 
-/** Per-app Durable Object supervisor (or in-memory stand-in). Code files only; document state lives on the Gadget facet. */
+/** Per-app Durable Object supervisor (or in-memory stand-in). */
 export interface AppStore {
-  init(appId: string, templateId: string): Promise<void>;
-  uiBundle(appId: string): Promise<{ jsCode: string } | null>;
-  call(appId: string, method: string, args: unknown[]): Promise<unknown>;
+  init(
+    appId: string,
+    templateId: string,
+    opts: { workspaceId: string; title: string },
+  ): Promise<void>;
 }
 
 export class GuestOfflineError extends Error {

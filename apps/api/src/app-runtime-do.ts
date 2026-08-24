@@ -1,8 +1,12 @@
 /** Cloudflare-only. Excluded from `tsc`. Supervisor for one workspace app. */
 import { DurableObject } from "cloudflare:workers";
 import type { AppStore } from "@groxbot/adapter-kit";
-import { filesForTemplate } from "@groxbot/app-runtime";
+import { filesForTemplate, initialState } from "@groxbot/app-runtime";
+import type { TemplateId } from "@groxbot/contracts";
+import { applyAppTitle } from "@groxbot/core";
 import { newWorkersRpcResponse, RpcTarget } from "capnweb";
+
+export const APP_WORKSPACE_HEADER = "x-groxbot-workspace";
 
 type LoaderWorker = {
   getDurableObjectClass(name: string): unknown;
@@ -43,7 +47,7 @@ type AppRuntimeEnv = {
   LOADER: WorkerLoader;
 };
 
-/** Browser-facing host. Do not expose init/call on this object. */
+/** Browser-facing host. Do not expose init on this object. */
 class AppHost extends RpcTarget {
   constructor(private readonly runtime: AppRuntime) {
     super();
@@ -59,11 +63,21 @@ class AppHost extends RpcTarget {
 }
 
 export class AppRuntime extends DurableObject<AppRuntimeEnv> {
-  async init(templateId: string): Promise<void> {
+  async init(
+    templateId: string,
+    opts: { workspaceId: string; title: string },
+  ): Promise<void> {
     const files = filesForTemplate(templateId);
     await this.ctx.storage.put("files", files);
     await this.ctx.storage.put("templateId", templateId);
+    await this.ctx.storage.put("workspaceId", opts.workspaceId);
     await this.ctx.storage.put("codeVersion", 1);
+    const titled = applyAppTitle(
+      templateId as TemplateId,
+      initialState(templateId as TemplateId),
+      opts.title,
+    );
+    await this.hydrate(this.gadgetFacet(), titled);
   }
 
   async uiBundle(): Promise<{ jsCode: string } | null> {
@@ -86,23 +100,14 @@ export class AppRuntime extends DurableObject<AppRuntimeEnv> {
     });
   }
 
-  async call(method: string, args: unknown[]): Promise<unknown> {
-    const facet = this.gadgetFacet();
-    if (method === "load") return this.snapshot(facet);
-    if (method === "save") {
-      await this.hydrate(facet, args[0]);
-      return args[0];
-    }
-    const fn = facet[method];
-    if (typeof fn !== "function") {
-      throw new Error(`Unknown app method: ${method}`);
-    }
-    return fn.apply(facet, args);
-  }
-
   async fetch(request: Request): Promise<Response> {
     if (request.headers.get("Upgrade") !== "websocket") {
       return new Response("Expected WebSocket", { status: 426 });
+    }
+    const claimed = request.headers.get(APP_WORKSPACE_HEADER);
+    const workspaceId = await this.ctx.storage.get<string>("workspaceId");
+    if (!workspaceId || claimed !== workspaceId) {
+      return new Response("Forbidden", { status: 403 });
     }
     return newWorkersRpcResponse(request, new AppHost(this));
   }
@@ -137,12 +142,6 @@ export class AppRuntime extends DurableObject<AppRuntimeEnv> {
         globalOutbound: null,
       };
     });
-  }
-
-  private async snapshot(facet: GadgetFacet): Promise<unknown> {
-    const templateId = await this.ctx.storage.get<string>("templateId");
-    if (templateId === "slides") return facet.getDeck();
-    return facet.getDocument();
   }
 
   private async hydrate(facet: GadgetFacet, state: unknown): Promise<void> {
@@ -200,9 +199,10 @@ export class AppRuntime extends DurableObject<AppRuntimeEnv> {
 type AppNamespace = {
   idFromName(name: string): { toString(): string };
   get(id: { toString(): string }): {
-    init(templateId: string): Promise<void>;
-    uiBundle(): Promise<{ jsCode: string } | null>;
-    call(method: string, args: unknown[]): Promise<unknown>;
+    init(
+      templateId: string,
+      opts: { workspaceId: string; title: string },
+    ): Promise<void>;
     fetch(request: Request): Promise<Response>;
   };
 };
@@ -214,19 +214,21 @@ export class DurableObjectAppStore implements AppStore {
     return this.ns.get(this.ns.idFromName(appId));
   }
 
-  init(appId: string, templateId: string): Promise<void> {
-    return this.stub(appId).init(templateId);
+  init(
+    appId: string,
+    templateId: string,
+    opts: { workspaceId: string; title: string },
+  ): Promise<void> {
+    return this.stub(appId).init(templateId, opts);
   }
 
-  uiBundle(appId: string): Promise<{ jsCode: string } | null> {
-    return this.stub(appId).uiBundle();
-  }
-
-  call(appId: string, method: string, args: unknown[]): Promise<unknown> {
-    return this.stub(appId).call(method, args);
-  }
-
-  connect(appId: string, request: Request): Promise<Response> {
-    return this.stub(appId).fetch(request);
+  connect(
+    appId: string,
+    request: Request,
+    workspaceId: string,
+  ): Promise<Response> {
+    const headers = new Headers(request.headers);
+    headers.set(APP_WORKSPACE_HEADER, workspaceId);
+    return this.stub(appId).fetch(new Request(request, { headers }));
   }
 }

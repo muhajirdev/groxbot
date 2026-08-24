@@ -163,8 +163,12 @@ export default {
       close,
       wakeup: new DurableObjectWakeupDriver(env.BOT_ACTOR),
       appStore: new DurableObjectAppStore(env.APP_RUNTIME),
-      connectApp: (appId, request) =>
-        new DurableObjectAppStore(env.APP_RUNTIME).connect(appId, request),
+      connectApp: (appId, request, workspaceId) =>
+        new DurableObjectAppStore(env.APP_RUNTIME).connect(
+          appId,
+          request,
+          workspaceId,
+        ),
     });
     return handles.app.fetch(request);
   },

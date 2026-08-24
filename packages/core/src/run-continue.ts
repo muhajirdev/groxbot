@@ -11,7 +11,7 @@ import {
 } from "@groxbot/db";
 import { asc, eq } from "drizzle-orm";
 import { parseAppIntent } from "./app-intent.js";
-import { createWorkspaceApp } from "./apps.js";
+import { stampApp } from "./apps.js";
 import {
   activeBotIdsOnComputer,
   fanoutComputerUpdated,
@@ -290,14 +290,11 @@ export async function continueRun(opts: {
   const blocks: MessageBlock[] = [{ kind: "text", text: reply || "Done." }];
   const intent = parseAppIntent(task.prompt);
   if (intent && opts.appStore) {
-    const app = await createWorkspaceApp({
-      db,
+    const app = await stampApp({
       store: opts.appStore,
       workspaceId: run.workspaceId,
       templateId: intent.templateId,
       title: intent.title,
-      createdByBotId: bot.id,
-      createdFromThreadId: run.threadId,
     });
     blocks.push({
       kind: "app",

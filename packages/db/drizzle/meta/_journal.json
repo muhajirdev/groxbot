@@ -92,6 +92,13 @@
       "when": 1786946000000,
       "tag": "0012_workspace_apps",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1786947000000,
+      "tag": "0013_drop_workspace_apps",
+      "breakpoints": true
     }
   ]
 }

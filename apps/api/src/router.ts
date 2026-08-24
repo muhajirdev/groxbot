@@ -21,13 +21,6 @@ import { guestConnectors, threads, userModelCredentials } from "@groxbot/db";
 import { implement, ORPCError } from "@orpc/server";
 import { and, eq } from "drizzle-orm";
 import {
-  appUiBundle,
-  callApp,
-  createAppRecord,
-  getApp,
-  listApps,
-} from "./apps.js";
-import {
   archiveBot,
   createBot,
   createRoutine,
@@ -362,22 +355,6 @@ export const appRouter = os.router({
     create: os.routines.create.handler(async ({ context, input }) => {
       const actor = await requireActor(context);
       return createRoutine(context, actor, input);
-    }),
-  },
-  apps: {
-    list: os.apps.list.handler(async ({ context }) => listApps(context)),
-    get: os.apps.get.handler(async ({ context, input }) =>
-      getApp(context, input.appId),
-    ),
-    create: os.apps.create.handler(async ({ context, input }) =>
-      createAppRecord(context, input),
-    ),
-    uiBundle: os.apps.uiBundle.handler(async ({ context, input }) =>
-      appUiBundle(context, input.appId),
-    ),
-    call: os.apps.call.handler(async ({ context, input }) => {
-      const actor = await requireActor(context);
-      return callApp(context, actor, input);
     }),
   },
 });

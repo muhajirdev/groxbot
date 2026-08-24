@@ -694,19 +694,6 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
 
     expect(appId).not.toBe("");
     expect(title).toBe("Q3");
-    const app = await rpc.apps.get({ appId });
-    expect(app.templateId).toBe("slides");
-    expect(app.title).toBe("Q3");
-    const listed = await rpc.apps.list();
-    expect(listed.some((item) => item.id === appId)).toBe(true);
-    const state = (await rpc.apps.call({
-      appId,
-      method: "load",
-      args: [],
-    })) as { slides?: Array<{ title?: string }> };
-    expect(state.slides?.[0]?.title).toBe("Q3");
-    const bundle = await rpc.apps.uiBundle({ appId });
-    expect(bundle?.jsCode).toContain("gadget.subscribe");
   }, 15_000);
 });
 
