@@ -115,7 +115,7 @@ Desktop ([get started](https://docs.x.ai/grok-bot/get-started)):
          |
          v
   Models (BYOK or Groxbot hosted gateway): pick default model
-    Groxbot includes Cloudflare AI Gateway when the host injects it
+    Groxbot includes Workers AI (`env.AI`) through Cloudflare AI Gateway
     Paste your own OpenRouter/Anthropic/OpenAI/Cloudflare key anytime
          |
          v
@@ -207,6 +207,6 @@ Empty composer and New Agent must still work without those.
 4. Computer pane: this bot’s Think workspace (scripted/empty first). No takeover, no desk RPC. Wakeup is the bot’s actor, not a queue UI.
 5. Edit profile on the Bot, not a separate admin app.
 6. First-run does not require Composio.
-7. **Models on first-run + Settings → Models**: Groxbot hosted Cloudflare AI Gateway (env-injected) plus workspace BYOK keys (encrypted). BYOK wins. Default model is hosted Workers AI when no key is pasted. A bot can override. Hosted token usage is counted per workspace. Messaging fails closed until a matching key or the hosted gateway exists (office banner as fallback).
+7. **Models on first-run + Settings → Models**: Groxbot hosted Workers AI (`env.AI` through Cloudflare AI Gateway) plus workspace BYOK keys (encrypted). BYOK wins. Default model is hosted Workers AI when no key is pasted. A bot can override. Hosted token usage is counted per workspace. Messaging fails closed until a matching key or the hosted gateway exists (office banner as fallback).
 
 Sources: xAI Grok Bot docs dated around 11 Aug 2026, [x.ai/bot](https://x.ai/bot), [introducing grok bot](https://x.ai/news/introducing-grok-bot).

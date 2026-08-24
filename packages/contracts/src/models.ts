@@ -183,22 +183,30 @@ export function isOfflineRuntime(runtime: string | undefined): boolean {
   return kind === "scripted" || kind === "flue-echo";
 }
 
-/** Groxbot’s included Cloudflare AI Gateway. Workspace BYOK still wins when saved. */
+/** Groxbot’s included Cloudflare AI Gateway. Worker `AI` binding, or REST tokens on Node. */
+export type HostedCloudflareGateway =
+  | { kind: "binding"; gatewayId: string }
+  | {
+      kind: "rest";
+      accountId: string;
+      apiToken: string;
+      gatewayId: string;
+    };
+
 export function hostedCloudflareGateway(
   env: NodeJS.Dict<string> = process.env,
-): {
-  accountId: string;
-  apiToken: string;
-  gatewayId: string;
-} | null {
+): HostedCloudflareGateway | null {
+  const gatewayId = env.CLOUDFLARE_AI_GATEWAY_ID?.trim() || "default";
+  if (env.GROXBOT_HOSTED_AI?.trim()) {
+    return { kind: "binding", gatewayId };
+  }
   const accountId = env.CLOUDFLARE_ACCOUNT_ID?.trim() ?? "";
   const apiToken =
     env.CLOUDFLARE_AI_GATEWAY_TOKEN?.trim() ||
     env.CLOUDFLARE_API_TOKEN?.trim() ||
     "";
-  const gatewayId = env.CLOUDFLARE_AI_GATEWAY_ID?.trim() || "default";
   if (!accountId || !apiToken) return null;
-  return { accountId, apiToken, gatewayId };
+  return { kind: "rest", accountId, apiToken, gatewayId };
 }
 
 export function providerForModel(model: string): ModelProvider | undefined {

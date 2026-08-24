@@ -47,13 +47,13 @@ describe("redactSecrets", () => {
 describe("hosted Cloudflare overlay", () => {
   it("injects Groxbot’s gateway and leaves workspace BYOK in place", () => {
     const hosted = hostedCloudflareGateway({
-      CLOUDFLARE_ACCOUNT_ID: "acct",
-      CLOUDFLARE_AI_GATEWAY_TOKEN: "hosted-token",
+      GROXBOT_HOSTED_AI: "1",
     });
     const empty: NodeJS.ProcessEnv = {};
     expect(applyHostedCloudflareEnv(empty, hosted)).toBe(true);
-    expect(empty.CLOUDFLARE_API_TOKEN).toBe("hosted-token");
+    expect(empty.GROXBOT_HOSTED_AI).toBe("1");
     expect(empty.CLOUDFLARE_AI_GATEWAY_ID).toBe("default");
+    expect(empty.CLOUDFLARE_API_TOKEN).toBeUndefined();
 
     const workspace: NodeJS.ProcessEnv = {
       CLOUDFLARE_ACCOUNT_ID: "own-acct",
@@ -61,6 +61,7 @@ describe("hosted Cloudflare overlay", () => {
     };
     expect(applyHostedCloudflareEnv(workspace, hosted)).toBe(false);
     expect(workspace.CLOUDFLARE_API_TOKEN).toBe("own-token");
+    expect(workspace.GROXBOT_HOSTED_AI).toBeUndefined();
   });
 
   it("falls back to the hosted Workers AI starter when OpenRouter has no key", () => {

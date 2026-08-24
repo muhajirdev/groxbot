@@ -29,8 +29,9 @@ export interface Env {
   cloudflareAccountId?: string;
   cloudflareAiGatewayToken?: string;
   cloudflareAiGatewayId?: string;
+  hostedAiBinding?: boolean;
+  emailBinding?: boolean;
   emailFrom?: string;
-  cloudflareEmailToken?: string;
   encryptionKey?: string;
   composioApiKey?: string;
   production: boolean;
@@ -125,7 +126,6 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
       undefined,
     cloudflareAiGatewayId: source.CLOUDFLARE_AI_GATEWAY_ID?.trim() || undefined,
     emailFrom: source.EMAIL_FROM,
-    cloudflareEmailToken: source.CLOUDFLARE_EMAIL_API_TOKEN,
     encryptionKey: source.ENCRYPTION_KEY,
     composioApiKey: source.COMPOSIO_API_KEY?.trim() || undefined,
     production: source.NODE_ENV === "production",
@@ -140,27 +140,38 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
 
 /** Process env for agent boot / model settings. Hosted CF gateway + encryption. */
 export function agentRuntimeSource(env: Env): NodeJS.ProcessEnv {
-  const hosted = hostedCloudflareGateway({
-    CLOUDFLARE_ACCOUNT_ID: env.cloudflareAccountId,
-    CLOUDFLARE_AI_GATEWAY_TOKEN: env.cloudflareAiGatewayToken,
-    CLOUDFLARE_API_TOKEN: env.cloudflareAiGatewayToken,
-    CLOUDFLARE_AI_GATEWAY_ID: env.cloudflareAiGatewayId,
-  });
+  const hosted = env.hostedAiBinding
+    ? hostedCloudflareGateway({
+        GROXBOT_HOSTED_AI: "1",
+        CLOUDFLARE_AI_GATEWAY_ID: env.cloudflareAiGatewayId,
+      })
+    : hostedCloudflareGateway({
+        CLOUDFLARE_ACCOUNT_ID: env.cloudflareAccountId,
+        CLOUDFLARE_AI_GATEWAY_TOKEN: env.cloudflareAiGatewayToken,
+        CLOUDFLARE_API_TOKEN: env.cloudflareAiGatewayToken,
+        CLOUDFLARE_AI_GATEWAY_ID: env.cloudflareAiGatewayId,
+      });
   return {
     AGENT_RUNTIME: env.agentRuntime,
     WEB_ORIGIN: env.webOrigin,
     ENCRYPTION_KEY: env.encryptionKey,
     BETTER_AUTH_SECRET: env.authSecret,
     NODE_ENV: env.production ? "production" : "development",
-    ...(hosted
+    ...(hosted?.kind === "binding"
       ? {
-          CLOUDFLARE_ACCOUNT_ID: hosted.accountId,
-          CLOUDFLARE_API_TOKEN: hosted.apiToken,
-          CLOUDFLARE_API_KEY: hosted.apiToken,
-          CLOUDFLARE_AI_GATEWAY_TOKEN: hosted.apiToken,
+          GROXBOT_HOSTED_AI: "1",
           CLOUDFLARE_AI_GATEWAY_ID: hosted.gatewayId,
           CLOUDFLARE_GATEWAY_ID: hosted.gatewayId,
         }
-      : {}),
+      : hosted?.kind === "rest"
+        ? {
+            CLOUDFLARE_ACCOUNT_ID: hosted.accountId,
+            CLOUDFLARE_API_TOKEN: hosted.apiToken,
+            CLOUDFLARE_API_KEY: hosted.apiToken,
+            CLOUDFLARE_AI_GATEWAY_TOKEN: hosted.apiToken,
+            CLOUDFLARE_AI_GATEWAY_ID: hosted.gatewayId,
+            CLOUDFLARE_GATEWAY_ID: hosted.gatewayId,
+          }
+        : {}),
   };
 }

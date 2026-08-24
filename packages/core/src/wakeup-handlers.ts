@@ -13,6 +13,7 @@ export function createWakeHandlers(opts: {
   bindRuntime?: (overlay: {
     env: NodeJS.ProcessEnv;
     model: string;
+    hosted?: boolean;
   }) => AgentRuntime;
   pluginTools?: (input: { workspaceId: string; toolkits: string[] }) =>
     | {

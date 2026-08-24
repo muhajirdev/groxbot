@@ -59,6 +59,7 @@ const PROCESS_MODEL_ENV = [
   "CLOUDFLARE_GATEWAY_ID",
   "AI_GATEWAY_PROVIDER",
   "AI_GATEWAY_MODEL",
+  "GROXBOT_HOSTED_AI",
 ] as const;
 
 export interface ModelOverlay {
@@ -111,6 +112,7 @@ function envKeyConfigured(
   env: NodeJS.ProcessEnv,
 ): boolean {
   if (provider === "cloudflare") {
+    if (env.GROXBOT_HOSTED_AI?.trim()) return true;
     const token =
       env.CLOUDFLARE_AI_GATEWAY_TOKEN?.trim() ||
       env.CLOUDFLARE_API_TOKEN?.trim() ||
@@ -125,7 +127,6 @@ function stripProcessModelEnv(env: NodeJS.ProcessEnv): void {
   for (const key of PROCESS_MODEL_ENV) {
     delete env[key];
   }
-  // Account id is shared with email on the host; AI uses the workspace pack only.
   delete env.CLOUDFLARE_ACCOUNT_ID;
 }
 
@@ -153,12 +154,16 @@ export function applyHostedCloudflareEnv(
 ): boolean {
   if (!hosted) return false;
   if (envKeyConfigured("cloudflare", env)) return false;
+  env.CLOUDFLARE_AI_GATEWAY_ID = hosted.gatewayId;
+  env.CLOUDFLARE_GATEWAY_ID = hosted.gatewayId;
+  if (hosted.kind === "binding") {
+    env.GROXBOT_HOSTED_AI = "1";
+    return true;
+  }
   env.CLOUDFLARE_ACCOUNT_ID = hosted.accountId;
   env.CLOUDFLARE_API_TOKEN = hosted.apiToken;
   env.CLOUDFLARE_API_KEY = hosted.apiToken;
   env.CLOUDFLARE_AI_GATEWAY_TOKEN = hosted.apiToken;
-  env.CLOUDFLARE_AI_GATEWAY_ID = hosted.gatewayId;
-  env.CLOUDFLARE_GATEWAY_ID = hosted.gatewayId;
   return true;
 }
 

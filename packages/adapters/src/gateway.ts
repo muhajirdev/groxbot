@@ -31,6 +31,7 @@ export interface GatewayEnv {
   CLOUDFLARE_AUTH_TOKEN?: string;
   CLOUDFLARE_AI_GATEWAY_ID?: string;
   CLOUDFLARE_GATEWAY_ID?: string;
+  GROXBOT_HOSTED_AI?: string;
   OPENROUTER_API_KEY?: string;
   WEB_ORIGIN?: string;
 }

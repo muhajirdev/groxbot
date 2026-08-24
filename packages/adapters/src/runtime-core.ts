@@ -19,6 +19,7 @@ import {
   readSseData,
   unwrapGatewayPayload,
 } from "./gateway.js";
+import { type WorkersAiBinding, WorkersAiRuntime } from "./workers-ai.js";
 
 export class ScriptedAgentRuntime implements AgentRuntime {
   private running = new Map<string, AbortController>();
@@ -239,16 +240,29 @@ export function isOfflineAgentRuntime(kind: string): boolean {
 }
 
 /**
- * Hosted Worker brain: Gateway when keys exist, else scripted echo.
+ * Hosted Worker brain: `env.AI` binding, else REST gateway keys, else scripted echo.
  * Call this from the Worker entry instead of a kind string.
  */
 export function createHostedAgentRuntime(
   source: GatewayEnv | NodeJS.ProcessEnv = {},
-  fetchImpl?: typeof fetch,
+  options?: {
+    fetch?: typeof fetch;
+    ai?: WorkersAiBinding;
+    gatewayId?: string;
+  },
 ): AgentRuntime {
+  if (options?.ai) {
+    return new WorkersAiRuntime({
+      ai: options.ai,
+      gatewayId:
+        options.gatewayId ||
+        source.CLOUDFLARE_AI_GATEWAY_ID?.trim() ||
+        "default",
+    });
+  }
   if (!gatewayConfigured(source)) return new ScriptedAgentRuntime();
   return new GatewayAgentRuntime(
-    loadGatewayConfig(source, { fetch: fetchImpl }),
+    loadGatewayConfig(source, { fetch: options?.fetch }),
   );
 }
 
@@ -271,7 +285,7 @@ export function createScriptedOrGatewayRuntime(
     runtime === "openrouter" ||
     runtime === "cloudflare"
   ) {
-    return createHostedAgentRuntime(source, fetchImpl);
+    return createHostedAgentRuntime(source, { fetch: fetchImpl });
   }
   throw new Error(
     `Unknown AGENT_RUNTIME "${kind}". Use scripted, gateway, openrouter, or cloudflare.`,

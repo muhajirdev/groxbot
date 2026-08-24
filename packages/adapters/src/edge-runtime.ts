@@ -11,7 +11,9 @@ import {
   resolveAgentRuntimeKind,
   ScriptedAgentRuntime,
 } from "./runtime-core.js";
+import { type WorkersAiBinding, WorkersAiRuntime } from "./workers-ai.js";
 
+export type { WorkersAiBinding };
 export {
   createHostedAgentRuntime,
   DEFAULT_AGENT_RUNTIME,
@@ -21,6 +23,7 @@ export {
   parsePokePrompt,
   resolveAgentRuntimeKind,
   ScriptedAgentRuntime,
+  WorkersAiRuntime,
 };
 
 export function createEdgeAgentRuntime(
@@ -33,12 +36,19 @@ export function createEdgeAgentRuntime(
 
 export function bindEdgeAgentRuntime(
   kind: string | undefined,
-  overlay: { env: NodeJS.ProcessEnv; model: string },
-  fetchImpl?: typeof fetch,
+  overlay: { env: NodeJS.ProcessEnv; model: string; hosted?: boolean },
+  options?: { fetch?: typeof fetch; ai?: WorkersAiBinding },
 ): AgentRuntime {
+  if (overlay.hosted && options?.ai) {
+    return new WorkersAiRuntime({
+      ai: options.ai,
+      model: overlay.model,
+      gatewayId: overlay.env.CLOUDFLARE_AI_GATEWAY_ID || "default",
+    });
+  }
   return createEdgeAgentRuntime(
     resolveAgentRuntimeKind(kind),
     overlay.env,
-    fetchImpl,
+    options?.fetch,
   );
 }

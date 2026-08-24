@@ -54,15 +54,21 @@ describe("model catalog", () => {
     expect(
       hostedCloudflareGateway({
         CLOUDFLARE_ACCOUNT_ID: "acct",
-        CLOUDFLARE_EMAIL_API_TOKEN: "email-only",
       }),
     ).toBeNull();
+    expect(
+      hostedCloudflareGateway({
+        GROXBOT_HOSTED_AI: "1",
+        CLOUDFLARE_AI_GATEWAY_ID: "office",
+      }),
+    ).toEqual({ kind: "binding", gatewayId: "office" });
     expect(
       hostedCloudflareGateway({
         CLOUDFLARE_ACCOUNT_ID: "acct",
         CLOUDFLARE_AI_GATEWAY_TOKEN: "gw-token",
       }),
     ).toEqual({
+      kind: "rest",
       accountId: "acct",
       apiToken: "gw-token",
       gatewayId: "default",
@@ -74,6 +80,7 @@ describe("model catalog", () => {
         CLOUDFLARE_AI_GATEWAY_ID: "office",
       }),
     ).toEqual({
+      kind: "rest",
       accountId: "acct",
       apiToken: "api-token",
       gatewayId: "office",

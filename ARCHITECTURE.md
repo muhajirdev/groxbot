@@ -54,11 +54,11 @@ Do not run the brain from Worker Cron Triggers.
 Kernel in `packages/*` does not import `cloudflare:workers`. The Worker constructs fills:
 
 ```
-createApp(env, { db, enqueue, initApp })
+createApp(env, { db, enqueue, initApp, email })
 createWakeHandlers({ db, runtime, enqueue, bindRuntime, pluginTools })
 ```
 
-`enqueue` is `getAgentByName` + Agents `queue` / `schedule` (or a test function). `initApp` is the `AppRuntime` stub.
+`enqueue` is `getAgentByName` + Agents `queue` / `schedule` (or a test function). `initApp` is the `AppRuntime` stub. `email` is `env.EMAIL`. Hosted models bind `env.AI` in `BotActor` boot.
 
 ## One deployment
 
@@ -70,7 +70,8 @@ createWakeHandlers({ db, runtime, enqueue, bindRuntime, pluginTools })
 | Brain | Think on `BotActor` (tests: scripted) |
 | Apps | `AppRuntime` per `appId` |
 | Data | Neon Postgres |
-| Auth email | Cloudflare Email Sending |
+| Auth email | Worker `EMAIL` (`send_email`) |
+| Hosted models | Worker `AI` through AI Gateway |
 
 Clients share **one oRPC contract**. Desktop loads the web app. Expo later.
 

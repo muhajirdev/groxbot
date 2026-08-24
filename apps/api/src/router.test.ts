@@ -88,6 +88,17 @@ describe("oRPC", () => {
     );
   });
 
+  it("reports Cloudflare mail when the EMAIL binding and from address are set", () => {
+    expect(healthPayload(env).mail).toBe("log");
+    expect(
+      healthPayload({
+        ...env,
+        emailBinding: true,
+        emailFrom: "Groxbot <noreply@groxbot.com>",
+      }).mail,
+    ).toBe("cloudflare");
+  });
+
   it("requires a session to load model settings", async () => {
     const app = new Hono();
     mountRpc(app, { env } as unknown as RpcContext);

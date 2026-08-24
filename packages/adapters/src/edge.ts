@@ -7,15 +7,7 @@ export {
   createComposioGateway,
   createPluginTools,
 } from "./composio.js";
-export {
-  createSandboxProvider,
-  FakeSandboxProvider,
-} from "./sandbox.js";
-export {
-  createWakeupDriver,
-  InProcessWakeupDriver,
-  WakeupHttpClient,
-} from "./wakeup.js";
+export type { WorkersAiBinding } from "./edge-runtime.js";
 export {
   bindEdgeAgentRuntime as bindAgentRuntime,
   createEdgeAgentRuntime as createAgentRuntime,
@@ -27,4 +19,14 @@ export {
   parsePokePrompt,
   resolveAgentRuntimeKind,
   ScriptedAgentRuntime,
+  WorkersAiRuntime,
 } from "./edge-runtime.js";
+export {
+  createSandboxProvider,
+  FakeSandboxProvider,
+} from "./sandbox.js";
+export {
+  createWakeupDriver,
+  InProcessWakeupDriver,
+  WakeupHttpClient,
+} from "./wakeup.js";

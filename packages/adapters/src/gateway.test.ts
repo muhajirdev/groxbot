@@ -424,6 +424,11 @@ describe("createAgentRuntime", () => {
         CLOUDFLARE_AI_GATEWAY_TOKEN: "gw-token",
       }),
     ).toBe(false);
+    expect(
+      agentRuntimeNeedsModel("gateway", {
+        GROXBOT_HOSTED_AI: "1",
+      }),
+    ).toBe(false);
   });
 
   it("keeps the scripted echo for offline tests", async () => {

@@ -11,7 +11,7 @@ import type { RpcContext } from "./context.js";
 import { mountDiscovery } from "./discovery.js";
 import { type Env, oauthCredentials } from "./env.js";
 import { healthPayload } from "./health.js";
-import { createMailer } from "./mail.js";
+import { createMailer, type SendEmailBinding } from "./mail.js";
 import { completePluginCallback, pluginCallbackPage } from "./plugins.js";
 import { mountRpc } from "./rpc.js";
 import { requireActor } from "./session.js";
@@ -28,6 +28,7 @@ export function createApp(
     close: () => Promise<void>;
     enqueue: EnqueueJob;
     initApp: InitApp;
+    email?: SendEmailBinding;
     connectApp?: (
       appId: string,
       request: Request,
@@ -36,7 +37,7 @@ export function createApp(
   },
 ): AppHandles {
   const oauth = oauthCredentials(env);
-  const mail = createMailer(env);
+  const mail = createMailer({ ...env, email: opts.email });
   const auth = createAuth(opts.db, {
     secret: env.authSecret,
     baseURL: env.authUrl,
