@@ -63,7 +63,7 @@ export type MailKind = z.infer<typeof MailKind>;
 export const FAKE_SANDBOX = "fake" as const;
 
 export function hostedAiEnabled(
-  env: NodeJS.Dict<string | undefined> = {},
+  env: { [HOSTED_AI_ENV]?: string } = {},
 ): boolean {
   return Boolean(env[HOSTED_AI_ENV]?.trim());
 }

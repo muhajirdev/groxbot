@@ -6,6 +6,7 @@ import type {
 import {
   CLOUDFLARE_PROVIDER,
   DEFAULT_AI_GATEWAY_ID,
+  OPENROUTER_PROVIDER,
   PROVIDER_META,
   PROVIDER_ORDER,
   providerForModel,
@@ -91,7 +92,7 @@ export function Onboarding(props: { invite?: string }) {
   const [openaiKey, setOpenaiKey] = useState("");
   const [cloudflareToken, setCloudflareToken] = useState("");
   const [cfAccount, setCfAccount] = useState("");
-  const [cfGateway, setCfGateway] = useState(DEFAULT_AI_GATEWAY_ID);
+  const [cfGateway, setCfGateway] = useState<string>(DEFAULT_AI_GATEWAY_ID);
 
   const selectedModel =
     defaultModel ?? settings?.defaultModelId ?? SUGGESTED_STARTER_MODEL;
@@ -99,7 +100,9 @@ export function Onboarding(props: { invite?: string }) {
     (item) => item.id === selectedModel,
   );
   const selectedProvider =
-    selectedMeta?.provider ?? providerForModel(selectedModel) ?? "openrouter";
+    selectedMeta?.provider ??
+    providerForModel(selectedModel) ??
+    OPENROUTER_PROVIDER;
 
   const grouped = useMemo(() => {
     const map = new Map<ModelProvider, ModelCatalogItem[]>();

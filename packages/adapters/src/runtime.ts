@@ -49,7 +49,7 @@ export function agentRuntimeNeedsModel(
 }
 
 export function createAgentRuntime(
-  kind = PRODUCT_RUNTIME,
+  kind: string = PRODUCT_RUNTIME,
   source: GatewayEnv | NodeJS.ProcessEnv = process.env,
   fetchImpl?: typeof fetch,
 ): AgentRuntime {

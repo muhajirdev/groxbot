@@ -412,7 +412,7 @@ describe("createAgentRuntime", () => {
   it("defaults the hosted brain to Cloudflare", () => {
     expect(resolveAgentRuntimeKind()).toBe(PRODUCT_RUNTIME);
     expect(resolveAgentRuntimeKind("")).toBe(PRODUCT_RUNTIME);
-    expect(() => createAgentRuntime()).toThrow(/AI binding/);
+    expect(() => createAgentRuntime(PRODUCT_RUNTIME, {})).toThrow(/AI binding/);
   });
 
   it("needs a model id for live flue, not for the echo harness", () => {

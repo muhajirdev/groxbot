@@ -10,6 +10,7 @@ const runRequest = {
   threadId: "thread-1",
   runId: "run-1",
   prompt: "hello",
+  instructions: "You are Piper.",
   history: [] as Array<{ role: "user"; content: string }>,
 };
 
