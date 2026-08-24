@@ -1,10 +1,10 @@
 import type { AppStore } from "@groxbot/adapter-kit";
 import type { TemplateId } from "@groxbot/contracts";
-import { docsClientJs } from "./docs.client.js";
+import { docsClientJs } from "./generated/docs.client.js";
+import { sheetsClientJs } from "./generated/sheets.client.js";
+import { slidesClientJs } from "./generated/slides.client.js";
 import { initialState } from "./initial-state.js";
 import { APP_SERVER_JS } from "./server-js.js";
-import { sheetsClientJs } from "./sheets.client.js";
-import { slidesClientJs } from "./slides.client.js";
 
 export { initialState } from "./initial-state.js";
 export { APP_SERVER_JS } from "./server-js.js";

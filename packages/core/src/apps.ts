@@ -31,6 +31,22 @@ export function toAppDto(row: typeof apps.$inferSelect): WorkspaceApp {
   };
 }
 
+function titledSlide(slide: Record<string, unknown>, title: string) {
+  const next: Record<string, unknown> = { ...slide, title };
+  if (!Array.isArray(slide.blocks)) return next;
+  next.blocks = slide.blocks.map((block) => {
+    if (!block || typeof block !== "object") return block;
+    const item = block as Record<string, unknown>;
+    if (item.type !== "title") return block;
+    const props =
+      item.props && typeof item.props === "object"
+        ? (item.props as Record<string, unknown>)
+        : {};
+    return { ...item, props: { ...props, text: title } };
+  });
+  return next;
+}
+
 export function applyAppTitle(
   templateId: TemplateId,
   state: unknown,
@@ -48,7 +64,7 @@ export function applyAppTitle(
     const slides = Array.isArray(state.slides)
       ? state.slides.map((slide, index) => {
           if (index !== 0 || !slide || typeof slide !== "object") return slide;
-          return { ...slide, title };
+          return titledSlide(slide as Record<string, unknown>, title);
         })
       : [{ id: "s1", title, body: "" }];
     return { ...state, slides };

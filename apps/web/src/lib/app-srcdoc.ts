@@ -28,5 +28,5 @@ const GADGET_BRIDGE = `
 export function appSrcDoc(jsCode: string): string {
   const csp =
     "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; frame-ancestors 'none'";
-  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><style>html,body{margin:0;height:100%;background:#111}</style></head><body><script>${GADGET_BRIDGE}</script><script>${jsCode}</script></body></html>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><style>html,body{margin:0;height:100%;background:#f6f6f4}</style></head><body><script>${GADGET_BRIDGE}</script><script>${jsCode}</script></body></html>`;
 }

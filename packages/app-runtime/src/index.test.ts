@@ -9,6 +9,16 @@ describe("app templates", () => {
       expect(files["client.js"]).toContain("gadget.load");
       expect(files["server.js"]).toContain("export class App");
     }
+    expect(filesForTemplate("docs")["client.js"]).toContain("contenteditable");
+    expect(filesForTemplate("docs")["client.js"]).toContain("applyOperation");
+    expect(filesForTemplate("slides")["client.js"]).toContain("getDeck");
+    expect(filesForTemplate("sheets")["client.js"]).toContain("applyOperation");
+  });
+
+  it("parses stamped client bundles", () => {
+    for (const id of ["docs", "slides", "sheets"] as const) {
+      expect(() => new Function(filesForTemplate(id)["client.js"])).not.toThrow();
+    }
   });
 
   it("loads and saves state in memory", async () => {
@@ -26,7 +36,7 @@ describe("app templates", () => {
     expect(next.title).toBe("Q3");
     expect(next.html).toContain("hi");
     const bundle = await store.uiBundle("app_1");
-    expect(bundle?.jsCode).toContain("contentEditable");
+    expect(bundle?.jsCode).toContain("contenteditable");
   });
 });
 

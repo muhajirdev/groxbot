@@ -1468,7 +1468,7 @@ html.electron .pane-head {
   min-height: 0;
   width: 100%;
   border: 0;
-  background: #111;
+  background: #f6f6f4;
 }
 
 .pane-head {
