@@ -1,15 +1,15 @@
-/** Product API: Cloudflare Worker + Neon HTTP + Durable Object wakeup. */
+/** Product API: Cloudflare Worker + Neon HTTP + Durable Object BotActor. */
 import { DurableObject } from "cloudflare:workers";
 import {
   bindAgentRuntime,
-  createAgentRuntime,
+  createHostedAgentRuntime,
   createPluginTools,
 } from "@groxbot/adapters/edge";
 import { createWakeHandlers } from "@groxbot/core";
 import { createNeonHttpDb } from "@groxbot/db/neon";
 import { createApp } from "./app.js";
 import { AppRuntime, DurableObjectAppStore } from "./app-runtime-do.js";
-import { DurableObjectWakeupDriver } from "./do-wakeup.js";
+import { enqueueOnBot } from "./bot-enqueue.js";
 import { agentRuntimeSource, loadEnv } from "./env.js";
 
 export { AppRuntime };
@@ -58,17 +58,13 @@ export class BotActor extends DurableObject<WorkerEnv> {
     if (this.handlers) return;
     const env = loadEnv(this.env as unknown as NodeJS.ProcessEnv);
     const { db } = createNeonHttpDb(env.databaseUrl);
-    const wakeup = new DurableObjectWakeupDriver(this.env.BOT_ACTOR);
-    const runtime = createAgentRuntime(
-      env.agentRuntime,
-      agentRuntimeSource(env),
-    );
-    const appStore = new DurableObjectAppStore(this.env.APP_RUNTIME);
+    const runtime = createHostedAgentRuntime(agentRuntimeSource(env));
+    const apps = new DurableObjectAppStore(this.env.APP_RUNTIME);
     this.handlers = createWakeHandlers({
       db,
       runtime,
-      wakeup,
-      appStore,
+      enqueue: (job) => enqueueOnBot(this.env.BOT_ACTOR, job),
+      initApp: (appId, templateId, opts) => apps.init(appId, templateId, opts),
       bindRuntime: (overlay) => bindAgentRuntime(env.agentRuntime, overlay),
       pluginTools: (input) =>
         createPluginTools({
@@ -158,17 +154,14 @@ export default {
   async fetch(request: Request, env: WorkerEnv): Promise<Response> {
     const loaded = loadEnv(env as unknown as NodeJS.ProcessEnv);
     const { db, close } = createNeonHttpDb(loaded.databaseUrl);
+    const apps = new DurableObjectAppStore(env.APP_RUNTIME);
     const handles = createApp(loaded, {
       db,
       close,
-      wakeup: new DurableObjectWakeupDriver(env.BOT_ACTOR),
-      appStore: new DurableObjectAppStore(env.APP_RUNTIME),
+      enqueue: (job) => enqueueOnBot(env.BOT_ACTOR, job),
+      initApp: (appId, templateId, opts) => apps.init(appId, templateId, opts),
       connectApp: (appId, request, workspaceId) =>
-        new DurableObjectAppStore(env.APP_RUNTIME).connect(
-          appId,
-          request,
-          workspaceId,
-        ),
+        apps.connect(appId, request, workspaceId),
     });
     return handles.app.fetch(request);
   },

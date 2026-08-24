@@ -1,24 +1,12 @@
 import type {
   Bot,
-  ComputerActivityItem,
-  ComputerArtifact,
-  ComputerDeskFile,
-  ComputerStatus,
   MessageBlock,
   ProductEvent,
   Routine,
-  SandboxKind,
 } from "@groxbot/contracts";
-import {
-  AvatarShape,
-  ControlHolder,
-  DEFAULT_COMPUTER_NAME,
-  GuestKind,
-  SandboxKind as SandboxKindSchema,
-} from "@groxbot/contracts";
+import { AvatarShape, GuestKind } from "@groxbot/contracts";
 import {
   type bots,
-  type computers,
   type Database,
   events,
   messages,
@@ -42,11 +30,6 @@ export function toRoutineDto(row: typeof routines.$inferSelect): Routine {
     active: row.active,
     nextRunAt: iso(row.nextRunAt),
   };
-}
-
-export function sandboxKind(value: string): SandboxKind {
-  const parsed = SandboxKindSchema.safeParse(value);
-  return parsed.success ? parsed.data : "fake";
 }
 
 export function previewFromBlocks(blocks: unknown): string {
@@ -75,7 +58,6 @@ export function toBotDto(
   threadId: string,
   extras?: {
     online?: boolean;
-    computerName?: string;
     lastPreview?: string;
     lastAt?: Date | string | null;
   },
@@ -97,8 +79,6 @@ export function toBotDto(
     avatarShape: shape.success ? shape.data : "circle",
     parentBotId: bot.parentBotId,
     threadId,
-    computerId: bot.computerId,
-    computerName: extras?.computerName ?? DEFAULT_COMPUTER_NAME,
     guestKind: guestKind.success ? guestKind.data : "off",
     guestOnline: extras?.online ?? false,
     model: bot.model ?? "",
@@ -107,48 +87,6 @@ export function toBotDto(
     archivedAt: iso(bot.archivedAt),
     createdAt: bot.createdAt.toISOString(),
     updatedAt: bot.updatedAt.toISOString(),
-  };
-}
-
-export function toComputerStatus(
-  row: typeof computers.$inferSelect,
-  extras: {
-    viewingBotId: string;
-    usingBotId?: string | null;
-    usingBotName?: string | null;
-    teammates?: Array<{ id: string; name: string }>;
-    nowDoing?: string | null;
-    files?: ComputerDeskFile[];
-    artifact?: ComputerArtifact | null;
-    activity?: ComputerActivityItem[];
-  },
-): ComputerStatus {
-  const holder = ControlHolder.safeParse(row.controlHolder);
-  const states: ComputerStatus["state"][] = [
-    "stopped",
-    "booting",
-    "running",
-    "suspended",
-    "error",
-  ];
-  const state = states.find((value) => value === row.state) ?? "stopped";
-  return {
-    id: row.id,
-    name: row.name,
-    isDefault: row.isDefault,
-    botId: extras.viewingBotId,
-    kind: sandboxKind(row.kind),
-    state,
-    controlHolder: holder.success ? holder.data : "none",
-    controlHolderId: row.controlHolderId,
-    usingBotId: extras.usingBotId ?? null,
-    usingBotName: extras.usingBotName ?? null,
-    teammates: extras.teammates ?? [],
-    screenAvailable: state === "running" || state === "booting",
-    nowDoing: extras.nowDoing ?? null,
-    files: extras.files ?? [{ path: "/workspace", kind: "dir" }],
-    artifact: extras.artifact ?? null,
-    activity: extras.activity ?? [],
   };
 }
 

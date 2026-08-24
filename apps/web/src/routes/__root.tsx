@@ -25,7 +25,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   pendingComponent: Boot,
   beforeLoad: ({ context }) => {
     const session = readSession(context.queryClient);
-    const me = context.queryClient.getQueryData(orpc.me.queryOptions().queryKey);
+    const me = context.queryClient.getQueryData(
+      orpc.me.queryOptions().queryKey,
+    );
     if (session && me) return { session };
     if (session === null) return { session: null };
     return loadAuthedContext(context.queryClient);

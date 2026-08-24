@@ -1,16 +1,11 @@
 import type {
   AgentRuntimeEvent,
+  EnqueueJob,
   GuestAgentKind,
   HostToGuest,
-  WakeupDriver,
 } from "@groxbot/adapter-kit";
 import { GuestAgentKind as GuestAgentKindSchema } from "@groxbot/contracts";
-import {
-  bots,
-  type Database,
-  guestConnectors,
-  runs,
-} from "@groxbot/db";
+import { bots, type Database, guestConnectors, runs } from "@groxbot/db";
 import { and, eq } from "drizzle-orm";
 import type { GuestHub } from "./guest-hub.js";
 import { parseGuestToken, tokenMatches } from "./guest-token.js";
@@ -19,7 +14,7 @@ import { appendEvent, getHomeThread } from "./threads.js";
 export interface GuestHttpContext {
   db: Database;
   hub: GuestHub;
-  wakeup: WakeupDriver;
+  enqueue: EnqueueJob;
 }
 
 function parseRuntimeEvent(value: unknown): AgentRuntimeEvent | null {
@@ -88,7 +83,7 @@ async function emitGuest(
 
 async function resumeQueued(
   db: Database,
-  wakeup: WakeupDriver,
+  enqueue: EnqueueJob,
   botId: string,
 ): Promise<void> {
   const queued = await db
@@ -96,7 +91,7 @@ async function resumeQueued(
     .from(runs)
     .where(and(eq(runs.botId, botId), eq(runs.status, "queued")));
   for (const run of queued) {
-    await wakeup.enqueue({
+    await enqueue({
       botId,
       name: "run.continue",
       payload: { botId, runId: run.id, taskId: run.taskId },
@@ -151,7 +146,7 @@ async function hello(
     connected: true,
     name: bot.name,
   });
-  await resumeQueued(ctx.db, ctx.wakeup, bot.id);
+  await resumeQueued(ctx.db, ctx.enqueue, bot.id);
   return json(200, {
     sessionId: session.id,
     botId: bot.id,

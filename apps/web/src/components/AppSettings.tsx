@@ -161,10 +161,9 @@ export function AppSettings(props: {
                       <option value="never">Never</option>
                     </select>
                     <p className="hint">
-                      Let the assistant open files and run tasks on your
-                      computer. Auto-review still checks everything first. Never
-                      enable this when the desk is a hosted Computer, Sandbox,
-                      or E2B.
+                      Let the assistant open files and run tasks on this
+                      machine. Auto-review still checks everything first. Never
+                      enable this for a hosted teammate.
                     </p>
                   </label>
                   <label className="toggle-row">

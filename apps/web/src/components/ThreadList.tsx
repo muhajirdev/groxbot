@@ -4,14 +4,6 @@ import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { dayKey, formatDaySep } from "../lib/time";
 import { cn } from "../ui";
 import { AppCard } from "./AppCard";
-import { ComputerCard } from "./ComputerCard";
-
-export type ThreadComputerCard = {
-  title: string;
-  status: string;
-  done: boolean;
-  preview?: string;
-};
 
 export type ThreadAppCard = {
   appId: string;
@@ -24,8 +16,6 @@ type ThreadContext = {
   names: Record<string, string>;
   messages: ThreadMessage[];
   empty: boolean;
-  computer: ThreadComputerCard | null;
-  onOpenComputer: () => void;
   onOpenApp?: (app: ThreadAppCard) => void;
   onOpenPokeThread?: (threadId: string, peerName: string) => void;
 };
@@ -63,15 +53,6 @@ function Header() {
 function Footer({ context }: { context: ThreadContext }) {
   return (
     <div className="flex flex-col gap-2.5 px-7 pt-2.5 pb-6">
-      {context.computer ? (
-        <ComputerCard
-          title={context.computer.title}
-          status={context.computer.status}
-          done={context.computer.done}
-          preview={context.computer.preview}
-          onOpen={context.onOpenComputer}
-        />
-      ) : null}
       {context.empty ? (
         <p className="mb-6 text-base leading-normal text-muted">
           First message is a real task. A good handoff has an outcome, sources,
@@ -166,9 +147,7 @@ export function ThreadList(props: {
   teammateNames?: Record<string, string>;
   messages: ThreadMessage[];
   empty: boolean;
-  computer: ThreadComputerCard | null;
   working: string;
-  onOpenComputer: () => void;
   onOpenApp?: (app: ThreadAppCard) => void;
   onOpenPokeThread?: (threadId: string, peerName: string) => void;
 }) {
@@ -190,8 +169,6 @@ export function ThreadList(props: {
       names: props.teammateNames ?? {},
       messages: visible,
       empty: props.empty,
-      computer: props.computer,
-      onOpenComputer: props.onOpenComputer,
       onOpenApp: props.onOpenApp,
       onOpenPokeThread: props.onOpenPokeThread,
     }),
@@ -200,8 +177,6 @@ export function ThreadList(props: {
       props.teammateNames,
       visible,
       props.empty,
-      props.computer,
-      props.onOpenComputer,
       props.onOpenApp,
       props.onOpenPokeThread,
     ],
@@ -225,9 +200,8 @@ export function ThreadList(props: {
   useLayoutEffect(() => {
     if (!atBottomRef.current) return;
     void props.working;
-    void props.computer;
     listRef.current?.autoscrollToBottom();
-  }, [props.working, props.computer]);
+  }, [props.working]);
 
   return (
     <Virtuoso

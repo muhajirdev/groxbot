@@ -1,6 +1,6 @@
 # Grok Bot UI copy-brief
 
-Groxbot should **feel like Grok Bot**: a messaging app of named teammates, not a workflow builder, IDE, or Discord. This is the visual and onboarding spec. Product/architecture stays ours (workspace default computer shared by default, optional isolated computer, Postgres for team data, one actor per bot, oRPC, Composio). **Implement on web first**; desktop reuses that UI; Expo gets the same contract later.
+Groxbot should **feel like Grok Bot**: a messaging app of named teammates, not a workflow builder, IDE, or Discord. Product/architecture stays ours (Postgres for team data, one Think actor per bot, sessions per thread, live apps as their own Durable Objects, oRPC, Composio). **We do not ship a Computer pane.** **Implement on web first**; desktop reuses that UI; Expo gets the same contract later.
 
 We could not screenshot the live desktop app (paywalled: SuperGrok Heavy / Cursor Ultra). This brief is from official docs and marketing as of 11–15 Aug 2026.
 
@@ -31,13 +31,12 @@ Copy this:
 
 - First action is **talk**, not configure a graph.
 - A Bot is a **contact**: name, optional job, description, avatar, one thread.
-- Computer is a **pane you can ignore**. Work continues if you close it.
+- Apps (docs / slides / sheets) open from a **card in chat**. No file manager.
 - Plugins exist, but first task can be “summarize this file” with no connector.
-- Sign-in to tools happens **when the Bot hits a wall**, via computer takeover — not a 20-field setup wizard.
 
 Do not copy:
 
-- Their **always-shared** computer with no escape hatch. We share a workspace **default computer** and let you create a new computer for private logins.
+- Their **computer pane**, takeover, or shared desk. Groxbot has no Computer product.
 - Group chat of 2–6 Bots in v1 (see [rooms-plan.md](./rooms-plan.md)).
 - Teach-by-demonstration in v1.
 - Cursor-only sign-in / Ultra paywall.

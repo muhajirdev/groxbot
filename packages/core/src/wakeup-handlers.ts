@@ -1,18 +1,14 @@
-import type {
-  AgentRuntime,
-  AppStore,
-  WakeupDriver,
-} from "@groxbot/adapter-kit";
+import type { AgentRuntime, EnqueueJob, InitApp } from "@groxbot/adapter-kit";
 import type { Database } from "@groxbot/db";
 import type { GuestHub } from "./guest-hub.js";
-import { continueRun, sleepComputer } from "./run-continue.js";
+import { continueRun } from "./run-continue.js";
 
 export function createWakeHandlers(opts: {
   db: Database;
   runtime: AgentRuntime;
-  wakeup: WakeupDriver;
+  enqueue: EnqueueJob;
   guests?: GuestHub;
-  appStore?: AppStore;
+  initApp?: InitApp;
   bindRuntime?: (overlay: {
     env: NodeJS.ProcessEnv;
     model: string;
@@ -30,26 +26,16 @@ export function createWakeHandlers(opts: {
   return {
     "run.continue": async (payload: Record<string, unknown>) => {
       const runId = String(payload.runId ?? "");
-      const botId = String(payload.botId ?? "");
       if (!runId) return;
       await continueRun({
         db: opts.db,
         runtime: opts.runtime,
         runId,
         guests: opts.guests,
-        appStore: opts.appStore,
+        initApp: opts.initApp,
         bindRuntime: opts.bindRuntime,
         pluginTools: opts.pluginTools,
       });
-      if (botId) {
-        await opts.wakeup.enqueue({
-          botId,
-          name: "computer.sleep",
-          payload: { botId },
-          runAt: new Date(Date.now() + 45_000),
-          jobKey: `computer.sleep:${botId}`,
-        });
-      }
     },
     "routine.wakeup": async (_payload: Record<string, unknown>) => {},
     "run.abort": async (payload: Record<string, unknown>) => {
@@ -74,11 +60,6 @@ export function createWakeHandlers(opts: {
     "guest.drop": async (payload: Record<string, unknown>) => {
       const botId = String(payload.botId ?? "");
       if (botId) opts.guests?.dropBot(botId);
-    },
-    "computer.sleep": async (payload: Record<string, unknown>) => {
-      const botId = String(payload.botId ?? "");
-      if (!botId) return;
-      await sleepComputer(opts.db, botId);
     },
   };
 }

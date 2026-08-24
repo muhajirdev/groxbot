@@ -2,13 +2,15 @@
 
 - Public repo: never commit secrets, `.env`, `.dev.vars`, or real user data.
 - Keep domain logic in `packages/*`. Apps wire adapters. Product API is oRPC (`@groxbot/contracts` + `@groxbot/rpc`).
-- **Cloudflare first.** The product API is the Worker (`apps/api/src/worker.ts`). One queue per bot: Durable Object `BotActor` (`WAKEUP_KIND=durable-object`). Shared team data lives in Postgres (Neon), not in the DO. Local loop is `wrangler dev` + Vite, not Node.
-- The Pi/executor must not import `fs`, `dockerode`, or Cloudflare bindings. The API Worker uses `@groxbot/adapters/edge` (scripted / gateway). Flue Node (`@flue/runtime/node`) and `apps/worker` are a later self-host path — do not add features that only work there.
-- Auth, secrets, sandbox, and host commands are security-sensitive.
-- Tests stay offline: `AGENT_RUNTIME=scripted` (or `flue-echo` for the Pi harness), `SANDBOX_PROVIDER=fake`, in-process wakeup — no live OpenRouter / Cloudflare Computer / Cloudflare Sandbox / E2B.
-- Hosted teammate loop: gateway if model keys exist, else scripted. `AGENT_RUNTIME=flue` on the Worker maps to that (Flue Cloudflare target is later). Hands stay `useSandbox(factory)` keyed by `computerId`. One `Teammate` function; hires are `botId`, not new agent modules.
-- Guest runtimes (Hermes/OpenClaw) are opt-in per bot, off by default. They dial out to Groxbot; tests use a fake guest, not live Hermes/OpenClaw.
+- **Cloudflare first. Actor model first.** One Durable Object per `botId`: `BotActor` extends Think. Instance name is `botId`, never `threadId`. Threads are Think sessions on that actor. One Durable Object per live app (`AppRuntime`, name = `appId`).
+- There is **no Computer product**. No `computers` table, no shared desk, no takeover pane, no `computer.sleep`. Think `this.workspace` (later) is the bot’s files. Do not add a Computer RPC or UI.
+- Kernel: office, oRPC, Postgres (Neon), `botId` as the actor key, app cards. The HTTP isolate addresses DOs (`getAgentByName` / stub). Do not add `WakeupDriver` or `MemoryAppStore` as stand-ins for queues, alarms, or app document state.
+- Shared team data lives in Postgres, not in the DO. Chat/threads stay in Postgres. Document state for live apps lives on `AppRuntime`. Think SQLite is the actor’s working session, not the office catalog.
+- Hosted brain: Think `chat()` on `BotActor`. Tests use `ScriptedAgentRuntime`. Do not treat Flue or Pi as the product loop.
+- Live apps: workspace-owned docs / slides / sheets. Talk → chat card → Open. `AppRuntime` supervisor DO; `export class Gadget` from stamped `server.js` is a Dynamic Worker Facet; iframe Cap’n Web; parent holds `wss://…/apps/:id/rpc`. Listing (`apps.list`) is derived from chat cards. No Postgres apps catalog. No file manager in product UI.
+- Auth, secrets, and host commands are security-sensitive.
+- Tests stay offline: `ScriptedAgentRuntime` — no live OpenRouter / Computer / Sandbox / E2B. Actor tests enqueue onto a function that runs `createWakeHandlers`.
+- Guest runtimes (Hermes/OpenClaw) are opt-in per bot, off by default.
 - v1 surface is **web** (Vite + TanStack Router). Desktop is Electron around web. Mobile is Expo later. All three call **oRPC** via `@groxbot/rpc`.
-- See `docs/grok-bot-ui.md` and `docs/computers.md`.
-- Workspace apps (docs / slides / sheets) belong to the workspace, not a computer or thread. Factory templates are plain `client.js` / `server.js` stamped into the App Durable Object. The live app is Cloudflare-only: `AppRuntime` is the supervisor Durable Object; `export class Gadget` from `server.js` runs as a Dynamic Worker Facet (`LOADER` + `ctx.facets`); the iframe talks Cap’n Web over a MessagePort while the parent holds the WebSocket to the DO. Document state and membership live on that DO. The chat card carries `appId`. No Postgres `apps` catalog and no oRPC load/save/call. Sidebar listing (`apps.list`) is derived from chat cards. oRPC/Flue/Pi are the teammate and thread, not the editor. Do not add `.gadget` archives, blueprint packs, Yjs, Overseer, or a gadget file manager. Do not expose computer, thread, gadget, blueprint, or source in the product UI.
-- Desktop sandbox is owner opt-in on a trusted machine. Never enable it for hosted Computer / Sandbox / E2B.
+- See `docs/grok-bot-ui.md`.
+- Self-host / Flue / Pi are not v1.

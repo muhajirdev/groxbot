@@ -105,51 +105,48 @@ export function Landing(props: { startUrl: string }) {
         <section className="chapter">
           <h2>The whole team sits in the same office.</h2>
           <p className="lede">
-            OpenClaw is one person and a laptop. Groxbot is named teammates, a
-            shared computer, and a thread anyone on the team can open.
+            OpenClaw is one person and a laptop. Groxbot is named teammates and
+            a thread anyone on the team can open.
           </p>
         </section>
 
         <section className="tiles" aria-label="How the office works">
           <article className="tile">
-            <h3>A computer you can ignore</h3>
+            <h3>Talk, then open the thing</h3>
             <p>
-              The team shares a default computer — files and logins, one mouse.
-              Open it from the thread. Take over for a password, 2FA, or
-              payment. Work continues if you close the pane.
+              Message a teammate. When they make a doc, deck, or sheet, Open it
+              from a card in the thread. No file manager.
             </p>
             <div className="tile-stage">
               <div className="mini-pane">
                 <div className="mini-pane-head">
-                  Computer
+                  Q3
                   <span className="status-pill">
-                    <i /> Working
+                    <i /> Slides
                   </span>
                 </div>
-                <p className="mini-pane-screen">
-                  Sign in to Zendesk so I can work the support queue.
-                </p>
+                <p className="mini-pane-screen">Open from the chat card.</p>
               </div>
             </div>
           </article>
           <article className="tile">
-            <h3>Private when it has to be</h3>
+            <h3>One brain per teammate</h3>
             <p>
-              Give a Bot its own computer when logins should stay private. The
-              rest of the office keeps the shared desk. Isolation is a choice,
-              not the default.
+              Each Bot is one Think actor. Threads are sessions on that brain,
+              not extra Durable Objects. Two people in one office share one
+              queue.
             </p>
             <div className="tile-stage">
               <div className="desk-split">
-                <div className="desk-card">
-                  <span className="kicker">Shared</span>
-                  <strong>Office desk</strong>
-                  <span>Files and logins, one mouse</span>
-                </div>
                 <div className="desk-card on">
-                  <span className="kicker">Isolated</span>
-                  <strong>Inbox&apos;s computer</strong>
-                  <span>Mail logins stay theirs</span>
+                  <span className="kicker">Bot</span>
+                  <strong>Think actor</strong>
+                  <span>Named by botId</span>
+                </div>
+                <div className="desk-card">
+                  <span className="kicker">Thread</span>
+                  <strong>Session</strong>
+                  <span>Office or poke</span>
                 </div>
               </div>
             </div>
@@ -157,9 +154,8 @@ export function Landing(props: { startUrl: string }) {
           <article className="tile wide">
             <h3>Works from anywhere</h3>
             <p>
-              Shut the laptop. Open the thread on your phone. The Bot’s computer
-              lives in the cloud — not on your machine — so the work does not
-              stop when you do.
+              Shut the laptop. Open the thread on your phone. The Bot keeps
+              going in the cloud — not on your machine.
             </p>
             <div className="tile-stage">
               <div className="handoff-scene" aria-hidden>
@@ -179,7 +175,7 @@ export function Landing(props: { startUrl: string }) {
                   <span className="status-pill">
                     <i /> Working
                   </span>
-                  <span>Cloud computer</span>
+                  <span>In the cloud</span>
                 </div>
                 <div className="device phone">
                   <div className="phone-notch" />

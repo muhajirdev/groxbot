@@ -1,8 +1,4 @@
-import type {
-  AppStore,
-  SandboxProvider,
-  WakeupDriver,
-} from "@groxbot/adapter-kit";
+import type { EnqueueJob, InitApp } from "@groxbot/adapter-kit";
 import type { Auth } from "@groxbot/auth";
 import type { GuestHub } from "@groxbot/core";
 import type { Database } from "@groxbot/db";
@@ -12,9 +8,8 @@ export interface RpcContext {
   env: Env;
   db: Database;
   auth: Auth;
-  wakeup: WakeupDriver;
-  sandbox: SandboxProvider;
+  enqueue: EnqueueJob;
+  initApp: InitApp;
   guests: GuestHub;
-  appStore: AppStore;
   headers?: Headers;
 }

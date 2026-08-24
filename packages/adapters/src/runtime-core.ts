@@ -202,8 +202,8 @@ export function parsePokePrompt(
   return { name: match[1], message: match[2].trim() };
 }
 
-/** Product default: Flue bootstraps Pi (`useModel` + providers). */
-export const DEFAULT_AGENT_RUNTIME = "flue";
+/** Product default on the Worker: AI Gateway chat completions. */
+export const DEFAULT_AGENT_RUNTIME = "gateway";
 
 /** Offline stub for tests and CI. */
 export const OFFLINE_AGENT_RUNTIME = "scripted";
@@ -218,9 +218,22 @@ export function isOfflineAgentRuntime(kind: string): boolean {
 }
 
 /**
+ * Hosted Worker brain: Gateway when keys exist, else scripted echo.
+ * Call this from the Worker entry instead of a kind string.
+ */
+export function createHostedAgentRuntime(
+  source: GatewayEnv | NodeJS.ProcessEnv = {},
+  fetchImpl?: typeof fetch,
+): AgentRuntime {
+  if (!gatewayConfigured(source)) return new ScriptedAgentRuntime();
+  return new GatewayAgentRuntime(
+    loadGatewayConfig(source, { fetch: fetchImpl }),
+  );
+}
+
+/**
  * Worker-safe runtimes: scripted echo, or chat-completions gateway.
- * Flue/Pi stays Node (`@groxbot/adapters`). On Workers, `flue` maps to
- * gateway when keys exist, otherwise scripted.
+ * Prefer `createHostedAgentRuntime` at product call sites.
  */
 export function createScriptedOrGatewayRuntime(
   kind = OFFLINE_AGENT_RUNTIME,
@@ -237,17 +250,9 @@ export function createScriptedOrGatewayRuntime(
     runtime === "openrouter" ||
     runtime === "cloudflare"
   ) {
-    if (runtime === "flue" && !gatewayConfigured(source)) {
-      return new ScriptedAgentRuntime();
-    }
-    const provider: GatewayProvider | undefined = isGatewayProvider(runtime)
-      ? runtime
-      : undefined;
-    return new GatewayAgentRuntime(
-      loadGatewayConfig(source, { provider, fetch: fetchImpl }),
-    );
+    return createHostedAgentRuntime(source, fetchImpl);
   }
   throw new Error(
-    `Unknown AGENT_RUNTIME "${kind}". Use scripted, flue, flue-echo, gateway, openrouter, or cloudflare.`,
+    `Unknown AGENT_RUNTIME "${kind}". Use scripted, gateway, openrouter, or cloudflare.`,
   );
 }

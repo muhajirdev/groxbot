@@ -1,4 +1,4 @@
-import type { AppStore } from "@groxbot/adapter-kit";
+import type { InitApp } from "@groxbot/adapter-kit";
 import {
   type TemplateId,
   TemplateId as TemplateIdSchema,
@@ -53,14 +53,14 @@ export function applyAppTitle(
 
 /** Create the App Durable Object. Identity lives on the DO + chat card, not Postgres. */
 export async function stampApp(opts: {
-  store: AppStore;
+  initApp: InitApp;
   workspaceId: string;
   templateId: TemplateId;
   title: string;
 }): Promise<{ id: string; templateId: TemplateId; title: string }> {
   const title = opts.title.trim() || "Untitled";
   const id = newId();
-  await opts.store.init(id, opts.templateId, {
+  await opts.initApp(id, opts.templateId, {
     workspaceId: opts.workspaceId,
     title,
   });

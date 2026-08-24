@@ -7,10 +7,9 @@ import { ECHO_MODEL } from "./echo.js";
 import { useComposio } from "./tools.js";
 
 /**
- * One Groxbot teammate type. Instances are `botId:threadId`, not new modules.
+ * One Groxbot teammate type. Instances are `botId`, not new modules.
  * Instructions and model come from the host process for this turn.
- * Hands are Flue `useSandbox(factory)` keyed by the bound `computerId` —
- * see docs/computers.md. Do not add a second computer SDK here.
+ * Flue is not the v1 product loop.
  */
 export function Teammate(props: { id: string }) {
   const turn = peekTeammateTurn(props.id);

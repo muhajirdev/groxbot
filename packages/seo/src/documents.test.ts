@@ -44,8 +44,8 @@ describe("discovery documents", () => {
     expect(faqAiTxt(origins)).toMatch(/self-host/i);
     expect(llmsFullTxt(origins)).not.toMatch(/Rivet/i);
     expect(GROXBOT_STACK.join("\n")).not.toMatch(/Rivet/i);
-    expect(GROXBOT_STACK.join("\n")).toMatch(/useSandbox/);
-    expect(GROXBOT_STACK.join("\n")).toMatch(/Cloudflare Computer/);
+    expect(GROXBOT_STACK.join("\n")).toMatch(/Think/);
+    expect(GROXBOT_STACK.join("\n")).toMatch(/AppRuntime/);
   });
 
   it("maps workers.dev staging hosts to the hosted API", () => {

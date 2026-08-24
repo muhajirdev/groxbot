@@ -1,4 +1,4 @@
-import type { Bot, ComputerStatus, GuestAgentKind } from "@groxbot/contracts";
+import type { Bot, GuestAgentKind } from "@groxbot/contracts";
 import { PROVIDER_META } from "@groxbot/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -11,7 +11,6 @@ import { CloseIcon } from "./Icons";
 
 export function BotSettingsPane(props: {
   bot: Bot;
-  computer: ComputerStatus | null;
   onCollapse: () => void;
   onSaved: () => Promise<void>;
   onArchiveChange: (bot: Bot) => Promise<void>;
@@ -213,14 +212,6 @@ export function BotSettingsPane(props: {
             />
           </label>
         </section>
-        {props.computer ? (
-          <p className="hint">
-            Computer: {props.computer.name}
-            {props.computer.teammates.length > 1
-              ? ` · ${props.computer.teammates.map((item) => item.name).join(", ")}`
-              : ""}
-          </p>
-        ) : null}
         <button
           className="text-btn"
           type="button"

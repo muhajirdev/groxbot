@@ -1,6 +1,5 @@
 /** Cloudflare-only. Excluded from `tsc`. Supervisor for one workspace app. */
 import { DurableObject } from "cloudflare:workers";
-import type { AppStore } from "@groxbot/adapter-kit";
 import { filesForTemplate, initialState } from "@groxbot/app-runtime";
 import type { TemplateId } from "@groxbot/contracts";
 import { applyAppTitle } from "@groxbot/core";
@@ -207,7 +206,7 @@ type AppNamespace = {
   };
 };
 
-export class DurableObjectAppStore implements AppStore {
+export class DurableObjectAppStore {
   constructor(private readonly ns: AppNamespace) {}
 
   private stub(appId: string) {

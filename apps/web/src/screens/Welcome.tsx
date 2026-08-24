@@ -22,8 +22,8 @@ export function Welcome(props: { start: ReactNode }) {
         <div className="gate-stage">
           <p className="lede">Like Grok Bot, for the whole team.</p>
           <p className="thesis">
-            Create a Bot, message it, grant access as needed. There isn’t anything
-            to learn.
+            Create a Bot, message it, grant access as needed. There isn’t
+            anything to learn.
           </p>
           <div className="row gate-actions">{props.start}</div>
         </div>

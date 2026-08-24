@@ -1,8 +1,7 @@
-import type { AgentRuntime, AppStore } from "@groxbot/adapter-kit";
+import type { AgentRuntime, InitApp } from "@groxbot/adapter-kit";
 import type { MessageBlock, RunStatus } from "@groxbot/contracts";
 import {
   bots,
-  computers,
   type Database,
   messages,
   runs,
@@ -12,12 +11,6 @@ import {
 import { asc, eq } from "drizzle-orm";
 import { parseAppIntent } from "./app-intent.js";
 import { stampApp } from "./apps.js";
-import {
-  activeBotIdsOnComputer,
-  fanoutComputerUpdated,
-  getBotComputer,
-  tryClaimComputer,
-} from "./computer.js";
 import type { GuestHub } from "./guest-hub.js";
 import { GuestAgentRuntime } from "./guest-runtime.js";
 import { newId } from "./ids.js";
@@ -67,7 +60,7 @@ export async function continueRun(opts: {
         ) => Promise<string>;
       }
     | undefined;
-  appStore?: AppStore;
+  initApp?: InitApp;
 }): Promise<void> {
   const { db, runId, guests } = opts;
   const [run] = await db.select().from(runs).where(eq(runs.id, runId)).limit(1);
@@ -138,12 +131,6 @@ export async function continueRun(opts: {
     .limit(1);
   if (!task || !thread) return;
 
-  const computer = await getBotComputer(db, bot);
-  if (computer) {
-    const claimed = await tryClaimComputer(db, computer, bot.id, "running");
-    await fanoutComputerUpdated(db, claimed.computer, bot.id, runId);
-  }
-
   await appendEvent(db, {
     workspaceId: run.workspaceId,
     threadId: run.threadId,
@@ -211,12 +198,6 @@ export async function continueRun(opts: {
                 runId: nestedRunId,
                 pokeStack: [...pokeStack, bot.id],
               });
-              const [nested] = await db
-                .select({ botId: runs.botId })
-                .from(runs)
-                .where(eq(runs.id, nestedRunId))
-                .limit(1);
-              if (nested) await sleepComputer(db, nested.botId);
             },
           });
   try {
@@ -289,9 +270,9 @@ export async function continueRun(opts: {
   const assistantId = newId();
   const blocks: MessageBlock[] = [{ kind: "text", text: reply || "Done." }];
   const intent = parseAppIntent(task.prompt);
-  if (intent && opts.appStore) {
+  if (intent && opts.initApp) {
     const app = await stampApp({
-      store: opts.appStore,
+      initApp: opts.initApp,
       workspaceId: run.workspaceId,
       templateId: intent.templateId,
       title: intent.title,
@@ -342,32 +323,6 @@ export async function continueRun(opts: {
     payload: { runId, status: "completed", text: reply },
     runId,
   });
-}
-
-export async function sleepComputer(
-  db: Database,
-  botId: string,
-): Promise<void> {
-  const [bot] = await db.select().from(bots).where(eq(bots.id, botId)).limit(1);
-  if (!bot) return;
-  const computer = await getBotComputer(db, bot);
-  if (!computer) return;
-  if (computer.controlHolder === "user") return;
-  const active = await activeBotIdsOnComputer(db, computer.id);
-  if (active.length > 0) return;
-  const [updated] = await db
-    .update(computers)
-    .set({
-      state: "stopped",
-      controlHolder: "none",
-      controlHolderId: null,
-      updatedAt: new Date(),
-    })
-    .where(eq(computers.id, computer.id))
-    .returning();
-  if (updated) {
-    await fanoutComputerUpdated(db, updated, botId);
-  }
 }
 
 function historyTurn(

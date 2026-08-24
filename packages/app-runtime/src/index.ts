@@ -1,4 +1,3 @@
-import type { AppStore } from "@groxbot/adapter-kit";
 import { docsClientJs } from "./generated/docs.client.js";
 import { docsServerJs } from "./generated/docs.server.js";
 import { sheetsClientJs } from "./generated/sheets.client.js";
@@ -39,7 +38,7 @@ export function filesForTemplate(templateId: string): {
 }
 
 /** Node/test stand-in. Hosted apps use AppRuntime + a Gadget facet. */
-export class MemoryAppStore implements AppStore {
+export class MemoryAppStore {
   private readonly apps = new Set<string>();
 
   async init(

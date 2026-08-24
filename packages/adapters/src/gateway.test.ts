@@ -291,10 +291,10 @@ describe("GatewayAgentRuntime", () => {
 });
 
 describe("createAgentRuntime", () => {
-  it("defaults the product harness to Flue+Pi", () => {
-    expect(DEFAULT_AGENT_RUNTIME).toBe("flue");
-    expect(resolveAgentRuntimeKind()).toBe("flue");
-    expect(resolveAgentRuntimeKind("")).toBe("flue");
+  it("defaults the hosted brain to gateway", () => {
+    expect(DEFAULT_AGENT_RUNTIME).toBe("gateway");
+    expect(resolveAgentRuntimeKind()).toBe("gateway");
+    expect(resolveAgentRuntimeKind("")).toBe("gateway");
     expect(resolveAgentRuntimeKind("scripted")).toBe("scripted");
     expect(createAgentRuntime()).toBeInstanceOf(ScriptedAgentRuntime);
     expect(OFFLINE_AGENT_RUNTIME).toBe("scripted");

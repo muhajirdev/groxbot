@@ -6,7 +6,6 @@ import {
 } from "@groxbot/contracts";
 import {
   encryptionSecret,
-  getBotComputer,
   getPokeThread,
   listEventsAfter,
   listWorkspaceApps,
@@ -26,12 +25,9 @@ import {
   createBot,
   createRoutine,
   getBotThread,
-  getComputer,
   listBots,
-  listComputers,
   listRoutines,
   sendMessage,
-  setComputerControl,
   stopBotRuns,
   unarchiveBot,
   updateBot,
@@ -191,10 +187,8 @@ export const appRouter = os.router({
         .from(guestConnectors)
         .where(eq(guestConnectors.botId, bot.id))
         .limit(1);
-      const desk = await getBotComputer(context.db, bot);
       return toBotDto(bot, thread.id, {
         online: connector ? connectorOnline(connector) : false,
-        computerName: desk?.name,
       });
     }),
     create: os.bots.create.handler(async ({ context, input }) => {
@@ -283,30 +277,10 @@ export const appRouter = os.router({
       return { ok: true as const };
     }),
   },
-  computers: {
-    list: os.computers.list.handler(async ({ context }) => {
-      const actor = await requireActor(context);
-      return listComputers(context, actor);
-    }),
-  },
   apps: {
     list: os.apps.list.handler(async ({ context }) => {
       const actor = await requireActor(context);
       return listWorkspaceApps(context.db, actor.workspaceId);
-    }),
-  },
-  computer: {
-    status: os.computer.status.handler(async ({ context, input }) => {
-      const actor = await requireActor(context);
-      return getComputer(context, actor, input.botId);
-    }),
-    takeover: os.computer.takeover.handler(async ({ context, input }) => {
-      const actor = await requireActor(context);
-      return setComputerControl(context, actor, input.botId, "user");
-    }),
-    release: os.computer.release.handler(async ({ context, input }) => {
-      const actor = await requireActor(context);
-      return setComputerControl(context, actor, input.botId, "bot");
     }),
   },
   guests: {

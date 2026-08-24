@@ -19,6 +19,7 @@ export {
 export {
   bindEdgeAgentRuntime as bindAgentRuntime,
   createEdgeAgentRuntime as createAgentRuntime,
+  createHostedAgentRuntime,
   DEFAULT_AGENT_RUNTIME,
   GatewayAgentRuntime,
   isOfflineAgentRuntime,

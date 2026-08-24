@@ -2,8 +2,6 @@ import { eventIterator, oc } from "@orpc/contract";
 import * as z from "zod";
 import {
   BotSchema,
-  ComputerListItemSchema,
-  ComputerStatusSchema,
   CreateBotInput,
   CreateWorkspaceInput,
   GuestConnectSchema,
@@ -78,17 +76,9 @@ export const appContract = oc.router({
       .output(z.object({ taskId: Id, runId: Id, seq: z.number().int() })),
     stop: oc.input(botId).output(z.object({ ok: z.literal(true) })),
   },
-  computers: {
-    list: oc.output(z.array(ComputerListItemSchema)),
-  },
   apps: {
     /** Listing chrome from chat cards. Not load/save — the editor is the Durable Object. */
     list: oc.output(z.array(WorkspaceAppSchema)),
-  },
-  computer: {
-    status: oc.input(botId).output(ComputerStatusSchema),
-    takeover: oc.input(botId).output(ComputerStatusSchema),
-    release: oc.input(botId).output(ComputerStatusSchema),
   },
   guests: {
     status: oc.input(botId).output(GuestStatusSchema),

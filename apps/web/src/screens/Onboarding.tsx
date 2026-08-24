@@ -487,8 +487,8 @@ export function Onboarding(props: { invite?: string }) {
           <h1>Bots are teammates.</h1>
           <p className="lede">
             Give work the way you would a coworker. Each Bot is a contact —
-            name, optional job, one thread. They share the default computer
-            unless you give one its own.
+            name, optional job, one thread. Talk first. Open docs, slides, and
+            sheets from a card in chat.
           </p>
           <Button type="button" onClick={() => go(1)}>
             Continue
@@ -496,11 +496,11 @@ export function Onboarding(props: { invite?: string }) {
         </div>
       ) : null}
       {step === 1 ? (
-        <div className="gate-stage" key="computer">
-          <h1>A computer you can ignore.</h1>
+        <div className="gate-stage" key="thread">
+          <h1>Work lives in the thread.</h1>
           <p className="lede">
-            Shut the laptop. Open the thread on your phone. The computer lives
-            in the cloud — take over only for a password, 2FA, or payment.
+            Shut the laptop. Open the office on your phone. The bot keeps going.
+            Apps you make open from a card — not a file manager.
           </p>
           <GateAnywhere hero />
           <div className="gate-nav">

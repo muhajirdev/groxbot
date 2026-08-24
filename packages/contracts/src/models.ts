@@ -12,8 +12,7 @@ export const ModelKeySource = z.enum(["workspace", "env", "none"]);
 export type ModelKeySource = z.infer<typeof ModelKeySource>;
 
 /** One-key starter. Native Anthropic/OpenAI stay available when those keys exist. */
-export const SUGGESTED_STARTER_MODEL =
-  "openrouter/deepseek/deepseek-v4-flash";
+export const SUGGESTED_STARTER_MODEL = "openrouter/deepseek/deepseek-v4-flash";
 
 export const PROVIDER_META: Record<
   ModelProvider,

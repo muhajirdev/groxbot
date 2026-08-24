@@ -15,13 +15,13 @@ function abs(origin: string, path: string): string {
 }
 
 export const PRESS_SHORT =
-  "Groxbot is Grok Bot for teams: named AI teammates with a real computer. If OpenClaw is for your personal use, Groxbot is for the office. Self-hostable. No workflow builder.";
+  "Groxbot is Grok Bot for teams: named AI teammates you message in a thread. If OpenClaw is for your personal use, Groxbot is for the office. Self-hostable. No workflow builder.";
 
 export const PRESS_MEDIUM = GROXBOT_SUMMARY;
 
-export const PRESS_LONG = `${GROXBOT_NAME} is a messaging app of named AI teammates, not a workflow builder, IDE, or Discord. You hire a Bot — name, optional job, description, avatar — then talk to it in a thread. Each Bot has a real computer. Teammates share the workspace Desk by default; you can give a Bot an isolated computer when logins should stay private.
+export const PRESS_LONG = `${GROXBOT_NAME} is a messaging app of named AI teammates, not a workflow builder, IDE, or Discord. You hire a Bot — name, optional job, description, avatar — then talk to it in a thread. Live docs, slides, and sheets open from a card in chat.
 
-The name is a joke that stuck: Grok, then grox. It copies Grok Bot’s simplicity (talk first, grant access when they hit a wall) and is fair-code so you can self-host. Bring your own model keys. Gmail, Slack, GitHub, and 1,000+ tools connect in the thread. Indie tools run on the computer. Self-host for your organization is free. Hosted Groxbot for others is groxbot.com.`;
+The name is a joke that stuck: Grok, then grox. It copies Grok Bot’s simplicity (talk first, grant access when they hit a wall) and is fair-code so you can self-host. Bring your own model keys. Gmail, Slack, GitHub, and 1,000+ tools connect in the thread. Self-host for your organization is free. Hosted Groxbot for others is groxbot.com.`;
 
 export const PRESS_BOILERPLATE = [
   { id: "short", label: "Short", text: PRESS_SHORT },
@@ -69,7 +69,7 @@ export const PRESS_NAMES_NO = [
 export const PRESS_VOICE = [
   "A Bot is a teammate (contact), not a workflow node.",
   "Computer means a workspace desk / sandbox, not the LLM.",
-  "Desk is the default shared computer; a new computer is isolated.",
+  "Each bot is one Think Durable Object; threads are sessions on that bot.",
   "First action is talk, not configure a graph.",
   "Do not call the product an agent builder, copilot IDE, or Discord.",
 ] as const;

@@ -1,33 +1,19 @@
 import { isOfflineAgentRuntime } from "@groxbot/adapters/edge";
-import {
-  type Bot,
-  type ComputerListItem,
-  type ComputerStatus,
-  DEFAULT_COMPUTER_NAME,
-  type Routine,
-  validateModelId,
-} from "@groxbot/contracts";
+import { type Bot, type Routine, validateModelId } from "@groxbot/contracts";
 import {
   appendEvent,
-  computerStatusForBot,
   encryptionSecret,
-  fanoutComputerUpdated,
-  getBotComputer,
   getHomeThread,
   missingModelMessage,
   newId,
   nextSeq,
   previewFromBlocks,
   resolveRunModel,
-  sandboxKind,
   toBotDto,
-  toComputerListItem,
   toRoutineDto,
-  tryClaimComputer,
 } from "@groxbot/core";
 import {
   bots,
-  computers,
   guestConnectors,
   messages,
   routines,
@@ -37,7 +23,7 @@ import {
   threads,
 } from "@groxbot/db";
 import { ORPCError } from "@orpc/server";
-import { and, count, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import type { RpcContext } from "./context.js";
 import { agentRuntimeSource } from "./env.js";
 import type { Actor } from "./session.js";
@@ -105,18 +91,6 @@ export async function listBots(
     }
     threadByBot.set(row.botId, row.id);
   }
-  const desks =
-    rows.length === 0
-      ? []
-      : await context.db
-          .select()
-          .from(computers)
-          .where(
-            inArray(computers.id, [
-              ...new Set(rows.map((row) => row.computerId)),
-            ]),
-          );
-  const nameByComputer = new Map(desks.map((row) => [row.id, row.name]));
   const connectors =
     rows.length === 0
       ? []
@@ -159,116 +133,11 @@ export async function listBots(
     return [
       toBotDto(bot, threadId, {
         online: onlineByBot.get(bot.id),
-        computerName: nameByComputer.get(bot.computerId),
         lastPreview: last?.preview,
         lastAt: last?.at,
       }),
     ];
   });
-}
-
-async function insertComputer(
-  context: RpcContext,
-  actor: Actor,
-  input: { name: string; isDefault: boolean },
-) {
-  const id = newId();
-  const now = new Date();
-  const [row] = await context.db
-    .insert(computers)
-    .values({
-      id,
-      workspaceId: actor.workspaceId,
-      userId: actor.userId,
-      name: input.name,
-      isDefault: input.isDefault,
-      kind: sandboxKind(context.env.sandboxProvider),
-      state: "stopped",
-      controlHolder: "none",
-      createdAt: now,
-      updatedAt: now,
-    })
-    .returning();
-  if (!row)
-    throw new ORPCError("INTERNAL_SERVER_ERROR", {
-      message: "Computer create failed",
-    });
-  return row;
-}
-
-async function resolveComputer(
-  context: RpcContext,
-  actor: Actor,
-  choice: "default" | "new" | string,
-) {
-  if (choice === "new") {
-    const existing = await context.db
-      .select({ n: count() })
-      .from(computers)
-      .where(eq(computers.workspaceId, actor.workspaceId));
-    const n = Number(existing[0]?.n ?? 0);
-    return insertComputer(context, actor, {
-      name: n === 0 ? DEFAULT_COMPUTER_NAME : `Computer ${n + 1}`,
-      isDefault: n === 0,
-    });
-  }
-  if (choice !== "default") {
-    const [row] = await context.db
-      .select()
-      .from(computers)
-      .where(
-        and(
-          eq(computers.id, choice),
-          eq(computers.workspaceId, actor.workspaceId),
-        ),
-      )
-      .limit(1);
-    if (!row)
-      throw new ORPCError("NOT_FOUND", { message: "Computer not found" });
-    return row;
-  }
-  const [desk] = await context.db
-    .select()
-    .from(computers)
-    .where(
-      and(
-        eq(computers.workspaceId, actor.workspaceId),
-        eq(computers.isDefault, true),
-      ),
-    )
-    .limit(1);
-  if (desk) return desk;
-  return insertComputer(context, actor, {
-    name: DEFAULT_COMPUTER_NAME,
-    isDefault: true,
-  });
-}
-
-export async function listComputers(
-  context: RpcContext,
-  actor: Actor,
-): Promise<ComputerListItem[]> {
-  const rows = await context.db
-    .select()
-    .from(computers)
-    .where(eq(computers.workspaceId, actor.workspaceId))
-    .orderBy(desc(computers.isDefault), desc(computers.createdAt));
-  if (rows.length === 0) return [];
-  const counts = await context.db
-    .select({ computerId: bots.computerId, n: count() })
-    .from(bots)
-    .where(
-      and(
-        inArray(
-          bots.computerId,
-          rows.map((row) => row.id),
-        ),
-        isNull(bots.archivedAt),
-      ),
-    )
-    .groupBy(bots.computerId);
-  const nById = new Map(counts.map((row) => [row.computerId, Number(row.n)]));
-  return rows.map((row) => toComputerListItem(row, nById.get(row.id) ?? 0));
 }
 
 export async function createBot(
@@ -281,14 +150,8 @@ export async function createBot(
     instructions: string;
     avatarColor: string;
     avatarShape: string;
-    computer?: "default" | "new" | string;
   },
 ): Promise<Bot> {
-  const computer = await resolveComputer(
-    context,
-    actor,
-    input.computer ?? "default",
-  );
   const botId = newId();
   const threadId = newId();
   const now = new Date();
@@ -296,7 +159,6 @@ export async function createBot(
     id: botId,
     workspaceId: actor.workspaceId,
     userId: actor.userId,
-    computerId: computer.id,
     name: input.name,
     title: input.title?.trim() ?? "",
     description: input.description,
@@ -334,7 +196,7 @@ export async function createBot(
     throw new ORPCError("INTERNAL_SERVER_ERROR", {
       message: "Bot create failed",
     });
-  return toBotDto(bot, threadId, { computerName: computer.name });
+  return toBotDto(bot, threadId);
 }
 
 export async function updateBot(
@@ -376,17 +238,7 @@ export async function updateBot(
     .where(eq(bots.id, bot.id))
     .limit(1);
   if (!updated) throw new ORPCError("NOT_FOUND", { message: "Bot not found" });
-  const computer = await getBotComputer(context.db, updated);
-  return toBotDto(updated, thread.id, { computerName: computer?.name });
-}
-
-async function botDto(
-  context: RpcContext,
-  bot: typeof bots.$inferSelect,
-  threadId: string,
-): Promise<Bot> {
-  const computer = await getBotComputer(context.db, bot);
-  return toBotDto(bot, threadId, { computerName: computer?.name });
+  return toBotDto(updated, thread.id);
 }
 
 export async function archiveBot(
@@ -395,16 +247,8 @@ export async function archiveBot(
   botId: string,
 ): Promise<Bot> {
   const { bot, thread } = await getBotThread(context, actor, botId);
-  if (bot.archivedAt) return botDto(context, bot, thread.id);
+  if (bot.archivedAt) return toBotDto(bot, thread.id);
   await stopBotRuns(context, actor, botId);
-  const computer = await getBotComputer(context.db, bot);
-  if (
-    computer &&
-    computer.controlHolder === "bot" &&
-    computer.controlHolderId === bot.id
-  ) {
-    await setComputerControl(context, actor, botId, "none");
-  }
   const now = new Date();
   const [updated] = await context.db
     .update(bots)
@@ -412,7 +256,7 @@ export async function archiveBot(
     .where(eq(bots.id, bot.id))
     .returning();
   if (!updated) throw new ORPCError("NOT_FOUND", { message: "Bot not found" });
-  return botDto(context, updated, thread.id);
+  return toBotDto(updated, thread.id);
 }
 
 export async function unarchiveBot(
@@ -421,7 +265,7 @@ export async function unarchiveBot(
   botId: string,
 ): Promise<Bot> {
   const { bot, thread } = await getBotThread(context, actor, botId);
-  if (!bot.archivedAt) return botDto(context, bot, thread.id);
+  if (!bot.archivedAt) return toBotDto(bot, thread.id);
   const now = new Date();
   const [updated] = await context.db
     .update(bots)
@@ -429,44 +273,7 @@ export async function unarchiveBot(
     .where(eq(bots.id, bot.id))
     .returning();
   if (!updated) throw new ORPCError("NOT_FOUND", { message: "Bot not found" });
-  return botDto(context, updated, thread.id);
-}
-
-export async function getComputer(
-  context: RpcContext,
-  actor: Actor,
-  botId: string,
-): Promise<ComputerStatus> {
-  const { bot } = await getBotThread(context, actor, botId);
-  const row = await getBotComputer(context.db, bot);
-  if (!row) throw new ORPCError("NOT_FOUND", { message: "Computer not found" });
-  return computerStatusForBot(context.db, row, bot.id);
-}
-
-export async function setComputerControl(
-  context: RpcContext,
-  actor: Actor,
-  botId: string,
-  holder: "user" | "bot" | "none",
-): Promise<ComputerStatus> {
-  const { bot } = await getBotThread(context, actor, botId);
-  if (holder !== "none") assertBotActive(bot);
-  const row = await getBotComputer(context.db, bot);
-  if (!row) throw new ORPCError("NOT_FOUND", { message: "Computer not found" });
-  const [updated] = await context.db
-    .update(computers)
-    .set({
-      controlHolder: holder,
-      controlHolderId:
-        holder === "none" ? null : holder === "user" ? actor.userId : bot.id,
-      state: "running",
-      updatedAt: new Date(),
-    })
-    .where(eq(computers.id, row.id))
-    .returning();
-  if (!updated)
-    throw new ORPCError("NOT_FOUND", { message: "Computer not found" });
-  return fanoutComputerUpdated(context.db, updated, bot.id);
+  return toBotDto(updated, thread.id);
 }
 
 export async function sendMessage(
@@ -546,16 +353,6 @@ export async function sendMessage(
     status: "queued",
     trigger: "user",
   });
-  const computer = await getBotComputer(context.db, bot);
-  if (computer) {
-    const claimed = await tryClaimComputer(
-      context.db,
-      computer,
-      bot.id,
-      "booting",
-    );
-    await fanoutComputerUpdated(context.db, claimed.computer, bot.id, runId);
-  }
   await appendEvent(context.db, {
     workspaceId: actor.workspaceId,
     threadId: thread.id,
@@ -565,7 +362,7 @@ export async function sendMessage(
     runId,
   });
 
-  await context.wakeup.enqueue({
+  await context.enqueue({
     botId: bot.id,
     name: "run.continue",
     payload: { botId: bot.id, runId, taskId },
@@ -607,7 +404,7 @@ export async function stopBotRuns(
     });
   }
   context.guests.abort(botId);
-  await context.wakeup.enqueue({
+  await context.enqueue({
     botId,
     name: "run.abort",
     payload: {

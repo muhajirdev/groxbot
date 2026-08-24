@@ -38,7 +38,9 @@ describe("model catalog", () => {
       "openrouter/deepseek/deepseek-v4-flash",
     );
     expect(
-      flueModelId("cloudflare-workers-ai/@cf/deepseek-ai/deepseek-v4-flash-0731"),
+      flueModelId(
+        "cloudflare-workers-ai/@cf/deepseek-ai/deepseek-v4-flash-0731",
+      ),
     ).toBe(
       "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-flash-0731",
     );
@@ -53,9 +55,7 @@ describe("model catalog", () => {
         (item) => item.provider === "cloudflare",
       ),
     ).toBe(true);
-    expect(
-      catalogForRuntime("flue").map((item) => item.id),
-    ).toEqual(
+    expect(catalogForRuntime("flue").map((item) => item.id)).toEqual(
       expect.arrayContaining([
         "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-flash-0731",
         "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-pro-0813",
@@ -70,9 +70,7 @@ describe("model catalog", () => {
       false,
     );
     expect(
-      modelIsRunnable("openrouter/deepseek/deepseek-v4-flash", [
-        "openrouter",
-      ]),
+      modelIsRunnable("openrouter/deepseek/deepseek-v4-flash", ["openrouter"]),
     ).toBe(true);
     expect(modelIsRunnable("vendor/custom", ["openrouter"])).toBe(true);
   });

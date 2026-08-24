@@ -1,9 +1,4 @@
-import type { AppStore, WakeupDriver } from "@groxbot/adapter-kit";
-import {
-  createSandboxProvider,
-  createWakeupDriver,
-} from "@groxbot/adapters/edge";
-import { MemoryAppStore } from "@groxbot/app-runtime";
+import type { EnqueueJob, InitApp } from "@groxbot/adapter-kit";
 import { createAuth } from "@groxbot/auth";
 import { groxbotCookieDomain } from "@groxbot/contracts";
 import { GuestHub, handleGuestRequest } from "@groxbot/core";
@@ -31,8 +26,8 @@ export function createApp(
   opts: {
     db: Database;
     close: () => Promise<void>;
-    wakeup?: WakeupDriver;
-    appStore?: AppStore;
+    enqueue: EnqueueJob;
+    initApp: InitApp;
     connectApp?: (
       appId: string,
       request: Request,
@@ -53,10 +48,7 @@ export function createApp(
     sendMagicLink: mail.sendMagicLink,
     sendInvitationEmail: mail.sendInvitation,
   });
-  const wakeup = opts.wakeup ?? createWakeupDriver(env.workerUrl);
-  const sandbox = createSandboxProvider(env.sandboxProvider);
   const guests = new GuestHub();
-  const appStore = opts.appStore ?? new MemoryAppStore();
 
   const app = new Hono();
   app.use(
@@ -73,14 +65,12 @@ export function createApp(
     app,
     db: opts.db,
     auth,
-    wakeup,
-    sandbox,
+    enqueue: opts.enqueue,
+    initApp: opts.initApp,
     guests,
-    appStore,
     env,
     close: async () => {
       guests.stop();
-      await wakeup.stop();
       await opts.close();
     },
   };
@@ -126,7 +116,7 @@ export function createApp(
       const response = await handleGuestRequest(c.req.raw, {
         db: opts.db,
         hub: guests,
-        wakeup,
+        enqueue: opts.enqueue,
       });
       if (!response) return c.notFound();
       return c.newResponse(response.body, response);

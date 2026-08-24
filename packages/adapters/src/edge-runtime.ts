@@ -1,6 +1,7 @@
 import type { AgentRuntime } from "@groxbot/adapter-kit";
 import type { GatewayEnv } from "./gateway.js";
 import {
+  createHostedAgentRuntime,
   createScriptedOrGatewayRuntime,
   DEFAULT_AGENT_RUNTIME,
   GatewayAgentRuntime,
@@ -12,6 +13,7 @@ import {
 } from "./runtime-core.js";
 
 export {
+  createHostedAgentRuntime,
   DEFAULT_AGENT_RUNTIME,
   GatewayAgentRuntime,
   isOfflineAgentRuntime,
