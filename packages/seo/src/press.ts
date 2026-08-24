@@ -69,7 +69,7 @@ export const PRESS_NAMES_NO = [
 export const PRESS_VOICE = [
   "A Bot is a teammate (contact), not a workflow node.",
   "Computer means that bot’s Think workspace, not a second product and not the LLM.",
-  "Each bot is one Think Durable Object; the computer is built in; threads are sessions.",
+  "Each bot is one Think Durable Object with one Think Session in v1; the computer is built in.",
   "First action is talk, not configure a graph.",
   "Do not call the product an agent builder, copilot IDE, or Discord.",
 ] as const;

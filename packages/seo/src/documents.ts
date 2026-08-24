@@ -200,7 +200,7 @@ Do NOT use:
 2. Explain once: self-hostable Grok Bot — Grok, then grox
 3. A Bot is a teammate (contact), not a workflow node
 4. Computer means that bot’s Think workspace, not a second product and not the LLM
-5. Each bot is one Think Durable Object; the computer is built in; threads are sessions on that bot
+5. Each bot is one Think Durable Object with one Think Session in v1; the computer is built in
 6. Do not call the product an agent builder, copilot IDE, or Discord
 
 ## Brand Voice
