@@ -1,8 +1,8 @@
 import type { AgentRuntime } from "@groxbot/adapter-kit";
+import { hostedAiEnabled, PRODUCT_RUNTIME } from "@groxbot/contracts";
 import { flueConfigured, getFlueAgentRuntime } from "./flue/runtime.js";
 import {
   type GatewayEnv,
-  type GatewayProvider,
   gatewayConfigured,
   isGatewayProvider,
   loadGatewayConfig,
@@ -10,70 +10,65 @@ import {
 import { GatewayAgentRuntime } from "./runtime-core.js";
 
 export {
-  DEFAULT_AGENT_RUNTIME,
+  createHostedAgentRuntime,
+  FLUE_ECHO_RUNTIME,
+  FLUE_RUNTIME,
   GatewayAgentRuntime,
   isOfflineAgentRuntime,
-  OFFLINE_AGENT_RUNTIME,
   parsePokePrompt,
   resolveAgentRuntimeKind,
   ScriptedAgentRuntime,
 } from "./runtime-core.js";
 
 import {
-  createScriptedOrGatewayRuntime,
+  createHostedAgentRuntime,
+  FLUE_ECHO_RUNTIME,
+  FLUE_RUNTIME,
   isOfflineAgentRuntime,
-  OFFLINE_AGENT_RUNTIME,
   resolveAgentRuntimeKind,
 } from "./runtime-core.js";
 
 export function bindAgentRuntime(
-  kind: string | undefined,
   overlay: { env: NodeJS.ProcessEnv; model: string; hosted?: boolean },
   fetchImpl?: typeof fetch,
 ): AgentRuntime {
-  return createAgentRuntime(
-    resolveAgentRuntimeKind(kind),
-    overlay.env,
-    fetchImpl,
-  );
+  return createHostedAgentRuntime(overlay.env, { fetch: fetchImpl });
 }
 
 export function agentRuntimeNeedsModel(
-  kind: string,
+  kind: string | undefined,
   source: GatewayEnv | NodeJS.ProcessEnv = process.env,
 ): boolean {
   const runtime = resolveAgentRuntimeKind(kind);
   if (isOfflineAgentRuntime(runtime)) return false;
-  if (runtime === "flue") {
+  if (runtime === FLUE_RUNTIME) {
     return !flueConfigured(source as NodeJS.ProcessEnv);
   }
-  if (source.GROXBOT_HOSTED_AI?.trim()) return false;
+  if (hostedAiEnabled(source)) return false;
   return !gatewayConfigured(source);
 }
 
 export function createAgentRuntime(
-  kind = OFFLINE_AGENT_RUNTIME,
+  kind: string = PRODUCT_RUNTIME,
   source: GatewayEnv | NodeJS.ProcessEnv = process.env,
   fetchImpl?: typeof fetch,
 ): AgentRuntime {
-  const runtime = kind.trim() || OFFLINE_AGENT_RUNTIME;
-  if (runtime === "flue" || runtime === "flue-echo") {
-    return getFlueAgentRuntime(runtime === "flue-echo", {
+  const runtime = kind.trim() || PRODUCT_RUNTIME;
+  if (runtime === FLUE_RUNTIME || runtime === FLUE_ECHO_RUNTIME) {
+    return getFlueAgentRuntime(runtime === FLUE_ECHO_RUNTIME, {
       ...process.env,
       ...(source as NodeJS.ProcessEnv),
     });
   }
-  if (
-    runtime === "gateway" ||
-    runtime === "openrouter" ||
-    runtime === "cloudflare"
-  ) {
-    const provider: GatewayProvider | undefined = isGatewayProvider(runtime)
-      ? runtime
-      : undefined;
+  if (runtime === PRODUCT_RUNTIME) {
+    return createHostedAgentRuntime(source, { fetch: fetchImpl });
+  }
+  if (isGatewayProvider(runtime)) {
     return new GatewayAgentRuntime(
-      loadGatewayConfig(source, { provider, fetch: fetchImpl }),
+      loadGatewayConfig(source, { provider: runtime, fetch: fetchImpl }),
     );
   }
-  return createScriptedOrGatewayRuntime(runtime, source, fetchImpl);
+  throw new Error(
+    `Unknown agent runtime "${kind}". Product brain is ${PRODUCT_RUNTIME}. Tests construct ScriptedAgentRuntime.`,
+  );
 }

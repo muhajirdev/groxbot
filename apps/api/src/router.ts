@@ -1,4 +1,3 @@
-import { isOfflineAgentRuntime } from "@groxbot/adapters/edge";
 import {
   appContract,
   labelForModel,
@@ -110,9 +109,7 @@ export const appRouter = os.router({
       needsWorkspace: false,
       isDeploymentOwner: actor.isDeploymentOwner,
       needsModel:
-        !isOfflineAgentRuntime(context.env.agentRuntime) &&
-        !settings.hostedGateway &&
-        !userHasModelCredentials(creds.length),
+        !settings.hostedGateway && !userHasModelCredentials(creds.length),
       defaultModel: settings.defaultModelId,
       defaultModelLabel: labelForModel(settings.defaultModelId),
       modelWarning: settings.warning,

@@ -1,12 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
-  catalogForRuntime,
+  ANTHROPIC_PROVIDER,
+  CLOUDFLARE_PROVIDER,
+  CUSTOM_MODEL_SENTINEL,
+  DEFAULT_AI_GATEWAY_ID,
   flueModelId,
   gatewayRequestModel,
+  HOSTED_AI_ENV,
+  HOSTED_AI_FLAG,
   hostedCloudflareGateway,
+  MODEL_CATALOG,
   ModelSettingsSchema,
   missingProviderMessage,
   modelIsRunnable,
+  OPENROUTER_PROVIDER,
+  PRODUCT_RUNTIME,
   providerForModel,
   resolveStoredModelId,
   validateCloudflareAccountId,
@@ -16,17 +24,19 @@ import {
 
 describe("model catalog", () => {
   it("maps ids to providers", () => {
-    expect(providerForModel("anthropic/claude-sonnet-4-6")).toBe("anthropic");
+    expect(providerForModel("anthropic/claude-sonnet-4-6")).toBe(
+      ANTHROPIC_PROVIDER,
+    );
     expect(providerForModel("openrouter/deepseek/deepseek-v4-flash")).toBe(
-      "openrouter",
+      OPENROUTER_PROVIDER,
     );
     expect(
       providerForModel(
         "cloudflare-ai-gateway/workers-ai/@cf/moonshotai/kimi-k2.6",
       ),
-    ).toBe("cloudflare");
+    ).toBe(CLOUDFLARE_PROVIDER);
     expect(providerForModel("@cf/deepseek-ai/deepseek-v4-flash-0731")).toBe(
-      "cloudflare",
+      CLOUDFLARE_PROVIDER,
     );
   });
 
@@ -58,7 +68,7 @@ describe("model catalog", () => {
     ).toBeNull();
     expect(
       hostedCloudflareGateway({
-        GROXBOT_HOSTED_AI: "1",
+        [HOSTED_AI_ENV]: HOSTED_AI_FLAG,
         CLOUDFLARE_AI_GATEWAY_ID: "office",
       }),
     ).toEqual({ kind: "binding", gatewayId: "office" });
@@ -71,7 +81,7 @@ describe("model catalog", () => {
       kind: "rest",
       accountId: "acct",
       apiToken: "gw-token",
-      gatewayId: "default",
+      gatewayId: DEFAULT_AI_GATEWAY_ID,
     });
     expect(
       hostedCloudflareGateway({
@@ -98,16 +108,11 @@ describe("model catalog", () => {
     );
   });
 
-  it("lists Cloudflare models for every runtime", () => {
+  it("lists Cloudflare models", () => {
     expect(
-      catalogForRuntime("flue").some((item) => item.provider === "cloudflare"),
+      MODEL_CATALOG.some((item) => item.provider === CLOUDFLARE_PROVIDER),
     ).toBe(true);
-    expect(
-      catalogForRuntime("gateway").some(
-        (item) => item.provider === "cloudflare",
-      ),
-    ).toBe(true);
-    expect(catalogForRuntime("flue").map((item) => item.id)).toEqual(
+    expect(MODEL_CATALOG.map((item) => item.id)).toEqual(
       expect.arrayContaining([
         "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-flash-0731",
         "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-pro-0813",
@@ -118,23 +123,27 @@ describe("model catalog", () => {
   });
 
   it("requires a matching provider key", () => {
-    expect(modelIsRunnable("anthropic/claude-sonnet-4-6", ["openrouter"])).toBe(
-      false,
-    );
     expect(
-      modelIsRunnable("openrouter/deepseek/deepseek-v4-flash", ["openrouter"]),
+      modelIsRunnable("anthropic/claude-sonnet-4-6", [OPENROUTER_PROVIDER]),
+    ).toBe(false);
+    expect(
+      modelIsRunnable("openrouter/deepseek/deepseek-v4-flash", [
+        OPENROUTER_PROVIDER,
+      ]),
     ).toBe(true);
-    expect(modelIsRunnable("vendor/custom", ["openrouter"])).toBe(true);
+    expect(modelIsRunnable("vendor/custom", [OPENROUTER_PROVIDER])).toBe(true);
   });
 
   it("validates provider secrets", () => {
-    expect(validateProviderSecret("anthropic", "sk-ant-1234567890")).toBe(
-      undefined,
+    expect(
+      validateProviderSecret(ANTHROPIC_PROVIDER, "sk-ant-1234567890"),
+    ).toBe(undefined);
+    expect(
+      validateProviderSecret(ANTHROPIC_PROVIDER, "sk-1234567890ab"),
+    ).toMatch(/sk-ant/);
+    expect(validateProviderSecret(OPENROUTER_PROVIDER, "••••abcd")).toMatch(
+      /hint/,
     );
-    expect(validateProviderSecret("anthropic", "sk-1234567890ab")).toMatch(
-      /sk-ant/,
-    );
-    expect(validateProviderSecret("openrouter", "••••abcd")).toMatch(/hint/);
     expect(validateCloudflareAccountId("not-an-id")).toMatch(/32 hex/);
     expect(
       validateCloudflareAccountId("0123456789abcdef0123456789abcdef"),
@@ -144,7 +153,7 @@ describe("model catalog", () => {
   it("resolves custom model ids", () => {
     expect(
       resolveStoredModelId({
-        defaultModel: "custom",
+        defaultModel: CUSTOM_MODEL_SENTINEL,
         customModel: "openrouter/foo",
       }),
     ).toBe("openrouter/foo");
@@ -171,7 +180,7 @@ describe("model catalog", () => {
       defaultModelId: "openrouter/deepseek/deepseek-v4-flash",
       fromEnv: true,
       hostedGateway: true,
-      runtime: "gateway",
+      runtime: PRODUCT_RUNTIME,
       catalog: [],
       warning: null,
       usage: {

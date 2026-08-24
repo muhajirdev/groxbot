@@ -1,3 +1,10 @@
+import {
+  FAKE_SANDBOX,
+  HTTP_WAKEUP,
+  IN_PROCESS_WAKEUP,
+  MAIL_CLOUDFLARE,
+  MAIL_LOG,
+} from "@groxbot/contracts";
 import { createGroxbotClient } from "@groxbot/rpc";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
@@ -11,10 +18,9 @@ const env = {
   authUrl: "http://127.0.0.1:5173",
   webOrigin: "http://127.0.0.1:5173",
   corsOrigins: ["http://127.0.0.1:5173"],
-  sandboxProvider: "fake",
-  agentRuntime: "scripted",
+  sandboxProvider: FAKE_SANDBOX,
   production: false,
-  wakeupKind: "in-process",
+  wakeupKind: IN_PROCESS_WAKEUP,
 } as const;
 
 describe("oRPC", () => {
@@ -33,8 +39,10 @@ describe("oRPC", () => {
   });
 
   it("reports in-process wakeup when the worker is local", () => {
-    expect(healthPayload(env).wakeup).toBe("in-process");
-    expect(healthPayload({ ...env, wakeupKind: "http" }).wakeup).toBe("http");
+    expect(healthPayload(env).wakeup).toBe(IN_PROCESS_WAKEUP);
+    expect(healthPayload({ ...env, wakeupKind: HTTP_WAKEUP }).wakeup).toBe(
+      HTTP_WAKEUP,
+    );
   });
 
   it("lists Google and GitHub when those keys are set", () => {
@@ -89,14 +97,14 @@ describe("oRPC", () => {
   });
 
   it("reports Cloudflare mail when the EMAIL binding and from address are set", () => {
-    expect(healthPayload(env).mail).toBe("log");
+    expect(healthPayload(env).mail).toBe(MAIL_LOG);
     expect(
       healthPayload({
         ...env,
         emailBinding: true,
         emailFrom: "Groxbot <noreply@groxbot.com>",
       }).mail,
-    ).toBe("cloudflare");
+    ).toBe(MAIL_CLOUDFLARE);
   });
 
   it("requires a session to load model settings", async () => {

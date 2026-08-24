@@ -9,7 +9,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { RpcContext } from "./context.js";
 import { mountDiscovery } from "./discovery.js";
-import { type Env, oauthCredentials } from "./env.js";
+import { DURABLE_OBJECT_WAKEUP, type Env, oauthCredentials } from "./env.js";
 import { healthPayload } from "./health.js";
 import { createMailer, type SendEmailBinding } from "./mail.js";
 import { completePluginCallback, pluginCallbackPage } from "./plugins.js";
@@ -112,7 +112,7 @@ export function createApp(
     return c.html(pluginCallbackPage(env.webOrigin));
   });
 
-  if (!env.workerUrl && env.wakeupKind !== "durable-object") {
+  if (!env.workerUrl && env.wakeupKind !== DURABLE_OBJECT_WAKEUP) {
     app.all("/guest/*", async (c) => {
       const response = await handleGuestRequest(c.req.raw, {
         db: opts.db,

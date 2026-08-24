@@ -1,12 +1,25 @@
 import * as z from "zod";
 
+export const ANTHROPIC_PROVIDER = "anthropic" as const;
+export const OPENAI_PROVIDER = "openai" as const;
+export const OPENROUTER_PROVIDER = "openrouter" as const;
+export const CLOUDFLARE_PROVIDER = "cloudflare" as const;
+
 export const ModelProvider = z.enum([
-  "anthropic",
-  "openai",
-  "openrouter",
-  "cloudflare",
+  ANTHROPIC_PROVIDER,
+  OPENAI_PROVIDER,
+  OPENROUTER_PROVIDER,
+  CLOUDFLARE_PROVIDER,
 ]);
 export type ModelProvider = z.infer<typeof ModelProvider>;
+
+/** Settings UI order: OpenRouter first (one-key starter). */
+export const PROVIDER_ORDER: ModelProvider[] = [
+  OPENROUTER_PROVIDER,
+  ANTHROPIC_PROVIDER,
+  OPENAI_PROVIDER,
+  CLOUDFLARE_PROVIDER,
+];
 
 export const ModelKeySource = z.enum(["workspace", "env", "none"]);
 export type ModelKeySource = z.infer<typeof ModelKeySource>;
@@ -18,6 +31,43 @@ export const SUGGESTED_STARTER_MODEL = "openrouter/deepseek/deepseek-v4-flash";
 export const HOSTED_STARTER_MODEL =
   "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-flash-0731";
 
+/** Product brain. Worker `AI` binding, else REST gateway keys. */
+export const PRODUCT_RUNTIME = CLOUDFLARE_PROVIDER;
+export type ProductRuntime = typeof PRODUCT_RUNTIME;
+
+/** Cloudflare AI Gateway id when none is configured. */
+export const DEFAULT_AI_GATEWAY_ID = "default" as const;
+
+/** Overlay flag: this host includes Groxbot’s Workers AI binding. */
+export const HOSTED_AI_ENV = "GROXBOT_HOSTED_AI" as const;
+export const HOSTED_AI_FLAG = "1" as const;
+
+/** Settings sentinel: user typed a model id that is not in the catalog. */
+export const CUSTOM_MODEL_SENTINEL = "custom" as const;
+
+export const IN_PROCESS_WAKEUP = "in-process" as const;
+export const HTTP_WAKEUP = "http" as const;
+export const DURABLE_OBJECT_WAKEUP = "durable-object" as const;
+export const WakeupKind = z.enum([
+  IN_PROCESS_WAKEUP,
+  HTTP_WAKEUP,
+  DURABLE_OBJECT_WAKEUP,
+]);
+export type WakeupKind = z.infer<typeof WakeupKind>;
+
+export const MAIL_CLOUDFLARE = CLOUDFLARE_PROVIDER;
+export const MAIL_LOG = "log" as const;
+export const MailKind = z.enum([MAIL_CLOUDFLARE, MAIL_LOG]);
+export type MailKind = z.infer<typeof MailKind>;
+
+export const FAKE_SANDBOX = "fake" as const;
+
+export function hostedAiEnabled(
+  env: { [HOSTED_AI_ENV]?: string } = {},
+): boolean {
+  return Boolean(env[HOSTED_AI_ENV]?.trim());
+}
+
 export const PROVIDER_META: Record<
   ModelProvider,
   {
@@ -28,31 +78,31 @@ export const PROVIDER_META: Record<
     recommended?: boolean;
   }
 > = {
-  openrouter: {
+  [OPENROUTER_PROVIDER]: {
     label: "OpenRouter",
     placeholder: "sk-or-…",
     docsUrl: "https://openrouter.ai/keys",
     hint: "One key for many models. Best first step.",
     recommended: true,
   },
-  anthropic: {
+  [ANTHROPIC_PROVIDER]: {
     label: "Anthropic",
     placeholder: "sk-ant-…",
     docsUrl: "https://console.anthropic.com/settings/keys",
     hint: "Direct Claude. Use this if you already have an Anthropic key.",
   },
-  openai: {
+  [OPENAI_PROVIDER]: {
     label: "OpenAI",
     placeholder: "sk-…",
     docsUrl: "https://platform.openai.com/api-keys",
     hint: "Direct OpenAI models.",
   },
-  cloudflare: {
+  [CLOUDFLARE_PROVIDER]: {
     label: "Cloudflare AI Gateway",
     placeholder: "API token",
     docsUrl:
       "https://developers.cloudflare.com/ai-gateway/integrations/coding-agents/pi/",
-    hint: "Pi routes through your gateway (Workers AI, and Anthropic/OpenAI when billed on the gateway). Account id + token; gateway id can stay default.",
+    hint: `Pi routes through your gateway (Workers AI, and Anthropic/OpenAI when billed on the gateway). Account id + token; gateway id can stay ${DEFAULT_AI_GATEWAY_ID}.`,
   },
 };
 
@@ -60,62 +110,62 @@ export const MODEL_CATALOG = [
   {
     id: "openrouter/deepseek/deepseek-v4-flash",
     label: "DeepSeek V4 Flash",
-    provider: "openrouter" as const,
+    provider: OPENROUTER_PROVIDER,
   },
   {
     id: "openrouter/anthropic/claude-sonnet-4.6",
     label: "Claude Sonnet 4.6 (OpenRouter)",
-    provider: "openrouter" as const,
+    provider: OPENROUTER_PROVIDER,
   },
   {
     id: "openrouter/openai/gpt-4o-mini",
     label: "GPT-4o mini (OpenRouter)",
-    provider: "openrouter" as const,
+    provider: OPENROUTER_PROVIDER,
   },
   {
     id: "anthropic/claude-sonnet-4-6",
     label: "Claude Sonnet 4.6",
-    provider: "anthropic" as const,
+    provider: ANTHROPIC_PROVIDER,
   },
   {
     id: "anthropic/claude-opus-4-6",
     label: "Claude Opus 4.6",
-    provider: "anthropic" as const,
+    provider: ANTHROPIC_PROVIDER,
   },
   {
     id: "openai/gpt-4o",
     label: "GPT-4o",
-    provider: "openai" as const,
+    provider: OPENAI_PROVIDER,
   },
   {
     id: "openai/gpt-4o-mini",
     label: "GPT-4o mini",
-    provider: "openai" as const,
+    provider: OPENAI_PROVIDER,
   },
   {
     id: "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-flash-0731",
     label: "DeepSeek V4 Flash (Workers AI)",
-    provider: "cloudflare" as const,
+    provider: CLOUDFLARE_PROVIDER,
   },
   {
     id: "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-pro-0813",
     label: "DeepSeek V4 Pro (Workers AI)",
-    provider: "cloudflare" as const,
+    provider: CLOUDFLARE_PROVIDER,
   },
   {
     id: "cloudflare-ai-gateway/workers-ai/@cf/zai-org/glm-4.7-flash",
     label: "GLM 4.7 Flash (Workers AI)",
-    provider: "cloudflare" as const,
+    provider: CLOUDFLARE_PROVIDER,
   },
   {
     id: "cloudflare-ai-gateway/workers-ai/@cf/zai-org/glm-5.2",
     label: "GLM 5.2 (Workers AI)",
-    provider: "cloudflare" as const,
+    provider: CLOUDFLARE_PROVIDER,
   },
   {
     id: "cloudflare-ai-gateway/workers-ai/@cf/moonshotai/kimi-k2.6",
     label: "Kimi K2.6 (Workers AI)",
-    provider: "cloudflare" as const,
+    provider: CLOUDFLARE_PROVIDER,
   },
 ] as const;
 
@@ -146,7 +196,7 @@ export const ModelSettingsSchema = z.object({
   defaultModelId: z.string(),
   fromEnv: z.boolean(),
   hostedGateway: z.boolean(),
-  runtime: z.string(),
+  runtime: z.literal(PRODUCT_RUNTIME),
   catalog: z.array(ModelCatalogItemSchema),
   warning: z.string().nullable(),
   usage: z.object({
@@ -173,16 +223,6 @@ export const SaveModelSettingsInput = z.object({
 });
 export type SaveModelSettingsInput = z.infer<typeof SaveModelSettingsInput>;
 
-export function isGatewayRuntime(runtime: string | undefined): boolean {
-  const kind = runtime?.trim() || "flue";
-  return kind === "gateway" || kind === "cloudflare" || kind === "openrouter";
-}
-
-export function isOfflineRuntime(runtime: string | undefined): boolean {
-  const kind = runtime?.trim();
-  return kind === "scripted" || kind === "flue-echo";
-}
-
 /** Groxbot’s included Cloudflare AI Gateway. Worker `AI` binding, or REST tokens on Node. */
 export type HostedCloudflareGateway =
   | { kind: "binding"; gatewayId: string }
@@ -196,8 +236,9 @@ export type HostedCloudflareGateway =
 export function hostedCloudflareGateway(
   env: NodeJS.Dict<string> = process.env,
 ): HostedCloudflareGateway | null {
-  const gatewayId = env.CLOUDFLARE_AI_GATEWAY_ID?.trim() || "default";
-  if (env.GROXBOT_HOSTED_AI?.trim()) {
+  const gatewayId =
+    env.CLOUDFLARE_AI_GATEWAY_ID?.trim() || DEFAULT_AI_GATEWAY_ID;
+  if (hostedAiEnabled(env)) {
     return { kind: "binding", gatewayId };
   }
   const accountId = env.CLOUDFLARE_ACCOUNT_ID?.trim() ?? "";
@@ -213,16 +254,16 @@ export function providerForModel(model: string): ModelProvider | undefined {
   const trimmed = model.trim();
   const listed = MODEL_CATALOG.find((item) => item.id === trimmed);
   if (listed) return listed.provider;
-  if (trimmed.startsWith("anthropic/")) return "anthropic";
-  if (trimmed.startsWith("openai/")) return "openai";
-  if (trimmed.startsWith("openrouter/")) return "openrouter";
+  if (trimmed.startsWith("anthropic/")) return ANTHROPIC_PROVIDER;
+  if (trimmed.startsWith("openai/")) return OPENAI_PROVIDER;
+  if (trimmed.startsWith("openrouter/")) return OPENROUTER_PROVIDER;
   if (
     trimmed.startsWith("cloudflare-ai-gateway/") ||
     trimmed.startsWith("cloudflare-workers-ai/") ||
     trimmed.startsWith("workers-ai/@cf/") ||
     trimmed.startsWith("@cf/")
   ) {
-    return "cloudflare";
+    return CLOUDFLARE_PROVIDER;
   }
   return undefined;
 }
@@ -275,12 +316,6 @@ export function labelForModel(model: string): string {
   return listed?.label ?? trimmed;
 }
 
-export function catalogForRuntime(
-  _runtime: string | undefined,
-): Array<(typeof MODEL_CATALOG)[number]> {
-  return [...MODEL_CATALOG];
-}
-
 export function modelsForProviders(
   providers: readonly ModelProvider[],
 ): Array<(typeof MODEL_CATALOG)[number]> {
@@ -313,7 +348,7 @@ export function resolveStoredModelId(input: {
   defaultModel: string;
   customModel?: string;
 }): string {
-  if (input.defaultModel === "custom") {
+  if (input.defaultModel === CUSTOM_MODEL_SENTINEL) {
     return input.customModel?.trim() || SUGGESTED_STARTER_MODEL;
   }
   return input.defaultModel.trim();
@@ -342,22 +377,22 @@ export function validateProviderSecret(
     return "Paste a real API key, not a placeholder.";
   }
   if (/\s/.test(value)) return "Keys cannot contain spaces.";
-  if (provider === "anthropic" && !value.startsWith("sk-ant-")) {
+  if (provider === ANTHROPIC_PROVIDER && !value.startsWith("sk-ant-")) {
     return "Anthropic keys start with sk-ant-.";
   }
-  if (provider === "openrouter" && !value.startsWith("sk-or-")) {
+  if (provider === OPENROUTER_PROVIDER && !value.startsWith("sk-or-")) {
     return "OpenRouter keys start with sk-or-.";
   }
   if (
-    provider === "openai" &&
+    provider === OPENAI_PROVIDER &&
     (value.startsWith("sk-ant-") || value.startsWith("sk-or-"))
   ) {
     return "That key belongs to another provider.";
   }
-  if (provider === "openai" && !value.startsWith("sk-")) {
+  if (provider === OPENAI_PROVIDER && !value.startsWith("sk-")) {
     return "OpenAI keys start with sk-.";
   }
-  if (provider === "cloudflare" && value.length < 20) {
+  if (provider === CLOUDFLARE_PROVIDER && value.length < 20) {
     return "That Cloudflare token is too short.";
   }
   return undefined;

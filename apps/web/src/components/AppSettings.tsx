@@ -1,5 +1,12 @@
 import type { Me, ModelCatalogItem, ModelProvider } from "@groxbot/contracts";
-import { missingProviderMessage, PROVIDER_META } from "@groxbot/contracts";
+import {
+  CLOUDFLARE_PROVIDER,
+  CUSTOM_MODEL_SENTINEL,
+  DEFAULT_AI_GATEWAY_ID,
+  missingProviderMessage,
+  PROVIDER_META,
+  PROVIDER_ORDER,
+} from "@groxbot/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { userFacingError } from "../lib/errors";
@@ -276,13 +283,6 @@ function formatCount(value: number): string {
   return value.toLocaleString();
 }
 
-const PROVIDER_ORDER: ModelProvider[] = [
-  "openrouter",
-  "anthropic",
-  "openai",
-  "cloudflare",
-];
-
 function BillingTab() {
   const query = useQuery(orpc.models.get.queryOptions());
   const settings = query.data;
@@ -338,7 +338,9 @@ function ModelsTab() {
 
   const selectedModel = defaultModel ?? settings?.defaultModel ?? "";
   const custom = customModel ?? settings?.customModel ?? "";
-  const cf = settings?.keys.find((item) => item.provider === "cloudflare");
+  const cf = settings?.keys.find(
+    (item) => item.provider === CLOUDFLARE_PROVIDER,
+  );
   const cfAccount = accountId ?? cf?.accountId ?? "";
   const cfGateway = gatewayId ?? cf?.gatewayId ?? "";
   const providers = PROVIDER_ORDER;
@@ -352,11 +354,13 @@ function ModelsTab() {
     (item) => item.id === selectedModel,
   );
   const neededProvider =
-    selectedModel !== "custom" && selectedMeta && !selectedMeta.available
+    selectedModel !== CUSTOM_MODEL_SENTINEL &&
+    selectedMeta &&
+    !selectedMeta.available
       ? selectedMeta.provider
       : undefined;
   const warning =
-    selectedModel === "custom"
+    selectedModel === CUSTOM_MODEL_SENTINEL
       ? settings?.warning
       : neededProvider
         ? missingProviderMessage(selectedModel)
@@ -381,17 +385,17 @@ function ModelsTab() {
     setSaved(false);
     try {
       const next = await client.models.save({
-        defaultModel: selectedModel || "custom",
+        defaultModel: selectedModel || CUSTOM_MODEL_SENTINEL,
         customModel: custom,
         keys: providers.map((provider) => ({
           provider,
           secret: drafts[provider]?.trim() || undefined,
           accountId:
-            provider === "cloudflare"
+            provider === CLOUDFLARE_PROVIDER
               ? cfAccount.trim() || undefined
               : undefined,
           gatewayId:
-            provider === "cloudflare"
+            provider === CLOUDFLARE_PROVIDER
               ? cfGateway.trim() || undefined
               : undefined,
         })),
@@ -420,7 +424,7 @@ function ModelsTab() {
       });
       queryClient.setQueryData(orpc.models.get.queryOptions().queryKey, next);
       await queryClient.invalidateQueries({ queryKey: orpc.me.key() });
-      if (provider === "cloudflare") {
+      if (provider === CLOUDFLARE_PROVIDER) {
         setAccountId("");
         setGatewayId("");
       }
@@ -470,10 +474,10 @@ function ModelsTab() {
                 ))}
               </optgroup>
             ))}
-            <option value="custom">Custom…</option>
+            <option value={CUSTOM_MODEL_SENTINEL}>Custom…</option>
           </select>
         </label>
-        {selectedModel === "custom" ? (
+        {selectedModel === CUSTOM_MODEL_SENTINEL ? (
           <label className="field">
             <span>Model id</span>
             <input
@@ -567,7 +571,9 @@ function ModelsTab() {
                     <label className="field">
                       <span className="sr-only">
                         {meta.label}{" "}
-                        {provider === "cloudflare" ? "API token" : "API key"}
+                        {provider === CLOUDFLARE_PROVIDER
+                          ? "API token"
+                          : "API key"}
                       </span>
                       <input
                         type="password"
@@ -587,7 +593,7 @@ function ModelsTab() {
                         }
                       />
                     </label>
-                    {provider === "cloudflare" ? (
+                    {provider === CLOUDFLARE_PROVIDER ? (
                       <>
                         <input
                           placeholder="32-character account id"
@@ -597,7 +603,7 @@ function ModelsTab() {
                           onChange={(e) => setAccountId(e.target.value)}
                         />
                         <input
-                          placeholder="AI Gateway id (default)"
+                          placeholder={`AI Gateway id (${DEFAULT_AI_GATEWAY_ID})`}
                           spellCheck={false}
                           autoComplete="off"
                           value={cfGateway}

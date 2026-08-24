@@ -1,9 +1,10 @@
+import { HOSTED_AI_ENV, HOSTED_AI_FLAG } from "@groxbot/contracts";
 import { describe, expect, it } from "vitest";
 import { bindEdgeAgentRuntime } from "./edge-runtime.js";
 import { CLOUDFLARE_DEEPSEEK_V4_FLASH } from "./gateway.js";
 import {
   createHostedAgentRuntime,
-  ScriptedAgentRuntime,
+  GatewayAgentRuntime,
 } from "./runtime-core.js";
 import { WorkersAiRuntime } from "./workers-ai.js";
 
@@ -133,17 +134,16 @@ describe("createHostedAgentRuntime", () => {
     expect(runtime).toBeInstanceOf(WorkersAiRuntime);
   });
 
-  it("falls back to scripted without a binding or REST keys", () => {
-    expect(createHostedAgentRuntime({})).toBeInstanceOf(ScriptedAgentRuntime);
+  it("fails closed without a binding or REST keys", () => {
+    expect(() => createHostedAgentRuntime({})).toThrow(/AI binding/);
   });
 });
 
 describe("bindEdgeAgentRuntime", () => {
   it("uses Workers AI for hosted overlays", () => {
     const runtime = bindEdgeAgentRuntime(
-      "scripted",
       {
-        env: { GROXBOT_HOSTED_AI: "1" },
+        env: { [HOSTED_AI_ENV]: HOSTED_AI_FLAG },
         model: CLOUDFLARE_DEEPSEEK_V4_FLASH,
         hosted: true,
       },
@@ -158,10 +158,16 @@ describe("bindEdgeAgentRuntime", () => {
     expect(runtime).toBeInstanceOf(WorkersAiRuntime);
   });
 
-  it("keeps scripted when hosted is off even if AI is bound", () => {
+  it("uses the REST gateway for BYOK overlays even if AI is bound", () => {
     const runtime = bindEdgeAgentRuntime(
-      "scripted",
-      { env: {}, model: "scripted", hosted: false },
+      {
+        env: {
+          CLOUDFLARE_ACCOUNT_ID: "acct",
+          CLOUDFLARE_AI_GATEWAY_TOKEN: "tok",
+        },
+        model: CLOUDFLARE_DEEPSEEK_V4_FLASH,
+        hosted: false,
+      },
       {
         ai: {
           async run() {
@@ -170,6 +176,6 @@ describe("bindEdgeAgentRuntime", () => {
         },
       },
     );
-    expect(runtime).toBeInstanceOf(ScriptedAgentRuntime);
+    expect(runtime).toBeInstanceOf(GatewayAgentRuntime);
   });
 });

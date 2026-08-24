@@ -6,6 +6,7 @@ import type {
   ProcessEvent,
   SandboxProvider,
 } from "@groxbot/adapter-kit";
+import { FAKE_SANDBOX } from "@groxbot/contracts";
 
 export class FakeSandboxProvider implements SandboxProvider {
   readonly boxes = new Map<string, ComputerRef>();
@@ -17,7 +18,7 @@ export class FakeSandboxProvider implements SandboxProvider {
     const ref: ComputerRef = {
       id: `fake-${request.botId}-${randomUUID().slice(0, 8)}`,
       botId: request.botId,
-      kind: "fake",
+      kind: FAKE_SANDBOX,
       providerRef: request.homePath,
     };
     this.boxes.set(ref.id, ref);
@@ -44,13 +45,13 @@ export class FakeSandboxProvider implements SandboxProvider {
 
 export function createSandboxProvider(kind: string): SandboxProvider {
   switch (kind) {
-    case "fake":
+    case FAKE_SANDBOX:
       return new FakeSandboxProvider();
     case "docker":
     case "e2b":
     case "desktop":
       throw new Error(
-        `${kind} sandbox is not implemented yet. Use SANDBOX_PROVIDER=fake for this scaffold. Agent hands go through Flue useSandbox(), not this port.`,
+        `${kind} sandbox is not implemented yet. Use SANDBOX_PROVIDER=${FAKE_SANDBOX} for this scaffold. Agent hands go through Flue useSandbox(), not this port.`,
       );
     default:
       throw new Error(`Unknown SANDBOX_PROVIDER "${kind}"`);

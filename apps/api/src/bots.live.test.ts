@@ -1,4 +1,5 @@
 import { ScriptedAgentRuntime } from "@groxbot/adapters/edge";
+import { FAKE_SANDBOX, IN_PROCESS_WAKEUP } from "@groxbot/contracts";
 import { createWakeHandlers } from "@groxbot/core";
 import { createDb } from "@groxbot/db/node";
 import { createGroxbotClient } from "@groxbot/rpc";
@@ -49,10 +50,10 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
     authUrl: origin,
     webOrigin: origin,
     corsOrigins: [origin],
-    sandboxProvider: "fake",
-    agentRuntime: "scripted",
+    sandboxProvider: FAKE_SANDBOX,
+    hostedAiBinding: true,
     production: false,
-    wakeupKind: "in-process",
+    wakeupKind: IN_PROCESS_WAKEUP,
   };
 
   let handles: AppHandles;

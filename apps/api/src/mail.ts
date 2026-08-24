@@ -1,4 +1,6 @@
-export type MailKind = "cloudflare" | "log";
+import { MAIL_CLOUDFLARE, MAIL_LOG, type MailKind } from "@groxbot/contracts";
+
+export type { MailKind };
 
 export interface SendEmailBinding {
   send(message: {
@@ -57,7 +59,7 @@ export function createMailer(env: MailEnv): Mailer {
   if (send && fromRaw) {
     const from = bindingFrom(fromRaw);
     return {
-      kind: "cloudflare",
+      kind: MAIL_CLOUDFLARE,
       sendMagicLink: async ({ email, url }) => {
         await send({
           to: email,
@@ -79,7 +81,7 @@ export function createMailer(env: MailEnv): Mailer {
     };
   }
   return {
-    kind: "log",
+    kind: MAIL_LOG,
     sendMagicLink: async ({ email, url }) => {
       requireMailInProduction(env);
       console.info(`[groxbot] Magic link for ${email}:\n${url}`);

@@ -1,6 +1,16 @@
 import type { AgentRunRequest } from "@groxbot/adapter-kit";
+import {
+  CLOUD_LANDING_ORIGIN,
+  CLOUDFLARE_PROVIDER,
+  DEFAULT_AI_GATEWAY_ID,
+  HOSTED_AI_ENV,
+  OPENROUTER_PROVIDER,
+} from "@groxbot/contracts";
 
-export const GATEWAY_PROVIDERS = ["openrouter", "cloudflare"] as const;
+export const GATEWAY_PROVIDERS = [
+  OPENROUTER_PROVIDER,
+  CLOUDFLARE_PROVIDER,
+] as const;
 export type GatewayProvider = (typeof GATEWAY_PROVIDERS)[number];
 
 /** Cloudflare Workers AI — https://developers.cloudflare.com/workers-ai/models/deepseek-v4-flash-0731/ */
@@ -21,7 +31,6 @@ export interface ChatMessage {
 }
 
 export interface GatewayEnv {
-  AGENT_RUNTIME?: string;
   AI_GATEWAY_PROVIDER?: string;
   AI_GATEWAY_MODEL?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
@@ -31,7 +40,7 @@ export interface GatewayEnv {
   CLOUDFLARE_AUTH_TOKEN?: string;
   CLOUDFLARE_AI_GATEWAY_ID?: string;
   CLOUDFLARE_GATEWAY_ID?: string;
-  GROXBOT_HOSTED_AI?: string;
+  [HOSTED_AI_ENV]?: string;
   OPENROUTER_API_KEY?: string;
   WEB_ORIGIN?: string;
 }
@@ -52,7 +61,7 @@ export function isGatewayProvider(value: string): value is GatewayProvider {
 }
 
 export function defaultGatewayModel(provider: GatewayProvider): string {
-  return provider === "cloudflare"
+  return provider === CLOUDFLARE_PROVIDER
     ? CLOUDFLARE_DEEPSEEK_V4_FLASH
     : OPENROUTER_DEEPSEEK_V4_FLASH;
 }
@@ -62,7 +71,7 @@ export function cloudflareChatUrl(accountId: string): string {
 }
 
 export function gatewayChatUrl(config: GatewayConfig): string {
-  if (config.provider === "openrouter") return OPENROUTER_CHAT_URL;
+  if (config.provider === OPENROUTER_PROVIDER) return OPENROUTER_CHAT_URL;
   if (!config.accountId) {
     throw new Error("CLOUDFLARE_ACCOUNT_ID is required");
   }
@@ -77,13 +86,13 @@ export function gatewayHeaders(
     authorization: `Bearer ${config.apiKey}`,
     "content-type": "application/json",
   };
-  if (config.provider === "openrouter") {
+  if (config.provider === OPENROUTER_PROVIDER) {
     headers["HTTP-Referer"] = config.referer;
     headers["X-Title"] = config.title;
     headers["X-OpenRouter-Title"] = config.title;
     return headers;
   }
-  headers["cf-aig-gateway-id"] = config.gatewayId ?? "default";
+  headers["cf-aig-gateway-id"] = config.gatewayId ?? DEFAULT_AI_GATEWAY_ID;
   if (metadata) {
     const packed: Record<string, string> = {};
     for (const [key, value] of Object.entries(metadata)) {
@@ -180,16 +189,16 @@ function resolveProvider(
   if (named) {
     if (!isGatewayProvider(named)) {
       throw new Error(
-        `Unknown AI_GATEWAY_PROVIDER "${named}". Use openrouter or cloudflare.`,
+        `Unknown AI_GATEWAY_PROVIDER "${named}". Use ${OPENROUTER_PROVIDER} or ${CLOUDFLARE_PROVIDER}.`,
       );
     }
     return named;
   }
   const cloudflareToken = cloudflareGatewayToken(source);
   if (read(source, "CLOUDFLARE_ACCOUNT_ID") && cloudflareToken) {
-    return "cloudflare";
+    return CLOUDFLARE_PROVIDER;
   }
-  if (read(source, "OPENROUTER_API_KEY")) return "openrouter";
+  if (read(source, "OPENROUTER_API_KEY")) return OPENROUTER_PROVIDER;
   throw new Error(
     "AI gateway is not configured. Set CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_API_TOKEN, or OPENROUTER_API_KEY.",
   );
@@ -202,8 +211,8 @@ export function loadGatewayConfig(
   const provider = resolveProvider(source, options.provider);
   const model =
     read(source, "AI_GATEWAY_MODEL") ?? defaultGatewayModel(provider);
-  const referer = read(source, "WEB_ORIGIN") ?? "https://groxbot.com";
-  if (provider === "cloudflare") {
+  const referer = read(source, "WEB_ORIGIN") ?? CLOUD_LANDING_ORIGIN;
+  if (provider === CLOUDFLARE_PROVIDER) {
     const accountId = read(source, "CLOUDFLARE_ACCOUNT_ID");
     const apiKey = cloudflareGatewayToken(source);
     if (!accountId || !apiKey) {
@@ -219,7 +228,7 @@ export function loadGatewayConfig(
       gatewayId:
         read(source, "CLOUDFLARE_AI_GATEWAY_ID") ??
         read(source, "CLOUDFLARE_GATEWAY_ID") ??
-        "default",
+        DEFAULT_AI_GATEWAY_ID,
       referer,
       title: "Groxbot",
       fetch: options.fetch ?? fetch,

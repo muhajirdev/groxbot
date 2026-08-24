@@ -55,8 +55,6 @@
     "API_URL": "https://api.groxbot.com",
     "WEB_ORIGIN": "https://app.groxbot.com",
     "CORS_ORIGINS": "https://app.groxbot.com,https://groxbot.com,https://www.groxbot.com",
-    "SANDBOX_PROVIDER": "fake",
-    "AGENT_RUNTIME": "flue",
-    "WAKEUP_KIND": "durable-object"
+    "SANDBOX_PROVIDER": "fake"
   }
 }

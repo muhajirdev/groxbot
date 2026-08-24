@@ -35,7 +35,7 @@ Nothing Polar-related. Billing-shaped pieces:
 - Product API is **oRPC** (`packages/contracts`). Web, desktop, and later mobile share that contract — not Better Auth client methods.
 - `MeSchema` has `workspaceId` and `isDeploymentOwner`. No plan, seats, or usage.
 - Self-host vs cloud is already a thing: packaged desktop talks to groxbot.com / api.groxbot.com; local Compose does not.
-- Tests are offline: `AGENT_RUNTIME=scripted`, `SANDBOX_PROVIDER=fake`. Polar must follow that rule.
+- Tests are offline: `ScriptedAgentRuntime`, `SANDBOX_PROVIDER=fake`. Polar must follow that rule.
 
 v1 does not need payments. Hosted computers and a paid groxbot.com are later, same bucket as store signing.
 
@@ -229,7 +229,7 @@ Do not ingest from `apps/web`. Polar’s usage plugin client endpoint is unsafe 
 - Default: `BillingPort` fake, no network.
 - Contract tests: checkout refused when Polar disabled vs entitlement unlimited when Polar disabled (self-host).
 - Webhook tests: fixture payloads + signature helper if we vendor verify; otherwise mock the port’s `applyCustomerState`.
-- Never `AGENT_RUNTIME` live, never Polar sandbox in CI.
+- Never live model APIs in CI, never Polar sandbox in CI.
 
 ## Risks
 

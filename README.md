@@ -12,7 +12,7 @@ Early scaffold: contracts, Neon Postgres (team data), one Think Durable Object p
 - **oRPC** — one contract for web, desktop, and mobile
 - Postgres + Drizzle — workspaces, threads, skills (Neon on Cloudflare)
 - **One queue per bot** — Durable Object `BotActor` (Think)
-- Hosted brains: Think on that actor (tests: scripted)
+- Hosted brains: Think on that actor (tests: ScriptedAgentRuntime)
 - **Routines** — Postgres cron metadata; the actor enqueues `routine.wakeup`
 - Better Auth (magic-link email, Google, GitHub)
 - **Cloudflare first:** Workers (landing, web, API) + Neon. Local = `wrangler dev` + Vite
@@ -63,7 +63,7 @@ Google / GitHub need client IDs in `.env`. Use **127.0.0.1**, not localhost:
 
 Email sign-in sends a magic link through the Worker **`EMAIL` binding** (`send_email` in `apps/api/wrangler.jsonc`). Set `EMAIL_FROM`. Local `wrangler dev` logs mail unless you set `"remote": true` on the binding. Tests stay on `mail: log`.
 
-Office chats on the Worker use Groxbot’s **hosted Cloudflare AI Gateway** through the **`AI` binding**. Workspace BYOK still wins. Without the binding or a pasted key, the Worker falls back to **scripted**. Tests stay on `scripted`.
+Office chats on the Worker use Groxbot’s **hosted Cloudflare AI Gateway** through the **`AI` binding**. Workspace BYOK still wins. Without the binding or a pasted key, the Worker fails closed. Tests construct `ScriptedAgentRuntime`.
 
 **Cloudflare AI Gateway** also accepts a workspace BYOK key in Settings → Models (account id, API token, gateway id). Hosted usage is counted per workspace. See [Cloudflare’s Pi guide](https://developers.cloudflare.com/ai-gateway/integrations/coding-agents/pi/).
 
@@ -82,9 +82,9 @@ pnpm deploy:web       # https://groxbot-web.qalam.workers.dev
 pnpm deploy:api       # https://groxbot-api.qalam.workers.dev/health
 ```
 
-API Worker secrets (`wrangler secret put` in `apps/api`): `DATABASE_URL` (Neon), `BETTER_AUTH_SECRET`, `ENCRYPTION_KEY`. Wakeup is a Durable Object per `botId`. Hosted brains use the Worker **`AI` binding**; workspace BYOK still uses the REST gateway. Tests stay **scripted**. `SANDBOX_PROVIDER=fake` until Computer/Sandbox factories are wired.
+API Worker secrets (`wrangler secret put` in `apps/api`): `DATABASE_URL` (Neon), `BETTER_AUTH_SECRET`, `ENCRYPTION_KEY`. Wakeup is a Durable Object per `botId`. Hosted brains use the Worker **`AI` binding**; workspace BYOK still uses the REST gateway. Tests construct `ScriptedAgentRuntime`. `SANDBOX_PROVIDER=fake` until Computer/Sandbox factories are wired.
 
-Advanced, off by default: a bot can let **Hermes** or **OpenClaw** connect outbound (`pnpm guest -- --url http://127.0.0.1:3101 --token … --kind hermes`). Enable it under Profile → Advanced. Default teammates still use the scripted/Pi runtime.
+Advanced, off by default: a bot can let **Hermes** or **OpenClaw** connect outbound (`pnpm guest -- --url http://127.0.0.1:3101 --token … --kind hermes`). Enable it under Profile → Advanced.
 
 Desktop (same web UI in a window):
 
