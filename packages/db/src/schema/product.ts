@@ -378,3 +378,31 @@ export const pluginConnections = pgTable(
     ),
   ],
 );
+
+/** Workspace-owned doc/slides/sheet. Source + state live on the App Durable Object. */
+export const apps = pgTable(
+  "apps",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    templateId: text("template_id").notNull(),
+    title: text("title").notNull(),
+    createdByBotId: text("created_by_bot_id").references(() => bots.id, {
+      onDelete: "set null",
+    }),
+    createdFromThreadId: text("created_from_thread_id").references(
+      () => threads.id,
+      { onDelete: "set null" },
+    ),
+    codeVersion: integer("code_version").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("apps_workspace_id").on(t.workspaceId)],
+);

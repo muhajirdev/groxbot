@@ -10,4 +10,5 @@
 - Guest runtimes (Hermes/OpenClaw) are opt-in per bot, off by default. They dial out to Groxbot; tests use a fake guest, not live Hermes/OpenClaw.
 - v1 surface is **web** (Vite + TanStack Router). Desktop is Electron around web. Mobile is Expo later. All three call **oRPC** via `@groxbot/rpc`.
 - See `docs/grok-bot-ui.md` and `docs/computers.md`.
+- Workspace apps (docs / slides / sheets) belong to the workspace, not a computer or thread. Factory templates stamp `client.js` / `server.js` into the App Durable Object; that copy plus document state are the source of truth. The UI is a sandboxed iframe; the parent bridges `load`/`save` over oRPC. Do not expose computer, thread, gadget, blueprint, or source in the product UI.
 - Desktop sandbox is owner opt-in on a trusted machine. Never enable it for hosted Computer / Sandbox / E2B.

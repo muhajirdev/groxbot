@@ -1,4 +1,8 @@
-import type { AgentRuntime, WakeupDriver } from "@groxbot/adapter-kit";
+import type {
+  AgentRuntime,
+  AppStore,
+  WakeupDriver,
+} from "@groxbot/adapter-kit";
 import type { Database } from "@groxbot/db";
 import type { GuestHub } from "./guest-hub.js";
 import { continueRun, sleepComputer } from "./run-continue.js";
@@ -8,6 +12,7 @@ export function createWakeHandlers(opts: {
   runtime: AgentRuntime;
   wakeup: WakeupDriver;
   guests?: GuestHub;
+  appStore?: AppStore;
   bindRuntime?: (overlay: {
     env: NodeJS.ProcessEnv;
     model: string;
@@ -32,6 +37,7 @@ export function createWakeHandlers(opts: {
         runtime: opts.runtime,
         runId,
         guests: opts.guests,
+        appStore: opts.appStore,
         bindRuntime: opts.bindRuntime,
         pluginTools: opts.pluginTools,
       });

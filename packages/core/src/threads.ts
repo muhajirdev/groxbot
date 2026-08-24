@@ -54,9 +54,16 @@ export function previewFromBlocks(blocks: unknown): string {
   return blocks
     .flatMap((block) => {
       if (!block || typeof block !== "object") return [];
-      const row = block as { kind?: unknown; text?: unknown };
-      if (row.kind !== "text" || typeof row.text !== "string") return [];
-      return [row.text];
+      const row = block as {
+        kind?: unknown;
+        text?: unknown;
+        title?: unknown;
+      };
+      if (row.kind === "text" && typeof row.text === "string")
+        return [row.text];
+      if (row.kind === "app" && typeof row.title === "string")
+        return [row.title];
+      return [];
     })
     .join(" ")
     .replace(/\s+/g, " ")

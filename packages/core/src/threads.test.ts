@@ -16,4 +16,13 @@ describe("previewFromBlocks", () => {
     expect(previewFromBlocks(null)).toBe("");
     expect(previewFromBlocks([{ kind: "meta", text: "x" }])).toBe("");
   });
+
+  it("surfaces an app title", () => {
+    expect(
+      previewFromBlocks([
+        { kind: "text", text: "Here you go" },
+        { kind: "app", appId: "a1", templateId: "slides", title: "Q3" },
+      ]),
+    ).toBe("Here you go Q3");
+  });
 });

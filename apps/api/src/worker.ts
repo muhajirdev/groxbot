@@ -8,8 +8,11 @@ import {
 import { createWakeHandlers } from "@groxbot/core";
 import { createNeonHttpDb } from "@groxbot/db/neon";
 import { createApp } from "./app.js";
+import { AppRuntime, DurableObjectAppStore } from "./app-runtime-do.js";
 import { DurableObjectWakeupDriver } from "./do-wakeup.js";
 import { agentRuntimeSource, loadEnv } from "./env.js";
+
+export { AppRuntime };
 
 export interface WorkerEnv {
   DATABASE_URL: string;
@@ -32,6 +35,7 @@ export interface WorkerEnv {
   GITHUB_CLIENT_SECRET?: string;
   COMPOSIO_API_KEY?: string;
   BOT_ACTOR: DurableObjectNamespace;
+  APP_RUNTIME: DurableObjectNamespace;
 }
 
 type StoredJob = {
@@ -58,10 +62,12 @@ export class BotActor extends DurableObject<WorkerEnv> {
       env.agentRuntime,
       agentRuntimeSource(env),
     );
+    const appStore = new DurableObjectAppStore(this.env.APP_RUNTIME);
     this.handlers = createWakeHandlers({
       db,
       runtime,
       wakeup,
+      appStore,
       bindRuntime: (overlay) => bindAgentRuntime(env.agentRuntime, overlay),
       pluginTools: (input) =>
         createPluginTools({
@@ -152,6 +158,7 @@ export default {
       db,
       close,
       wakeup: new DurableObjectWakeupDriver(env.BOT_ACTOR),
+      appStore: new DurableObjectAppStore(env.APP_RUNTIME),
     });
     return handles.app.fetch(request);
   },

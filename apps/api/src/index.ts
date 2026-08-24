@@ -30,6 +30,7 @@ async function main() {
         runtime,
         wakeup: handles.wakeup,
         guests: handles.guests,
+        appStore: handles.appStore,
         bindRuntime: (overlay) => bindAgentRuntime(env.agentRuntime, overlay),
         pluginTools: (input) =>
           createPluginTools({

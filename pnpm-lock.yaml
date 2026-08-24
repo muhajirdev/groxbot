@@ -39,6 +39,9 @@ importers:
       '@groxbot/adapters':
         specifier: workspace:*
         version: link:../../packages/adapters
+      '@groxbot/app-runtime':
+        specifier: workspace:*
+        version: link:../../packages/app-runtime
       '@groxbot/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -282,6 +285,9 @@ importers:
       '@groxbot/adapters':
         specifier: workspace:*
         version: link:../../packages/adapters
+      '@groxbot/app-runtime':
+        specifier: workspace:*
+        version: link:../../packages/app-runtime
       '@groxbot/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -323,6 +329,22 @@ importers:
       valibot:
         specifier: ^1.1.0
         version: 1.4.2(typescript@5.9.3)
+    devDependencies:
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@24.13.3)(tsx@4.23.12)
+
+  packages/app-runtime:
+    dependencies:
+      '@groxbot/adapter-kit':
+        specifier: workspace:*
+        version: link:../adapter-kit
+      '@groxbot/contracts':
+        specifier: workspace:*
+        version: link:../contracts
     devDependencies:
       typescript:
         specifier: ^5.9.2

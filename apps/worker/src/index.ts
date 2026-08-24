@@ -10,6 +10,7 @@ import {
   InProcessWakeupDriver,
   resolveAgentRuntimeKind,
 } from "@groxbot/adapters";
+import { MemoryAppStore } from "@groxbot/app-runtime";
 import {
   createWakeHandlers,
   GuestHub,
@@ -60,12 +61,14 @@ async function main() {
   const runtime = createAgentRuntime(agentRuntime);
   const wakeup = new InProcessWakeupDriver();
   const guests = new GuestHub();
+  const appStore = new MemoryAppStore();
   await wakeup.start(
     createWakeHandlers({
       db,
       runtime,
       wakeup,
       guests,
+      appStore,
       bindRuntime: (overlay) => bindAgentRuntime(agentRuntime, overlay),
       pluginTools: (input) => createPluginTools(input),
     }),

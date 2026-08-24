@@ -2,6 +2,7 @@ import type {
   Bot,
   ComputerStatus,
   ProductEvent,
+  TemplateId,
   ThreadMessage,
 } from "@groxbot/contracts";
 import { eq, useLiveQuery } from "@tanstack/react-db";
@@ -14,6 +15,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { AppPane } from "../components/AppPane";
 import { AppSettings } from "../components/AppSettings";
 import { AvatarMark } from "../components/Avatar";
 import { BotSettingsPane } from "../components/BotSettingsPane";
@@ -29,7 +31,19 @@ import {
 import { PluginsModal } from "../components/PluginsModal";
 import { ThreadList } from "../components/ThreadList";
 import { authClient } from "../lib/auth";
-import { isModelSetupError, humanizeRunError, userFacingError } from "../lib/errors";
+import {
+  botsCollection,
+  clearThreadStore,
+  messagesCollection,
+  patchBot,
+  peekBots,
+  threadMetaCollection,
+} from "../lib/collections";
+import {
+  humanizeRunError,
+  isModelSetupError,
+  userFacingError,
+} from "../lib/errors";
 import { AVATAR_COLORS, FIRST_TASK } from "../lib/jobs";
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
@@ -39,14 +53,7 @@ import {
   firstLiveBot,
   isArchivedBot,
 } from "../lib/session";
-import {
-  botsCollection,
-  clearThreadStore,
-  messagesCollection,
-  patchBot,
-  peekBots,
-  threadMetaCollection,
-} from "../lib/collections";
+import { applyTheme, readTheme, type Theme } from "../lib/theme";
 import {
   appendOptimisticMessage,
   computerKey,
@@ -60,7 +67,6 @@ import {
   touchBotPreview,
   upsertCachedMessage,
 } from "../lib/thread-cache";
-import { applyTheme, readTheme, type Theme } from "../lib/theme";
 import { formatListTime } from "../lib/time";
 import { Button, cn } from "../ui";
 
@@ -86,8 +92,11 @@ function asMessage(payload: Record<string, unknown>): ThreadMessage | null {
 
 function messageText(message: ThreadMessage): string {
   return message.blocks
-    .filter((block) => block.kind === "text")
-    .map((block) => block.text)
+    .flatMap((block) => {
+      if (block.kind === "text") return [block.text];
+      if (block.kind === "app") return [block.title];
+      return [];
+    })
     .join("\n");
 }
 
@@ -170,9 +179,14 @@ export function Chat(props: { botId: string }) {
   );
   const [pluginsOpen, setPluginsOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
-  const [paneMode, setPaneMode] = useState<"computer" | "settings" | null>(
-    null,
-  );
+  const [paneMode, setPaneMode] = useState<
+    "computer" | "settings" | "app" | null
+  >(null);
+  const [openApp, setOpenApp] = useState<{
+    id: string;
+    title: string;
+    templateId: TemplateId;
+  } | null>(null);
   const [archivedOpen, setArchivedOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>(readTheme());
   const [pokeView, setPokeView] = useState<{
@@ -180,23 +194,30 @@ export function Chat(props: { botId: string }) {
     peerName: string;
   } | null>(null);
   const [pokeMessages, setPokeMessages] = useState<ThreadMessage[]>([]);
-  const bot = bots.find((item) => item.id === props.botId) ?? firstLiveBot(bots);
+  const bot =
+    bots.find((item) => item.id === props.botId) ?? firstLiveBot(bots);
   const activeId = bot?.id;
   const draft = activeId ? (drafts[activeId] ?? "") : "";
-  const messagesQuery = useLiveQuery((q) => {
-    if (!activeId) return undefined;
-    return q
-      .from({ message: messagesCollection })
-      .where(({ message }) => eq(message.botId, activeId))
-      .orderBy(({ message }) => message.seq, "asc");
-  }, [activeId]);
-  const metaQuery = useLiveQuery((q) => {
-    if (!activeId) return undefined;
-    return q
-      .from({ meta: threadMetaCollection })
-      .where(({ meta }) => eq(meta.botId, activeId))
-      .findOne();
-  }, [activeId]);
+  const messagesQuery = useLiveQuery(
+    (q) => {
+      if (!activeId) return undefined;
+      return q
+        .from({ message: messagesCollection })
+        .where(({ message }) => eq(message.botId, activeId))
+        .orderBy(({ message }) => message.seq, "asc");
+    },
+    [activeId],
+  );
+  const metaQuery = useLiveQuery(
+    (q) => {
+      if (!activeId) return undefined;
+      return q
+        .from({ meta: threadMetaCollection })
+        .where(({ meta }) => eq(meta.botId, activeId))
+        .findOne();
+    },
+    [activeId],
+  );
   const computerQuery = useQuery({
     queryKey: computerKey(activeId ?? "_"),
     queryFn: () => client.computer.status({ botId: activeId ?? "" }),
@@ -285,6 +306,7 @@ export function Chat(props: { botId: string }) {
         await cacheCreatedBot(created);
         void queryClient.invalidateQueries({ queryKey: orpc.computers.key() });
         void navigate({ to: "/$botId", params: { botId: created.id } });
+        setOpenApp(null);
         setPaneMode("settings");
       } catch (caught) {
         if (!activeId) return;
@@ -354,7 +376,9 @@ export function Chat(props: { botId: string }) {
         if (!cancelled && activeId) {
           patchThreadMeta(activeId, {
             error:
-              caught instanceof Error ? caught.message : "Could not open thread",
+              caught instanceof Error
+                ? caught.message
+                : "Could not open thread",
           });
         }
       }
@@ -442,8 +466,7 @@ export function Chat(props: { botId: string }) {
     })().catch((caught: unknown) => {
       if (!cancelled) {
         patchThreadMeta(activeId, {
-          error:
-            caught instanceof Error ? caught.message : "Lost the thread",
+          error: caught instanceof Error ? caught.message : "Lost the thread",
         });
       }
     });
@@ -516,15 +539,31 @@ export function Chat(props: { botId: string }) {
     ((computer?.state === "running" || computer?.state === "booting") &&
       (computer.controlHolder === "bot" || Boolean(computer.usingBotId)));
 
-  const openComputer = useCallback(() => setPaneMode("computer"), []);
+  const openComputer = useCallback(() => {
+    setOpenApp(null);
+    setPaneMode("computer");
+  }, []);
+  const openDocument = useCallback(
+    (app: { appId: string; title: string; templateId: TemplateId }) => {
+      setOpenApp({
+        id: app.appId,
+        title: app.title,
+        templateId: app.templateId,
+      });
+      setPaneMode("app");
+    },
+    [],
+  );
 
   return (
     <div
       className={cn(
         "chat-shell relative grid h-screen bg-bg",
-        paneMode
-          ? "grid-cols-[280px_minmax(0,1fr)_320px]"
-          : "grid-cols-[280px_minmax(0,1fr)]",
+        paneMode === "app"
+          ? "grid-cols-[280px_minmax(260px,0.9fr)_minmax(420px,1.2fr)]"
+          : paneMode
+            ? "grid-cols-[280px_minmax(0,1fr)_320px]"
+            : "grid-cols-[280px_minmax(0,1fr)]",
       )}
     >
       <aside className="flex min-h-0 flex-col border-r border-line bg-bg-side px-2.5 pb-2">
@@ -645,7 +684,10 @@ export function Chat(props: { botId: string }) {
             <button
               className="no-drag flex items-center gap-2.5 border-0 bg-transparent p-0 text-inherit"
               type="button"
-              onClick={() => setPaneMode("settings")}
+              onClick={() => {
+                setOpenApp(null);
+                setPaneMode("settings");
+              }}
             >
               {bot ? (
                 <AvatarMark
@@ -680,9 +722,10 @@ export function Chat(props: { botId: string }) {
               aria-label="Computer"
               title="Computer"
               on={paneMode === "computer"}
-              onClick={() =>
-                setPaneMode(paneMode === "computer" ? null : "computer")
-              }
+              onClick={() => {
+                setOpenApp(null);
+                setPaneMode(paneMode === "computer" ? null : "computer");
+              }}
             >
               <MonitorIcon />
             </Button>
@@ -725,7 +768,7 @@ export function Chat(props: { botId: string }) {
                 ? {
                     title: working
                       ? draft || lastHumanBefore(messages, messages.length)
-                      : computer?.name ?? "Computer",
+                      : (computer?.name ?? "Computer"),
                     status: statusLabel,
                     done: !working && computer?.controlHolder !== "user",
                     preview:
@@ -738,6 +781,7 @@ export function Chat(props: { botId: string }) {
                 : null
             }
             onOpenComputer={openComputer}
+            onOpenApp={openDocument}
             onOpenPokeThread={(threadId, peerName) =>
               setPokeView({ threadId, peerName })
             }
@@ -820,6 +864,17 @@ export function Chat(props: { botId: string }) {
           )}
         </div>
       </section>
+      {paneMode === "app" && openApp ? (
+        <AppPane
+          appId={openApp.id}
+          title={openApp.title}
+          templateId={openApp.templateId}
+          onCollapse={() => {
+            setPaneMode(null);
+            setOpenApp(null);
+          }}
+        />
+      ) : null}
       {paneMode === "computer" && bot ? (
         <ComputerPane
           bot={bot}
@@ -827,7 +882,10 @@ export function Chat(props: { botId: string }) {
           computerPending={computerQuery.isPending && !computer}
           statusLabel={statusLabel}
           working={working}
-          onSettings={() => setPaneMode("settings")}
+          onSettings={() => {
+            setOpenApp(null);
+            setPaneMode("settings");
+          }}
           onCollapse={() => setPaneMode(null)}
           onTakeover={() => {
             if (!bot) return;

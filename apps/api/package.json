@@ -15,6 +15,7 @@
     "@hono/node-server": "^1.19.1",
     "@groxbot/adapter-kit": "workspace:*",
     "@groxbot/adapters": "workspace:*",
+    "@groxbot/app-runtime": "workspace:*",
     "@groxbot/auth": "workspace:*",
     "@groxbot/contracts": "workspace:*",
     "@groxbot/core": "workspace:*",

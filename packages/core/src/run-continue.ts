@@ -1,4 +1,4 @@
-import type { AgentRuntime } from "@groxbot/adapter-kit";
+import type { AgentRuntime, AppStore } from "@groxbot/adapter-kit";
 import type { MessageBlock, RunStatus } from "@groxbot/contracts";
 import {
   bots,
@@ -10,6 +10,8 @@ import {
   threads,
 } from "@groxbot/db";
 import { asc, eq } from "drizzle-orm";
+import { parseAppIntent } from "./app-intent.js";
+import { createWorkspaceApp } from "./apps.js";
 import {
   activeBotIdsOnComputer,
   fanoutComputerUpdated,
@@ -65,6 +67,7 @@ export async function continueRun(opts: {
         ) => Promise<string>;
       }
     | undefined;
+  appStore?: AppStore;
 }): Promise<void> {
   const { db, runId, guests } = opts;
   const [run] = await db.select().from(runs).where(eq(runs.id, runId)).limit(1);
@@ -285,6 +288,24 @@ export async function continueRun(opts: {
   const seq = await nextSeq(db, messages, run.threadId);
   const assistantId = newId();
   const blocks: MessageBlock[] = [{ kind: "text", text: reply || "Done." }];
+  const intent = parseAppIntent(task.prompt);
+  if (intent && opts.appStore) {
+    const app = await createWorkspaceApp({
+      db,
+      store: opts.appStore,
+      workspaceId: run.workspaceId,
+      templateId: intent.templateId,
+      title: intent.title,
+      createdByBotId: bot.id,
+      createdFromThreadId: run.threadId,
+    });
+    blocks.push({
+      kind: "app",
+      appId: app.id,
+      templateId: app.templateId,
+      title: app.title,
+    });
+  }
   await db.insert(messages).values({
     id: assistantId,
     threadId: run.threadId,
@@ -358,10 +379,11 @@ function historyTurn(
 ): { role: "user" | "assistant" | "system"; content: string } {
   const blocks = row.blocks as MessageBlock[];
   const text = blocks
-    .filter(
-      (block): block is { kind: "text"; text: string } => block.kind === "text",
-    )
-    .map((block) => block.text)
+    .flatMap((block) => {
+      if (block.kind === "text") return [block.text];
+      if (block.kind === "app") return [`[${block.templateId}] ${block.title}`];
+      return [];
+    })
     .join("\n");
   if (row.actorType === "human") return { role: "user", content: text };
   if (row.actorType === "bot" && row.actorId === botId) {

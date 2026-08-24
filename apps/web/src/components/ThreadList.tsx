@@ -1,8 +1,9 @@
-import type { ThreadMessage } from "@groxbot/contracts";
+import type { TemplateId, ThreadMessage } from "@groxbot/contracts";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { dayKey, formatDaySep } from "../lib/time";
 import { cn } from "../ui";
+import { AppCard } from "./AppCard";
 import { ComputerCard } from "./ComputerCard";
 
 export type ThreadComputerCard = {
@@ -12,6 +13,12 @@ export type ThreadComputerCard = {
   preview?: string;
 };
 
+export type ThreadAppCard = {
+  appId: string;
+  templateId: TemplateId;
+  title: string;
+};
+
 type ThreadContext = {
   botId: string;
   names: Record<string, string>;
@@ -19,6 +26,7 @@ type ThreadContext = {
   empty: boolean;
   computer: ThreadComputerCard | null;
   onOpenComputer: () => void;
+  onOpenApp?: (app: ThreadAppCard) => void;
   onOpenPokeThread?: (threadId: string, peerName: string) => void;
 };
 
@@ -29,6 +37,16 @@ function pokeThreadRef(message: ThreadMessage): {
   const block = message.blocks.find((item) => item.kind === "poke_thread");
   if (block?.kind !== "poke_thread") return null;
   return { threadId: block.threadId, peerName: block.peerName };
+}
+
+function appRef(message: ThreadMessage): ThreadAppCard | null {
+  const block = message.blocks.find((item) => item.kind === "app");
+  if (block?.kind !== "app") return null;
+  return {
+    appId: block.appId,
+    templateId: block.templateId,
+    title: block.title,
+  };
 }
 
 function messageText(message: ThreadMessage): string {
@@ -83,7 +101,8 @@ function itemContent(
     ? context.names[message.actorId ?? ""] || "Teammate"
     : null;
   const pokeRef = pokeThreadRef(message);
-  if (!text && !pokeRef && !showDay) return <div className="h-0" />;
+  const opened = appRef(message);
+  if (!text && !pokeRef && !opened && !showDay) return <div className="h-0" />;
   return (
     <div className="px-7 pb-2.5">
       {showDay ? (
@@ -121,6 +140,15 @@ function itemContent(
           ) : null}
         </div>
       ) : null}
+      {opened && context.onOpenApp ? (
+        <div className={text || pokeRef ? "mt-2" : undefined}>
+          <AppCard
+            templateId={opened.templateId}
+            title={opened.title}
+            onOpen={() => context.onOpenApp?.(opened)}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -141,6 +169,7 @@ export function ThreadList(props: {
   computer: ThreadComputerCard | null;
   working: string;
   onOpenComputer: () => void;
+  onOpenApp?: (app: ThreadAppCard) => void;
   onOpenPokeThread?: (threadId: string, peerName: string) => void;
 }) {
   const listRef = useRef<VirtuosoHandle>(null);
@@ -149,7 +178,9 @@ export function ThreadList(props: {
     () =>
       props.messages.filter(
         (message) =>
-          messageText(message).length > 0 || Boolean(pokeThreadRef(message)),
+          messageText(message).length > 0 ||
+          Boolean(pokeThreadRef(message)) ||
+          Boolean(appRef(message)),
       ),
     [props.messages],
   );
@@ -161,6 +192,7 @@ export function ThreadList(props: {
       empty: props.empty,
       computer: props.computer,
       onOpenComputer: props.onOpenComputer,
+      onOpenApp: props.onOpenApp,
       onOpenPokeThread: props.onOpenPokeThread,
     }),
     [
@@ -170,6 +202,7 @@ export function ThreadList(props: {
       props.empty,
       props.computer,
       props.onOpenComputer,
+      props.onOpenApp,
       props.onOpenPokeThread,
     ],
   );

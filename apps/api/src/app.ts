@@ -1,5 +1,9 @@
-import { createSandboxProvider, createWakeupDriver } from "@groxbot/adapters/edge";
-import type { WakeupDriver } from "@groxbot/adapter-kit";
+import type { AppStore, WakeupDriver } from "@groxbot/adapter-kit";
+import {
+  createSandboxProvider,
+  createWakeupDriver,
+} from "@groxbot/adapters/edge";
+import { MemoryAppStore } from "@groxbot/app-runtime";
 import { createAuth } from "@groxbot/auth";
 import { groxbotCookieDomain } from "@groxbot/contracts";
 import { GuestHub, handleGuestRequest } from "@groxbot/core";
@@ -26,6 +30,7 @@ export function createApp(
     db: Database;
     close: () => Promise<void>;
     wakeup?: WakeupDriver;
+    appStore?: AppStore;
   },
 ): AppHandles {
   const oauth = oauthCredentials(env);
@@ -44,6 +49,7 @@ export function createApp(
   const wakeup = opts.wakeup ?? createWakeupDriver(env.workerUrl);
   const sandbox = createSandboxProvider(env.sandboxProvider);
   const guests = new GuestHub();
+  const appStore = opts.appStore ?? new MemoryAppStore();
 
   const app = new Hono();
   app.use(
@@ -63,6 +69,7 @@ export function createApp(
     wakeup,
     sandbox,
     guests,
+    appStore,
     env,
     close: async () => {
       guests.stop();

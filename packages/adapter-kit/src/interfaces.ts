@@ -74,6 +74,13 @@ export interface AgentRuntime {
   abort(runId: string): Promise<void>;
 }
 
+/** Per-app Durable Object (or in-memory stand-in). Source + document state. */
+export interface AppStore {
+  init(appId: string, templateId: string): Promise<void>;
+  uiBundle(appId: string): Promise<{ jsCode: string } | null>;
+  call(appId: string, method: string, args: unknown[]): Promise<unknown>;
+}
+
 export class GuestOfflineError extends Error {
   constructor(botId: string) {
     super(`Guest runtime for ${botId} is not connected`);

@@ -1,3 +1,5 @@
+export * from "./app-intent.js";
+export * from "./apps.js";
 export * from "./computer.js";
 export * from "./computer-desk.js";
 export * from "./guest-http.js";

@@ -67,6 +67,7 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
         runtime: new ScriptedAgentRuntime(),
         wakeup: handles.wakeup,
         guests: handles.guests,
+        appStore: handles.appStore,
       }),
     );
   });
@@ -625,6 +626,88 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
       false,
     );
   }, 20_000);
+
+  it("stamps a deck when asked to make slides", async () => {
+    const email = `apps-${Date.now()}@example.com`;
+    const signUp = await handles.app.request(
+      new Request(`${origin}/api/auth/sign-up/email`, {
+        method: "POST",
+        headers: {
+          origin,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "Apps Tester",
+          email,
+          password: "password1",
+        }),
+      }),
+    );
+    cookie = cookieHeader(signUp, cookie);
+    expect(signUp.status, await signUp.text()).toBe(200);
+
+    const rpc = client();
+    await rpc.workspaces.create({ name: "Apps office" });
+    const bot = await rpc.bots.create({ name: "Reja" });
+    await rpc.threads.send({
+      botId: bot.id,
+      text: "make me slides about Q3",
+    });
+
+    let appId = "";
+    let title = "";
+    const iterator = (await rpc.threads.subscribe({
+      botId: bot.id,
+      cursor: -1,
+    })) as AsyncGenerator<{
+      type: string;
+      payload: Record<string, unknown>;
+    }>;
+    const stop = setTimeout(() => void iterator.return(undefined), 8_000);
+    try {
+      for await (const event of iterator) {
+        if (event.type !== "message.created") continue;
+        const blocks = event.payload.blocks;
+        if (!Array.isArray(blocks)) continue;
+        for (const block of blocks) {
+          if (
+            block &&
+            typeof block === "object" &&
+            "kind" in block &&
+            block.kind === "app" &&
+            "appId" in block &&
+            typeof block.appId === "string"
+          ) {
+            appId = block.appId;
+            title =
+              "title" in block && typeof block.title === "string"
+                ? block.title
+                : "";
+          }
+        }
+        if (appId) break;
+      }
+    } finally {
+      clearTimeout(stop);
+      await iterator.return(undefined);
+    }
+
+    expect(appId).not.toBe("");
+    expect(title).toBe("Q3");
+    const app = await rpc.apps.get({ appId });
+    expect(app.templateId).toBe("slides");
+    expect(app.title).toBe("Q3");
+    const listed = await rpc.apps.list();
+    expect(listed.some((item) => item.id === appId)).toBe(true);
+    const state = (await rpc.apps.call({
+      appId,
+      method: "load",
+      args: [],
+    })) as { slides?: Array<{ title?: string }> };
+    expect(state.slides?.[0]?.title).toBe("Q3");
+    const bundle = await rpc.apps.uiBundle({ appId });
+    expect(bundle?.jsCode).toContain("gadget.load");
+  }, 15_000);
 });
 
 async function collectOffice(

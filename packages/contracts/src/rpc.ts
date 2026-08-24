@@ -1,9 +1,11 @@
 import { eventIterator, oc } from "@orpc/contract";
 import * as z from "zod";
 import {
+  AppSchema,
   BotSchema,
   ComputerListItemSchema,
   ComputerStatusSchema,
+  CreateAppInput,
   CreateBotInput,
   CreateWorkspaceInput,
   GuestConnectSchema,
@@ -128,6 +130,23 @@ export const appContract = oc.router({
         }),
       )
       .output(RoutineSchema),
+  },
+  apps: {
+    list: oc.output(z.array(AppSchema)),
+    get: oc.input(z.object({ appId: Id })).output(AppSchema),
+    create: oc.input(CreateAppInput).output(AppSchema),
+    uiBundle: oc
+      .input(z.object({ appId: Id }))
+      .output(z.object({ jsCode: z.string() }).nullable()),
+    call: oc
+      .input(
+        z.object({
+          appId: Id,
+          method: z.string().min(1).max(80),
+          args: z.array(z.unknown()).max(8).default([]),
+        }),
+      )
+      .output(z.unknown()),
   },
 });
 

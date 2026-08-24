@@ -22,12 +22,20 @@
         "name": "BOT_ACTOR",
         "class_name": "BotActor",
       },
+      {
+        "name": "APP_RUNTIME",
+        "class_name": "AppRuntime",
+      },
     ],
   },
   "migrations": [
     {
       "tag": "v1",
       "new_sqlite_classes": ["BotActor"],
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["AppRuntime"],
     },
   ],
   "vars": {
