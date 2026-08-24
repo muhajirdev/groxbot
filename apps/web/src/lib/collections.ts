@@ -1,4 +1,9 @@
-import type { Bot, PluginConnection, ThreadMessage } from "@groxbot/contracts";
+import type {
+  Bot,
+  PluginConnection,
+  ThreadMessage,
+  WorkspaceApp,
+} from "@groxbot/contracts";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
 import {
   createCollection,
@@ -47,6 +52,20 @@ export const botsCollection = createCollection(
 export function peekBots(): Bot[] {
   return [...botsCollection.values()];
 }
+
+export const appsCollection = createCollection(
+  queryCollectionOptions<WorkspaceApp>({
+    id: "workspace-apps",
+    queryClient,
+    queryKey: orpc.apps.list.queryOptions().queryKey,
+    queryFn: () => client.apps.list(),
+    getKey: (app) => app.id,
+    staleTime: 15_000,
+    gcTime: 30 * 60_000,
+    retry: false,
+    refetchOnWindowFocus: false,
+  }),
+);
 
 export const pluginsCollection = createCollection(
   queryCollectionOptions<PluginConnection>({

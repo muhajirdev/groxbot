@@ -61,6 +61,15 @@ export const UpdateBotInput = z.object({
   model: z.string().max(200).optional(),
 });
 
+/** Sidebar chrome. Identity still lives on the App Durable Object + chat card. */
+export const WorkspaceAppSchema = z.object({
+  id: Id,
+  templateId: TemplateId,
+  title: z.string(),
+  createdAt: z.string(),
+});
+export type WorkspaceApp = z.infer<typeof WorkspaceAppSchema>;
+
 export const MessageBlockSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("text"), text: z.string() }),
   z.object({ kind: z.literal("meta"), text: z.string() }),

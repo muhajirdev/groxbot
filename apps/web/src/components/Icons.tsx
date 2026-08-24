@@ -96,6 +96,15 @@ export function CollapseIcon(props: IconProps) {
   );
 }
 
+export function FileIcon(props: IconProps) {
+  return (
+    <Svg className={props.className}>
+      <path d="M14 3H8a2 2 0 00-2 2v14a2 2 0 002 2h8a2 2 0 002-2V9z" />
+      <path d="M14 3v6h6" />
+    </Svg>
+  );
+}
+
 export function FilterIcon(props: IconProps) {
   return (
     <Svg className={props.className}>

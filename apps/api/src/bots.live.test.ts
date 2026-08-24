@@ -694,6 +694,10 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
 
     expect(appId).not.toBe("");
     expect(title).toBe("Q3");
+    const listed = await rpc.apps.list();
+    expect(listed.some((app) => app.id === appId && app.title === "Q3")).toBe(
+      true,
+    );
   }, 15_000);
 });
 

@@ -4,6 +4,7 @@ import type {
   ProductEvent,
   TemplateId,
   ThreadMessage,
+  WorkspaceApp,
 } from "@groxbot/contracts";
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -22,6 +23,7 @@ import { BotSettingsPane } from "../components/BotSettingsPane";
 import { ComputerPane } from "../components/ComputerPane";
 import {
   ChevronLeftIcon,
+  FileIcon,
   MicIcon,
   MonitorIcon,
   PlugIcon,
@@ -30,8 +32,10 @@ import {
 } from "../components/Icons";
 import { PluginsModal } from "../components/PluginsModal";
 import { ThreadList } from "../components/ThreadList";
+import { APP_KIND_COLOR, APP_KIND_LABEL } from "../lib/app-kind";
 import { authClient } from "../lib/auth";
 import {
+  appsCollection,
   botsCollection,
   clearThreadStore,
   messagesCollection,
@@ -68,6 +72,7 @@ import {
   upsertCachedMessage,
 } from "../lib/thread-cache";
 import { formatListTime } from "../lib/time";
+import { mergeWorkspaceApps } from "../lib/workspace-apps";
 import { Button, cn } from "../ui";
 
 function asMessage(payload: Record<string, unknown>): ThreadMessage | null {
@@ -158,11 +163,48 @@ function BotRow(props: {
   );
 }
 
+function AppRow(props: {
+  item: WorkspaceApp;
+  selected: boolean;
+  onOpen: () => void;
+}) {
+  const item = props.item;
+  return (
+    <button
+      type="button"
+      className={cn(
+        "chat-conv grid min-w-0 grid-cols-[40px_minmax(0,1fr)] items-center gap-2.5 rounded-[14px] border-0 bg-transparent px-2 py-2.5 text-left text-inherit",
+        props.selected && "bg-selected",
+      )}
+      onClick={props.onOpen}
+    >
+      <span
+        className="grid size-8 shrink-0 place-items-center rounded-[10px] text-white"
+        style={{ background: APP_KIND_COLOR[item.templateId] }}
+      >
+        <FileIcon />
+      </span>
+      <span className="chat-conv-copy min-w-0">
+        <span className="flex items-baseline justify-between gap-2">
+          <span className="truncate text-sm font-semibold">{item.title}</span>
+          <span className="shrink-0 text-[11px] whitespace-nowrap text-muted">
+            {formatListTime(item.createdAt)}
+          </span>
+        </span>
+        <div className="mt-0.5 overflow-hidden text-xs text-ellipsis whitespace-nowrap text-muted">
+          {APP_KIND_LABEL[item.templateId]}
+        </div>
+      </span>
+    </button>
+  );
+}
+
 export function Chat(props: { botId: string }) {
   const navigate = useNavigate();
   const router = useRouter();
   const queryClient = useQueryClient();
   const botsQuery = useLiveQuery((q) => q.from({ bot: botsCollection }));
+  const appsQuery = useLiveQuery((q) => q.from({ app: appsCollection }));
   const meQuery = useQuery(orpc.me.queryOptions());
   const liveBotsRows = botsQuery.data ?? [];
   const peekedBots = peekBots();
@@ -258,10 +300,47 @@ export function Chat(props: { botId: string }) {
       );
   }, [bots, matchesSearch]);
   const showArchived = archivedOpen || Boolean(q) || Boolean(bot?.archivedAt);
+  const listedApps = appsQuery.data ?? [];
+  const workspaceApps = useMemo(
+    () => mergeWorkspaceApps(listedApps, messages),
+    [listedApps, messages],
+  );
+  const visibleApps = useMemo(() => {
+    return workspaceApps.filter((item) => {
+      if (!q) return true;
+      return (
+        item.title.toLowerCase().includes(q) ||
+        APP_KIND_LABEL[item.templateId].toLowerCase().includes(q)
+      );
+    });
+  }, [workspaceApps, q]);
 
   useEffect(() => {
     if (bot?.archivedAt) setArchivedOpen(true);
   }, [bot?.archivedAt]);
+
+  const liveAppKey = useMemo(
+    () =>
+      messages
+        .flatMap((message) =>
+          message.blocks.flatMap((block) =>
+            block.kind === "app" ? [block.appId] : [],
+          ),
+        )
+        .join("|"),
+    [messages],
+  );
+  useEffect(() => {
+    if (!liveAppKey) return;
+    void queryClient.invalidateQueries({
+      queryKey: orpc.apps.list.queryOptions().queryKey,
+    });
+  }, [liveAppKey, queryClient]);
+
+  useEffect(() => {
+    if (!me?.workspaceId) return;
+    void appsCollection.utils.refetch();
+  }, [me?.workspaceId]);
 
   function setDraft(text: string) {
     if (!activeId) return;
@@ -612,6 +691,26 @@ export function Chat(props: { botId: string }) {
           ))}
           {liveBots.length === 0 && archivedBots.length === 0 ? (
             <p className="empty">No teammates yet.</p>
+          ) : null}
+          {visibleApps.length > 0 ? (
+            <div className="mt-2">
+              <div className="px-2 py-2 text-[12px] text-muted">Apps</div>
+              {visibleApps.map((item) => (
+                <AppRow
+                  key={item.id}
+                  item={item}
+                  selected={paneMode === "app" && openApp?.id === item.id}
+                  onOpen={() => {
+                    setPokeView(null);
+                    openDocument({
+                      appId: item.id,
+                      title: item.title,
+                      templateId: item.templateId,
+                    });
+                  }}
+                />
+              ))}
+            </div>
           ) : null}
           {archivedBots.length > 0 ? (
             <div className="mt-2">

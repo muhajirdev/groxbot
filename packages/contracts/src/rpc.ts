@@ -19,6 +19,7 @@ import {
   RoutineSchema,
   ToolkitSlug,
   UpdateBotInput,
+  WorkspaceAppSchema,
   WorkspaceInvitationSchema,
   WorkspaceInviteSchema,
   WorkspaceSchema,
@@ -79,6 +80,10 @@ export const appContract = oc.router({
   },
   computers: {
     list: oc.output(z.array(ComputerListItemSchema)),
+  },
+  apps: {
+    /** Listing chrome from chat cards. Not load/save — the editor is the Durable Object. */
+    list: oc.output(z.array(WorkspaceAppSchema)),
   },
   computer: {
     status: oc.input(botId).output(ComputerStatusSchema),

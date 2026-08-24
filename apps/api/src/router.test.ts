@@ -103,4 +103,20 @@ describe("oRPC", () => {
       code: "UNAUTHORIZED",
     });
   });
+
+  it("requires a session to list apps", async () => {
+    const app = new Hono();
+    mountRpc(app, { env } as unknown as RpcContext);
+    const client = createGroxbotClient({
+      baseUrl: "http://groxbot.test",
+      fetch: async (input, init) => {
+        const request =
+          input instanceof Request ? input : new Request(String(input), init);
+        return app.request(request);
+      },
+    });
+    await expect(client.apps.list()).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+  });
 });

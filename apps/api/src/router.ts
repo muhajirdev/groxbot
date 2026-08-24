@@ -9,6 +9,7 @@ import {
   getBotComputer,
   getPokeThread,
   listEventsAfter,
+  listWorkspaceApps,
   loadModelSettings,
   ModelSettingsError,
   PokeError,
@@ -286,6 +287,12 @@ export const appRouter = os.router({
     list: os.computers.list.handler(async ({ context }) => {
       const actor = await requireActor(context);
       return listComputers(context, actor);
+    }),
+  },
+  apps: {
+    list: os.apps.list.handler(async ({ context }) => {
+      const actor = await requireActor(context);
+      return listWorkspaceApps(context.db, actor.workspaceId);
     }),
   },
   computer: {
