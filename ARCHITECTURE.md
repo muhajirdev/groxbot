@@ -17,6 +17,7 @@ UI: copy Grok Bot simplicity — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). R
           +---- BotActor [name = botId]     <-- Think
           |       queue / schedule / one turn
           |       session per thread (office, poke)
+          |       computer = this.workspace (sell this)
           |
           '---- AppRuntime [name = appId]   <-- not Think
                   document + Gadget facet
@@ -28,14 +29,14 @@ UI: copy Grok Bot simplicity — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). R
 | Bot | `botId` | The brain. One Think Durable Object. |
 | Thread | Postgres `threadId` | A Think session on that bot. Not a Durable Object. |
 | App | `appId` | Live doc. Own Durable Object. |
-| Computer | — | **Not a product.** Removed. |
+| Computer | `botId` | Built into the bot. Think `this.workspace`. Sell it. Not a second Durable Object. |
 
 ## Locked
 
 - **Durable = bot = Think.** `getAgentByName(env.BOT_ACTOR, botId)`.
 - **One Think, many sessions.** Office (v1 home thread) is the default session. Extra office threads later are more sessions on the same actor. A poke is still that bot’s session; the other teammate has their own Think.
 - **Each app has its own Durable Object.** Talk → chat card → Open. Listing from cards, not a Postgres apps table.
-- **No Computer.** No desk row, no shared vs isolated hire, no takeover, no `computer.sleep`. Files later are Think workspace on the bot actor.
+- **Computer is the bot.** Each teammate has a computer (Think workspace). Sell that. No `computers` table, no shared vs isolated hire, no takeover, no `computer.sleep`, no Computer DO.
 - **Postgres** is the team catalog (auth, bots, threads, messages, skills). Office UI is oRPC, not Think’s `useAgentChat`.
 - **One queue per bot.** Two humans in one office share it. Two bots in a poke are two queues.
 - Product is **Cloudflare Workers** + Neon. Self-host / Flue / Pi are not v1.
@@ -74,4 +75,4 @@ Clients share **one oRPC contract**. Desktop loads the web app. Expo later.
 
 ## Out of v1
 
-Computer as a product, gadgets, gatekeepers, Rivet/agentOS as a deploy target, Flue, Pi, Think as the office UI, Polar billing, multi-bot rooms.
+A separate Computer Durable Object / `computers` table, gadgets, gatekeepers, Rivet/agentOS as a deploy target, Flue, Pi, Think as the office UI, Polar billing, multi-bot rooms.

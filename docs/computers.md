@@ -1,7 +1,14 @@
 # Computers
 
-**Removed as a product.** There is no `computers` table, no desk RPC, no takeover pane.
+Each bot **has a computer**. Sell that. Architecturally it is already the bot: Think `this.workspace` on `BotActor` (instance name = `botId`).
 
-A bot is Think (`BotActor` named `botId`). Files, when we need them, are that actor’s Think workspace — not a shared workspace computer and not a second Durable Object.
+The office UI may show `{Bot}'s screen` and **Open computer** from a chat card. That pane is this teammate’s workspace — not a second identity you hire.
 
-Live docs / slides / sheets are `AppRuntime` Durable Objects, not computers.
+Do **not** bring back:
+
+- a `computers` table or `bots.computerId`
+- shared vs isolated hire
+- `control_holder` / takeover / `computer.sleep`
+- `computers.list` or a Computer Durable Object named by `computerId`
+
+Hands later are still Think workspace on that bot, not a Computer DO. Live docs / slides / sheets are `AppRuntime` Durable Objects, not computers.

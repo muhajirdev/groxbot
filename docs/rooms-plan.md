@@ -23,20 +23,16 @@ No group rooms. A bot may **poke** another bot. That conversation lives in a pai
 ## v1 — office
 
 ```
-  Human ---- office thread ---- Bot actor ---- bound computer
-                                               (default computer)
+  Human ---- office thread ---- Bot actor (computer = this.workspace)
 ```
 
 - Actor = the bot, never the room.
-- Computer = a workspace primitive. Bots bind to one. Default computer is shared. New computer = isolated sandbox.
-- GUI on a shared computer is one mouse (`control_holder`). Two bots on the default computer can think in parallel; they take turns clicking.
+- Computer is built into the bot. Do not add a `computers` table, shared desk, or isolated hire.
 - Extra humans can wait: `thread_members` + message `actor_type` / `actor_id` already exist. No extra UX.
 
 ## Later A — two humans, one office
 
-Same actor, same computer, same thread. Both humans send; both rings hit **one** queue so two people do not start two Pis.
-
-Computer lease (`control_holder`) is on the **computer**, not the bot: who has the screen.
+Same actor, same computer (built into the bot), same thread. Both humans send; both rings hit **one** queue so two people do not start two turns.
 
 Realtime stays `threadId` (today the API keys off `botId` and looks up that thread).
 
@@ -52,34 +48,33 @@ Product work then, not now:
 - UI: `focusedBotId` for the computer pane.
 
 ```
-  Human ---- group thread ---- Bot A actor ---- computer (default or private)
-                         +---- Bot B actor ---- same default, or another computer
+  Human ---- group thread ---- Bot A actor (A's computer)
+                         +---- Bot B actor (B's computer)
 ```
 
-Two bots in one room **can** think in parallel (two actors). If they share the default computer, GUI is serialized. If they have two computers, two mice.
+Two bots in one room **can** think in parallel (two actors, two computers). Each computer is that bot.
 
 ## Can one actor run two rooms in parallel?
 
-**No — not on one computer.** One bot = one body = one VM.
+**No.** One bot = one body = one computer.
 
 ```
   Room 1  --\                     serial queue
-  Room 2  --+-->  Bot A actor  -->  one Pi, one computer
+  Room 2  --+-->  Bot A actor  -->  one turn, one computer
 ```
 
 If the same bot is later in two rooms, **enqueue on the same actor**. Runs take turns. That is correct: two conversations, one pair of hands.
 
-True parallel for “the same teammate in two rooms” would mean a **second computer** (fork / child bot = new actor). That is a new bot, not one actor with two threads of Pi.
+True parallel for “the same teammate in two rooms” would mean a **child bot** (new actor, new computer). That is a new bot, not one actor with two threads.
 
 | Situation | Parallel? |
 |---|---|
 | Two humans, one office | No. One queue. |
-| Two bots, one room, same default computer | Brains yes. GUI no (one mouse). |
-| Two bots, one room, two computers | **Yes.** Two actors, two VMs. |
-| One bot, two rooms | **No** on one VM. Serial queue. Or spawn a child bot. |
+| Two bots, one room | **Yes.** Two actors, two computers. |
+| One bot, two rooms | **No.** Serial queue. Or spawn a child bot. |
 
-The actor queue is the feature: it serializes one bot. Do not run two sandboxes for the same bot unless you have two computers (a child bot = new actor).
+The actor queue is the feature: it serializes one bot. Do not run two sandboxes for the same bot unless you spawn a child bot.
 
 ## Lock-in to avoid when we *do* build B
 
-Do not forever treat `botId` as the only way to send. When adding group rooms, key chat on `threadId` and keep computer APIs on `botId`. Do not make the actor key a `threadId`.
+Do not forever treat `botId` as the only way to send. When adding group rooms, key chat on `threadId` and keep the computer pane on `botId`. Do not make the actor key a `threadId`.

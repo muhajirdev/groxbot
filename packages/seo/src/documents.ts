@@ -37,7 +37,7 @@ Brand Name: ${GROXBOT_NAME}
 
 Groxbot should feel like Grok Bot: a messaging app of named teammates, not a workflow builder, IDE, or Discord. Like Grok Bot, for the team — if OpenClaw is for personal use, Groxbot is the office. Create a Bot, message it, grant access as needed. There isn't anything to learn — it's like bringing on a coworker.
 
-Product API is oRPC. One wakeup queue per bot. Computers are workspace desks. Shared team data lives in Postgres. Hosted groxbot.com is three Cloudflare Workers (landing, office SPA, API) plus Neon. Self-host is later. The marketing site is ${web}; the office app is ${office}.
+Product API is oRPC. One wakeup queue per bot. Each bot has a computer (Think workspace on that actor). Shared team data lives in Postgres. Hosted groxbot.com is three Cloudflare Workers (landing, office SPA, API) plus Neon. Self-host is later. The marketing site is ${web}; the office app is ${office}.
 
 ## Docs
 
@@ -199,8 +199,8 @@ Do NOT use:
 1. First reference: "Groxbot" or "Groxbot (groxbot.com)"
 2. Explain once: self-hostable Grok Bot — Grok, then grox
 3. A Bot is a teammate (contact), not a workflow node
-4. Computer means a workspace desk / sandbox, not the LLM
-5. Each bot is one Think Durable Object; threads are sessions on that bot
+4. Computer means that bot’s Think workspace, not a second product and not the LLM
+5. Each bot is one Think Durable Object; the computer is built in; threads are sessions on that bot
 6. Do not call the product an agent builder, copilot IDE, or Discord
 
 ## Brand Voice
@@ -251,18 +251,23 @@ A: Same motion: talk to named teammates. Groxbot is multiplayer (one office, sha
 ---
 
 Q: How is Groxbot different from OpenClaw?
-A: OpenClaw is a personal agent on your machine. Groxbot is the office: named teammates, Postgres for team data, and a messaging UI the whole company can sit in.
+A: OpenClaw is a personal agent on your machine. Groxbot is the office: named teammates, each with a computer, Postgres for team data, and a messaging UI the whole company can sit in.
 URL: [${GROXBOT_NAME}](${web}/)
 
 ---
 
 Q: What is a Bot?
-A: A Bot is a contact: name, title, description, avatar, one office thread. One Durable Object (Think) runs that bot (serial). Threads are sessions on that actor.
+A: A Bot is a contact: name, title, description, avatar, one office thread. One Durable Object (Think) runs that bot (serial). Threads are sessions on that actor. The computer is built into the bot.
+
+---
+
+Q: What is a computer?
+A: Each bot has one. It is that teammate’s Think workspace — files, the screen in the right pane — not a second Durable Object you hire separately.
 
 ---
 
 Q: What is an app?
-A: A live doc, deck, or sheet. Talk, then Open from the chat card. Each app is its own Durable Object (AppRuntime). Listing comes from chat cards. There is no Computer product.
+A: A live doc, deck, or sheet. Talk, then Open from the chat card. Each app is its own Durable Object (AppRuntime). Listing comes from chat cards. Apps are not computers.
 
 ---
 

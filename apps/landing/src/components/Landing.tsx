@@ -105,36 +105,37 @@ export function Landing(props: { startUrl: string }) {
         <section className="chapter">
           <h2>The whole team sits in the same office.</h2>
           <p className="lede">
-            OpenClaw is one person and a laptop. Groxbot is named teammates and
-            a thread anyone on the team can open.
+            OpenClaw is one person and a laptop. Groxbot is named teammates, each
+            with a computer, and a thread anyone on the team can open.
           </p>
         </section>
 
         <section className="tiles" aria-label="How the office works">
           <article className="tile">
-            <h3>Talk, then open the thing</h3>
+            <h3>A computer you can ignore</h3>
             <p>
-              Message a teammate. When they make a doc, deck, or sheet, Open it
-              from a card in the thread. No file manager.
+              Hire a teammate and they already have a computer. Open it from the
+              thread. Work continues if you close the pane.
             </p>
             <div className="tile-stage">
               <div className="mini-pane">
                 <div className="mini-pane-head">
-                  Q3
+                  Computer
                   <span className="status-pill">
-                    <i /> Slides
+                    <i /> Working
                   </span>
                 </div>
-                <p className="mini-pane-screen">Open from the chat card.</p>
+                <p className="mini-pane-screen">
+                  Files land here. You can leave this open or not.
+                </p>
               </div>
             </div>
           </article>
           <article className="tile">
-            <h3>One brain per teammate</h3>
+            <h3>Built into the bot</h3>
             <p>
-              Each Bot is one Think actor. Threads are sessions on that brain,
-              not extra Durable Objects. Two people in one office share one
-              queue.
+              Not a second product and not a shared desk you pick at hire. Each
+              Bot is one Think actor. The computer is that actor’s workspace.
             </p>
             <div className="tile-stage">
               <div className="desk-split">
@@ -144,9 +145,9 @@ export function Landing(props: { startUrl: string }) {
                   <span>Named by botId</span>
                 </div>
                 <div className="desk-card">
-                  <span className="kicker">Thread</span>
-                  <strong>Session</strong>
-                  <span>Office or poke</span>
+                  <span className="kicker">Computer</span>
+                  <strong>Workspace</strong>
+                  <span>Already theirs</span>
                 </div>
               </div>
             </div>
@@ -154,8 +155,9 @@ export function Landing(props: { startUrl: string }) {
           <article className="tile wide">
             <h3>Works from anywhere</h3>
             <p>
-              Shut the laptop. Open the thread on your phone. The Bot keeps
-              going in the cloud — not on your machine.
+              Shut the laptop. Open the thread on your phone. The Bot’s computer
+              lives in the cloud — not on your machine — so the work does not
+              stop when you do.
             </p>
             <div className="tile-stage">
               <div className="handoff-scene" aria-hidden>
@@ -175,7 +177,7 @@ export function Landing(props: { startUrl: string }) {
                   <span className="status-pill">
                     <i /> Working
                   </span>
-                  <span>In the cloud</span>
+                  <span>Cloud computer</span>
                 </div>
                 <div className="device phone">
                   <div className="phone-notch" />

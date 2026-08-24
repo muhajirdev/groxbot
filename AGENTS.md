@@ -3,7 +3,7 @@
 - Public repo: never commit secrets, `.env`, `.dev.vars`, or real user data.
 - Keep domain logic in `packages/*`. Apps wire adapters. Product API is oRPC (`@groxbot/contracts` + `@groxbot/rpc`).
 - **Cloudflare first. Actor model first.** One Durable Object per `botId`: `BotActor` extends Think. Instance name is `botId`, never `threadId`. Threads are Think sessions on that actor. One Durable Object per live app (`AppRuntime`, name = `appId`).
-- There is **no Computer product**. No `computers` table, no shared desk, no takeover pane, no `computer.sleep`. Think `this.workspace` (later) is the bot’s files. Do not add a Computer RPC or UI.
+- Each bot **has a computer** — Think `this.workspace` on `BotActor`. Sell it. Do not add a `computers` table, shared desk, takeover pane, `computer.sleep`, or a Computer Durable Object. The office pane is this bot’s screen.
 - Kernel: office, oRPC, Postgres (Neon), `botId` as the actor key, app cards. The HTTP isolate addresses DOs (`getAgentByName` / stub). Do not add `WakeupDriver` or `MemoryAppStore` as stand-ins for queues, alarms, or app document state.
 - Shared team data lives in Postgres, not in the DO. Chat/threads stay in Postgres. Document state for live apps lives on `AppRuntime`. Think SQLite is the actor’s working session, not the office catalog.
 - Hosted brain: Think `chat()` on `BotActor`. Tests use `ScriptedAgentRuntime`. Do not treat Flue or Pi as the product loop.
@@ -12,5 +12,5 @@
 - Tests stay offline: `ScriptedAgentRuntime` — no live OpenRouter / Computer / Sandbox / E2B. Actor tests enqueue onto a function that runs `createWakeHandlers`.
 - Guest runtimes (Hermes/OpenClaw) are opt-in per bot, off by default.
 - v1 surface is **web** (Vite + TanStack Router). Desktop is Electron around web. Mobile is Expo later. All three call **oRPC** via `@groxbot/rpc`.
-- See `docs/grok-bot-ui.md`.
+- See `docs/grok-bot-ui.md` and `docs/computers.md`.
 - Self-host / Flue / Pi are not v1.

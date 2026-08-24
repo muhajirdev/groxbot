@@ -79,7 +79,7 @@ export function GateAnywhere(props: { hero?: boolean }) {
         <span className="status-pill">
           <i /> Working
         </span>
-        <span>In the cloud</span>
+        <span>Cloud computer</span>
       </div>
       <div className="device">
         <div className="phone-frame">

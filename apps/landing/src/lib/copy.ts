@@ -139,19 +139,19 @@ export const COMPARE = [
 export const FAQS = [
   {
     q: "How is this different from Grok Bot?",
-    a: "Same motion: create a Bot, message it, grant access as needed. Groxbot is for the team — one office, named teammates, live docs from chat — and you can run the source yourself.",
+    a: "Same motion: create a Bot, message it, grant access as needed. Groxbot is for the team — named teammates, each with a computer, live docs from chat — and you can run the source yourself.",
   },
   {
     q: "How is this different from OpenClaw?",
-    a: "OpenClaw is a personal agent on your machine. Groxbot is the office: named teammates, Postgres for team data, and a messaging UI the whole company can sit in.",
+    a: "OpenClaw is a personal agent on your machine. Groxbot is the office: named teammates, each with a computer, Postgres for team data, and a messaging UI the whole company can sit in.",
   },
   {
     q: "Do I need a workflow builder?",
     a: "No. Create a Bot, message it, grant access as needed. There isn’t anything to learn — it’s like bringing on a coworker.",
   },
   {
-    q: "Where does the work run?",
-    a: "In the cloud, on that bot’s Think actor — not on your laptop. Shut the machine, pick up the thread on your phone. Live docs open from a card in chat.",
+    q: "Where does the computer live?",
+    a: "In the cloud, on that bot — not on your laptop. Hire a teammate and they already have a computer. Shut the machine, close the pane, pick up the thread on your phone. The work keeps going.",
   },
   {
     q: "Is it open source?",

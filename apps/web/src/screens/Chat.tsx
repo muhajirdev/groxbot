@@ -19,10 +19,12 @@ import { AppPane } from "../components/AppPane";
 import { AppSettings } from "../components/AppSettings";
 import { AvatarMark } from "../components/Avatar";
 import { BotSettingsPane } from "../components/BotSettingsPane";
+import { ComputerPane } from "../components/ComputerPane";
 import {
   ChevronLeftIcon,
   FileIcon,
   MicIcon,
+  MonitorIcon,
   PlugIcon,
   PlusIcon,
   SearchIcon,
@@ -204,7 +206,9 @@ export function Chat(props: { botId: string }) {
   );
   const [pluginsOpen, setPluginsOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
-  const [paneMode, setPaneMode] = useState<"settings" | "app" | null>(null);
+  const [paneMode, setPaneMode] = useState<
+    "computer" | "settings" | "app" | null
+  >(null);
   const [openApp, setOpenApp] = useState<{
     id: string;
     title: string;
@@ -253,6 +257,18 @@ export function Chat(props: { botId: string }) {
     metaQuery.data?.error ??
     (activeId ? threadMetaCollection.get(activeId)?.error : undefined) ??
     "";
+  const statusLabel = working ? "Working" : "Idle";
+  const activity = useMemo(
+    () =>
+      messages
+        .filter((item) => item.actorType === "bot")
+        .slice(-8)
+        .reverse()
+        .map((item) => ({ id: item.id, text: messageText(item).slice(0, 200) }))
+        .filter((item) => item.text),
+    [messages],
+  );
+  const computerPreview = working || activity[0]?.text || undefined;
   const q = search.trim().toLowerCase();
   const matchesSearch = useCallback(
     (item: Bot) => !q || item.name.toLowerCase().includes(q),
@@ -540,6 +556,11 @@ export function Chat(props: { botId: string }) {
     [],
   );
 
+  const openComputer = useCallback(() => {
+    setOpenApp(null);
+    setPaneMode("computer");
+  }, []);
+
   return (
     <div
       className={cn(
@@ -714,6 +735,22 @@ export function Chat(props: { botId: string }) {
                 Stop now
               </Button>
             ) : null}
+            <Button
+              variant="icon"
+              type="button"
+              aria-label="Computer"
+              title="Computer"
+              on={paneMode === "computer"}
+              onClick={() => {
+                if (paneMode === "computer") {
+                  setPaneMode(null);
+                  return;
+                }
+                openComputer();
+              }}
+            >
+              <MonitorIcon />
+            </Button>
           </div>
         </div>
         {me?.needsModel || me?.modelWarning ? (
@@ -747,7 +784,18 @@ export function Chat(props: { botId: string }) {
                 ? pokeMessages.length === 0
                 : !working && messages.length === 0
             }
+            computer={
+              pokeView || !bot
+                ? null
+                : {
+                    title: working || `${bot.name}'s computer`,
+                    status: statusLabel,
+                    done: !working,
+                    preview: computerPreview,
+                  }
+            }
             working={pokeView ? "" : working}
+            onOpenComputer={openComputer}
             onOpenApp={openDocument}
             onOpenPokeThread={(threadId, peerName) =>
               setPokeView({ threadId, peerName })
@@ -840,6 +888,19 @@ export function Chat(props: { botId: string }) {
             setPaneMode(null);
             setOpenApp(null);
           }}
+        />
+      ) : null}
+      {paneMode === "computer" && bot ? (
+        <ComputerPane
+          bot={bot}
+          statusLabel={statusLabel}
+          working={working}
+          activity={activity}
+          onSettings={() => {
+            setOpenApp(null);
+            setPaneMode("settings");
+          }}
+          onCollapse={() => setPaneMode(null)}
         />
       ) : null}
       {paneMode === "settings" && bot ? (

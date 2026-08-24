@@ -17,7 +17,7 @@ export const GROXBOT_GITHUB = "https://github.com/muhajirdev/groxbot";
 export const GROXBOT_EMAIL = "hello@groxbot.com";
 export const GROXBOT_APP = CLOUD_WEB_ORIGIN;
 export const GROXBOT_SUMMARY =
-  "Like Grok Bot, for the team: named AI teammates you message in a thread. If OpenClaw is for personal use, Groxbot is the office. Self-hostable, fair-code. Gmail, Slack, GitHub, and 1,000+ tools. Bring your own model keys. Self-host for your organization is free; hosted Groxbot for others is groxbot.com.";
+  "Like Grok Bot, for the team: named AI teammates with a real computer. If OpenClaw is for personal use, Groxbot is the office. Self-hostable, fair-code. Gmail, Slack, GitHub, and 1,000+ tools — plus a computer for the rest. Bring your own model keys. Self-host for your organization is free; hosted Groxbot for others is groxbot.com.";
 
 export interface DiscoveryOrigins {
   web: string;
@@ -68,6 +68,7 @@ export const GROXBOT_ALTERNATE_NAMES = [
 
 export const GROXBOT_SERVICES = [
   "Named AI teammates (bots) you message like coworkers",
+  "Each bot has a computer — Think workspace on that teammate, not a separate desk",
   "Live docs, slides, and sheets as their own Durable Objects",
   "Shared office knowledge and skills — the organization improves",
   "oRPC product API for web, desktop, and mobile",
@@ -91,6 +92,7 @@ export const GROXBOT_STACK = [
   "Postgres + Drizzle for team data (Neon on hosted Cloudflare)",
   "Hosted brains: Think on BotActor (tests: scripted)",
   "One wakeup queue per bot — Durable Object BotActor (Think)",
+  "Each bot’s computer is Think workspace on that actor — not a computers table",
   "Better Auth (magic-link email, Google, GitHub)",
   "Live apps: docs / slides / sheets on AppRuntime Durable Objects",
 ] as const;
