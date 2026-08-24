@@ -63,9 +63,9 @@ Google / GitHub need client IDs in `.env`. Use **127.0.0.1**, not localhost:
 
 Email sign-in sends a magic link through **Cloudflare Email Sending** (REST). Set `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_EMAIL_API_TOKEN`, and `EMAIL_FROM`. Without those, local (and hosted until those secrets exist) prints the link / uses `mail: log`.
 
-Office chats on the Worker use **gateway** if you pasted model keys, otherwise **scripted**. `AGENT_RUNTIME=flue` on the Worker means that mapping until Flue’s Cloudflare target exists. Paste provider keys and pick a default model in the office (**Settings → Models**). Tests stay on `scripted`.
+Office chats on the Worker use Groxbot’s **hosted Cloudflare AI Gateway** when `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_AI_GATEWAY_TOKEN` (or `CLOUDFLARE_API_TOKEN`) are set, or a workspace BYOK key. Without either, the Worker falls back to **scripted**. Do not reuse `CLOUDFLARE_EMAIL_API_TOKEN` for the gateway. Tests stay on `scripted`.
 
-**Cloudflare AI Gateway** is in that same Models tab (account id, API token, gateway id). See [Cloudflare’s Pi guide](https://developers.cloudflare.com/ai-gateway/integrations/coding-agents/pi/).
+**Cloudflare AI Gateway** also accepts a workspace BYOK key in Settings → Models (account id, API token, gateway id). Hosted usage is counted per workspace. See [Cloudflare’s Pi guide](https://developers.cloudflare.com/ai-gateway/integrations/coding-agents/pi/).
 
 Landing (marketing site, TanStack Start):
 

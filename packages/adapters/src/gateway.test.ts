@@ -3,11 +3,13 @@ import {
   CLOUDFLARE_DEEPSEEK_V4_FLASH,
   chatMessages,
   cloudflareChatUrl,
+  completionUsage,
   deltaText,
   gatewayChatUrl,
   gatewayConfigured,
   gatewayErrorMessage,
   gatewayHeaders,
+  gatewayRequestModel,
   loadGatewayConfig,
   OPENROUTER_DEEPSEEK_V4_FLASH,
 } from "./gateway.js";
@@ -98,9 +100,26 @@ describe("loadGatewayConfig", () => {
     expect(config.provider).toBe("openrouter");
   });
 
+  it("accepts CLOUDFLARE_AI_GATEWAY_TOKEN and defaults the gateway id", () => {
+    const config = loadGatewayConfig({
+      CLOUDFLARE_ACCOUNT_ID: "acct_123",
+      CLOUDFLARE_AI_GATEWAY_TOKEN: "gw-token",
+      CLOUDFLARE_AI_GATEWAY_ID: "office",
+    });
+    expect(config.provider).toBe("cloudflare");
+    expect(config.apiKey).toBe("gw-token");
+    expect(config.gatewayId).toBe("office");
+    expect(gatewayHeaders(config).authorization).toBe("Bearer gw-token");
+  });
+
   it("throws when no gateway keys are set", () => {
     expect(() => loadGatewayConfig({})).toThrow(/not configured/);
     expect(gatewayConfigured({})).toBe(false);
+    expect(
+      gatewayConfigured({
+        CLOUDFLARE_ACCOUNT_ID: "acct_123",
+      }),
+    ).toBe(false);
   });
 });
 
@@ -124,6 +143,28 @@ describe("deltaText", () => {
   });
 });
 
+describe("completionUsage", () => {
+  it("reads OpenAI-compatible usage and Cloudflare envelopes", () => {
+    expect(
+      completionUsage({
+        usage: {
+          prompt_tokens: 11,
+          completion_tokens: 7,
+          total_tokens: 18,
+        },
+      }),
+    ).toEqual({ promptTokens: 11, completionTokens: 7, totalTokens: 18 });
+    expect(
+      completionUsage({
+        result: { usage: { prompt_tokens: "3", completion_tokens: 2 } },
+      }),
+    ).toEqual({ promptTokens: 3, completionTokens: 2, totalTokens: 5 });
+    expect(completionUsage({ choices: [{ delta: { content: "Hi" } }] })).toBe(
+      null,
+    );
+  });
+});
+
 describe("gatewayErrorMessage", () => {
   it("pulls Cloudflare and OpenRouter error text", () => {
     expect(
@@ -143,7 +184,13 @@ describe("gatewayErrorMessage", () => {
 
 describe("GatewayAgentRuntime", () => {
   it("streams a Cloudflare chat completion", async () => {
-    const seen: Array<{ url: string; model: string; gateway?: string }> = [];
+    const seen: Array<{
+      url: string;
+      model: string;
+      gateway?: string;
+      metadata?: string;
+      includeUsage?: boolean;
+    }> = [];
     const runtime = new GatewayAgentRuntime(
       loadGatewayConfig(
         {
@@ -155,13 +202,23 @@ describe("GatewayAgentRuntime", () => {
             const headers = new Headers(init?.headers);
             const body = JSON.parse(String(init?.body ?? "{}")) as {
               model: string;
+              stream_options?: { include_usage?: boolean };
             };
             seen.push({
               url: String(input),
               model: body.model,
               gateway: headers.get("cf-aig-gateway-id") ?? undefined,
+              metadata: headers.get("cf-aig-metadata") ?? undefined,
+              includeUsage: body.stream_options?.include_usage,
             });
-            return sseResponse([], "DeepSeek says hello");
+            return sseResponse(
+              [
+                `data: ${JSON.stringify({ choices: [{ delta: { content: "DeepSeek says hello" } }] })}\n\n`,
+                `data: ${JSON.stringify({ usage: { prompt_tokens: 4, completion_tokens: 3, total_tokens: 7 } })}\n\n`,
+                "data: [DONE]\n\n",
+              ],
+              "unused",
+            );
           },
         },
       ),
@@ -175,16 +232,67 @@ describe("GatewayAgentRuntime", () => {
         url: cloudflareChatUrl("acct_123"),
         model: CLOUDFLARE_DEEPSEEK_V4_FLASH,
         gateway: "default",
+        metadata: JSON.stringify({
+          workspaceId: "ws-1",
+          userId: "user-1",
+          botId: "bot-1",
+          runId: "run-1",
+        }),
+        includeUsage: true,
       },
     ]);
+    expect(events).toContainEqual({
+      type: "usage",
+      promptTokens: 4,
+      completionTokens: 3,
+      totalTokens: 7,
+    });
     expect(events.at(-2)).toEqual({
-      type: "text",
-      text: "DeepSeek says hello",
+      type: "usage",
+      promptTokens: 4,
+      completionTokens: 3,
+      totalTokens: 7,
     });
     expect(events.at(-1)).toEqual({
       type: "done",
       text: "DeepSeek says hello",
     });
+  });
+
+  it("sends the Workers AI @cf id for catalog models", async () => {
+    let model = "";
+    const runtime = new GatewayAgentRuntime(
+      loadGatewayConfig(
+        {
+          CLOUDFLARE_ACCOUNT_ID: "acct_123",
+          CLOUDFLARE_API_TOKEN: "cf-token",
+        },
+        {
+          fetch: async (_input, init) => {
+            model = (
+              JSON.parse(String(init?.body ?? "{}")) as { model: string }
+            ).model;
+            return sseResponse([], "ok");
+          },
+        },
+      ),
+    );
+    for await (const _event of runtime.run(
+      {
+        ...runRequest,
+        model:
+          "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-flash-0731",
+      },
+      adapterContext,
+    )) {
+      // drain
+    }
+    expect(model).toBe(CLOUDFLARE_DEEPSEEK_V4_FLASH);
+    expect(
+      gatewayRequestModel(
+        "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-flash-0731",
+      ),
+    ).toBe(CLOUDFLARE_DEEPSEEK_V4_FLASH);
   });
 
   it("posts to OpenRouter with the DeepSeek v4 Flash model id", async () => {
@@ -307,6 +415,13 @@ describe("createAgentRuntime", () => {
     expect(
       agentRuntimeNeedsModel("flue", {
         GROXBOT_MODEL: "openai/gpt-4o-mini",
+      }),
+    ).toBe(false);
+    expect(agentRuntimeNeedsModel("gateway", {})).toBe(true);
+    expect(
+      agentRuntimeNeedsModel("gateway", {
+        CLOUDFLARE_ACCOUNT_ID: "acct",
+        CLOUDFLARE_AI_GATEWAY_TOKEN: "gw-token",
       }),
     ).toBe(false);
   });

@@ -26,6 +26,28 @@ function parseRuntimeEvent(value: unknown): AgentRuntimeEvent | null {
   if (type === "text") return { type, text };
   if (type === "error") return { type, text };
   if (type === "done") return text ? { type, text } : { type };
+  if (type === "usage") {
+    const promptTokens =
+      "promptTokens" in value && typeof value.promptTokens === "number"
+        ? value.promptTokens
+        : undefined;
+    const completionTokens =
+      "completionTokens" in value && typeof value.completionTokens === "number"
+        ? value.completionTokens
+        : undefined;
+    const totalTokens =
+      "totalTokens" in value && typeof value.totalTokens === "number"
+        ? value.totalTokens
+        : undefined;
+    if (
+      promptTokens === undefined ||
+      completionTokens === undefined ||
+      totalTokens === undefined
+    ) {
+      return null;
+    }
+    return { type, promptTokens, completionTokens, totalTokens };
+  }
   return null;
 }
 

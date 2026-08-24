@@ -114,8 +114,9 @@ Desktop ([get started](https://docs.x.ai/grok-bot/get-started)):
   "Which tools do you use?"   (shapes suggestions; does NOT connect yet)
          |
          v
-  Models (BYOK): pick default model + paste a provider key
-    OpenRouter is enough to start; other providers in Settings later
+  Models (BYOK or Groxbot hosted gateway): pick default model
+    Groxbot includes Cloudflare AI Gateway when the host injects it
+    Paste your own OpenRouter/Anthropic/OpenAI/Cloudflare key anytime
          |
          v
   Meet a future teammate
@@ -136,7 +137,7 @@ After that, **New** / `Cmd+N` → **Create new agent** → opens **New Agent** �
 
 iPhone: Login with Cursor → first-run tour → choose first Bot → wait for computer → same roster. `+` → New Agent | New Group Chat.
 
-**Our v1 trim:** same tour. Each Bot already has a computer (you can ignore it). Skip group chat, shared desk, and takeover. Plugins = Composio when we have it; first-run tool question can still be asked. **Require a model key before hire** so the first thread can talk.
+**Our v1 trim:** same tour. Each Bot already has a computer (you can ignore it). Skip group chat, shared desk, and takeover. Plugins = Composio when we have it; first-run tool question can still be asked. **A model is required before hire** — Groxbot’s hosted Cloudflare AI Gateway, or a pasted key — so the first thread can talk.
 
 ### First-task recipe (surface in empty composer)
 
@@ -206,6 +207,6 @@ Empty composer and New Agent must still work without those.
 4. Computer pane: this bot’s Think workspace (scripted/empty first). No takeover, no desk RPC. Wakeup is the bot’s actor, not a queue UI.
 5. Edit profile on the Bot, not a separate admin app.
 6. First-run does not require Composio.
-7. **Models on first-run + Settings → Models**: workspace BYOK keys (encrypted) + default model. OpenRouter is the one-key start. A bot can override. Messaging fails closed until a matching key exists (office banner as fallback).
+7. **Models on first-run + Settings → Models**: Groxbot hosted Cloudflare AI Gateway (env-injected) plus workspace BYOK keys (encrypted). BYOK wins. Default model is hosted Workers AI when no key is pasted. A bot can override. Hosted token usage is counted per workspace. Messaging fails closed until a matching key or the hosted gateway exists (office banner as fallback).
 
 Sources: xAI Grok Bot docs dated around 11 Aug 2026, [x.ai/bot](https://x.ai/bot), [introducing grok bot](https://x.ai/news/introducing-grok-bot).

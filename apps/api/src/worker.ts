@@ -28,6 +28,9 @@ export interface WorkerEnv {
   NODE_ENV?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_EMAIL_API_TOKEN?: string;
+  CLOUDFLARE_API_TOKEN?: string;
+  CLOUDFLARE_AI_GATEWAY_TOKEN?: string;
+  CLOUDFLARE_AI_GATEWAY_ID?: string;
   EMAIL_FROM?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
@@ -58,11 +61,13 @@ export class BotActor extends DurableObject<WorkerEnv> {
     if (this.handlers) return;
     const env = loadEnv(this.env as unknown as NodeJS.ProcessEnv);
     const { db } = createNeonHttpDb(env.databaseUrl);
-    const runtime = createHostedAgentRuntime(agentRuntimeSource(env));
+    const source = agentRuntimeSource(env);
+    const runtime = createHostedAgentRuntime(source);
     const apps = new DurableObjectAppStore(this.env.APP_RUNTIME);
     this.handlers = createWakeHandlers({
       db,
       runtime,
+      env: source,
       enqueue: (job) => enqueueOnBot(this.env.BOT_ACTOR, job),
       initApp: (appId, templateId, opts) => apps.init(appId, templateId, opts),
       bindRuntime: (overlay) => bindAgentRuntime(env.agentRuntime, overlay),

@@ -524,7 +524,8 @@ export function Chat(props: { botId: string }) {
       setSettingsTab("models");
       setSettingsOpen(true);
       patchThreadMeta(bot.id, {
-        error: "Add a model key to talk to teammates.",
+        error:
+          "Add a model key, or use Groxbot’s included gateway, to talk to teammates.",
       });
       return;
     }
@@ -757,7 +758,7 @@ export function Chat(props: { botId: string }) {
           <div className="mx-5 mb-2 flex items-center justify-between gap-3 rounded-xl border border-line bg-card px-3 py-2.5 text-[13px]">
             <span>
               {me?.needsModel
-                ? "Add a model key to talk to teammates."
+                ? "Add a model key, or use Groxbot’s included gateway, to talk to teammates."
                 : me?.modelWarning}
             </span>
             <Button

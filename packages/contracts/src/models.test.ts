@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   catalogForRuntime,
   flueModelId,
+  gatewayRequestModel,
+  hostedCloudflareGateway,
+  ModelSettingsSchema,
   missingProviderMessage,
   modelIsRunnable,
   providerForModel,
@@ -43,6 +46,48 @@ describe("model catalog", () => {
       ),
     ).toBe(
       "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-flash-0731",
+    );
+  });
+
+  it("reads Groxbot’s hosted Cloudflare AI Gateway from env", () => {
+    expect(hostedCloudflareGateway({})).toBeNull();
+    expect(
+      hostedCloudflareGateway({
+        CLOUDFLARE_ACCOUNT_ID: "acct",
+        CLOUDFLARE_EMAIL_API_TOKEN: "email-only",
+      }),
+    ).toBeNull();
+    expect(
+      hostedCloudflareGateway({
+        CLOUDFLARE_ACCOUNT_ID: "acct",
+        CLOUDFLARE_AI_GATEWAY_TOKEN: "gw-token",
+      }),
+    ).toEqual({
+      accountId: "acct",
+      apiToken: "gw-token",
+      gatewayId: "default",
+    });
+    expect(
+      hostedCloudflareGateway({
+        CLOUDFLARE_ACCOUNT_ID: "acct",
+        CLOUDFLARE_API_TOKEN: "api-token",
+        CLOUDFLARE_AI_GATEWAY_ID: "office",
+      }),
+    ).toEqual({
+      accountId: "acct",
+      apiToken: "api-token",
+      gatewayId: "office",
+    });
+  });
+
+  it("strips catalog ids for Cloudflare chat completions", () => {
+    expect(
+      gatewayRequestModel(
+        "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-flash-0731",
+      ),
+    ).toBe("@cf/deepseek-ai/deepseek-v4-flash-0731");
+    expect(gatewayRequestModel("openrouter/deepseek/deepseek-v4-flash")).toBe(
+      "deepseek/deepseek-v4-flash",
     );
   });
 
@@ -109,5 +154,27 @@ describe("model catalog", () => {
       /API key/,
     );
     expect(validateModelId("openrouter/foo")).toBe(undefined);
+  });
+
+  it("requires hostedGateway and workspace usage on settings", () => {
+    const parsed = ModelSettingsSchema.parse({
+      keys: [],
+      defaultModel: "custom",
+      customModel: "",
+      defaultModelId: "openrouter/deepseek/deepseek-v4-flash",
+      fromEnv: true,
+      hostedGateway: true,
+      runtime: "gateway",
+      catalog: [],
+      warning: null,
+      usage: {
+        requests: 0,
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+      },
+    });
+    expect(parsed.hostedGateway).toBe(true);
+    expect(parsed.usage.totalTokens).toBe(0);
   });
 });

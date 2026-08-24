@@ -26,6 +26,7 @@ async function main() {
   const handlers = createWakeHandlers({
     db,
     runtime,
+    env: agentRuntimeSource(env),
     enqueue: (job) => enqueue(job),
     bindRuntime: (overlay) => bindAgentRuntime(env.agentRuntime, overlay),
     pluginTools: (input) =>

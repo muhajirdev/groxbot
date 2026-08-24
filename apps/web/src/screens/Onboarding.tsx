@@ -285,6 +285,10 @@ export function Onboarding(props: { invite?: string }) {
         });
       }
       if (keys.length === 0 && !providerStatus?.configured) {
+        if (settings.hostedGateway) {
+          go(4);
+          return;
+        }
         setError(
           `Paste a ${PROVIDER_META[selectedProvider].label} key to continue.`,
         );
@@ -488,8 +492,8 @@ export function Onboarding(props: { invite?: string }) {
           <p className="lede">
             Give work the way you would a coworker. Each Bot is a contact —
             name, optional job, one thread. They already have a computer; you
-            can ignore it. Talk first. Open docs, slides, and sheets from a
-            card in chat.
+            can ignore it. Talk first. Open docs, slides, and sheets from a card
+            in chat.
           </p>
           <Button type="button" onClick={() => go(1)}>
             Continue
@@ -561,8 +565,10 @@ export function Onboarding(props: { invite?: string }) {
           <h1>Any model. Not locked in.</h1>
           <p className="lede">
             {modelsReady
-              ? "This workspace already has a model key. Continue to hire your first teammate."
-              : "Paste an OpenRouter key to start — one key covers Claude, GPT, Grok, Kimi, DeepSeek. Add Anthropic, OpenAI, or Cloudflare later."}
+              ? settings?.hostedGateway
+                ? "Groxbot includes Cloudflare AI Gateway. Continue to hire, or paste your own key later in Settings."
+                : "This workspace already has a model key. Continue to hire your first teammate."
+              : "Groxbot includes Cloudflare AI Gateway when it is configured on this host. Or paste an OpenRouter key — one key covers Claude, GPT, Grok, Kimi, DeepSeek."}
           </p>
           <div className="model-strip" aria-hidden>
             {MODEL_MARKS.map((mark) => (

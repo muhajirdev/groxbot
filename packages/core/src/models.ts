@@ -7,6 +7,8 @@ import type {
 import {
   catalogForRuntime,
   flueModelId,
+  HOSTED_STARTER_MODEL,
+  hostedCloudflareGateway,
   isOfflineRuntime,
   missingProviderMessage,
   modelIsRunnable,
@@ -23,6 +25,7 @@ import { secrets, userModelCredentials, workspaceModels } from "@groxbot/db";
 import { eq } from "drizzle-orm";
 import { newId } from "./ids.js";
 import { decryptSecret, encryptSecret, secretHint } from "./secret-box.js";
+import { workspaceModelUsage } from "./usage.js";
 
 const PROVIDERS: ModelProvider[] = [
   "openrouter",
@@ -49,6 +52,7 @@ const PROCESS_MODEL_ENV = [
   "OPENAI_API_KEY",
   "OPENROUTER_API_KEY",
   "CLOUDFLARE_API_TOKEN",
+  "CLOUDFLARE_AI_GATEWAY_TOKEN",
   "CLOUDFLARE_AUTH_TOKEN",
   "CLOUDFLARE_API_KEY",
   "CLOUDFLARE_AI_GATEWAY_ID",
@@ -61,6 +65,8 @@ export interface ModelOverlay {
   env: NodeJS.ProcessEnv;
   model: string;
   configured: boolean;
+  /** True when this turn uses Groxbot’s included Cloudflare AI Gateway. */
+  hosted: boolean;
 }
 
 export class ModelSettingsError extends Error {
@@ -105,12 +111,12 @@ function envKeyConfigured(
   env: NodeJS.ProcessEnv,
 ): boolean {
   if (provider === "cloudflare") {
-    return Boolean(
-      env.CLOUDFLARE_ACCOUNT_ID?.trim() &&
-        (env.CLOUDFLARE_API_KEY?.trim() || env.CLOUDFLARE_API_TOKEN?.trim()) &&
-        (env.CLOUDFLARE_GATEWAY_ID?.trim() ||
-          env.CLOUDFLARE_AI_GATEWAY_ID?.trim()),
-    );
+    const token =
+      env.CLOUDFLARE_AI_GATEWAY_TOKEN?.trim() ||
+      env.CLOUDFLARE_API_TOKEN?.trim() ||
+      env.CLOUDFLARE_API_KEY?.trim() ||
+      env.CLOUDFLARE_AUTH_TOKEN?.trim();
+    return Boolean(env.CLOUDFLARE_ACCOUNT_ID?.trim() && token);
   }
   return Boolean(env[PROVIDER_ENV[provider]]?.trim());
 }
@@ -141,6 +147,37 @@ function parseCloudflareSecret(raw: string): {
   return { apiToken: raw };
 }
 
+export function applyHostedCloudflareEnv(
+  env: NodeJS.ProcessEnv,
+  hosted: ReturnType<typeof hostedCloudflareGateway>,
+): boolean {
+  if (!hosted) return false;
+  if (envKeyConfigured("cloudflare", env)) return false;
+  env.CLOUDFLARE_ACCOUNT_ID = hosted.accountId;
+  env.CLOUDFLARE_API_TOKEN = hosted.apiToken;
+  env.CLOUDFLARE_API_KEY = hosted.apiToken;
+  env.CLOUDFLARE_AI_GATEWAY_TOKEN = hosted.apiToken;
+  env.CLOUDFLARE_AI_GATEWAY_ID = hosted.gatewayId;
+  env.CLOUDFLARE_GATEWAY_ID = hosted.gatewayId;
+  return true;
+}
+
+export function fallbackRunnableModel(
+  model: string,
+  providers: readonly ModelProvider[],
+  runtime?: string,
+  hosted = false,
+): string {
+  const current = flueModelId(model);
+  if (current && modelIsRunnable(current, providers)) return current;
+  const fromCatalog = catalogForRuntime(runtime).find((item) =>
+    modelIsRunnable(item.id, providers),
+  )?.id;
+  return flueModelId(
+    fromCatalog || (hosted ? HOSTED_STARTER_MODEL : SUGGESTED_STARTER_MODEL),
+  );
+}
+
 function configuredProviders(keys: ModelKeyStatus[]): ModelProvider[] {
   return keys.filter((item) => item.configured).map((item) => item.provider);
 }
@@ -168,6 +205,7 @@ export async function loadModelSettings(
   const secretById = new Map(secretRows.map((row) => [row.id, row]));
   const byProvider = new Map(creds.map((row) => [row.provider, row]));
 
+  const hosted = hostedCloudflareGateway(env);
   const keys: ModelKeyStatus[] = PROVIDERS.map((provider) => {
     const row = byProvider.get(provider);
     if (!row) {
@@ -218,7 +256,13 @@ export async function loadModelSettings(
       legacyChoice = "";
     }
   }
-  const available = configuredProviders(keys);
+  const configured = configuredProviders(keys);
+  const available = [
+    ...configured,
+    ...(hosted && !configured.includes("cloudflare")
+      ? (["cloudflare"] as const)
+      : []),
+  ];
   const stored =
     workspace?.defaultModel.trim() ||
     legacyChoice ||
@@ -227,7 +271,7 @@ export async function loadModelSettings(
   const fallback =
     catalogForRuntime(runtime).find((item) =>
       modelIsRunnable(item.id, available),
-    )?.id ?? SUGGESTED_STARTER_MODEL;
+    )?.id ?? (hosted ? HOSTED_STARTER_MODEL : SUGGESTED_STARTER_MODEL);
   const defaultModelId = flueModelId(stored || fallback);
   const listed = catalogForRuntime(runtime).some(
     (item) => item.id === defaultModelId,
@@ -242,16 +286,19 @@ export async function loadModelSettings(
     available.length > 0 && !modelIsRunnable(defaultModelId, available)
       ? missingProviderMessage(defaultModelId)
       : null;
+  const usage = await workspaceModelUsage(db, actor.workspaceId);
 
   return {
     keys,
     defaultModel: listed ? defaultModelId : "custom",
     customModel: listed ? "" : defaultModelId,
     defaultModelId,
-    fromEnv: false,
+    fromEnv: Boolean(hosted),
+    hostedGateway: Boolean(hosted),
     runtime,
     catalog,
     warning,
+    usage,
   };
 }
 
@@ -507,20 +554,29 @@ export async function resolveRunModel(
   secret: string,
 ): Promise<ModelOverlay> {
   const env: NodeJS.ProcessEnv = { ...baseEnv };
+  const hosted = hostedCloudflareGateway(baseEnv);
   stripProcessModelEnv(env);
   const settings = await loadStoredEnv(db, bot.workspaceId, secret);
   Object.assign(env, settings.env);
-  const botModel = bot.model?.trim();
-  const model = flueModelId(
-    botModel || settings.defaultModel || SUGGESTED_STARTER_MODEL,
-  );
-  if (model) env.GROXBOT_MODEL = model;
+  const usedHosted = applyHostedCloudflareEnv(env, hosted);
   const providers: ModelProvider[] = PROVIDERS.filter((provider) =>
     envKeyConfigured(provider, env),
   );
+  const model = fallbackRunnableModel(
+    bot.model?.trim() || settings.defaultModel,
+    providers,
+    env.AGENT_RUNTIME,
+    usedHosted,
+  );
+  if (model) env.GROXBOT_MODEL = model;
   const configured =
     isOfflineRuntime(env.AGENT_RUNTIME) || modelIsRunnable(model, providers);
-  return { env, model, configured };
+  return {
+    env,
+    model,
+    configured,
+    hosted: usedHosted && providerForModel(model) === "cloudflare",
+  };
 }
 
 async function loadStoredEnv(

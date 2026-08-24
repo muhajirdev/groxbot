@@ -14,6 +14,10 @@ export type ModelKeySource = z.infer<typeof ModelKeySource>;
 /** One-key starter. Native Anthropic/OpenAI stay available when those keys exist. */
 export const SUGGESTED_STARTER_MODEL = "openrouter/deepseek/deepseek-v4-flash";
 
+/** Built-in Groxbot gateway (Cloudflare AI Gateway → Workers AI). */
+export const HOSTED_STARTER_MODEL =
+  "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-flash-0731";
+
 export const PROVIDER_META: Record<
   ModelProvider,
   {
@@ -141,9 +145,16 @@ export const ModelSettingsSchema = z.object({
   customModel: z.string(),
   defaultModelId: z.string(),
   fromEnv: z.boolean(),
+  hostedGateway: z.boolean(),
   runtime: z.string(),
   catalog: z.array(ModelCatalogItemSchema),
   warning: z.string().nullable(),
+  usage: z.object({
+    requests: z.number().int(),
+    promptTokens: z.number().int(),
+    completionTokens: z.number().int(),
+    totalTokens: z.number().int(),
+  }),
 });
 export type ModelSettings = z.infer<typeof ModelSettingsSchema>;
 
@@ -172,6 +183,24 @@ export function isOfflineRuntime(runtime: string | undefined): boolean {
   return kind === "scripted" || kind === "flue-echo";
 }
 
+/** Groxbot’s included Cloudflare AI Gateway. Workspace BYOK still wins when saved. */
+export function hostedCloudflareGateway(
+  env: NodeJS.Dict<string> = process.env,
+): {
+  accountId: string;
+  apiToken: string;
+  gatewayId: string;
+} | null {
+  const accountId = env.CLOUDFLARE_ACCOUNT_ID?.trim() ?? "";
+  const apiToken =
+    env.CLOUDFLARE_AI_GATEWAY_TOKEN?.trim() ||
+    env.CLOUDFLARE_API_TOKEN?.trim() ||
+    "";
+  const gatewayId = env.CLOUDFLARE_AI_GATEWAY_ID?.trim() || "default";
+  if (!accountId || !apiToken) return null;
+  return { accountId, apiToken, gatewayId };
+}
+
 export function providerForModel(model: string): ModelProvider | undefined {
   const trimmed = model.trim();
   const listed = MODEL_CATALOG.find((item) => item.id === trimmed);
@@ -188,6 +217,23 @@ export function providerForModel(model: string): ModelProvider | undefined {
     return "cloudflare";
   }
   return undefined;
+}
+
+/** Chat-completions body id. Workers AI through the unified API wants `@cf/…`. */
+export function gatewayRequestModel(model: string): string {
+  const trimmed = model.trim();
+  const cfIndex = trimmed.indexOf("@cf/");
+  if (cfIndex >= 0) return trimmed.slice(cfIndex);
+  if (trimmed.startsWith("openrouter/")) {
+    return trimmed.slice("openrouter/".length);
+  }
+  if (trimmed.startsWith("cloudflare-ai-gateway/")) {
+    const rest = trimmed.slice("cloudflare-ai-gateway/".length);
+    return rest.startsWith("workers-ai/")
+      ? rest.slice("workers-ai/".length)
+      : rest;
+  }
+  return trimmed;
 }
 
 /** Map legacy / short Cloudflare ids onto Pi's cloudflare-ai-gateway provider.

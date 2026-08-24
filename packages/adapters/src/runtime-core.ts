@@ -6,15 +6,15 @@ import type {
 } from "@groxbot/adapter-kit";
 import {
   chatMessages,
+  completionUsage,
   deltaText,
   type GatewayConfig,
   type GatewayEnv,
-  type GatewayProvider,
   gatewayChatUrl,
   gatewayConfigured,
   gatewayErrorMessage,
   gatewayHeaders,
-  isGatewayProvider,
+  gatewayRequestModel,
   loadGatewayConfig,
   readSseData,
   unwrapGatewayPayload,
@@ -81,13 +81,26 @@ export class GatewayAgentRuntime implements AgentRuntime {
     const signal = mergeSignals(context.signal, controller.signal);
     yield { type: "progress", text: "working…" };
     let reply = "";
+    let usage: {
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+    } | null = null;
     try {
       const response = await this.config.fetch(gatewayChatUrl(this.config), {
         method: "POST",
-        headers: gatewayHeaders(this.config),
+        headers: gatewayHeaders(this.config, {
+          workspaceId: context.workspaceId,
+          userId: context.userId,
+          botId: context.botId ?? request.botId,
+          runId: context.runId ?? request.runId,
+        }),
         body: JSON.stringify({
-          model: request.model?.trim() || this.config.model,
+          model: gatewayRequestModel(
+            request.model?.trim() || this.config.model,
+          ),
           stream: true,
+          stream_options: { include_usage: true },
           messages: chatMessages(request),
         }),
         signal,
@@ -107,13 +120,20 @@ export class GatewayAgentRuntime implements AgentRuntime {
           } catch {
             continue;
           }
+          usage = completionUsage(payload) ?? usage;
           const chunk = deltaText(payload);
           if (!chunk) continue;
           reply += chunk;
           yield { type: "progress", text: reply };
         }
       } else {
-        reply = completionText(raw.text);
+        try {
+          const payload = JSON.parse(raw.text) as unknown;
+          usage = completionUsage(payload);
+          reply = completionText(raw.text);
+        } catch {
+          reply = completionText(raw.text);
+        }
       }
       if (signal.aborted) {
         yield { type: "done", text: reply || "stopped" };
@@ -123,6 +143,7 @@ export class GatewayAgentRuntime implements AgentRuntime {
         throw new Error("AI gateway returned an empty reply");
       }
       yield { type: "text", text: reply };
+      if (usage) yield { type: "usage", ...usage };
       yield { type: "done", text: reply };
     } catch (error) {
       if (isAbortError(error) || signal.aborted) {

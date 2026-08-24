@@ -313,6 +313,34 @@ export const userModelCredentials = pgTable(
   ],
 );
 
+/** Hosted Cloudflare AI Gateway usage. Counted per workspace; userId is for later per-person rollups. */
+export const modelUsage = pgTable(
+  "model_usage",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    botId: text("bot_id"),
+    runId: text("run_id"),
+    model: text("model").notNull(),
+    source: text("source").notNull(),
+    promptTokens: integer("prompt_tokens").notNull().default(0),
+    completionTokens: integer("completion_tokens").notNull().default(0),
+    totalTokens: integer("total_tokens").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("model_usage_workspace_created").on(t.workspaceId, t.createdAt),
+    index("model_usage_workspace_user").on(t.workspaceId, t.userId),
+  ],
+);
+
 /** Workspace default model. Not a secret — keys live in `secrets`. */
 export const workspaceModels = pgTable("workspace_models", {
   workspaceId: text("workspace_id")

@@ -199,12 +199,7 @@ export function AppSettings(props: {
               </>
             ) : null}
             {tab === "models" ? <ModelsTab /> : null}
-            {tab === "billing" ? (
-              <p className="muted">
-                Usage and billing show up when you host this for a team. Local
-                stays free.
-              </p>
-            ) : null}
+            {tab === "billing" ? <BillingTab /> : null}
             {tab === "updates" ? (
               <p className="muted">You're on the local build of Groxbot.</p>
             ) : null}
@@ -277,12 +272,51 @@ function WorkspaceInvite(props: {
   );
 }
 
+function formatCount(value: number): string {
+  return value.toLocaleString();
+}
+
 const PROVIDER_ORDER: ModelProvider[] = [
   "openrouter",
   "anthropic",
   "openai",
   "cloudflare",
 ];
+
+function BillingTab() {
+  const query = useQuery(orpc.models.get.queryOptions());
+  const settings = query.data;
+  if (!settings) {
+    return (
+      <p className="muted">{query.error ? "Could not load." : "Loading…"}</p>
+    );
+  }
+  if (!settings.hostedGateway && settings.usage.requests === 0) {
+    return (
+      <p className="muted">
+        Usage is counted when this workspace uses Groxbot’s included Cloudflare
+        AI Gateway. Bring-your-own keys are not metered here.
+      </p>
+    );
+  }
+  return (
+    <section className="set-block">
+      <p className="group-label">This workspace</p>
+      <p className="hint">
+        Hosted Cloudflare AI Gateway only. Your own keys are not counted. Per
+        person rollups come later.
+      </p>
+      <p>
+        {formatCount(settings.usage.requests)} requests ·{" "}
+        {formatCount(settings.usage.totalTokens)} tokens
+      </p>
+      <p className="muted">
+        {formatCount(settings.usage.promptTokens)} prompt ·{" "}
+        {formatCount(settings.usage.completionTokens)} completion
+      </p>
+    </section>
+  );
+}
 
 function ModelsTab() {
   const queryClient = useQueryClient();
@@ -456,18 +490,36 @@ function ModelsTab() {
       <section className="set-block">
         <p className="group-label">Provider keys</p>
         <p className="hint">
-          Bring your own keys. They are encrypted at rest and never shown again.
-          OpenRouter is enough to start. Click a provider to paste a key.
+          Groxbot includes Cloudflare AI Gateway so you can start without a key.
+          Paste your own anytime — BYOK wins when it is on file.
         </p>
         <div className="provider-keys">
-          <div className="provider-key soon">
+          <div
+            className={`provider-key${settings.hostedGateway ? "" : " soon"}`}
+          >
             <div className="provider-key-toggle" aria-disabled="true">
               <span className="provider-name">
                 Groxbot
                 <em className="muted"> · hosted</em>
               </span>
-              <span className="provider-status soon">Coming soon</span>
+              <span
+                className={`provider-status${settings.hostedGateway ? " ok" : " soon"}`}
+              >
+                {settings.hostedGateway ? "Included" : "Not on this host"}
+              </span>
             </div>
+            {settings.hostedGateway ? (
+              <div className="provider-key-body">
+                <p className="hint">
+                  This workspace uses Groxbot’s Cloudflare AI Gateway. Token
+                  counts are per workspace.
+                </p>
+                <p className="muted">
+                  {formatCount(settings.usage.requests)} requests ·{" "}
+                  {formatCount(settings.usage.totalTokens)} tokens
+                </p>
+              </div>
+            ) : null}
           </div>
           {providers.map((provider) => {
             const meta = PROVIDER_META[provider];

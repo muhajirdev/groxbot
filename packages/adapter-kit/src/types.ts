@@ -85,7 +85,13 @@ export type AgentRuntimeEvent =
   | { type: "text"; text: string }
   | { type: "progress"; text: string }
   | { type: "done"; text?: string }
-  | { type: "error"; text: string };
+  | { type: "error"; text: string }
+  | {
+      type: "usage";
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+    };
 
 export type GuestAgentKind = "hermes" | "openclaw" | "generic";
 

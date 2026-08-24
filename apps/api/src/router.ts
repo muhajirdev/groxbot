@@ -111,6 +111,7 @@ export const appRouter = os.router({
       isDeploymentOwner: actor.isDeploymentOwner,
       needsModel:
         !isOfflineAgentRuntime(context.env.agentRuntime) &&
+        !settings.hostedGateway &&
         !userHasModelCredentials(creds.length),
       defaultModel: settings.defaultModelId,
       defaultModelLabel: labelForModel(settings.defaultModelId),

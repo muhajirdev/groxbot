@@ -9,7 +9,8 @@
 - Hosted brain: Think `chat()` on `BotActor`. Tests use `ScriptedAgentRuntime`. Do not treat Flue or Pi as the product loop.
 - Live apps: workspace-owned docs / slides / sheets. Talk → chat card → Open. `AppRuntime` supervisor DO; `export class Gadget` from stamped `server.js` is a Dynamic Worker Facet; iframe Cap’n Web; parent holds `wss://…/apps/:id/rpc`. Listing (`apps.list`) is derived from chat cards. No Postgres apps catalog. No file manager in product UI.
 - Auth, secrets, and host commands are security-sensitive.
-- Tests stay offline: `ScriptedAgentRuntime` — no live OpenRouter / Computer / Sandbox / E2B. Actor tests enqueue onto a function that runs `createWakeHandlers`.
+- Tests stay offline: `ScriptedAgentRuntime` — no live OpenRouter / Cloudflare AI Gateway / Computer / Sandbox / E2B. Actor tests enqueue onto a function that runs `createWakeHandlers`.
+- Hosted models: Cloudflare AI Gateway from Worker env (`CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_AI_GATEWAY_TOKEN` or `CLOUDFLARE_API_TOKEN`). Do not reuse `CLOUDFLARE_EMAIL_API_TOKEN`. Workspace BYOK wins. Count hosted usage per workspace (`model_usage`).
 - Guest runtimes (Hermes/OpenClaw) are opt-in per bot, off by default.
 - v1 surface is **web** (Vite + TanStack Router). Desktop is Electron around web. Mobile is Expo later. All three call **oRPC** via `@groxbot/rpc`.
 - See `docs/grok-bot-ui.md` and `docs/computers.md`.

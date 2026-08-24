@@ -9,6 +9,7 @@ export function createWakeHandlers(opts: {
   enqueue: EnqueueJob;
   guests?: GuestHub;
   initApp?: InitApp;
+  env?: NodeJS.ProcessEnv;
   bindRuntime?: (overlay: {
     env: NodeJS.ProcessEnv;
     model: string;
@@ -31,6 +32,7 @@ export function createWakeHandlers(opts: {
         db: opts.db,
         runtime: opts.runtime,
         runId,
+        env: opts.env,
         guests: opts.guests,
         initApp: opts.initApp,
         bindRuntime: opts.bindRuntime,

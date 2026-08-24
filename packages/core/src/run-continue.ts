@@ -24,6 +24,7 @@ import { listPokeTeammates, pokeBot } from "./poke.js";
 import { assertTransition } from "./run-state.js";
 import { redactSecrets } from "./secret-box.js";
 import { appendEvent, nextSeq } from "./threads.js";
+import { recordModelUsage } from "./usage.js";
 
 async function setRunStatus(
   db: Database,
@@ -45,6 +46,7 @@ export async function continueRun(opts: {
   db: Database;
   runtime: AgentRuntime;
   runId: string;
+  env?: NodeJS.ProcessEnv;
   guests?: GuestHub;
   pokeStack?: string[];
   bindRuntime?: (overlay: {
@@ -150,11 +152,12 @@ export async function continueRun(opts: {
 
   const controller = new AbortController();
   let reply = "";
+  const sourceEnv = opts.env ?? process.env;
   const overlay = await resolveRunModel(
     db,
     bot,
-    process.env,
-    encryptionSecret(process.env),
+    sourceEnv,
+    encryptionSecret(sourceEnv),
   );
   if (!overlay.configured) {
     const message = missingModelMessage(overlay.model);
@@ -239,6 +242,18 @@ export async function continueRun(opts: {
       if (event.type === "text" && event.text) reply = event.text;
       if (event.type === "done" && event.text && !reply) reply = event.text;
       if (event.type === "error") throw new Error(event.text);
+      if (event.type === "usage" && overlay.hosted) {
+        await recordModelUsage(db, {
+          workspaceId: run.workspaceId,
+          userId: run.userId,
+          botId: bot.id,
+          runId,
+          model: overlay.model,
+          promptTokens: event.promptTokens,
+          completionTokens: event.completionTokens,
+          totalTokens: event.totalTokens,
+        });
+      }
     }
   } catch (error) {
     const message = redactSecrets(

@@ -62,6 +62,7 @@ async function main() {
   const handlers = createWakeHandlers({
     db,
     runtime,
+    env: process.env,
     enqueue: (job) => enqueue(job),
     guests,
     initApp: async () => {},
