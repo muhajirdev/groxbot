@@ -5,8 +5,8 @@ This product includes software derived from Cloudflare OS
 (https://github.com/cloudflare/cloudflare-os), Copyright Cloudflare, Inc.,
 licensed under the Apache License, Version 2.0.
 
-The workspace Docs, Slides, and Sheets templates in
+The Docs, Slides, and Sheets templates in
 `packages/app-runtime/vendor/cloudflare-os/` are adapted from Cloudflare OS
-workspace format gadgets. Groxbot persists them with `gadget.load` /
-`gadget.save` over oRPC and does not include Cap’n Web, Yjs, or the
-Cloudflare OS Overseer.
+as `client.js` / `server.js` source (not `.gadget` archives). Groxbot
+persists them with `gadget.load` / `gadget.save` over oRPC and does not
+include Cap’n Web, Yjs, or the Cloudflare OS Overseer.

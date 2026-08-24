@@ -1,3 +1,4 @@
 cloudflare/cloudflare-os
-commit 1ef6020 (format-blueprints gadget snapshots)
-blueprints: workspace-docs, workspace-slides, workspace-sheets
+commit 1ef6020
+vendored as client.js + server.js (docs, slides, sheets)
+not .gadget archives

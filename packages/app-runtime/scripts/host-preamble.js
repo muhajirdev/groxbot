@@ -1,5 +1,5 @@
-/* Groxbot host: run a Cloudflare OS Gadget class in the iframe.
- * Parent still only bridges gadget.load / gadget.save. No Cap'n Web. */
+/* Groxbot host: run the template server class in the iframe.
+ * Parent still only bridges gadget.load / gadget.save. No Cap'n Web, no .gadget archives. */
 class RpcTarget {
   dup() {
     return this;

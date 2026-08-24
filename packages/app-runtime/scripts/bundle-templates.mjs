@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * Assemble Groxbot app templates from Cloudflare OS gadget source.
+ * Assemble Groxbot app templates from vendored client.js / server.js.
  * Persistence stays gadget.load / gadget.save (see host-preamble.js).
+ * Do not introduce .gadget archives.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -26,10 +27,10 @@ function wrap(kind) {
   const client = fs.readFileSync(path.join(dir, "client.js"), "utf8");
   const header = [
     "/*",
-    " * Derived from Cloudflare OS workspace gadgets",
+    " * Derived from Cloudflare OS docs/slides/sheets (client.js + server.js)",
     " * https://github.com/cloudflare/cloudflare-os",
     " * Copyright Cloudflare, Inc. Apache License 2.0.",
-    " * Groxbot changes: iframe host implements Gadget RPC; parent load/save only.",
+    " * Groxbot changes: iframe host; parent load/save only; no .gadget archives.",
     " */",
   ].join("\n");
   const bundled = `${header}\n(async function () {\n${preamble}\n${server}\n${boot}\n${client}\n})();\n`;
