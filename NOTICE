@@ -1,0 +1,13 @@
+Groxbot
+Copyright 2026 Groxbot contributors
+
+This product includes software derived from Cloudflare OS
+(https://github.com/cloudflare/cloudflare-os), Copyright Cloudflare, Inc.,
+licensed under the Apache License, Version 2.0.
+
+The Docs, Slides, and Sheets templates in
+`packages/app-runtime/vendor/cloudflare-os/` are adapted from Cloudflare OS
+as `client.js` / `server.js` source (not `.gadget` archives). Groxbot runs
+`server.js` as a Dynamic Worker Facet of the App Durable Object and bridges
+the sandboxed iframe with Cap’n Web. It does not include Yjs, `.gadget`
+archives, or the Cloudflare OS Overseer.

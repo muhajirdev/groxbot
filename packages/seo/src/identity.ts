@@ -68,7 +68,8 @@ export const GROXBOT_ALTERNATE_NAMES = [
 
 export const GROXBOT_SERVICES = [
   "Named AI teammates (bots) you message like coworkers",
-  "A shared workspace Desk computer, or an isolated computer per bot",
+  "Each bot has a computer — Think workspace on that teammate, not a separate desk",
+  "Live docs, slides, and sheets as their own Durable Objects",
   "Shared office knowledge and skills — the organization improves",
   "oRPC product API for web, desktop, and mobile",
   "Plugins for Gmail, Slack, GitHub, and 1,000+ tools",
@@ -89,8 +90,9 @@ export const GROXBOT_STACK = [
   "Marketing, office SPA, and API: Cloudflare Workers",
   "oRPC contract in @groxbot/contracts, client in @groxbot/rpc",
   "Postgres + Drizzle for team data (Neon on hosted Cloudflare)",
-  "Hosted brains: gateway/scripted until Flue’s Cloudflare target",
-  "One wakeup queue per bot — Durable Object BotActor",
+  "Hosted brains: Think on BotActor (tests: scripted)",
+  "One wakeup queue per bot — Durable Object BotActor (Think)",
+  "Each bot’s computer is Think workspace on that actor — not a computers table",
   "Better Auth (magic-link email, Google, GitHub)",
-  "Sandboxes: Flue useSandbox — Cloudflare Computer light, Docker / Cloudflare Sandbox / E2B heavy, desktop on a trusted machine only",
+  "Live apps: docs / slides / sheets on AppRuntime Durable Objects",
 ] as const;

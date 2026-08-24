@@ -16,85 +16,50 @@ describe("parseFrom", () => {
 
 describe("createMailer", () => {
   afterEach(() => {
-    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
-  it("is log-only without Cloudflare keys", () => {
+  it("is log-only without the EMAIL binding", () => {
     expect(cloudflareMailConfigured({})).toBe(false);
     expect(createMailer({}).kind).toBe("log");
+    expect(
+      cloudflareMailConfigured({
+        emailFrom: "Groxbot <noreply@groxbot.com>",
+      }),
+    ).toBe(false);
   });
 
   it("refuses to log magic links in production", async () => {
     const mailer = createMailer({ production: true });
     await expect(
       mailer.sendMagicLink({ email: "a@b.com", url: "https://x" }),
-    ).rejects.toThrow(/CLOUDFLARE_ACCOUNT_ID/);
+    ).rejects.toThrow(/EMAIL Worker binding/);
   });
 
-  it("posts to Cloudflare Email Sending", async () => {
-    const fetchMock = vi.fn<
-      (url: string, init?: RequestInit) => Promise<Response>
-    >(
-      async () =>
-        new Response(
-          JSON.stringify({ success: true, errors: [], result: {} }),
-          {
-            status: 200,
-          },
-        ),
-    );
-    vi.stubGlobal("fetch", fetchMock);
+  it("sends through the Worker EMAIL binding", async () => {
+    const send = vi.fn(async () => ({ messageId: "msg_1" }));
     const mailer = createMailer({
-      cloudflareAccountId: "acct",
-      cloudflareEmailToken: "token",
       emailFrom: "Groxbot <noreply@groxbot.com>",
+      email: { send },
     });
     expect(mailer.kind).toBe("cloudflare");
     await mailer.sendMagicLink({
       email: "you@example.com",
       url: "https://app.groxbot.com/api/auth/magic-link/verify?token=abc",
     });
-    expect(fetchMock).toHaveBeenCalledOnce();
-    const call = fetchMock.mock.calls[0];
-    expect(call?.[0]).toContain("/accounts/acct/email/sending/send");
-    expect(call?.[1]).toMatchObject({
-      method: "POST",
-      headers: {
-        Authorization: "Bearer token",
-        "Content-Type": "application/json",
-      },
+    expect(send).toHaveBeenCalledOnce();
+    expect(send.mock.calls[0]?.[0]).toMatchObject({
+      to: "you@example.com",
+      from: { email: "noreply@groxbot.com", name: "Groxbot" },
+      subject: "Sign in to Groxbot",
     });
-    const payload = JSON.parse(String(call?.[1]?.body ?? "")) as {
-      to: string;
-      from: { address: string; name: string };
-      subject: string;
-    };
-    expect(payload.to).toBe("you@example.com");
-    expect(payload.from).toEqual({
-      address: "noreply@groxbot.com",
-      name: "Groxbot",
-    });
-    expect(payload.subject).toBe("Sign in to Groxbot");
   });
 
-  it("sends workspace invites through Cloudflare", async () => {
-    const fetchMock = vi.fn<
-      (url: string, init?: RequestInit) => Promise<Response>
-    >(
-      async () =>
-        new Response(
-          JSON.stringify({ success: true, errors: [], result: {} }),
-          {
-            status: 200,
-          },
-        ),
-    );
-    vi.stubGlobal("fetch", fetchMock);
+  it("sends workspace invites through the binding", async () => {
+    const send = vi.fn(async () => ({ messageId: "msg_2" }));
     const mailer = createMailer({
-      cloudflareAccountId: "acct",
-      cloudflareEmailToken: "token",
-      emailFrom: "Groxbot <noreply@groxbot.com>",
+      emailFrom: "noreply@groxbot.com",
+      email: { send },
     });
     await mailer.sendInvitation({
       email: "you@example.com",
@@ -102,13 +67,10 @@ describe("createMailer", () => {
       organizationName: "Acme",
       inviterName: "Sam",
     });
-    const payload = JSON.parse(
-      String(fetchMock.mock.calls[0]?.[1]?.body ?? ""),
-    ) as {
-      subject: string;
-      to: string;
-    };
-    expect(payload.to).toBe("you@example.com");
-    expect(payload.subject).toBe("Join Acme on Groxbot");
+    expect(send.mock.calls[0]?.[0]).toMatchObject({
+      to: "you@example.com",
+      from: "noreply@groxbot.com",
+      subject: "Join Acme on Groxbot",
+    });
   });
 });

@@ -12,8 +12,7 @@ export function healthPayload(
     | "githubClientId"
     | "githubClientSecret"
     | "emailFrom"
-    | "cloudflareAccountId"
-    | "cloudflareEmailToken"
+    | "emailBinding"
     | "composioApiKey"
     | "wakeupKind"
   >,

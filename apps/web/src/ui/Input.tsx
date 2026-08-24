@@ -14,10 +14,7 @@ export function Input({
   return <BaseInput className={cn(controlClass, className)} {...props} />;
 }
 
-export function Textarea({
-  className,
-  ...props
-}: ComponentProps<"textarea">) {
+export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
   return (
     <textarea
       className={cn(controlClass, "resize-y min-h-[96px]", className)}

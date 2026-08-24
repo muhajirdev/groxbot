@@ -105,8 +105,8 @@ export function Landing(props: { startUrl: string }) {
         <section className="chapter">
           <h2>The whole team sits in the same office.</h2>
           <p className="lede">
-            OpenClaw is one person and a laptop. Groxbot is named teammates, a
-            shared computer, and a thread anyone on the team can open.
+            OpenClaw is one person and a laptop. Groxbot is named teammates, each
+            with a computer, and a thread anyone on the team can open.
           </p>
         </section>
 
@@ -114,9 +114,8 @@ export function Landing(props: { startUrl: string }) {
           <article className="tile">
             <h3>A computer you can ignore</h3>
             <p>
-              The team shares a default computer — files and logins, one mouse.
-              Open it from the thread. Take over for a password, 2FA, or
-              payment. Work continues if you close the pane.
+              Hire a teammate and they already have a computer. Open it from the
+              thread. Work continues if you close the pane.
             </p>
             <div className="tile-stage">
               <div className="mini-pane">
@@ -127,29 +126,28 @@ export function Landing(props: { startUrl: string }) {
                   </span>
                 </div>
                 <p className="mini-pane-screen">
-                  Sign in to Zendesk so I can work the support queue.
+                  Files land here. You can leave this open or not.
                 </p>
               </div>
             </div>
           </article>
           <article className="tile">
-            <h3>Private when it has to be</h3>
+            <h3>Built into the bot</h3>
             <p>
-              Give a Bot its own computer when logins should stay private. The
-              rest of the office keeps the shared desk. Isolation is a choice,
-              not the default.
+              Not a second product and not a shared desk you pick at hire. Each
+              Bot is one Think actor. The computer is that actor’s workspace.
             </p>
             <div className="tile-stage">
               <div className="desk-split">
-                <div className="desk-card">
-                  <span className="kicker">Shared</span>
-                  <strong>Office desk</strong>
-                  <span>Files and logins, one mouse</span>
-                </div>
                 <div className="desk-card on">
-                  <span className="kicker">Isolated</span>
-                  <strong>Inbox&apos;s computer</strong>
-                  <span>Mail logins stay theirs</span>
+                  <span className="kicker">Bot</span>
+                  <strong>Think actor</strong>
+                  <span>Named by botId</span>
+                </div>
+                <div className="desk-card">
+                  <span className="kicker">Computer</span>
+                  <strong>Workspace</strong>
+                  <span>Already theirs</span>
                 </div>
               </div>
             </div>

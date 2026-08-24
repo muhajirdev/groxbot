@@ -1,8 +1,9 @@
 import type {
   Bot,
-  ComputerStatus,
   ProductEvent,
+  TemplateId,
   ThreadMessage,
+  WorkspaceApp,
 } from "@groxbot/contracts";
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -14,12 +15,14 @@ import {
   useMemo,
   useState,
 } from "react";
+import { AppPane } from "../components/AppPane";
 import { AppSettings } from "../components/AppSettings";
 import { AvatarMark } from "../components/Avatar";
 import { BotSettingsPane } from "../components/BotSettingsPane";
 import { ComputerPane } from "../components/ComputerPane";
 import {
   ChevronLeftIcon,
+  FileIcon,
   MicIcon,
   MonitorIcon,
   PlugIcon,
@@ -28,8 +31,22 @@ import {
 } from "../components/Icons";
 import { PluginsModal } from "../components/PluginsModal";
 import { ThreadList } from "../components/ThreadList";
+import { APP_KIND_COLOR, APP_KIND_LABEL } from "../lib/app-kind";
 import { authClient } from "../lib/auth";
-import { isModelSetupError, humanizeRunError, userFacingError } from "../lib/errors";
+import {
+  appsCollection,
+  botsCollection,
+  clearThreadStore,
+  messagesCollection,
+  patchBot,
+  peekBots,
+  threadMetaCollection,
+} from "../lib/collections";
+import {
+  humanizeRunError,
+  isModelSetupError,
+  userFacingError,
+} from "../lib/errors";
 import { AVATAR_COLORS, FIRST_TASK } from "../lib/jobs";
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
@@ -39,29 +56,19 @@ import {
   firstLiveBot,
   isArchivedBot,
 } from "../lib/session";
-import {
-  botsCollection,
-  clearThreadStore,
-  messagesCollection,
-  patchBot,
-  peekBots,
-  threadMetaCollection,
-} from "../lib/collections";
+import { applyTheme, readTheme, type Theme } from "../lib/theme";
 import {
   appendOptimisticMessage,
-  computerKey,
   ensureThreadMeta,
   failOptimisticSend,
   patchThreadMeta,
   peekMessages,
-  prefetchComputer,
   readCursor,
-  THREAD_GC_MS,
   touchBotPreview,
   upsertCachedMessage,
 } from "../lib/thread-cache";
-import { applyTheme, readTheme, type Theme } from "../lib/theme";
 import { formatListTime } from "../lib/time";
+import { mergeWorkspaceApps } from "../lib/workspace-apps";
 import { Button, cn } from "../ui";
 
 function asMessage(payload: Record<string, unknown>): ThreadMessage | null {
@@ -86,17 +93,12 @@ function asMessage(payload: Record<string, unknown>): ThreadMessage | null {
 
 function messageText(message: ThreadMessage): string {
   return message.blocks
-    .filter((block) => block.kind === "text")
-    .map((block) => block.text)
+    .flatMap((block) => {
+      if (block.kind === "text") return [block.text];
+      if (block.kind === "app") return [block.title];
+      return [];
+    })
     .join("\n");
-}
-
-function lastHumanBefore(messages: ThreadMessage[], index: number): string {
-  for (let i = index - 1; i >= 0; i -= 1) {
-    const item = messages[i];
-    if (item?.actorType === "human") return messageText(item);
-  }
-  return "Computer";
 }
 
 function initials(name: string): string {
@@ -111,7 +113,6 @@ function BotRow(props: {
   selected: boolean;
   working: boolean;
   muted?: boolean;
-  onPrefetch: (botId: string) => void;
 }) {
   const item = props.item;
   return (
@@ -125,8 +126,6 @@ function BotRow(props: {
         props.selected && "bg-selected",
         props.muted && "opacity-70",
       )}
-      onMouseEnter={() => props.onPrefetch(item.id)}
-      onFocus={() => props.onPrefetch(item.id)}
     >
       <AvatarMark
         name={item.name}
@@ -149,11 +148,48 @@ function BotRow(props: {
   );
 }
 
+function AppRow(props: {
+  item: WorkspaceApp;
+  selected: boolean;
+  onOpen: () => void;
+}) {
+  const item = props.item;
+  return (
+    <button
+      type="button"
+      className={cn(
+        "chat-conv grid min-w-0 grid-cols-[40px_minmax(0,1fr)] items-center gap-2.5 rounded-[14px] border-0 bg-transparent px-2 py-2.5 text-left text-inherit",
+        props.selected && "bg-selected",
+      )}
+      onClick={props.onOpen}
+    >
+      <span
+        className="grid size-8 shrink-0 place-items-center rounded-[10px] text-white"
+        style={{ background: APP_KIND_COLOR[item.templateId] }}
+      >
+        <FileIcon />
+      </span>
+      <span className="chat-conv-copy min-w-0">
+        <span className="flex items-baseline justify-between gap-2">
+          <span className="truncate text-sm font-semibold">{item.title}</span>
+          <span className="shrink-0 text-[11px] whitespace-nowrap text-muted">
+            {formatListTime(item.createdAt)}
+          </span>
+        </span>
+        <div className="mt-0.5 overflow-hidden text-xs text-ellipsis whitespace-nowrap text-muted">
+          {APP_KIND_LABEL[item.templateId]}
+        </div>
+      </span>
+    </button>
+  );
+}
+
 export function Chat(props: { botId: string }) {
   const navigate = useNavigate();
   const router = useRouter();
   const queryClient = useQueryClient();
   const botsQuery = useLiveQuery((q) => q.from({ bot: botsCollection }));
+  const appsQuery = useLiveQuery((q) => q.from({ app: appsCollection }));
   const meQuery = useQuery(orpc.me.queryOptions());
   const liveBotsRows = botsQuery.data ?? [];
   const peekedBots = peekBots();
@@ -170,9 +206,14 @@ export function Chat(props: { botId: string }) {
   );
   const [pluginsOpen, setPluginsOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
-  const [paneMode, setPaneMode] = useState<"computer" | "settings" | null>(
-    null,
-  );
+  const [paneMode, setPaneMode] = useState<
+    "computer" | "settings" | "app" | null
+  >(null);
+  const [openApp, setOpenApp] = useState<{
+    id: string;
+    title: string;
+    templateId: TemplateId;
+  } | null>(null);
   const [archivedOpen, setArchivedOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>(readTheme());
   const [pokeView, setPokeView] = useState<{
@@ -180,30 +221,30 @@ export function Chat(props: { botId: string }) {
     peerName: string;
   } | null>(null);
   const [pokeMessages, setPokeMessages] = useState<ThreadMessage[]>([]);
-  const bot = bots.find((item) => item.id === props.botId) ?? firstLiveBot(bots);
+  const bot =
+    bots.find((item) => item.id === props.botId) ?? firstLiveBot(bots);
   const activeId = bot?.id;
   const draft = activeId ? (drafts[activeId] ?? "") : "";
-  const messagesQuery = useLiveQuery((q) => {
-    if (!activeId) return undefined;
-    return q
-      .from({ message: messagesCollection })
-      .where(({ message }) => eq(message.botId, activeId))
-      .orderBy(({ message }) => message.seq, "asc");
-  }, [activeId]);
-  const metaQuery = useLiveQuery((q) => {
-    if (!activeId) return undefined;
-    return q
-      .from({ meta: threadMetaCollection })
-      .where(({ meta }) => eq(meta.botId, activeId))
-      .findOne();
-  }, [activeId]);
-  const computerQuery = useQuery({
-    queryKey: computerKey(activeId ?? "_"),
-    queryFn: () => client.computer.status({ botId: activeId ?? "" }),
-    enabled: Boolean(activeId),
-    staleTime: 10_000,
-    gcTime: THREAD_GC_MS,
-  });
+  const messagesQuery = useLiveQuery(
+    (q) => {
+      if (!activeId) return undefined;
+      return q
+        .from({ message: messagesCollection })
+        .where(({ message }) => eq(message.botId, activeId))
+        .orderBy(({ message }) => message.seq, "asc");
+    },
+    [activeId],
+  );
+  const metaQuery = useLiveQuery(
+    (q) => {
+      if (!activeId) return undefined;
+      return q
+        .from({ meta: threadMetaCollection })
+        .where(({ meta }) => eq(meta.botId, activeId))
+        .findOne();
+    },
+    [activeId],
+  );
   const liveMessages = messagesQuery.data ?? [];
   const peeked = activeId ? peekMessages(activeId) : [];
   const messages =
@@ -216,7 +257,18 @@ export function Chat(props: { botId: string }) {
     metaQuery.data?.error ??
     (activeId ? threadMetaCollection.get(activeId)?.error : undefined) ??
     "";
-  const computer = computerQuery.data ?? null;
+  const statusLabel = working ? "Working" : "Idle";
+  const activity = useMemo(
+    () =>
+      messages
+        .filter((item) => item.actorType === "bot")
+        .slice(-8)
+        .reverse()
+        .map((item) => ({ id: item.id, text: messageText(item).slice(0, 200) }))
+        .filter((item) => item.text),
+    [messages],
+  );
+  const computerPreview = working || activity[0]?.text || undefined;
   const q = search.trim().toLowerCase();
   const matchesSearch = useCallback(
     (item: Bot) => !q || item.name.toLowerCase().includes(q),
@@ -237,10 +289,47 @@ export function Chat(props: { botId: string }) {
       );
   }, [bots, matchesSearch]);
   const showArchived = archivedOpen || Boolean(q) || Boolean(bot?.archivedAt);
+  const listedApps = appsQuery.data ?? [];
+  const workspaceApps = useMemo(
+    () => mergeWorkspaceApps(listedApps, messages),
+    [listedApps, messages],
+  );
+  const visibleApps = useMemo(() => {
+    return workspaceApps.filter((item) => {
+      if (!q) return true;
+      return (
+        item.title.toLowerCase().includes(q) ||
+        APP_KIND_LABEL[item.templateId].toLowerCase().includes(q)
+      );
+    });
+  }, [workspaceApps, q]);
 
   useEffect(() => {
     if (bot?.archivedAt) setArchivedOpen(true);
   }, [bot?.archivedAt]);
+
+  const liveAppKey = useMemo(
+    () =>
+      messages
+        .flatMap((message) =>
+          message.blocks.flatMap((block) =>
+            block.kind === "app" ? [block.appId] : [],
+          ),
+        )
+        .join("|"),
+    [messages],
+  );
+  useEffect(() => {
+    if (!liveAppKey) return;
+    void queryClient.invalidateQueries({
+      queryKey: orpc.apps.list.queryOptions().queryKey,
+    });
+  }, [liveAppKey, queryClient]);
+
+  useEffect(() => {
+    if (!me?.workspaceId) return;
+    void appsCollection.utils.refetch();
+  }, [me?.workspaceId]);
 
   function setDraft(text: string) {
     if (!activeId) return;
@@ -249,7 +338,6 @@ export function Chat(props: { botId: string }) {
 
   async function refreshBots(selectId?: string) {
     await botsCollection.utils.refetch();
-    await queryClient.invalidateQueries({ queryKey: orpc.computers.key() });
     const next = selectId ?? props.botId ?? firstLiveBot(peekBots())?.id;
     if (next && next !== props.botId) {
       await navigate({ to: "/$botId", params: { botId: next } });
@@ -258,7 +346,6 @@ export function Chat(props: { botId: string }) {
 
   async function applyArchiveChange(next: Bot) {
     cacheBot(next);
-    await queryClient.invalidateQueries({ queryKey: orpc.computers.key() });
     if (!next.archivedAt) {
       if (next.id !== props.botId) {
         await navigate({ to: "/$botId", params: { botId: next.id } });
@@ -273,28 +360,24 @@ export function Chat(props: { botId: string }) {
     }
   }
 
-  const hire = useCallback(
-    async (computerChoice: "default" | "new" = "default") => {
-      setNewOpen(false);
-      try {
-        const created = await client.bots.create({
-          name: "New Bot",
-          avatarColor: AVATAR_COLORS[0],
-          computer: computerChoice,
-        });
-        await cacheCreatedBot(created);
-        void queryClient.invalidateQueries({ queryKey: orpc.computers.key() });
-        void navigate({ to: "/$botId", params: { botId: created.id } });
-        setPaneMode("settings");
-      } catch (caught) {
-        if (!activeId) return;
-        patchThreadMeta(activeId, {
-          error: caught instanceof Error ? caught.message : "Could not create",
-        });
-      }
-    },
-    [activeId, navigate, queryClient],
-  );
+  const hire = useCallback(async () => {
+    setNewOpen(false);
+    try {
+      const created = await client.bots.create({
+        name: "New Bot",
+        avatarColor: AVATAR_COLORS[0],
+      });
+      await cacheCreatedBot(created);
+      void navigate({ to: "/$botId", params: { botId: created.id } });
+      setOpenApp(null);
+      setPaneMode("settings");
+    } catch (caught) {
+      if (!activeId) return;
+      patchThreadMeta(activeId, {
+        error: caught instanceof Error ? caught.message : "Could not create",
+      });
+    }
+  }, [activeId, navigate]);
 
   useEffect(() => {
     applyTheme(theme);
@@ -354,7 +437,9 @@ export function Chat(props: { botId: string }) {
         if (!cancelled && activeId) {
           patchThreadMeta(activeId, {
             error:
-              caught instanceof Error ? caught.message : "Could not open thread",
+              caught instanceof Error
+                ? caught.message
+                : "Could not open thread",
           });
         }
       }
@@ -389,9 +474,6 @@ export function Chat(props: { botId: string }) {
             patchThreadMeta(activeId, { cursor });
             patched = true;
             touchBotPreview(activeId, messageText(message));
-            void queryClient.invalidateQueries({
-              queryKey: computerKey(activeId),
-            });
           }
         }
         if (event.type === "run.updated") {
@@ -409,30 +491,12 @@ export function Chat(props: { botId: string }) {
               error: humanizeRunError(text.trim() || "Run failed"),
               cursor,
             });
-            void queryClient.invalidateQueries({
-              queryKey: computerKey(activeId),
-            });
           } else {
             patchThreadMeta(activeId, { working: "", cursor });
-            void queryClient.invalidateQueries({
-              queryKey: computerKey(activeId),
-            });
           }
           patched = true;
         }
         if (!patched) patchThreadMeta(activeId, { cursor });
-        if (event.type === "computer.updated") {
-          if (Array.isArray(event.payload.files)) {
-            queryClient.setQueryData(
-              computerKey(activeId),
-              event.payload as ComputerStatus,
-            );
-          } else {
-            void queryClient.invalidateQueries({
-              queryKey: computerKey(activeId),
-            });
-          }
-        }
         if (event.type === "guest.updated") {
           patchBot(activeId, {
             guestOnline: Boolean(event.payload.connected),
@@ -442,8 +506,7 @@ export function Chat(props: { botId: string }) {
     })().catch((caught: unknown) => {
       if (!cancelled) {
         patchThreadMeta(activeId, {
-          error:
-            caught instanceof Error ? caught.message : "Lost the thread",
+          error: caught instanceof Error ? caught.message : "Lost the thread",
         });
       }
     });
@@ -451,7 +514,7 @@ export function Chat(props: { botId: string }) {
       cancelled = true;
       void iterator?.return?.();
     };
-  }, [activeId, queryClient]);
+  }, [activeId]);
 
   async function send(event: FormEvent) {
     event.preventDefault();
@@ -461,7 +524,8 @@ export function Chat(props: { botId: string }) {
       setSettingsTab("models");
       setSettingsOpen(true);
       patchThreadMeta(bot.id, {
-        error: "Add a model key to talk to teammates.",
+        error:
+          "Add a model key, or use Groxbot’s included gateway, to talk to teammates.",
       });
       return;
     }
@@ -481,50 +545,32 @@ export function Chat(props: { botId: string }) {
     }
   }
 
-  const statusLabel = useMemo(() => {
-    if (working) return "Working";
-    if (bot?.guestKind && bot.guestKind !== "off") {
-      return bot.guestOnline
-        ? `${bot.guestKind} connected`
-        : `Waiting for ${bot.guestKind}`;
-    }
-    if (!computer) return "Idle";
-    if (computer.controlHolder === "user") return "You're in control";
-    if (
-      computer.usingBotId &&
-      computer.usingBotId !== bot?.id &&
-      (computer.state === "running" || computer.state === "booting")
-    ) {
-      return `${computer.usingBotName ?? "Teammate"} has the desk`;
-    }
-    if (computer.state === "running" || computer.state === "booting")
-      return "Working";
-    return "Done";
-  }, [bot, computer, working]);
+  const openDocument = useCallback(
+    (app: { appId: string; title: string; templateId: TemplateId }) => {
+      setOpenApp({
+        id: app.appId,
+        title: app.title,
+        templateId: app.templateId,
+      });
+      setPaneMode("app");
+    },
+    [],
+  );
 
-  const computerPreview = useMemo(() => {
-    if (computer?.artifact) {
-      return `${computer.artifact.title}\n${computer.artifact.body}`;
-    }
-    if (working) return working;
-    if (computer?.nowDoing) return computer.nowDoing;
-    return undefined;
-  }, [computer, working]);
-
-  const showComputerCard =
-    computer?.controlHolder === "user" ||
-    ((computer?.state === "running" || computer?.state === "booting") &&
-      (computer.controlHolder === "bot" || Boolean(computer.usingBotId)));
-
-  const openComputer = useCallback(() => setPaneMode("computer"), []);
+  const openComputer = useCallback(() => {
+    setOpenApp(null);
+    setPaneMode("computer");
+  }, []);
 
   return (
     <div
       className={cn(
         "chat-shell relative grid h-screen bg-bg",
-        paneMode
-          ? "grid-cols-[280px_minmax(0,1fr)_320px]"
-          : "grid-cols-[280px_minmax(0,1fr)]",
+        paneMode === "app"
+          ? "grid-cols-[280px_minmax(260px,0.9fr)_minmax(420px,1.2fr)]"
+          : paneMode
+            ? "grid-cols-[280px_minmax(0,1fr)_320px]"
+            : "grid-cols-[280px_minmax(0,1fr)]",
       )}
     >
       <aside className="flex min-h-0 flex-col border-r border-line bg-bg-side px-2.5 pb-2">
@@ -542,11 +588,8 @@ export function Chat(props: { botId: string }) {
               </Button>
               {newOpen ? (
                 <div className="menu">
-                  <button type="button" onClick={() => void hire("default")}>
+                  <button type="button" onClick={() => void hire()}>
                     Create new agent
-                  </button>
-                  <button type="button" onClick={() => void hire("new")}>
-                    Create with new computer
                   </button>
                 </div>
               ) : null}
@@ -568,11 +611,30 @@ export function Chat(props: { botId: string }) {
               item={item}
               selected={item.id === bot?.id}
               working={item.id === bot?.id && Boolean(working)}
-              onPrefetch={(botId) => prefetchComputer(queryClient, botId)}
             />
           ))}
           {liveBots.length === 0 && archivedBots.length === 0 ? (
             <p className="empty">No teammates yet.</p>
+          ) : null}
+          {visibleApps.length > 0 ? (
+            <div className="mt-2">
+              <div className="px-2 py-2 text-[12px] text-muted">Apps</div>
+              {visibleApps.map((item) => (
+                <AppRow
+                  key={item.id}
+                  item={item}
+                  selected={paneMode === "app" && openApp?.id === item.id}
+                  onOpen={() => {
+                    setPokeView(null);
+                    openDocument({
+                      appId: item.id,
+                      title: item.title,
+                      templateId: item.templateId,
+                    });
+                  }}
+                />
+              ))}
+            </div>
           ) : null}
           {archivedBots.length > 0 ? (
             <div className="mt-2">
@@ -592,9 +654,6 @@ export function Chat(props: { botId: string }) {
                       selected={item.id === bot?.id}
                       working={false}
                       muted
-                      onPrefetch={(botId) =>
-                        prefetchComputer(queryClient, botId)
-                      }
                     />
                   ))
                 : null}
@@ -645,7 +704,10 @@ export function Chat(props: { botId: string }) {
             <button
               className="no-drag flex items-center gap-2.5 border-0 bg-transparent p-0 text-inherit"
               type="button"
-              onClick={() => setPaneMode("settings")}
+              onClick={() => {
+                setOpenApp(null);
+                setPaneMode("settings");
+              }}
             >
               {bot ? (
                 <AvatarMark
@@ -680,9 +742,13 @@ export function Chat(props: { botId: string }) {
               aria-label="Computer"
               title="Computer"
               on={paneMode === "computer"}
-              onClick={() =>
-                setPaneMode(paneMode === "computer" ? null : "computer")
-              }
+              onClick={() => {
+                if (paneMode === "computer") {
+                  setPaneMode(null);
+                  return;
+                }
+                openComputer();
+              }}
             >
               <MonitorIcon />
             </Button>
@@ -692,7 +758,7 @@ export function Chat(props: { botId: string }) {
           <div className="mx-5 mb-2 flex items-center justify-between gap-3 rounded-xl border border-line bg-card px-3 py-2.5 text-[13px]">
             <span>
               {me?.needsModel
-                ? "Add a model key to talk to teammates."
+                ? "Add a model key, or use Groxbot’s included gateway, to talk to teammates."
                 : me?.modelWarning}
             </span>
             <Button
@@ -719,25 +785,19 @@ export function Chat(props: { botId: string }) {
                 ? pokeMessages.length === 0
                 : !working && messages.length === 0
             }
-            working={pokeView ? "" : working}
             computer={
-              !pokeView && showComputerCard
-                ? {
-                    title: working
-                      ? draft || lastHumanBefore(messages, messages.length)
-                      : computer?.name ?? "Computer",
+              pokeView || !bot
+                ? null
+                : {
+                    title: working || `${bot.name}'s computer`,
                     status: statusLabel,
-                    done: !working && computer?.controlHolder !== "user",
-                    preview:
-                      working ||
-                      computer?.controlHolder === "user" ||
-                      computer?.artifact
-                        ? computerPreview
-                        : undefined,
+                    done: !working,
+                    preview: computerPreview,
                   }
-                : null
             }
+            working={pokeView ? "" : working}
             onOpenComputer={openComputer}
+            onOpenApp={openDocument}
             onOpenPokeThread={(threadId, peerName) =>
               setPokeView({ threadId, peerName })
             }
@@ -820,53 +880,33 @@ export function Chat(props: { botId: string }) {
           )}
         </div>
       </section>
+      {paneMode === "app" && openApp ? (
+        <AppPane
+          appId={openApp.id}
+          title={openApp.title}
+          templateId={openApp.templateId}
+          onCollapse={() => {
+            setPaneMode(null);
+            setOpenApp(null);
+          }}
+        />
+      ) : null}
       {paneMode === "computer" && bot ? (
         <ComputerPane
           bot={bot}
-          computer={computer}
-          computerPending={computerQuery.isPending && !computer}
           statusLabel={statusLabel}
           working={working}
-          onSettings={() => setPaneMode("settings")}
+          activity={activity}
+          onSettings={() => {
+            setOpenApp(null);
+            setPaneMode("settings");
+          }}
           onCollapse={() => setPaneMode(null)}
-          onTakeover={() => {
-            if (!bot) return;
-            void client.computer
-              .takeover({ botId: bot.id })
-              .then((status) => {
-                queryClient.setQueryData(computerKey(bot.id), status);
-              })
-              .catch((caught: unknown) =>
-                patchThreadMeta(bot.id, {
-                  error:
-                    caught instanceof Error
-                      ? caught.message
-                      : "Could not take over",
-                }),
-              );
-          }}
-          onRelease={() => {
-            if (!bot) return;
-            void client.computer
-              .release({ botId: bot.id })
-              .then((status) => {
-                queryClient.setQueryData(computerKey(bot.id), status);
-              })
-              .catch((caught: unknown) =>
-                patchThreadMeta(bot.id, {
-                  error:
-                    caught instanceof Error
-                      ? caught.message
-                      : "Could not continue",
-                }),
-              );
-          }}
         />
       ) : null}
       {paneMode === "settings" && bot ? (
         <BotSettingsPane
           bot={bot}
-          computer={computer}
           onCollapse={() => setPaneMode(null)}
           onSaved={async () => {
             await refreshBots(bot.id);

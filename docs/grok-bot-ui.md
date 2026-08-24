@@ -1,6 +1,6 @@
 # Grok Bot UI copy-brief
 
-Groxbot should **feel like Grok Bot**: a messaging app of named teammates, not a workflow builder, IDE, or Discord. This is the visual and onboarding spec. Product/architecture stays ours (workspace default computer shared by default, optional isolated computer, Postgres for team data, one actor per bot, oRPC, Composio). **Implement on web first**; desktop reuses that UI; Expo gets the same contract later.
+Groxbot should **feel like Grok Bot**: a messaging app of named teammates, not a workflow builder, IDE, or Discord. Product/architecture stays ours (Postgres for team data, one Think actor per bot, sessions per thread, live apps as their own Durable Objects, oRPC, Composio). **Each bot has a computer** (Think workspace on that actor) — ship the pane, sell it. Do not copy their shared desk, takeover, or a second Computer product. **Implement on web first**; desktop reuses that UI; Expo gets the same contract later.
 
 We could not screenshot the live desktop app (paywalled: SuperGrok Heavy / Cursor Ultra). This brief is from official docs and marketing as of 11–15 Aug 2026.
 
@@ -31,13 +31,12 @@ Copy this:
 
 - First action is **talk**, not configure a graph.
 - A Bot is a **contact**: name, optional job, description, avatar, one thread.
-- Computer is a **pane you can ignore**. Work continues if you close it.
+- Apps (docs / slides / sheets) open from a **card in chat**. No file manager.
 - Plugins exist, but first task can be “summarize this file” with no connector.
-- Sign-in to tools happens **when the Bot hits a wall**, via computer takeover — not a 20-field setup wizard.
 
 Do not copy:
 
-- Their **always-shared** computer with no escape hatch. We share a workspace **default computer** and let you create a new computer for private logins.
+- Their shared desk, takeover, or `computers` table. Groxbot still sells a computer; it is built into the bot.
 - Group chat of 2–6 Bots in v1 (see [rooms-plan.md](./rooms-plan.md)).
 - Teach-by-demonstration in v1.
 - Cursor-only sign-in / Ultra paywall.
@@ -64,7 +63,7 @@ Three regions. Looks like iMessage, not Linear. The computer icon in the thread 
 
 - **Left:** roster of Bots. Search. `+` → Create new agent. Plugins and you at the bottom.
 - **Center:** one conversation. Transcript is the audit log. In-thread **Computer** cards still **Open computer**. Header: computer icon, gear (profile), collapse.
-- **Right:** computer icon → **Starting desktop** / `{Bot}'s screen` + **Routines**. Gear → Bot settings (name, title, description, notify). Collapse hides the pane. Takeover is on the computer pane, not in chat.
+- **Right:** computer icon → **Starting desktop** / `{Bot}'s screen` + **Routines**. Gear → Bot settings (name, title, description, notify). Collapse hides the pane.
 
 Composer:
 
@@ -115,8 +114,9 @@ Desktop ([get started](https://docs.x.ai/grok-bot/get-started)):
   "Which tools do you use?"   (shapes suggestions; does NOT connect yet)
          |
          v
-  Models (BYOK): pick default model + paste a provider key
-    OpenRouter is enough to start; other providers in Settings later
+  Models (BYOK or Groxbot hosted gateway): pick default model
+    Groxbot includes Workers AI (`env.AI`) through Cloudflare AI Gateway
+    Paste your own OpenRouter/Anthropic/OpenAI/Cloudflare key anytime
          |
          v
   Meet a future teammate
@@ -137,7 +137,7 @@ After that, **New** / `Cmd+N` → **Create new agent** → opens **New Agent** �
 
 iPhone: Login with Cursor → first-run tour → choose first Bot → wait for computer → same roster. `+` → New Agent | New Group Chat.
 
-**Our v1 trim:** same tour, but the default computer is shared (files and logins, one mouse). Skip group chat. Plugins = Composio when we have it; first-run tool question can still be asked. **Require a model key before hire** so the first thread can talk.
+**Our v1 trim:** same tour. Each Bot already has a computer (you can ignore it). Skip group chat, shared desk, and takeover. Plugins = Composio when we have it; first-run tool question can still be asked. **A model is required before hire** — Groxbot’s hosted Cloudflare AI Gateway, or a pasted key — so the first thread can talk.
 
 ### First-task recipe (surface in empty composer)
 
@@ -155,13 +155,12 @@ Then a tool task that may takeover-login.
 
 Label: **Agent Computer** (we can say **Computer**).
 
-- Live view: clicks, typing, navigation, status (**You're in control** / **Working**).
-- Marketing line on [x.ai/bot](https://x.ai/bot): *“Sign in to Zendesk so I can work the support queue.”*
-- Takeover for password, 2FA, CAPTCHA, payment. User does that on the computer, **not in chat**. Then “continue.”
+- Live view: clicks, typing, navigation, status (**Working** / **Idle**).
+- Marketing line: each Bot already has a computer; you can ignore it.
 - Closing the pane or the laptop does not stop cloud work.
-- Files live in a workspace folder; conversation still gets the final artifact or a link.
+- Files live in that bot’s Think workspace; conversation still gets the final artifact or a link.
 
-**Grok:** one VM, many screens. **Groxbot v1:** one VM per bot; pane shows **this** bot’s sandbox. Same UX, different isolation.
+**Grok:** one VM, many screens. **Groxbot v1:** the computer **is** the bot (Think workspace). Pane shows **this** teammate’s screen. Same UX. Not a second Durable Object. No takeover in v1.
 
 ---
 
@@ -205,9 +204,9 @@ Empty composer and New Agent must still work without those.
 1. Welcome → sign in → **create or join a workspace** → tour → tools → **models (BYOK)** → “meet a teammate” (name, title, description, color+shape).
 2. Sidebar of Bots; click = that office thread.
 3. Chat transcript with inline “working,” files, approval.
-4. Computer pane: fake/scripted first, then Flue `useSandbox` (Computer light, Docker / Sandbox / E2B heavy); takeover control. Wakeup is the bot’s actor, not a queue UI.
+4. Computer pane: this bot’s Think workspace (scripted/empty first). No takeover, no desk RPC. Wakeup is the bot’s actor, not a queue UI.
 5. Edit profile on the Bot, not a separate admin app.
 6. First-run does not require Composio.
-7. **Models on first-run + Settings → Models**: workspace BYOK keys (encrypted) + default model. OpenRouter is the one-key start. A bot can override. Messaging fails closed until a matching key exists (office banner as fallback).
+7. **Models on first-run + Settings → Models**: Groxbot hosted Workers AI (`env.AI` through Cloudflare AI Gateway) plus workspace BYOK keys (encrypted). BYOK wins. Default model is hosted Workers AI when no key is pasted. A bot can override. Hosted token usage is counted per workspace. Messaging fails closed until a matching key or the hosted gateway exists (office banner as fallback).
 
 Sources: xAI Grok Bot docs dated around 11 Aug 2026, [x.ai/bot](https://x.ai/bot), [introducing grok bot](https://x.ai/news/introducing-grok-bot).

@@ -19,6 +19,10 @@ export default defineConfig({
     proxy: {
       "/api": api,
       "/health": api,
+      "/apps": {
+        target: api,
+        ws: true,
+      },
       "/rpc": {
         target: api,
         timeout: 0,

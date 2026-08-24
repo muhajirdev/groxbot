@@ -1,0 +1,4 @@
+cloudflare/cloudflare-os
+commit 1ef6020
+vendored as client.js + server.js (docs, slides, sheets)
+not .gadget archives

@@ -1,5 +1,5 @@
-export * from "./computer.js";
-export * from "./computer-desk.js";
+export * from "./app-intent.js";
+export * from "./apps.js";
 export * from "./guest-http.js";
 export * from "./guest-hub.js";
 export * from "./guest-runtime.js";
@@ -12,5 +12,6 @@ export * from "./run-continue.js";
 export * from "./run-state.js";
 export * from "./secret-box.js";
 export * from "./threads.js";
+export * from "./usage.js";
 export * from "./wakeup-handlers.js";
 export * from "./workspace.js";

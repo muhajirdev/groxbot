@@ -7,7 +7,6 @@ import {
   bindAgentRuntime,
   createAgentRuntime,
   createPluginTools,
-  InProcessWakeupDriver,
   resolveAgentRuntimeKind,
 } from "@groxbot/adapters";
 import {
@@ -58,18 +57,25 @@ async function main() {
   const { db } = createDb(databaseUrl);
   const agentRuntime = resolveAgentRuntimeKind(process.env.AGENT_RUNTIME);
   const runtime = createAgentRuntime(agentRuntime);
-  const wakeup = new InProcessWakeupDriver();
   const guests = new GuestHub();
-  await wakeup.start(
-    createWakeHandlers({
-      db,
-      runtime,
-      wakeup,
-      guests,
-      bindRuntime: (overlay) => bindAgentRuntime(agentRuntime, overlay),
-      pluginTools: (input) => createPluginTools(input),
-    }),
-  );
+  let enqueue: (job: WakeupJob) => Promise<void> = async () => {};
+  const handlers = createWakeHandlers({
+    db,
+    runtime,
+    env: process.env,
+    enqueue: (job) => enqueue(job),
+    guests,
+    initApp: async () => {},
+    bindRuntime: (overlay) => bindAgentRuntime(agentRuntime, overlay),
+    pluginTools: (input) => createPluginTools(input),
+  });
+  enqueue = async (job) => {
+    const handler = handlers[job.name as keyof typeof handlers];
+    if (!handler) return;
+    void handler({ ...job.payload, botId: job.botId }).catch((error) => {
+      console.error("bot actor", job.botId, job.name, error);
+    });
+  };
 
   const port = Number(process.env.WORKER_PORT ?? 3101);
   const server = createServer((req, res) => {
@@ -92,7 +98,7 @@ async function main() {
         const response = await handleGuestRequest(request, {
           db,
           hub: guests,
-          wakeup,
+          enqueue,
         });
         if (!response) {
           res.writeHead(404);
@@ -125,7 +131,7 @@ async function main() {
             typeof body.runAt === "string" ? new Date(body.runAt) : undefined,
           jobKey: typeof body.jobKey === "string" ? body.jobKey : undefined,
         };
-        await wakeup.enqueue(job);
+        await enqueue(job);
         res.writeHead(202, { "content-type": "application/json" });
         res.end(JSON.stringify({ ok: true }));
         return;

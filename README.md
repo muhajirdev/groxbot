@@ -4,23 +4,24 @@ Source-available **Grok Bot** — Grok, then grox. Teammates with a real compute
 
 Packages live under `@groxbot/*`.
 
-Early scaffold: contracts, Neon Postgres (team data), one Durable Object queue per bot, Cloudflare Workers for landing + office + API. Chat UI and live computers next. Self-host (Node / workerd) later.
+Early scaffold: contracts, Neon Postgres (team data), one Think Durable Object per bot, Cloudflare Workers for landing + office + API. Live apps (docs / slides / sheets) next to chat. Self-host later.
 
 ## Stack (locked)
 
 - TypeScript, pnpm, Hono, React, Vite, TanStack Router
 - **oRPC** — one contract for web, desktop, and mobile
 - Postgres + Drizzle — workspaces, threads, skills (Neon on Cloudflare)
-- **One queue per bot** — Durable Object `BotActor`
-- Hosted brains: gateway if keys exist, else scripted (Flue Cloudflare target later)
+- **One queue per bot** — Durable Object `BotActor` (Think)
+- Hosted brains: Think on that actor (tests: scripted)
 - **Routines** — Postgres cron metadata; the actor enqueues `routine.wakeup`
 - Better Auth (magic-link email, Google, GitHub)
 - **Cloudflare first:** Workers (landing, web, API) + Neon. Local = `wrangler dev` + Vite
-- Computers: Flue `useSandbox` (Cloudflare Computer light, Docker / Cloudflare Sandbox / E2B heavy). Desktop only on a trusted machine.
+- **Computer** — built into each bot (Think workspace on `BotActor`). Not a second table or DO.
+- **Apps** — docs / slides / sheets as `AppRuntime` Durable Objects
 - Plugins: Composio (optional)
 - UI: **web first** (Grok Bot-simple) — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). Desktop = Electron around web. Mobile = Expo later.
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md).
+See [ARCHITECTURE.md](./ARCHITECTURE.md) and [docs/computers.md](./docs/computers.md).
 
 ## Requirements
 
@@ -60,11 +61,11 @@ Google / GitHub need client IDs in `.env`. Use **127.0.0.1**, not localhost:
 - Google redirect: `http://127.0.0.1:5173/api/auth/callback/google`
 - GitHub callback: `http://127.0.0.1:5173/api/auth/callback/github`
 
-Email sign-in sends a magic link through **Cloudflare Email Sending** (REST). Set `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_EMAIL_API_TOKEN`, and `EMAIL_FROM`. Without those, local (and hosted until those secrets exist) prints the link / uses `mail: log`.
+Email sign-in sends a magic link through the Worker **`EMAIL` binding** (`send_email` in `apps/api/wrangler.jsonc`). Set `EMAIL_FROM`. Local `wrangler dev` logs mail unless you set `"remote": true` on the binding. Tests stay on `mail: log`.
 
-Office chats on the Worker use **gateway** if you pasted model keys, otherwise **scripted**. `AGENT_RUNTIME=flue` on the Worker means that mapping until Flue’s Cloudflare target exists. Paste provider keys and pick a default model in the office (**Settings → Models**). Tests stay on `scripted`.
+Office chats on the Worker use Groxbot’s **hosted Cloudflare AI Gateway** through the **`AI` binding**. Workspace BYOK still wins. Without the binding or a pasted key, the Worker falls back to **scripted**. Tests stay on `scripted`.
 
-**Cloudflare AI Gateway** is in that same Models tab (account id, API token, gateway id). See [Cloudflare’s Pi guide](https://developers.cloudflare.com/ai-gateway/integrations/coding-agents/pi/).
+**Cloudflare AI Gateway** also accepts a workspace BYOK key in Settings → Models (account id, API token, gateway id). Hosted usage is counted per workspace. See [Cloudflare’s Pi guide](https://developers.cloudflare.com/ai-gateway/integrations/coding-agents/pi/).
 
 Landing (marketing site, TanStack Start):
 
@@ -81,7 +82,7 @@ pnpm deploy:web       # https://groxbot-web.qalam.workers.dev
 pnpm deploy:api       # https://groxbot-api.qalam.workers.dev/health
 ```
 
-API Worker secrets (`wrangler secret put` in `apps/api`): `DATABASE_URL` (Neon), `BETTER_AUTH_SECRET`, `ENCRYPTION_KEY`. Wakeup is a Durable Object per `botId`. Brains are gateway-if-keys / scripted. `SANDBOX_PROVIDER=fake` until Computer/Sandbox factories are wired.
+API Worker secrets (`wrangler secret put` in `apps/api`): `DATABASE_URL` (Neon), `BETTER_AUTH_SECRET`, `ENCRYPTION_KEY`. Wakeup is a Durable Object per `botId`. Hosted brains use the Worker **`AI` binding**; workspace BYOK still uses the REST gateway. Tests stay **scripted**. `SANDBOX_PROVIDER=fake` until Computer/Sandbox factories are wired.
 
 Advanced, off by default: a bot can let **Hermes** or **OpenClaw** connect outbound (`pnpm guest -- --url http://127.0.0.1:3101 --token … --kind hermes`). Enable it under Profile → Advanced. Default teammates still use the scripted/Pi runtime.
 

@@ -1,8 +1,7 @@
-import type { AgentRuntime } from "@groxbot/adapter-kit";
+import type { AgentRuntime, InitApp } from "@groxbot/adapter-kit";
 import type { MessageBlock, RunStatus } from "@groxbot/contracts";
 import {
   bots,
-  computers,
   type Database,
   messages,
   runs,
@@ -10,12 +9,8 @@ import {
   threads,
 } from "@groxbot/db";
 import { asc, eq } from "drizzle-orm";
-import {
-  activeBotIdsOnComputer,
-  fanoutComputerUpdated,
-  getBotComputer,
-  tryClaimComputer,
-} from "./computer.js";
+import { parseAppIntent } from "./app-intent.js";
+import { stampApp } from "./apps.js";
 import type { GuestHub } from "./guest-hub.js";
 import { GuestAgentRuntime } from "./guest-runtime.js";
 import { newId } from "./ids.js";
@@ -29,6 +24,7 @@ import { listPokeTeammates, pokeBot } from "./poke.js";
 import { assertTransition } from "./run-state.js";
 import { redactSecrets } from "./secret-box.js";
 import { appendEvent, nextSeq } from "./threads.js";
+import { recordModelUsage } from "./usage.js";
 
 async function setRunStatus(
   db: Database,
@@ -50,11 +46,13 @@ export async function continueRun(opts: {
   db: Database;
   runtime: AgentRuntime;
   runId: string;
+  env?: NodeJS.ProcessEnv;
   guests?: GuestHub;
   pokeStack?: string[];
   bindRuntime?: (overlay: {
     env: NodeJS.ProcessEnv;
     model: string;
+    hosted?: boolean;
   }) => AgentRuntime;
   pluginTools?: (input: { workspaceId: string; toolkits: string[] }) =>
     | {
@@ -65,6 +63,7 @@ export async function continueRun(opts: {
         ) => Promise<string>;
       }
     | undefined;
+  initApp?: InitApp;
 }): Promise<void> {
   const { db, runId, guests } = opts;
   const [run] = await db.select().from(runs).where(eq(runs.id, runId)).limit(1);
@@ -135,12 +134,6 @@ export async function continueRun(opts: {
     .limit(1);
   if (!task || !thread) return;
 
-  const computer = await getBotComputer(db, bot);
-  if (computer) {
-    const claimed = await tryClaimComputer(db, computer, bot.id, "running");
-    await fanoutComputerUpdated(db, claimed.computer, bot.id, runId);
-  }
-
   await appendEvent(db, {
     workspaceId: run.workspaceId,
     threadId: run.threadId,
@@ -160,11 +153,12 @@ export async function continueRun(opts: {
 
   const controller = new AbortController();
   let reply = "";
+  const sourceEnv = opts.env ?? process.env;
   const overlay = await resolveRunModel(
     db,
     bot,
-    process.env,
-    encryptionSecret(process.env),
+    sourceEnv,
+    encryptionSecret(sourceEnv),
   );
   if (!overlay.configured) {
     const message = missingModelMessage(overlay.model);
@@ -208,12 +202,6 @@ export async function continueRun(opts: {
                 runId: nestedRunId,
                 pokeStack: [...pokeStack, bot.id],
               });
-              const [nested] = await db
-                .select({ botId: runs.botId })
-                .from(runs)
-                .where(eq(runs.id, nestedRunId))
-                .limit(1);
-              if (nested) await sleepComputer(db, nested.botId);
             },
           });
   try {
@@ -255,6 +243,18 @@ export async function continueRun(opts: {
       if (event.type === "text" && event.text) reply = event.text;
       if (event.type === "done" && event.text && !reply) reply = event.text;
       if (event.type === "error") throw new Error(event.text);
+      if (event.type === "usage" && overlay.hosted) {
+        await recordModelUsage(db, {
+          workspaceId: run.workspaceId,
+          userId: run.userId,
+          botId: bot.id,
+          runId,
+          model: overlay.model,
+          promptTokens: event.promptTokens,
+          completionTokens: event.completionTokens,
+          totalTokens: event.totalTokens,
+        });
+      }
     }
   } catch (error) {
     const message = redactSecrets(
@@ -285,6 +285,21 @@ export async function continueRun(opts: {
   const seq = await nextSeq(db, messages, run.threadId);
   const assistantId = newId();
   const blocks: MessageBlock[] = [{ kind: "text", text: reply || "Done." }];
+  const intent = parseAppIntent(task.prompt);
+  if (intent && opts.initApp) {
+    const app = await stampApp({
+      initApp: opts.initApp,
+      workspaceId: run.workspaceId,
+      templateId: intent.templateId,
+      title: intent.title,
+    });
+    blocks.push({
+      kind: "app",
+      appId: app.id,
+      templateId: app.templateId,
+      title: app.title,
+    });
+  }
   await db.insert(messages).values({
     id: assistantId,
     threadId: run.threadId,
@@ -326,42 +341,17 @@ export async function continueRun(opts: {
   });
 }
 
-export async function sleepComputer(
-  db: Database,
-  botId: string,
-): Promise<void> {
-  const [bot] = await db.select().from(bots).where(eq(bots.id, botId)).limit(1);
-  if (!bot) return;
-  const computer = await getBotComputer(db, bot);
-  if (!computer) return;
-  if (computer.controlHolder === "user") return;
-  const active = await activeBotIdsOnComputer(db, computer.id);
-  if (active.length > 0) return;
-  const [updated] = await db
-    .update(computers)
-    .set({
-      state: "stopped",
-      controlHolder: "none",
-      controlHolderId: null,
-      updatedAt: new Date(),
-    })
-    .where(eq(computers.id, computer.id))
-    .returning();
-  if (updated) {
-    await fanoutComputerUpdated(db, updated, botId);
-  }
-}
-
 function historyTurn(
   row: typeof messages.$inferSelect,
   botId: string,
 ): { role: "user" | "assistant" | "system"; content: string } {
   const blocks = row.blocks as MessageBlock[];
   const text = blocks
-    .filter(
-      (block): block is { kind: "text"; text: string } => block.kind === "text",
-    )
-    .map((block) => block.text)
+    .flatMap((block) => {
+      if (block.kind === "text") return [block.text];
+      if (block.kind === "app") return [`[${block.templateId}] ${block.title}`];
+      return [];
+    })
     .join("\n");
   if (row.actorType === "human") return { role: "user", content: text };
   if (row.actorType === "bot" && row.actorId === botId) {

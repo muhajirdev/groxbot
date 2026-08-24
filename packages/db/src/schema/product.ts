@@ -12,65 +12,43 @@ import {
 } from "drizzle-orm/pg-core";
 import { organization, user } from "./auth.js";
 
-/** Shared workspace computer. Many bots can share one; GUI is one mouse at a time. */
-export const computers = pgTable("computers", {
-  id: text("id").primaryKey(),
-  workspaceId: text("workspace_id")
-    .notNull()
-    .references(() => organization.id, { onDelete: "cascade" }),
-  userId: text("user_id").notNull(),
-  name: text("name").notNull().default("Default computer"),
-  isDefault: boolean("is_default").notNull().default(false),
-  kind: text("kind").notNull(),
-  providerRef: text("provider_ref"),
-  state: text("state").notNull().default("stopped"),
-  controlHolder: text("control_holder").notNull().default("none"),
-  controlHolderId: text("control_holder_id"),
-  controlLeaseId: text("control_lease_id"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
-
-export const bots = pgTable("bots", {
-  id: text("id").primaryKey(),
-  workspaceId: text("workspace_id")
-    .notNull()
-    .references(() => organization.id, { onDelete: "cascade" }),
-  userId: text("user_id")
-    .notNull()
-    .references(() => user.id),
-  computerId: text("computer_id")
-    .notNull()
-    .references(() => computers.id, { onDelete: "restrict" }),
-  name: text("name").notNull(),
-  title: text("title").notNull().default(""),
-  description: text("description").notNull().default(""),
-  instructions: text("instructions").notNull().default(""),
-  avatarColor: text("avatar_color").notNull().default("#5b7cff"),
-  avatarShape: text("avatar_shape").notNull().default("circle"),
-  parentBotId: text("parent_bot_id"),
-  /** off | hermes | openclaw | generic. Default off = Groxbot runtime. */
-  guestKind: text("guest_kind").notNull().default("off"),
-  /** Empty = workspace default model from user_model_credentials. */
-  model: text("model").notNull().default(""),
-  /** Set when the teammate is archived (hidden + paused). Null = active. */
-  archivedAt: timestamp("archived_at", { withTimezone: true }),
-  /** Sidebar office. Extra human↔bot threads for this bot are allowed; v1 never creates them. */
-  homeThreadId: text("home_thread_id").references(
-    (): AnyPgColumn => threads.id,
-    { onDelete: "set null" },
-  ),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-}, (t) => [uniqueIndex("bots_home_thread_id_unique").on(t.homeThreadId)]);
+export const bots = pgTable(
+  "bots",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id),
+    name: text("name").notNull(),
+    title: text("title").notNull().default(""),
+    description: text("description").notNull().default(""),
+    instructions: text("instructions").notNull().default(""),
+    avatarColor: text("avatar_color").notNull().default("#5b7cff"),
+    avatarShape: text("avatar_shape").notNull().default("circle"),
+    parentBotId: text("parent_bot_id"),
+    /** off | hermes | openclaw | generic. Default off = Groxbot runtime. */
+    guestKind: text("guest_kind").notNull().default("off"),
+    /** Empty = workspace default model from user_model_credentials. */
+    model: text("model").notNull().default(""),
+    /** Set when the teammate is archived (hidden + paused). Null = active. */
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    /** Sidebar office. Extra human↔bot threads for this bot are allowed; v1 never creates them. */
+    homeThreadId: text("home_thread_id").references(
+      (): AnyPgColumn => threads.id,
+      { onDelete: "set null" },
+    ),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("bots_home_thread_id_unique").on(t.homeThreadId)],
+);
 
 export const threads = pgTable(
   "threads",
@@ -332,6 +310,34 @@ export const userModelCredentials = pgTable(
       t.workspaceId,
       t.provider,
     ),
+  ],
+);
+
+/** Hosted Cloudflare AI Gateway usage. Counted per workspace; userId is for later per-person rollups. */
+export const modelUsage = pgTable(
+  "model_usage",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    botId: text("bot_id"),
+    runId: text("run_id"),
+    model: text("model").notNull(),
+    source: text("source").notNull(),
+    promptTokens: integer("prompt_tokens").notNull().default(0),
+    completionTokens: integer("completion_tokens").notNull().default(0),
+    totalTokens: integer("total_tokens").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("model_usage_workspace_created").on(t.workspaceId, t.createdAt),
+    index("model_usage_workspace_user").on(t.workspaceId, t.userId),
   ],
 );
 

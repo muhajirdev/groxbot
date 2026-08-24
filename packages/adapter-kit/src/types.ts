@@ -15,9 +15,19 @@ export interface WakeupJob {
   name: string;
   payload: Record<string, unknown>;
   runAt?: Date;
-  /** Named schedule on that actor (e.g. computer.sleep). Replaces the previous one. */
+  /** Named schedule on that actor. Replaces the previous one. */
   jobKey?: string;
 }
+
+/** Send a job to the bot actor. The Worker implements this with a Durable Object stub. */
+export type EnqueueJob = (job: WakeupJob) => Promise<void>;
+
+/** Stamp a live app on AppRuntime. The Worker implements this with a Durable Object stub. */
+export type InitApp = (
+  appId: string,
+  templateId: string,
+  opts: { workspaceId: string; title: string },
+) => Promise<void>;
 
 export interface ComputerRef {
   id: string;
@@ -75,7 +85,13 @@ export type AgentRuntimeEvent =
   | { type: "text"; text: string }
   | { type: "progress"; text: string }
   | { type: "done"; text?: string }
-  | { type: "error"; text: string };
+  | { type: "error"; text: string }
+  | {
+      type: "usage";
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+    };
 
 export type GuestAgentKind = "hermes" | "openclaw" | "generic";
 

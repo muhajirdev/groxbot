@@ -6,19 +6,20 @@ import type {
 } from "@groxbot/adapter-kit";
 import {
   chatMessages,
+  completionUsage,
   deltaText,
   type GatewayConfig,
   type GatewayEnv,
-  type GatewayProvider,
   gatewayChatUrl,
   gatewayConfigured,
   gatewayErrorMessage,
   gatewayHeaders,
-  isGatewayProvider,
+  gatewayRequestModel,
   loadGatewayConfig,
   readSseData,
   unwrapGatewayPayload,
 } from "./gateway.js";
+import { type WorkersAiBinding, WorkersAiRuntime } from "./workers-ai.js";
 
 export class ScriptedAgentRuntime implements AgentRuntime {
   private running = new Map<string, AbortController>();
@@ -81,13 +82,26 @@ export class GatewayAgentRuntime implements AgentRuntime {
     const signal = mergeSignals(context.signal, controller.signal);
     yield { type: "progress", text: "working…" };
     let reply = "";
+    let usage: {
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+    } | null = null;
     try {
       const response = await this.config.fetch(gatewayChatUrl(this.config), {
         method: "POST",
-        headers: gatewayHeaders(this.config),
+        headers: gatewayHeaders(this.config, {
+          workspaceId: context.workspaceId,
+          userId: context.userId,
+          botId: context.botId ?? request.botId,
+          runId: context.runId ?? request.runId,
+        }),
         body: JSON.stringify({
-          model: request.model?.trim() || this.config.model,
+          model: gatewayRequestModel(
+            request.model?.trim() || this.config.model,
+          ),
           stream: true,
+          stream_options: { include_usage: true },
           messages: chatMessages(request),
         }),
         signal,
@@ -107,13 +121,20 @@ export class GatewayAgentRuntime implements AgentRuntime {
           } catch {
             continue;
           }
+          usage = completionUsage(payload) ?? usage;
           const chunk = deltaText(payload);
           if (!chunk) continue;
           reply += chunk;
           yield { type: "progress", text: reply };
         }
       } else {
-        reply = completionText(raw.text);
+        try {
+          const payload = JSON.parse(raw.text) as unknown;
+          usage = completionUsage(payload);
+          reply = completionText(raw.text);
+        } catch {
+          reply = completionText(raw.text);
+        }
       }
       if (signal.aborted) {
         yield { type: "done", text: reply || "stopped" };
@@ -123,6 +144,7 @@ export class GatewayAgentRuntime implements AgentRuntime {
         throw new Error("AI gateway returned an empty reply");
       }
       yield { type: "text", text: reply };
+      if (usage) yield { type: "usage", ...usage };
       yield { type: "done", text: reply };
     } catch (error) {
       if (isAbortError(error) || signal.aborted) {
@@ -202,8 +224,8 @@ export function parsePokePrompt(
   return { name: match[1], message: match[2].trim() };
 }
 
-/** Product default: Flue bootstraps Pi (`useModel` + providers). */
-export const DEFAULT_AGENT_RUNTIME = "flue";
+/** Product default on the Worker: AI Gateway chat completions. */
+export const DEFAULT_AGENT_RUNTIME = "gateway";
 
 /** Offline stub for tests and CI. */
 export const OFFLINE_AGENT_RUNTIME = "scripted";
@@ -218,9 +240,35 @@ export function isOfflineAgentRuntime(kind: string): boolean {
 }
 
 /**
+ * Hosted Worker brain: `env.AI` binding, else REST gateway keys, else scripted echo.
+ * Call this from the Worker entry instead of a kind string.
+ */
+export function createHostedAgentRuntime(
+  source: GatewayEnv | NodeJS.ProcessEnv = {},
+  options?: {
+    fetch?: typeof fetch;
+    ai?: WorkersAiBinding;
+    gatewayId?: string;
+  },
+): AgentRuntime {
+  if (options?.ai) {
+    return new WorkersAiRuntime({
+      ai: options.ai,
+      gatewayId:
+        options.gatewayId ||
+        source.CLOUDFLARE_AI_GATEWAY_ID?.trim() ||
+        "default",
+    });
+  }
+  if (!gatewayConfigured(source)) return new ScriptedAgentRuntime();
+  return new GatewayAgentRuntime(
+    loadGatewayConfig(source, { fetch: options?.fetch }),
+  );
+}
+
+/**
  * Worker-safe runtimes: scripted echo, or chat-completions gateway.
- * Flue/Pi stays Node (`@groxbot/adapters`). On Workers, `flue` maps to
- * gateway when keys exist, otherwise scripted.
+ * Prefer `createHostedAgentRuntime` at product call sites.
  */
 export function createScriptedOrGatewayRuntime(
   kind = OFFLINE_AGENT_RUNTIME,
@@ -237,17 +285,9 @@ export function createScriptedOrGatewayRuntime(
     runtime === "openrouter" ||
     runtime === "cloudflare"
   ) {
-    if (runtime === "flue" && !gatewayConfigured(source)) {
-      return new ScriptedAgentRuntime();
-    }
-    const provider: GatewayProvider | undefined = isGatewayProvider(runtime)
-      ? runtime
-      : undefined;
-    return new GatewayAgentRuntime(
-      loadGatewayConfig(source, { provider, fetch: fetchImpl }),
-    );
+    return createHostedAgentRuntime(source, { fetch: fetchImpl });
   }
   throw new Error(
-    `Unknown AGENT_RUNTIME "${kind}". Use scripted, flue, flue-echo, gateway, openrouter, or cloudflare.`,
+    `Unknown AGENT_RUNTIME "${kind}". Use scripted, gateway, openrouter, or cloudflare.`,
   );
 }

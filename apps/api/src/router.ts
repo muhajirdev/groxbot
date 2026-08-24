@@ -6,9 +6,9 @@ import {
 } from "@groxbot/contracts";
 import {
   encryptionSecret,
-  getBotComputer,
   getPokeThread,
   listEventsAfter,
+  listWorkspaceApps,
   loadModelSettings,
   ModelSettingsError,
   PokeError,
@@ -25,12 +25,9 @@ import {
   createBot,
   createRoutine,
   getBotThread,
-  getComputer,
   listBots,
-  listComputers,
   listRoutines,
   sendMessage,
-  setComputerControl,
   stopBotRuns,
   unarchiveBot,
   updateBot,
@@ -114,6 +111,7 @@ export const appRouter = os.router({
       isDeploymentOwner: actor.isDeploymentOwner,
       needsModel:
         !isOfflineAgentRuntime(context.env.agentRuntime) &&
+        !settings.hostedGateway &&
         !userHasModelCredentials(creds.length),
       defaultModel: settings.defaultModelId,
       defaultModelLabel: labelForModel(settings.defaultModelId),
@@ -190,10 +188,8 @@ export const appRouter = os.router({
         .from(guestConnectors)
         .where(eq(guestConnectors.botId, bot.id))
         .limit(1);
-      const desk = await getBotComputer(context.db, bot);
       return toBotDto(bot, thread.id, {
         online: connector ? connectorOnline(connector) : false,
-        computerName: desk?.name,
       });
     }),
     create: os.bots.create.handler(async ({ context, input }) => {
@@ -282,24 +278,10 @@ export const appRouter = os.router({
       return { ok: true as const };
     }),
   },
-  computers: {
-    list: os.computers.list.handler(async ({ context }) => {
+  apps: {
+    list: os.apps.list.handler(async ({ context }) => {
       const actor = await requireActor(context);
-      return listComputers(context, actor);
-    }),
-  },
-  computer: {
-    status: os.computer.status.handler(async ({ context, input }) => {
-      const actor = await requireActor(context);
-      return getComputer(context, actor, input.botId);
-    }),
-    takeover: os.computer.takeover.handler(async ({ context, input }) => {
-      const actor = await requireActor(context);
-      return setComputerControl(context, actor, input.botId, "user");
-    }),
-    release: os.computer.release.handler(async ({ context, input }) => {
-      const actor = await requireActor(context);
-      return setComputerControl(context, actor, input.botId, "bot");
+      return listWorkspaceApps(context.db, actor.workspaceId);
     }),
   },
   guests: {

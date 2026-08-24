@@ -2,9 +2,9 @@ import type { AgentRuntime } from "@groxbot/adapter-kit";
 import { flueConfigured, getFlueAgentRuntime } from "./flue/runtime.js";
 import {
   type GatewayEnv,
+  type GatewayProvider,
   gatewayConfigured,
   isGatewayProvider,
-  type GatewayProvider,
   loadGatewayConfig,
 } from "./gateway.js";
 import { GatewayAgentRuntime } from "./runtime-core.js";
@@ -21,14 +21,14 @@ export {
 
 import {
   createScriptedOrGatewayRuntime,
+  isOfflineAgentRuntime,
   OFFLINE_AGENT_RUNTIME,
   resolveAgentRuntimeKind,
-  isOfflineAgentRuntime,
 } from "./runtime-core.js";
 
 export function bindAgentRuntime(
   kind: string | undefined,
-  overlay: { env: NodeJS.ProcessEnv; model: string },
+  overlay: { env: NodeJS.ProcessEnv; model: string; hosted?: boolean },
   fetchImpl?: typeof fetch,
 ): AgentRuntime {
   return createAgentRuntime(
@@ -47,6 +47,7 @@ export function agentRuntimeNeedsModel(
   if (runtime === "flue") {
     return !flueConfigured(source as NodeJS.ProcessEnv);
   }
+  if (source.GROXBOT_HOSTED_AI?.trim()) return false;
   return !gatewayConfigured(source);
 }
 

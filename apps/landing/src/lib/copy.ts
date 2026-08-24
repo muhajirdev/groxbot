@@ -7,7 +7,8 @@ export const DEMOS = [
   {
     id: "linkedin",
     title: "Post to LinkedIn",
-    blurb: "Write it in your voice. Queue it. Nothing goes live until you look.",
+    blurb:
+      "Write it in your voice. Queue it. Nothing goes live until you look.",
     toolLine: "LinkedIn",
     slugs: ["linkedin"],
     color: "#5b7cff",
@@ -138,11 +139,11 @@ export const COMPARE = [
 export const FAQS = [
   {
     q: "How is this different from Grok Bot?",
-    a: "Same motion: create a Bot, message it, grant access as needed. Groxbot is for the team — a shared workspace computer by default, isolated when logins should stay private — and you can run the source yourself.",
+    a: "Same motion: create a Bot, message it, grant access as needed. Groxbot is for the team — named teammates, each with a computer, live docs from chat — and you can run the source yourself.",
   },
   {
     q: "How is this different from OpenClaw?",
-    a: "OpenClaw is a personal agent on your machine. Groxbot is the office: named teammates, a shared computer, Postgres for team data, and a messaging UI the whole company can sit in.",
+    a: "OpenClaw is a personal agent on your machine. Groxbot is the office: named teammates, each with a computer, Postgres for team data, and a messaging UI the whole company can sit in.",
   },
   {
     q: "Do I need a workflow builder?",
@@ -150,7 +151,7 @@ export const FAQS = [
   },
   {
     q: "Where does the computer live?",
-    a: "In the cloud — not on your laptop. Teammates share the workspace default computer; give a Bot its own when logins should stay private. Shut the machine, close the pane, pick up the thread on your phone. The work keeps going.",
+    a: "In the cloud, on that bot — not on your laptop. Hire a teammate and they already have a computer. Shut the machine, close the pane, pick up the thread on your phone. The work keeps going.",
   },
   {
     q: "Is it open source?",
@@ -232,4 +233,3 @@ export const HOME_ADOPTION = [
   { ...PEOPLE.you, role: "Lead", tasks: 1240, label: "1,240" },
   { ...PEOPLE.rahul, role: "Scout", tasks: 980, label: "980" },
 ] as const;
-

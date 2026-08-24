@@ -1,19 +1,13 @@
 import type { ThreadMessage } from "@groxbot/contracts";
-import type { QueryClient } from "@tanstack/react-query";
 import {
+  type CachedMessage,
   messagesCollection,
   patchBot,
-  threadMetaCollection,
-  type CachedMessage,
   type ThreadMeta,
+  threadMetaCollection,
 } from "./collections";
-import { client as rpcClient } from "./rpc";
 
 export const THREAD_GC_MS = 30 * 60_000;
-
-export function computerKey(botId: string) {
-  return ["computer", botId] as const;
-}
 
 export function peekMessages(botId: string): CachedMessage[] {
   const rows: CachedMessage[] = [];
@@ -104,14 +98,6 @@ export function failOptimisticSend(
 ): void {
   if (messagesCollection.has(id)) messagesCollection.delete(id);
   patchThreadMeta(botId, { working: "", error });
-}
-
-export function prefetchComputer(client: QueryClient, botId: string): void {
-  void client.prefetchQuery({
-    queryKey: computerKey(botId),
-    queryFn: () => rpcClient.computer.status({ botId }),
-    staleTime: 10_000,
-  });
 }
 
 export function touchBotPreview(botId: string, preview: string): void {

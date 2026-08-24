@@ -18,7 +18,9 @@
       "!**/routeTree.gen.ts",
       "!**/dist",
       "!**/.output",
-      "!apps/landing/src/data/composio-toolkits.json"
+      "!apps/landing/src/data/composio-toolkits.json",
+      "!packages/app-runtime/src/generated/**",
+      "!packages/app-runtime/vendor/**"
     ]
   }
 }

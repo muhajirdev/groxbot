@@ -1,15 +1,20 @@
-/** Product API: Cloudflare Worker + Neon HTTP + Durable Object wakeup. */
+/** Product API: Cloudflare Worker + Neon HTTP + Durable Object BotActor. */
 import { DurableObject } from "cloudflare:workers";
 import {
   bindAgentRuntime,
-  createAgentRuntime,
+  createHostedAgentRuntime,
   createPluginTools,
+  type WorkersAiBinding,
 } from "@groxbot/adapters/edge";
 import { createWakeHandlers } from "@groxbot/core";
 import { createNeonHttpDb } from "@groxbot/db/neon";
 import { createApp } from "./app.js";
-import { DurableObjectWakeupDriver } from "./do-wakeup.js";
-import { agentRuntimeSource, loadEnv } from "./env.js";
+import { AppRuntime, DurableObjectAppStore } from "./app-runtime-do.js";
+import { enqueueOnBot } from "./bot-enqueue.js";
+import { agentRuntimeSource, type Env, loadEnv } from "./env.js";
+import type { SendEmailBinding } from "./mail.js";
+
+export { AppRuntime };
 
 export interface WorkerEnv {
   DATABASE_URL: string;
@@ -24,14 +29,27 @@ export interface WorkerEnv {
   WAKEUP_KIND?: string;
   NODE_ENV?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
-  CLOUDFLARE_EMAIL_API_TOKEN?: string;
+  CLOUDFLARE_API_TOKEN?: string;
+  CLOUDFLARE_AI_GATEWAY_TOKEN?: string;
+  CLOUDFLARE_AI_GATEWAY_ID?: string;
   EMAIL_FROM?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
   GITHUB_CLIENT_ID?: string;
   GITHUB_CLIENT_SECRET?: string;
   COMPOSIO_API_KEY?: string;
+  EMAIL?: SendEmailBinding;
+  AI?: WorkersAiBinding;
   BOT_ACTOR: DurableObjectNamespace;
+  APP_RUNTIME: DurableObjectNamespace;
+  LOADER: unknown;
+}
+
+function productEnv(env: WorkerEnv): Env {
+  const loaded = loadEnv(env as unknown as NodeJS.ProcessEnv);
+  loaded.emailBinding = Boolean(env.EMAIL);
+  loaded.hostedAiBinding = Boolean(env.AI);
+  return loaded;
 }
 
 type StoredJob = {
@@ -51,18 +69,22 @@ export class BotActor extends DurableObject<WorkerEnv> {
 
   private async boot(): Promise<void> {
     if (this.handlers) return;
-    const env = loadEnv(this.env as unknown as NodeJS.ProcessEnv);
+    const env = productEnv(this.env);
     const { db } = createNeonHttpDb(env.databaseUrl);
-    const wakeup = new DurableObjectWakeupDriver(this.env.BOT_ACTOR);
-    const runtime = createAgentRuntime(
-      env.agentRuntime,
-      agentRuntimeSource(env),
-    );
+    const source = agentRuntimeSource(env);
+    const runtime = createHostedAgentRuntime(source, {
+      ai: this.env.AI,
+      gatewayId: env.cloudflareAiGatewayId || "default",
+    });
+    const apps = new DurableObjectAppStore(this.env.APP_RUNTIME);
     this.handlers = createWakeHandlers({
       db,
       runtime,
-      wakeup,
-      bindRuntime: (overlay) => bindAgentRuntime(env.agentRuntime, overlay),
+      env: source,
+      enqueue: (job) => enqueueOnBot(this.env.BOT_ACTOR, job),
+      initApp: (appId, templateId, opts) => apps.init(appId, templateId, opts),
+      bindRuntime: (overlay) =>
+        bindAgentRuntime(env.agentRuntime, overlay, { ai: this.env.AI }),
       pluginTools: (input) =>
         createPluginTools({
           ...input,
@@ -95,7 +117,10 @@ export class BotActor extends DurableObject<WorkerEnv> {
           }
         }
       }
-      await this.ctx.storage.put(`job:${job.jobKey ?? crypto.randomUUID()}`, job);
+      await this.ctx.storage.put(
+        `job:${job.jobKey ?? crypto.randomUUID()}`,
+        job,
+      );
       await this.scheduleAlarm();
       return new Response("scheduled", { status: 202 });
     }
@@ -146,12 +171,17 @@ export class BotActor extends DurableObject<WorkerEnv> {
 
 export default {
   async fetch(request: Request, env: WorkerEnv): Promise<Response> {
-    const loaded = loadEnv(env as unknown as NodeJS.ProcessEnv);
+    const loaded = productEnv(env);
     const { db, close } = createNeonHttpDb(loaded.databaseUrl);
+    const apps = new DurableObjectAppStore(env.APP_RUNTIME);
     const handles = createApp(loaded, {
       db,
       close,
-      wakeup: new DurableObjectWakeupDriver(env.BOT_ACTOR),
+      enqueue: (job) => enqueueOnBot(env.BOT_ACTOR, job),
+      initApp: (appId, templateId, opts) => apps.init(appId, templateId, opts),
+      connectApp: (appId, request, workspaceId) =>
+        apps.connect(appId, request, workspaceId),
+      email: env.EMAIL,
     });
     return handles.app.fetch(request);
   },

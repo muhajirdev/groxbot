@@ -1,15 +1,9 @@
-import type {
-  Bot,
-  ComputerActivityItem,
-  ComputerDeskFile,
-  ComputerStatus,
-  Routine,
-} from "@groxbot/contracts";
+import type { Bot, Routine } from "@groxbot/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { client } from "../lib/rpc";
-import { CloseIcon, GearIcon } from "./Icons";
 import { ModalShell } from "../ui";
+import { CloseIcon, GearIcon } from "./Icons";
 
 const CRONS = [
   { label: "Every day at 9:00", value: "0 9 * * *" },
@@ -17,16 +11,15 @@ const CRONS = [
   { label: "Weekdays at 9:00", value: "0 9 * * 1-5" },
 ] as const;
 
+export type ComputerActivityItem = { id: string; text: string };
+
 export function ComputerPane(props: {
   bot: Bot;
-  computer: ComputerStatus | null;
-  computerPending?: boolean;
   statusLabel: string;
   working?: string;
+  activity: ComputerActivityItem[];
   onSettings: () => void;
   onCollapse: () => void;
-  onTakeover: () => void;
-  onRelease: () => void;
 }) {
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
@@ -36,19 +29,13 @@ export function ComputerPane(props: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const botId = props.bot.id;
-  const waiting = Boolean(props.computerPending) && !props.computer;
-  const booting = props.computer?.state === "booting" || waiting;
+  const booting = Boolean(props.working);
   const routinesQuery = useQuery({
     queryKey: ["routines", botId],
     queryFn: () => client.routines.list({ botId }),
     staleTime: 30_000,
   });
   const routines: Routine[] = routinesQuery.data ?? [];
-
-  const user = props.computer?.controlHolder === "user";
-  const otherHasMouse =
-    Boolean(props.computer?.usingBotId) &&
-    props.computer?.usingBotId !== props.bot.id;
 
   return (
     <aside className="pane computer-pane">
@@ -79,7 +66,7 @@ export function ComputerPane(props: {
         <div className="boot-card">
           {booting ? (
             <>
-              <p>{waiting ? "Opening desk" : props.statusLabel}</p>
+              <p>{props.statusLabel}</p>
               <div className="progress">
                 <i />
               </div>
@@ -89,26 +76,33 @@ export function ComputerPane(props: {
           )}
         </div>
         <div className="screen-box inset">
-          {waiting ? null : (
-            <DeskScreen
-              computer={props.computer}
-              working={props.working ?? ""}
-              user={user}
-              otherHasMouse={otherHasMouse}
-            />
-          )}
-        </div>
-        {waiting ? null : (
-          <div className="stage-actions" style={{ padding: "12px 0 8px" }}>
-            <button
-              className="btn"
-              type="button"
-              onClick={user ? props.onRelease : props.onTakeover}
-            >
-              {user ? "Continue" : "Take over"}
-            </button>
+          <div className="desk">
+            <section className="desk-workspace">
+              <p className="desk-kicker">Workspace</p>
+              <ul className="desk-tree">
+                <li>
+                  <span className="desk-dir">/workspace</span>
+                </li>
+              </ul>
+            </section>
+            <section className="desk-artifact">
+              <p className="desk-empty">
+                Files this teammate writes land here. Work continues if you
+                close this.
+              </p>
+            </section>
+            <section className="desk-activity">
+              <p className="desk-kicker">Activity</p>
+              {props.working ? (
+                <p className="desk-now">{props.working}</p>
+              ) : null}
+              <ActivityList
+                items={props.activity}
+                nowDoing={props.working ?? null}
+              />
+            </section>
           </div>
-        )}
+        </div>
         <section className="routines">
           <p className="muted">
             Routines are recurring tasks this Bot runs on a schedule.
@@ -215,81 +209,6 @@ export function ComputerPane(props: {
   );
 }
 
-function DeskScreen(props: {
-  computer: ComputerStatus | null;
-  working: string;
-  user: boolean;
-  otherHasMouse: boolean;
-}) {
-  const files = props.computer?.files ?? [{ path: "/workspace", kind: "dir" }];
-  const artifact = props.computer?.artifact ?? null;
-  const activity = props.computer?.activity ?? [];
-  const nowDoing =
-    props.working.trim() || props.computer?.nowDoing || null;
-  const [selectedPath, setSelectedPath] = useState(artifact?.path ?? "");
-
-  useEffect(() => {
-    setSelectedPath(artifact?.path ?? "");
-  }, [artifact?.path, props.computer?.id]);
-
-  const selected = useMemo(
-    () => selectedFile(files, selectedPath, artifact),
-    [files, selectedPath, artifact],
-  );
-
-  const banner = props.user
-    ? "You're in control. Complete the blocked step here — not in chat."
-    : props.otherHasMouse
-      ? `${props.computer?.usingBotName ?? "A teammate"} has the desk. Files are shared; one editor at a time.`
-      : null;
-
-  return (
-    <div className="desk">
-      {banner ? <p className="desk-banner">{banner}</p> : null}
-      <section className="desk-workspace">
-        <p className="desk-kicker">Workspace</p>
-        <ul className="desk-tree">
-          {files.map((file) => (
-            <li key={file.path}>
-              {file.kind === "dir" ? (
-                <span className="desk-dir">{file.path}</span>
-              ) : (
-                <button
-                  className={
-                    file.path === selected?.path ? "desk-file on" : "desk-file"
-                  }
-                  type="button"
-                  onClick={() => setSelectedPath(file.path)}
-                >
-                  {baseName(file.path)}
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      </section>
-      <section className="desk-artifact">
-        {selected ? (
-          <>
-            <p className="desk-artifact-title">{selected.title}</p>
-            <pre className="desk-artifact-body">{selected.body}</pre>
-          </>
-        ) : (
-          <p className="desk-empty">
-            Files this teammate writes land here. Work continues if you close
-            this.
-          </p>
-        )}
-      </section>
-      <section className="desk-activity">
-        <p className="desk-kicker">Activity</p>
-        {nowDoing ? <p className="desk-now">{nowDoing}</p> : null}
-        <ActivityList items={activity} nowDoing={nowDoing} />
-      </section>
-    </div>
-  );
-}
-
 function ActivityList(props: {
   items: ComputerActivityItem[];
   nowDoing: string | null;
@@ -306,25 +225,4 @@ function ActivityList(props: {
       ))}
     </ul>
   );
-}
-
-function selectedFile(
-  files: ComputerDeskFile[],
-  path: string,
-  artifact: ComputerStatus["artifact"],
-): { path: string; title: string; body: string } | null {
-  const file = files.find((item) => item.kind === "file" && item.path === path);
-  if (file?.body) {
-    return {
-      path: file.path,
-      title: file.title || baseName(file.path),
-      body: file.body,
-    };
-  }
-  if (artifact && (path === artifact.path || !path)) return artifact;
-  return artifact;
-}
-
-function baseName(path: string): string {
-  return path.split("/").filter(Boolean).at(-1) ?? path;
 }

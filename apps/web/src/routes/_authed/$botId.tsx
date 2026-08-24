@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { Chat } from "../../screens/Chat";
 import { botsCollection, peekBots } from "../../lib/collections";
 import { firstLiveBot, loadBotsForRoute } from "../../lib/session";
+import { Chat } from "../../screens/Chat";
 
 export const Route = createFileRoute("/_authed/$botId")({
   pendingMs: 1000,

@@ -85,6 +85,34 @@
       "when": 1786945000000,
       "tag": "0011_home_thread",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1786946000000,
+      "tag": "0012_workspace_apps",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1786947000000,
+      "tag": "0013_drop_workspace_apps",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1786948000000,
+      "tag": "0014_drop_computers",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1786950000000,
+      "tag": "0015_model_usage",
+      "breakpoints": true
     }
   ]
 }

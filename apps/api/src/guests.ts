@@ -106,7 +106,7 @@ export async function enableGuest(
   const now = new Date();
   const session = context.guests?.getByBot(botId);
   if (session) context.guests?.bye(session.id);
-  await context.wakeup.enqueue({
+  await context.enqueue({
     botId,
     name: "guest.drop",
     payload: { botId },
@@ -171,7 +171,7 @@ export async function disableGuest(
   const { bot } = await getBotThread(context, actor, botId);
   const session = context.guests?.getByBot(botId);
   if (session) context.guests?.bye(session.id);
-  await context.wakeup.enqueue({
+  await context.enqueue({
     botId,
     name: "guest.drop",
     payload: { botId },

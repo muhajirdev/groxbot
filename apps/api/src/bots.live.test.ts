@@ -60,15 +60,33 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
 
   beforeAll(async () => {
     const { db, close } = createDb(databaseUrl);
-    handles = createApp(env, { db, close });
-    await handles.wakeup.start(
-      createWakeHandlers({
-        db: handles.db,
-        runtime: new ScriptedAgentRuntime(),
-        wakeup: handles.wakeup,
-        guests: handles.guests,
-      }),
-    );
+    const runtime = new ScriptedAgentRuntime();
+    let handlers: ReturnType<typeof createWakeHandlers> | undefined;
+    const enqueue = async (job: {
+      botId: string;
+      name: string;
+      payload: Record<string, unknown>;
+    }) => {
+      const handler =
+        handlers?.[job.name as keyof NonNullable<typeof handlers>];
+      if (!handler) return;
+      void handler({ ...job.payload, botId: job.botId }).catch((error) => {
+        console.error("bot actor", job.botId, job.name, error);
+      });
+    };
+    handles = createApp(env, {
+      db,
+      close,
+      enqueue,
+      initApp: async () => {},
+    });
+    handlers = createWakeHandlers({
+      db,
+      runtime,
+      enqueue,
+      guests: handles.guests,
+      initApp: async () => {},
+    });
   });
 
   afterAll(async () => {
@@ -178,25 +196,9 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
 
     expect(texts).toContain("summarize the handoff");
     expect(texts.some((text) => text.startsWith("Echo:"))).toBe(true);
-
-    const desk = await rpc.computer.status({ botId: bot.id });
-    expect(desk.files.some((file) => file.path === "/workspace")).toBe(true);
-    expect(desk.artifact?.body).toMatch(/Echo:/);
-    expect(
-      desk.files.some(
-        (file) => file.kind === "file" && file.body?.includes("Echo:"),
-      ),
-    ).toBe(true);
-
-    const taken = await rpc.computer.takeover({ botId: bot.id });
-    expect(taken.controlHolder).toBe("user");
-    expect(taken.name).toBe("Default computer");
-    expect(taken.isDefault).toBe(true);
-    const released = await rpc.computer.release({ botId: bot.id });
-    expect(released.controlHolder).toBe("bot");
   }, 15_000);
 
-  it("lets two bots share the default computer and isolates a new computer", async () => {
+  it("hires two bots without a shared desk", async () => {
     const email = `desk-${Date.now()}@example.com`;
     const signUp = await handles.app.request(
       new Request(`${origin}/api/auth/sign-up/email`, {
@@ -226,43 +228,23 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
     const scout = await rpc.bots.create({
       name: "Scout",
       title: "Talent",
-      description: "Same desk.",
-      instructions: "Same desk.",
+      description: "Same office.",
+      instructions: "Same office.",
     });
-    expect(scout.computerId).toBe(piper.computerId);
-    expect(scout.computerName).toBe("Default computer");
+    expect(scout.id).not.toBe(piper.id);
 
     const expense = await rpc.bots.create({
       name: "Expense",
       title: "Finance",
-      description: "Private box.",
-      instructions: "Private box.",
-      computer: "new",
+      description: "Another teammate.",
+      instructions: "Another teammate.",
     });
-    expect(expense.computerId).not.toBe(piper.computerId);
-    expect(expense.computerName).not.toBe("Default computer");
+    expect(expense.id).not.toBe(piper.id);
 
-    const desks = await rpc.computers.list();
-    expect(desks.some((item) => item.isDefault && item.agentCount === 2)).toBe(
-      true,
+    const listed = await rpc.bots.list();
+    expect(listed.map((item) => item.name).sort()).toEqual(
+      ["Expense", "Piper", "Scout"].sort(),
     );
-    expect(desks.some((item) => !item.isDefault && item.agentCount === 1)).toBe(
-      true,
-    );
-
-    await rpc.threads.send({ botId: piper.id, text: "claim the mouse" });
-    const piperDesk = await rpc.computer.status({ botId: piper.id });
-    const scoutDesk = await rpc.computer.status({ botId: scout.id });
-    expect(piperDesk.id).toBe(scoutDesk.id);
-    expect(scoutDesk.teammates.map((item) => item.name).sort()).toEqual(
-      ["Piper", "Scout"].sort(),
-    );
-
-    const taken = await rpc.computer.takeover({ botId: piper.id });
-    expect(taken.controlHolder).toBe("user");
-    const scoutSees = await rpc.computer.status({ botId: scout.id });
-    expect(scoutSees.controlHolder).toBe("user");
-    expect(scoutSees.id).toBe(taken.id);
   }, 15_000);
 
   it("lets a guest agent dial in and answer", async () => {
@@ -447,13 +429,6 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
       rpc.threads.send({ botId: scout.id, text: "still there?" }),
     ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
 
-    const desks = await rpc.computers.list();
-    expect(desks.some((item) => item.isDefault && item.agentCount === 1)).toBe(
-      true,
-    );
-    const piperDesk = await rpc.computer.status({ botId: piper.id });
-    expect(piperDesk.teammates.map((item) => item.name)).toEqual(["Piper"]);
-
     const restored = await rpc.bots.unarchive({ botId: scout.id });
     expect(restored.archivedAt).toBeNull();
     const sent = await rpc.threads.send({
@@ -462,10 +437,8 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
     });
     expect(sent.seq).toBeGreaterThan(0);
 
-    const after = await rpc.computers.list();
-    expect(after.some((item) => item.isDefault && item.agentCount === 2)).toBe(
-      true,
-    );
+    const after = await rpc.bots.list();
+    expect(after.filter((item) => !item.archivedAt)).toHaveLength(2);
   }, 15_000);
 
   it("lets a teammate join with an invite", async () => {
@@ -625,6 +598,79 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
       false,
     );
   }, 20_000);
+
+  it("stamps a deck when asked to make slides", async () => {
+    const email = `apps-${Date.now()}@example.com`;
+    const signUp = await handles.app.request(
+      new Request(`${origin}/api/auth/sign-up/email`, {
+        method: "POST",
+        headers: {
+          origin,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "Apps Tester",
+          email,
+          password: "password1",
+        }),
+      }),
+    );
+    cookie = cookieHeader(signUp, cookie);
+    expect(signUp.status, await signUp.text()).toBe(200);
+
+    const rpc = client();
+    await rpc.workspaces.create({ name: "Apps office" });
+    const bot = await rpc.bots.create({ name: "Reja" });
+    await rpc.threads.send({
+      botId: bot.id,
+      text: "make me slides about Q3",
+    });
+
+    let appId = "";
+    let title = "";
+    const iterator = (await rpc.threads.subscribe({
+      botId: bot.id,
+      cursor: -1,
+    })) as AsyncGenerator<{
+      type: string;
+      payload: Record<string, unknown>;
+    }>;
+    const stop = setTimeout(() => void iterator.return(undefined), 8_000);
+    try {
+      for await (const event of iterator) {
+        if (event.type !== "message.created") continue;
+        const blocks = event.payload.blocks;
+        if (!Array.isArray(blocks)) continue;
+        for (const block of blocks) {
+          if (
+            block &&
+            typeof block === "object" &&
+            "kind" in block &&
+            block.kind === "app" &&
+            "appId" in block &&
+            typeof block.appId === "string"
+          ) {
+            appId = block.appId;
+            title =
+              "title" in block && typeof block.title === "string"
+                ? block.title
+                : "";
+          }
+        }
+        if (appId) break;
+      }
+    } finally {
+      clearTimeout(stop);
+      await iterator.return(undefined);
+    }
+
+    expect(appId).not.toBe("");
+    expect(title).toBe("Q3");
+    const listed = await rpc.apps.list();
+    expect(listed.some((app) => app.id === appId && app.title === "Q3")).toBe(
+      true,
+    );
+  }, 15_000);
 });
 
 async function collectOffice(

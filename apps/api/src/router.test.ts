@@ -34,9 +34,7 @@ describe("oRPC", () => {
 
   it("reports in-process wakeup when the worker is local", () => {
     expect(healthPayload(env).wakeup).toBe("in-process");
-    expect(
-      healthPayload({ ...env, wakeupKind: "http" }).wakeup,
-    ).toBe("http");
+    expect(healthPayload({ ...env, wakeupKind: "http" }).wakeup).toBe("http");
   });
 
   it("lists Google and GitHub when those keys are set", () => {
@@ -90,6 +88,17 @@ describe("oRPC", () => {
     );
   });
 
+  it("reports Cloudflare mail when the EMAIL binding and from address are set", () => {
+    expect(healthPayload(env).mail).toBe("log");
+    expect(
+      healthPayload({
+        ...env,
+        emailBinding: true,
+        emailFrom: "Groxbot <noreply@groxbot.com>",
+      }).mail,
+    ).toBe("cloudflare");
+  });
+
   it("requires a session to load model settings", async () => {
     const app = new Hono();
     mountRpc(app, { env } as unknown as RpcContext);
@@ -102,6 +111,22 @@ describe("oRPC", () => {
       },
     });
     await expect(client.models.get()).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+  });
+
+  it("requires a session to list apps", async () => {
+    const app = new Hono();
+    mountRpc(app, { env } as unknown as RpcContext);
+    const client = createGroxbotClient({
+      baseUrl: "http://groxbot.test",
+      fetch: async (input, init) => {
+        const request =
+          input instanceof Request ? input : new Request(String(input), init);
+        return app.request(request);
+      },
+    });
+    await expect(client.apps.list()).rejects.toMatchObject({
       code: "UNAUTHORIZED",
     });
   });

@@ -1,0 +1,22 @@
+{
+  "name": "@groxbot/app-runtime",
+  "version": "0.0.1",
+  "license": "SEE LICENSE IN LICENSE",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "bundle:templates": "node scripts/bundle-templates.mjs"
+  },
+  "dependencies": {
+    "@groxbot/adapter-kit": "workspace:*",
+    "@groxbot/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

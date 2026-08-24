@@ -3,9 +3,6 @@ import * as z from "zod";
 export const Id = z.string().min(1);
 export type Id = z.infer<typeof Id>;
 
-/** Display name for the workspace default computer. */
-export const DEFAULT_COMPUTER_NAME = "Default computer";
-
 export const ActorType = z.enum(["human", "bot", "system"]);
 export type ActorType = z.infer<typeof ActorType>;
 
@@ -35,9 +32,6 @@ export type SandboxKind = z.infer<typeof SandboxKind>;
 export const MemoryScope = z.enum(["bot", "user", "workspace"]);
 export type MemoryScope = z.infer<typeof MemoryScope>;
 
-export const ControlHolder = z.enum(["bot", "user", "none"]);
-export type ControlHolder = z.infer<typeof ControlHolder>;
-
 export const AvatarShape = z.enum([
   "circle",
   "squircle",
@@ -53,3 +47,7 @@ export type GuestKind = z.infer<typeof GuestKind>;
 
 export const GuestAgentKind = z.enum(["hermes", "openclaw", "generic"]);
 export type GuestAgentKind = z.infer<typeof GuestAgentKind>;
+
+/** Workspace-owned document runtimes. Hidden source; UI is the thing. */
+export const TemplateId = z.enum(["docs", "slides", "sheets"]);
+export type TemplateId = z.infer<typeof TemplateId>;

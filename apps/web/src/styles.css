@@ -1456,6 +1456,21 @@ html.electron .pane-head {
   font-size: 14px;
 }
 
+.app-pane .app-frame-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-frame {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  border: 0;
+  background: #f6f6f4;
+}
+
 .pane-head {
   display: flex;
   align-items: center;
@@ -1995,6 +2010,10 @@ html.electron .pane-head {
     width: min(320px, calc(100% - 72px));
     z-index: 8;
     box-shadow: var(--shadow);
+  }
+
+  .pane.app-pane {
+    width: min(720px, calc(100% - 72px));
   }
 }
 

@@ -1,10 +1,9 @@
 import { CLOUD_LANDING_ORIGIN } from "@groxbot/contracts";
 
 export const SITE_NAME = "Groxbot";
-export const DEFAULT_TITLE =
-  "Groxbot — Like Grok Bot, for the team.";
+export const DEFAULT_TITLE = "Groxbot — Like Grok Bot, for the team.";
 export const DEFAULT_DESCRIPTION =
-  "If OpenClaw is for your personal use, Groxbot is for the office. Named teammates, a shared computer, open source. Self-host for your team.";
+  "If OpenClaw is for your personal use, Groxbot is for the office. Named teammates, each with a computer, open source. Self-host for your team.";
 
 const LOCAL_LANDING_ORIGIN = "http://127.0.0.1:5174";
 

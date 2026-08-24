@@ -26,8 +26,12 @@ export interface GatewayEnv {
   AI_GATEWAY_MODEL?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
+  CLOUDFLARE_API_KEY?: string;
+  CLOUDFLARE_AI_GATEWAY_TOKEN?: string;
   CLOUDFLARE_AUTH_TOKEN?: string;
   CLOUDFLARE_AI_GATEWAY_ID?: string;
+  CLOUDFLARE_GATEWAY_ID?: string;
+  GROXBOT_HOSTED_AI?: string;
   OPENROUTER_API_KEY?: string;
   WEB_ORIGIN?: string;
 }
@@ -65,7 +69,10 @@ export function gatewayChatUrl(config: GatewayConfig): string {
   return cloudflareChatUrl(config.accountId);
 }
 
-export function gatewayHeaders(config: GatewayConfig): Record<string, string> {
+export function gatewayHeaders(
+  config: GatewayConfig,
+  metadata?: Record<string, string | undefined>,
+): Record<string, string> {
   const headers: Record<string, string> = {
     authorization: `Bearer ${config.apiKey}`,
     "content-type": "application/json",
@@ -74,15 +81,94 @@ export function gatewayHeaders(config: GatewayConfig): Record<string, string> {
     headers["HTTP-Referer"] = config.referer;
     headers["X-Title"] = config.title;
     headers["X-OpenRouter-Title"] = config.title;
-  } else {
-    headers["cf-aig-gateway-id"] = config.gatewayId ?? "default";
+    return headers;
+  }
+  headers["cf-aig-gateway-id"] = config.gatewayId ?? "default";
+  if (metadata) {
+    const packed: Record<string, string> = {};
+    for (const [key, value] of Object.entries(metadata)) {
+      const trimmed = value?.trim();
+      if (trimmed) packed[key] = trimmed;
+    }
+    if (Object.keys(packed).length > 0) {
+      headers["cf-aig-metadata"] = JSON.stringify(packed);
+    }
   }
   return headers;
+}
+
+export function gatewayRequestModel(model: string): string {
+  const trimmed = model.trim();
+  const cfIndex = trimmed.indexOf("@cf/");
+  if (cfIndex >= 0) return trimmed.slice(cfIndex);
+  if (trimmed.startsWith("openrouter/")) {
+    return trimmed.slice("openrouter/".length);
+  }
+  if (trimmed.startsWith("cloudflare-ai-gateway/")) {
+    const rest = trimmed.slice("cloudflare-ai-gateway/".length);
+    return rest.startsWith("workers-ai/")
+      ? rest.slice("workers-ai/".length)
+      : rest;
+  }
+  return trimmed;
+}
+
+function asTokenCount(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+    return Math.trunc(value);
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed >= 0) return Math.trunc(parsed);
+  }
+  return undefined;
+}
+
+export function completionUsage(payload: unknown): {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+} | null {
+  const body = unwrapGatewayPayload(payload);
+  if (!body || typeof body !== "object") return null;
+  const usage = (body as Record<string, unknown>).usage;
+  if (!usage || typeof usage !== "object") return null;
+  const record = usage as Record<string, unknown>;
+  const promptTokens = asTokenCount(
+    record.prompt_tokens ?? record.promptTokens,
+  );
+  const completionTokens = asTokenCount(
+    record.completion_tokens ?? record.completionTokens,
+  );
+  const totalTokens = asTokenCount(record.total_tokens ?? record.totalTokens);
+  if (
+    promptTokens === undefined &&
+    completionTokens === undefined &&
+    totalTokens === undefined
+  ) {
+    return null;
+  }
+  const prompt = promptTokens ?? 0;
+  const completion = completionTokens ?? 0;
+  return {
+    promptTokens: prompt,
+    completionTokens: completion,
+    totalTokens: totalTokens ?? prompt + completion,
+  };
 }
 
 function read(source: GatewayEnv, key: keyof GatewayEnv): string | undefined {
   const value = source[key]?.trim();
   return value || undefined;
+}
+
+function cloudflareGatewayToken(source: GatewayEnv): string | undefined {
+  return (
+    read(source, "CLOUDFLARE_AI_GATEWAY_TOKEN") ??
+    read(source, "CLOUDFLARE_API_TOKEN") ??
+    read(source, "CLOUDFLARE_API_KEY") ??
+    read(source, "CLOUDFLARE_AUTH_TOKEN")
+  );
 }
 
 function resolveProvider(
@@ -99,9 +185,7 @@ function resolveProvider(
     }
     return named;
   }
-  const cloudflareToken =
-    read(source, "CLOUDFLARE_API_TOKEN") ??
-    read(source, "CLOUDFLARE_AUTH_TOKEN");
+  const cloudflareToken = cloudflareGatewayToken(source);
   if (read(source, "CLOUDFLARE_ACCOUNT_ID") && cloudflareToken) {
     return "cloudflare";
   }
@@ -121,9 +205,7 @@ export function loadGatewayConfig(
   const referer = read(source, "WEB_ORIGIN") ?? "https://groxbot.com";
   if (provider === "cloudflare") {
     const accountId = read(source, "CLOUDFLARE_ACCOUNT_ID");
-    const apiKey =
-      read(source, "CLOUDFLARE_API_TOKEN") ??
-      read(source, "CLOUDFLARE_AUTH_TOKEN");
+    const apiKey = cloudflareGatewayToken(source);
     if (!accountId || !apiKey) {
       throw new Error(
         "Cloudflare AI Gateway needs CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN.",
@@ -134,7 +216,10 @@ export function loadGatewayConfig(
       apiKey,
       model,
       accountId,
-      gatewayId: read(source, "CLOUDFLARE_AI_GATEWAY_ID") ?? "default",
+      gatewayId:
+        read(source, "CLOUDFLARE_AI_GATEWAY_ID") ??
+        read(source, "CLOUDFLARE_GATEWAY_ID") ??
+        "default",
       referer,
       title: "Groxbot",
       fetch: options.fetch ?? fetch,

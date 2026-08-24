@@ -10,40 +10,48 @@ import { loadRootEnv } from "./load-root-env.js";
 
 loadRootEnv();
 
+import { createDb } from "@groxbot/db/node";
 import { createApp } from "./app.js";
 import { agentRuntimeSource, loadEnv } from "./env.js";
-import { createDb } from "@groxbot/db/node";
 
 async function main() {
   const env = loadEnv();
   const { db, close } = createDb(env.databaseUrl);
-  const handles = createApp(env, { db, close });
-
-  if (!env.workerUrl) {
-    const runtime = createAgentRuntime(
-      env.agentRuntime,
-      agentRuntimeSource(env),
-    );
-    await handles.wakeup.start(
-      createWakeHandlers({
-        db: handles.db,
-        runtime,
-        wakeup: handles.wakeup,
-        guests: handles.guests,
-        bindRuntime: (overlay) => bindAgentRuntime(env.agentRuntime, overlay),
-        pluginTools: (input) =>
-          createPluginTools({
-            ...input,
-            env: { COMPOSIO_API_KEY: env.composioApiKey },
-          }),
+  const runtime = createAgentRuntime(env.agentRuntime, agentRuntimeSource(env));
+  let enqueue: (job: {
+    botId: string;
+    name: string;
+    payload: Record<string, unknown>;
+  }) => Promise<void> = async () => {};
+  const handlers = createWakeHandlers({
+    db,
+    runtime,
+    env: agentRuntimeSource(env),
+    enqueue: (job) => enqueue(job),
+    bindRuntime: (overlay) => bindAgentRuntime(env.agentRuntime, overlay),
+    pluginTools: (input) =>
+      createPluginTools({
+        ...input,
+        env: { COMPOSIO_API_KEY: env.composioApiKey },
       }),
-    );
-  }
+  });
+  enqueue = async (job) => {
+    const handler = handlers[job.name as keyof typeof handlers];
+    if (!handler) return;
+    void handler({ ...job.payload, botId: job.botId }).catch((error) => {
+      console.error("bot actor", job.botId, job.name, error);
+    });
+  };
+  const handles = createApp(env, {
+    db,
+    close,
+    enqueue,
+    initApp: async () => {},
+  });
 
   const port = Number(process.env.PORT ?? process.env.API_PORT ?? 3100);
   const hostname =
-    process.env.LISTEN_HOST ??
-    (env.production ? "0.0.0.0" : "127.0.0.1");
+    process.env.LISTEN_HOST ?? (env.production ? "0.0.0.0" : "127.0.0.1");
   serve({ fetch: handles.app.fetch, port, hostname }, () => {
     console.log(`groxbot api http://${hostname}:${port}`);
   });

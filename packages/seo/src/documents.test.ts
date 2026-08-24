@@ -10,7 +10,7 @@ import {
   robotsTxt,
   sitemapXml,
 } from "./documents.js";
-import { cloudOrigins, GROXBOT_STACK, originsFromWeb } from "./identity.js";
+import { cloudOrigins, GROXBOT_STACK, GROXBOT_SUMMARY, originsFromWeb } from "./identity.js";
 
 const origins = cloudOrigins();
 
@@ -44,8 +44,8 @@ describe("discovery documents", () => {
     expect(faqAiTxt(origins)).toMatch(/self-host/i);
     expect(llmsFullTxt(origins)).not.toMatch(/Rivet/i);
     expect(GROXBOT_STACK.join("\n")).not.toMatch(/Rivet/i);
-    expect(GROXBOT_STACK.join("\n")).toMatch(/useSandbox/);
-    expect(GROXBOT_STACK.join("\n")).toMatch(/Cloudflare Computer/);
+    expect(GROXBOT_STACK.join("\n")).toMatch(/Think/);
+    expect(GROXBOT_STACK.join("\n")).toMatch(/AppRuntime/);
   });
 
   it("maps workers.dev staging hosts to the hosted API", () => {
@@ -61,5 +61,15 @@ describe("discovery documents", () => {
     expect(faq).toMatch(/does not claim zero retention/i);
     expect(faq).toMatch(/office is meant to remember/i);
     expect(faq).toContain("hello@groxbot.com");
+  });
+
+  it("sells a computer as built into the bot, not a separate desk", () => {
+    expect(GROXBOT_SUMMARY).toMatch(/real computer/i);
+    expect(GROXBOT_STACK.join("\n")).toMatch(/Think workspace/i);
+    const faq = faqAiTxt(origins);
+    expect(faq).toMatch(/What is a computer/i);
+    expect(faq).toMatch(/not a second Durable Object/i);
+    expect(faq).not.toMatch(/There is no Computer product/);
+    expect(llmsTxt(origins)).toMatch(/Each bot has a computer/i);
   });
 });

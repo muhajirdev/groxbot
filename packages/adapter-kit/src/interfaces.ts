@@ -6,20 +6,7 @@ import type {
   ComputerRef,
   PortableFile,
   ProcessEvent,
-  WakeupJob,
 } from "./types.js";
-
-export interface WakeupDriver {
-  /** Enqueue onto the bot actor for `job.botId` (serial queue / named schedule). */
-  enqueue(job: WakeupJob): Promise<void>;
-  start(
-    handlers: Record<
-      string,
-      (payload: Record<string, unknown>) => Promise<void>
-    >,
-  ): Promise<void>;
-  stop(): Promise<void>;
-}
 
 export interface RealtimeFanout {
   publish(threadId: string, payload: string): Promise<void>;

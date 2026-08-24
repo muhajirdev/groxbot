@@ -2,12 +2,17 @@
 
 - Public repo: never commit secrets, `.env`, `.dev.vars`, or real user data.
 - Keep domain logic in `packages/*`. Apps wire adapters. Product API is oRPC (`@groxbot/contracts` + `@groxbot/rpc`).
-- **Cloudflare first.** The product API is the Worker (`apps/api/src/worker.ts`). One queue per bot: Durable Object `BotActor` (`WAKEUP_KIND=durable-object`). Shared team data lives in Postgres (Neon), not in the DO. Local loop is `wrangler dev` + Vite, not Node.
-- The Pi/executor must not import `fs`, `dockerode`, or Cloudflare bindings. The API Worker uses `@groxbot/adapters/edge` (scripted / gateway). Flue Node (`@flue/runtime/node`) and `apps/worker` are a later self-host path — do not add features that only work there.
-- Auth, secrets, sandbox, and host commands are security-sensitive.
-- Tests stay offline: `AGENT_RUNTIME=scripted` (or `flue-echo` for the Pi harness), `SANDBOX_PROVIDER=fake`, in-process wakeup — no live OpenRouter / Cloudflare Computer / Cloudflare Sandbox / E2B.
-- Hosted teammate loop: gateway if model keys exist, else scripted. `AGENT_RUNTIME=flue` on the Worker maps to that (Flue Cloudflare target is later). Hands stay `useSandbox(factory)` keyed by `computerId`. One `Teammate` function; hires are `botId`, not new agent modules.
-- Guest runtimes (Hermes/OpenClaw) are opt-in per bot, off by default. They dial out to Groxbot; tests use a fake guest, not live Hermes/OpenClaw.
+- **Cloudflare first. Actor model first.** One Durable Object per `botId`: `BotActor` extends Think. Instance name is `botId`, never `threadId`. v1 is one home-office thread and **one Think Session** on that actor (DO SQLite: compaction, tree, context). Do not add `SessionManager` yet. Do not use a custom `SessionProvider` or Cloudflare Session as the office catalog. One Durable Object per live app (`AppRuntime`, name = `appId`).
+- Each bot **has a computer** — Think `this.workspace` on `BotActor`. Sell it. Do not add a `computers` table, shared desk, takeover pane, `computer.sleep`, or a Computer Durable Object. The office pane is this bot’s screen.
+- Kernel: office, oRPC, Postgres (Neon), `botId` as the actor key, app cards. The HTTP isolate addresses DOs (`getAgentByName` / stub). Do not add `WakeupDriver` or `MemoryAppStore` as stand-ins for queues, alarms, or app document state.
+- Shared team data lives in Postgres, not in the DO. Chat/threads stay in Postgres (oRPC office). Think Session (DO SQLite) is the actor’s working tree — compaction, not the sidebar transcript.
+- Hosted brain: Think `chat()` on `BotActor`. Tests use `ScriptedAgentRuntime`. Do not treat Flue or Pi as the product loop.
+- Live apps: workspace-owned docs / slides / sheets. Talk → chat card → Open. `AppRuntime` supervisor DO; `export class Gadget` from stamped `server.js` is a Dynamic Worker Facet; iframe Cap’n Web; parent holds `wss://…/apps/:id/rpc`. Listing (`apps.list`) is derived from chat cards. No Postgres apps catalog. No file manager in product UI.
+- Auth, secrets, and host commands are security-sensitive.
+- Tests stay offline: `ScriptedAgentRuntime` — no live OpenRouter / Cloudflare AI Gateway / Computer / Sandbox / E2B. Actor tests enqueue onto a function that runs `createWakeHandlers`.
+- Hosted models: Worker `AI` binding through Cloudflare AI Gateway. Workspace BYOK wins. Count hosted usage per workspace (`model_usage`).
+- Auth email: Worker `EMAIL` binding (`send_email`). `EMAIL_FROM` is the from address.
+- Guest runtimes (Hermes/OpenClaw) are opt-in per bot, off by default.
 - v1 surface is **web** (Vite + TanStack Router). Desktop is Electron around web. Mobile is Expo later. All three call **oRPC** via `@groxbot/rpc`.
 - See `docs/grok-bot-ui.md` and `docs/computers.md`.
-- Desktop sandbox is owner opt-in on a trusted machine. Never enable it for hosted Computer / Sandbox / E2B.
+- Self-host / Flue / Pi are not v1.
