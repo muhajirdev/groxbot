@@ -30,6 +30,12 @@ describe("invitationIdFromInput", () => {
       ),
     ).toBe("inv_abc");
   });
+
+  it("pulls invite from a login URL", () => {
+    expect(
+      invitationIdFromInput("https://app.groxbot.com/login?invite=inv_abc"),
+    ).toBe("inv_abc");
+  });
 });
 
 describe("invitationUrl", () => {

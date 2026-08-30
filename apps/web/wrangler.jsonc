@@ -1,8 +1,8 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "groxbot-web",
-  // Office SPA at app.groxbot.com. Attach the custom domain in the Cloudflare
-  // dashboard — do not put account IDs or secrets here.
+  // Office SPA at app.groxbot.com. Account is Muhajir (qalam.workers.dev).
+  "account_id": "67f961331110b81774851ee4f54349b9",
   "compatibility_date": "2026-08-16",
   "workers_dev": true,
   "routes": [

@@ -1,6 +1,7 @@
 # AGENTS.md
 
 - Public repo: never commit secrets, `.env`, `.dev.vars`, or real user data.
+- Postgres schema: change `packages/db/src/schema`, then `pnpm db:generate`, then `pnpm db:migrate`. Never hand-write `packages/db/drizzle/*.sql` or skip snapshots. If generate asks create vs rename, stop — snapshots are out of date.
 - Keep domain logic in `packages/*`. Apps wire adapters. Product API is oRPC (`@groxbot/contracts` + `@groxbot/rpc`).
 - **Cloudflare first. Actor model first.** One Durable Object per `botId`: `BotActor` extends Think. Instance name is `botId`, never `threadId`. v1 is one home-office thread and **one Think Session** on that actor (DO SQLite: compaction, tree, context). Do not add `SessionManager` yet. Do not use a custom `SessionProvider` or Cloudflare Session as the office catalog. One Durable Object per live app (`AppRuntime`, name = `appId`).
 - Each bot **has a computer** — Think `this.workspace` on `BotActor`. Sell it. Do not add a `computers` table, shared desk, takeover pane, `computer.sleep`, or a Computer Durable Object. The office pane is this bot’s screen.

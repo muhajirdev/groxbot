@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { rememberInvite } from "../lib/invite";
 import { redirectAuthedHome } from "../lib/session";
 import { AuthScreen } from "../screens/AuthScreen";
@@ -15,7 +15,14 @@ export const Route = createFileRoute("/login")({
   }),
   beforeLoad: async ({ context, search }) => {
     rememberInvite(search.invite);
-    if (context.session) await redirectAuthedHome();
+    if (!context.session) return;
+    if (search.invite) {
+      throw redirect({
+        to: "/onboarding",
+        search: { invite: search.invite },
+      });
+    }
+    await redirectAuthedHome();
   },
   component: LoginPage,
 });

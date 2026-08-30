@@ -28,7 +28,8 @@ CREATE TABLE "invitation" (
 	"role" text,
 	"status" text NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
-	"inviter_id" text NOT NULL
+	"inviter_id" text NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "member" (
@@ -90,25 +91,15 @@ CREATE TABLE "bots" (
 	"title" text DEFAULT '' NOT NULL,
 	"description" text DEFAULT '' NOT NULL,
 	"instructions" text DEFAULT '' NOT NULL,
+	"avatar_color" text DEFAULT '#5b7cff' NOT NULL,
+	"avatar_shape" text DEFAULT 'circle' NOT NULL,
 	"parent_bot_id" text,
+	"guest_kind" text DEFAULT 'off' NOT NULL,
+	"model" text DEFAULT '' NOT NULL,
+	"archived_at" timestamp with time zone,
+	"home_thread_id" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "computers" (
-	"id" text PRIMARY KEY NOT NULL,
-	"workspace_id" text NOT NULL,
-	"bot_id" text NOT NULL,
-	"user_id" text NOT NULL,
-	"kind" text NOT NULL,
-	"provider_ref" text,
-	"state" text DEFAULT 'stopped' NOT NULL,
-	"control_holder" text DEFAULT 'none' NOT NULL,
-	"control_holder_id" text,
-	"control_lease_id" text,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "computers_bot_id_unique" UNIQUE("bot_id")
 );
 --> statement-breakpoint
 CREATE TABLE "events" (
@@ -121,6 +112,21 @@ CREATE TABLE "events" (
 	"payload" jsonb NOT NULL,
 	"run_id" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "guest_connectors" (
+	"id" text PRIMARY KEY NOT NULL,
+	"bot_id" text NOT NULL,
+	"workspace_id" text NOT NULL,
+	"user_id" text NOT NULL,
+	"kind" text NOT NULL,
+	"token_hash" text NOT NULL,
+	"online" boolean DEFAULT false NOT NULL,
+	"last_seen_at" timestamp with time zone,
+	"revoked_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "guest_connectors_bot_id_unique" UNIQUE("bot_id")
 );
 --> statement-breakpoint
 CREATE TABLE "memory_documents" (
@@ -145,6 +151,32 @@ CREATE TABLE "messages" (
 	"blocks" jsonb NOT NULL,
 	"run_id" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "model_usage" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"user_id" text NOT NULL,
+	"bot_id" text,
+	"run_id" text,
+	"model" text NOT NULL,
+	"source" text NOT NULL,
+	"prompt_tokens" integer DEFAULT 0 NOT NULL,
+	"completion_tokens" integer DEFAULT 0 NOT NULL,
+	"total_tokens" integer DEFAULT 0 NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "plugin_connections" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"user_id" text NOT NULL,
+	"toolkit" text NOT NULL,
+	"status" text NOT NULL,
+	"connected_account_id" text,
+	"last_error" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "routines" (
@@ -214,9 +246,11 @@ CREATE TABLE "thread_members" (
 CREATE TABLE "threads" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
-	"bot_id" text NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "threads_bot_id_unique" UNIQUE("bot_id")
+	"kind" text DEFAULT 'office' NOT NULL,
+	"bot_id" text,
+	"a_bot_id" text,
+	"b_bot_id" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "user_model_credentials" (
@@ -232,6 +266,13 @@ CREATE TABLE "user_model_credentials" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "workspace_models" (
+	"workspace_id" text PRIMARY KEY NOT NULL,
+	"default_model" text NOT NULL,
+	"updated_by" text NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "invitation" ADD CONSTRAINT "invitation_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "invitation" ADD CONSTRAINT "invitation_inviter_id_user_id_fk" FOREIGN KEY ("inviter_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -240,12 +281,18 @@ ALTER TABLE "member" ADD CONSTRAINT "member_user_id_user_id_fk" FOREIGN KEY ("us
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "bots" ADD CONSTRAINT "bots_workspace_id_organization_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "bots" ADD CONSTRAINT "bots_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "computers" ADD CONSTRAINT "computers_workspace_id_organization_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "computers" ADD CONSTRAINT "computers_bot_id_bots_id_fk" FOREIGN KEY ("bot_id") REFERENCES "public"."bots"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "bots" ADD CONSTRAINT "bots_home_thread_id_threads_id_fk" FOREIGN KEY ("home_thread_id") REFERENCES "public"."threads"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "events" ADD CONSTRAINT "events_workspace_id_organization_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "events" ADD CONSTRAINT "events_thread_id_threads_id_fk" FOREIGN KEY ("thread_id") REFERENCES "public"."threads"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "guest_connectors" ADD CONSTRAINT "guest_connectors_bot_id_bots_id_fk" FOREIGN KEY ("bot_id") REFERENCES "public"."bots"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "guest_connectors" ADD CONSTRAINT "guest_connectors_workspace_id_organization_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "guest_connectors" ADD CONSTRAINT "guest_connectors_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "memory_documents" ADD CONSTRAINT "memory_documents_workspace_id_organization_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "messages" ADD CONSTRAINT "messages_thread_id_threads_id_fk" FOREIGN KEY ("thread_id") REFERENCES "public"."threads"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "model_usage" ADD CONSTRAINT "model_usage_workspace_id_organization_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "model_usage" ADD CONSTRAINT "model_usage_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "plugin_connections" ADD CONSTRAINT "plugin_connections_workspace_id_organization_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "plugin_connections" ADD CONSTRAINT "plugin_connections_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "routines" ADD CONSTRAINT "routines_workspace_id_organization_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "routines" ADD CONSTRAINT "routines_bot_id_bots_id_fk" FOREIGN KEY ("bot_id") REFERENCES "public"."bots"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "runs" ADD CONSTRAINT "runs_workspace_id_organization_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -260,9 +307,21 @@ ALTER TABLE "thread_members" ADD CONSTRAINT "thread_members_thread_id_threads_id
 ALTER TABLE "thread_members" ADD CONSTRAINT "thread_members_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "threads" ADD CONSTRAINT "threads_workspace_id_organization_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "threads" ADD CONSTRAINT "threads_bot_id_bots_id_fk" FOREIGN KEY ("bot_id") REFERENCES "public"."bots"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "threads" ADD CONSTRAINT "threads_a_bot_id_bots_id_fk" FOREIGN KEY ("a_bot_id") REFERENCES "public"."bots"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "threads" ADD CONSTRAINT "threads_b_bot_id_bots_id_fk" FOREIGN KEY ("b_bot_id") REFERENCES "public"."bots"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "user_model_credentials" ADD CONSTRAINT "user_model_credentials_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_models" ADD CONSTRAINT "workspace_models_workspace_id_organization_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."organization"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_models" ADD CONSTRAINT "workspace_models_updated_by_user_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "member_org_user" ON "member" USING btree ("organization_id","user_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "bots_home_thread_id_unique" ON "bots" USING btree ("home_thread_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "events_thread_seq" ON "events" USING btree ("thread_id","seq");--> statement-breakpoint
 CREATE UNIQUE INDEX "memory_workspace_scope_bot_path" ON "memory_documents" USING btree ("workspace_id","scope","bot_id","path");--> statement-breakpoint
 CREATE UNIQUE INDEX "messages_thread_seq" ON "messages" USING btree ("thread_id","seq");--> statement-breakpoint
-CREATE UNIQUE INDEX "thread_members_thread_user" ON "thread_members" USING btree ("thread_id","user_id");
+CREATE INDEX "model_usage_workspace_created" ON "model_usage" USING btree ("workspace_id","created_at");--> statement-breakpoint
+CREATE INDEX "model_usage_workspace_user" ON "model_usage" USING btree ("workspace_id","user_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "plugin_connections_workspace_toolkit" ON "plugin_connections" USING btree ("workspace_id","toolkit");--> statement-breakpoint
+CREATE UNIQUE INDEX "secrets_workspace_kind" ON "secrets" USING btree ("workspace_id","kind");--> statement-breakpoint
+CREATE UNIQUE INDEX "thread_members_thread_user" ON "thread_members" USING btree ("thread_id","user_id");--> statement-breakpoint
+CREATE INDEX "threads_bot_id" ON "threads" USING btree ("bot_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "threads_poke_pair" ON "threads" USING btree ("a_bot_id","b_bot_id") WHERE "threads"."kind" = 'poke';--> statement-breakpoint
+CREATE UNIQUE INDEX "user_model_credentials_workspace_provider" ON "user_model_credentials" USING btree ("workspace_id","provider");

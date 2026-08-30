@@ -22,6 +22,11 @@ export const AVATAR_SHAPES: AvatarShape[] = [
 
 export const SUGGESTED_JOBS = [
   {
+    title: "Chief of Staff",
+    description:
+      "Turn messy notes into decisions, owners, and dates. Stop if you would need to message anyone outside.",
+  },
+  {
     title: "Talent Scout",
     description:
       "Source candidates from the brief. Never email anyone without my approval. End with a shortlist and why.",
@@ -46,12 +51,9 @@ export const SUGGESTED_JOBS = [
     description:
       "Draft follow-ups from the account list. Do not send mail. Ask before anything leaves this thread.",
   },
-  {
-    title: "Chief of Staff",
-    description:
-      "Turn messy notes into decisions, owners, and dates. Stop if you would need to message anyone outside.",
-  },
 ] as const;
+
+export const FIRST_HIRE = SUGGESTED_JOBS[0];
 
 export const FIRST_TASK =
   "Summarize this conversation starter in five bullets. List every date, decision, and open question. Do not invent sources.";

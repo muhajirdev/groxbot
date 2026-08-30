@@ -29,7 +29,12 @@ import {
   readRememberedInvite,
   rememberInvite,
 } from "../lib/invite";
-import { AVATAR_COLORS, AVATAR_SHAPES, SUGGESTED_JOBS } from "../lib/jobs";
+import {
+  AVATAR_COLORS,
+  AVATAR_SHAPES,
+  FIRST_HIRE,
+  SUGGESTED_JOBS,
+} from "../lib/jobs";
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
 import { cacheCreatedBot, firstLiveBot } from "../lib/session";
@@ -76,11 +81,9 @@ export function Onboarding(props: { invite?: string }) {
   const [inviteId, setInviteId] = useState("");
   const [step, setStep] = useState(0);
   const [tools, setTools] = useState<string[]>([]);
-  const [name, setName] = useState("Piper");
+  const [name, setName] = useState(FIRST_HIRE.title);
   const [title, setTitle] = useState("");
-  const [description, setDescription] = useState(
-    "Operational rules — sources, output shape, never change production.",
-  );
+  const [description, setDescription] = useState(FIRST_HIRE.description);
   const [color, setColor] = useState<string>(AVATAR_COLORS[0]);
   const [shape, setShape] = useState<AvatarShape>("circle");
   const [error, setError] = useState("");
@@ -156,9 +159,9 @@ export function Onboarding(props: { invite?: string }) {
 
   function pickJob(job: (typeof SUGGESTED_JOBS)[number]) {
     runGateTransition(() => {
-      setTitle(job.title);
+      setName(job.title);
+      setTitle("");
       setDescription(job.description);
-      setName(job.title.split(" ")[0] ?? "Piper");
       setStep(5);
     });
   }
@@ -168,15 +171,17 @@ export function Onboarding(props: { invite?: string }) {
 
   useEffect(() => {
     if (!meQuery.data || phase) return;
-    if (!meQuery.data.needsWorkspace) {
-      setPhase("tour");
-      return;
-    }
     const invite = props.invite?.trim() || readRememberedInvite();
     if (invite) {
       rememberInvite(invite);
       setInviteId(invite);
       setWorkspaceStep("join");
+      setPhase("workspace");
+      return;
+    }
+    if (!meQuery.data.needsWorkspace) {
+      setPhase("tour");
+      return;
     }
     setPhase("workspace");
   }, [meQuery.data, phase, props.invite]);
@@ -808,11 +813,7 @@ export function Onboarding(props: { invite?: string }) {
             <Input value={name} onValueChange={setName} required />
           </Field>
           <Field label="Job (optional)">
-            <Input
-              value={title}
-              placeholder="Chief of Staff"
-              onValueChange={setTitle}
-            />
+            <Input value={title} onValueChange={setTitle} />
           </Field>
           <Field label="How it should work">
             <Textarea

@@ -11,11 +11,11 @@ export const Route = createFileRoute("/_authed/onboarding")({
   validateSearch: (search: Record<string, unknown>): OnboardingSearch => ({
     invite: typeof search.invite === "string" ? search.invite : undefined,
   }),
-  loader: async ({ context }) => {
+  loader: async ({ context, search }) => {
     const me = await context.queryClient.ensureQueryData(
       orpc.me.queryOptions(),
     );
-    if (me.needsWorkspace) return;
+    if (me.needsWorkspace || search.invite) return;
     const bots = await loadBotsForRoute();
     const first = firstLiveBot(bots);
     if (first) {

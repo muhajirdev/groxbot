@@ -224,6 +224,7 @@ function WorkspaceInvite(props: {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
   const [sent, setSent] = useState<{ email: string; url: string } | null>(null);
 
   async function send() {
@@ -231,6 +232,7 @@ function WorkspaceInvite(props: {
     if (!trimmed) return;
     setBusy(true);
     setError("");
+    setCopied(false);
     setSent(null);
     try {
       const invite = await client.workspaces.invite({ email: trimmed });
@@ -243,12 +245,28 @@ function WorkspaceInvite(props: {
     }
   }
 
+  async function copyLink() {
+    if (!sent) return;
+    try {
+      await navigator.clipboard.writeText(sent.url);
+      setCopied(true);
+    } catch {
+      setError("Copy the link from the field below.");
+    }
+  }
+
   return (
     <>
       <p className="muted">{props.name || "This workspace"}</p>
       {props.enabled ? (
         <>
-          <label className="field">
+          <form
+            className="field"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void send();
+            }}
+          >
             <span>Invite by email</span>
             <input
               type="email"
@@ -257,24 +275,35 @@ function WorkspaceInvite(props: {
               autoComplete="off"
               onChange={(event) => setEmail(event.target.value)}
             />
-          </label>
-          <button
-            className="mini"
-            type="button"
-            disabled={busy || !email.trim()}
-            onClick={() => void send()}
-          >
-            {busy ? "Sending…" : "Send invite"}
-          </button>
+            <button
+              className="mini"
+              type="submit"
+              disabled={busy || !email.trim()}
+            >
+              {busy ? "Sending…" : "Send invite"}
+            </button>
+          </form>
           {error ? <p className="muted">{error}</p> : null}
           {sent ? (
-            <p className="muted">
-              Invite sent to {sent.email}. Share this link if they need it:{" "}
-              {sent.url}
-            </p>
+            <div className="field">
+              <p className="muted">
+                Invite emailed to {sent.email}. They sign in with that address,
+                then join. You can also copy the link:
+              </p>
+              <input readOnly value={sent.url} />
+              <button
+                className="mini"
+                type="button"
+                onClick={() => void copyLink()}
+              >
+                {copied ? "Copied" : "Copy link"}
+              </button>
+            </div>
           ) : null}
         </>
-      ) : null}
+      ) : (
+        <p className="muted">Create a workspace first, then invite people.</p>
+      )}
     </>
   );
 }
