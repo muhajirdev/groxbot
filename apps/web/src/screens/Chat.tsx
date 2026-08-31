@@ -8,28 +8,20 @@ import type {
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
-import {
-  type FormEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppPane } from "../components/AppPane";
 import { AppSettings } from "../components/AppSettings";
 import { AvatarMark } from "../components/Avatar";
 import { BotSettingsPane } from "../components/BotSettingsPane";
-import { ComputerPane } from "../components/ComputerPane";
 import {
   ChevronLeftIcon,
   FileIcon,
-  MicIcon,
-  MonitorIcon,
   PlugIcon,
   PlusIcon,
   SearchIcon,
 } from "../components/Icons";
 import { PluginsModal } from "../components/PluginsModal";
+import { ThinkThread } from "../components/ThinkThread";
 import { ThreadList } from "../components/ThreadList";
 import { APP_KIND_COLOR, APP_KIND_LABEL } from "../lib/app-kind";
 import { authClient } from "../lib/auth";
@@ -37,17 +29,12 @@ import {
   appsCollection,
   botsCollection,
   clearThreadStore,
-  messagesCollection,
   patchBot,
   peekBots,
   threadMetaCollection,
 } from "../lib/collections";
-import {
-  humanizeRunError,
-  isModelSetupError,
-  userFacingError,
-} from "../lib/errors";
-import { AVATAR_COLORS, FIRST_TASK } from "../lib/jobs";
+import { userFacingError } from "../lib/errors";
+import { AVATAR_COLORS } from "../lib/jobs";
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
 import {
@@ -58,17 +45,11 @@ import {
 } from "../lib/session";
 import { applyTheme, readTheme, type Theme } from "../lib/theme";
 import {
-  appendOptimisticMessage,
   ensureThreadMeta,
-  failOptimisticSend,
   patchThreadMeta,
-  peekMessages,
   readCursor,
-  touchBotPreview,
-  upsertCachedMessage,
 } from "../lib/thread-cache";
 import { formatListTime } from "../lib/time";
-import { mergeWorkspaceApps } from "../lib/workspace-apps";
 import { Button, cn } from "../ui";
 
 function asMessage(payload: Record<string, unknown>): ThreadMessage | null {
@@ -91,21 +72,29 @@ function asMessage(payload: Record<string, unknown>): ThreadMessage | null {
   };
 }
 
-function messageText(message: ThreadMessage): string {
-  return message.blocks
-    .flatMap((block) => {
-      if (block.kind === "text") return [block.text];
-      if (block.kind === "app") return [block.title];
-      return [];
-    })
-    .join("\n");
-}
-
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "?";
   if (parts.length === 1) return (parts[0]?.slice(0, 2) ?? "?").toUpperCase();
   return `${parts[0]?.[0] ?? ""}${parts[1]?.[0] ?? ""}`.toUpperCase();
+}
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  return target.isContentEditable;
+}
+
+function neighborBotId(
+  ids: string[],
+  current: string | undefined,
+  delta: 1 | -1,
+): string | undefined {
+  if (ids.length === 0) return undefined;
+  const index = current ? ids.indexOf(current) : -1;
+  if (index < 0) return delta > 0 ? ids[0] : ids[ids.length - 1];
+  return ids[(index + delta + ids.length) % ids.length];
 }
 
 function BotRow(props: {
@@ -140,9 +129,11 @@ function BotRow(props: {
             {formatListTime(item.lastAt)}
           </span>
         </span>
-        <div className="mt-0.5 overflow-hidden text-xs text-ellipsis whitespace-nowrap text-muted">
-          {item.lastPreview || item.title || "No messages yet"}
-        </div>
+        {item.lastPreview || item.title ? (
+          <div className="mt-0.5 overflow-hidden text-xs text-ellipsis whitespace-nowrap text-muted">
+            {item.lastPreview || item.title}
+          </div>
+        ) : null}
       </span>
     </Link>
   );
@@ -206,9 +197,7 @@ export function Chat(props: { botId: string }) {
   );
   const [pluginsOpen, setPluginsOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
-  const [paneMode, setPaneMode] = useState<
-    "computer" | "settings" | "app" | null
-  >(null);
+  const [paneMode, setPaneMode] = useState<"settings" | "app" | null>(null);
   const [openApp, setOpenApp] = useState<{
     id: string;
     title: string;
@@ -220,21 +209,12 @@ export function Chat(props: { botId: string }) {
     threadId: string;
     peerName: string;
   } | null>(null);
+  const [thinkBusy, setThinkBusy] = useState(false);
+  const stopThink = useRef<(() => void) | null>(null);
   const [pokeMessages, setPokeMessages] = useState<ThreadMessage[]>([]);
-  const bot =
-    bots.find((item) => item.id === props.botId) ?? firstLiveBot(bots);
+  const bot = bots.find((item) => item.id === props.botId);
   const activeId = bot?.id;
   const draft = activeId ? (drafts[activeId] ?? "") : "";
-  const messagesQuery = useLiveQuery(
-    (q) => {
-      if (!activeId) return undefined;
-      return q
-        .from({ message: messagesCollection })
-        .where(({ message }) => eq(message.botId, activeId))
-        .orderBy(({ message }) => message.seq, "asc");
-    },
-    [activeId],
-  );
   const metaQuery = useLiveQuery(
     (q) => {
       if (!activeId) return undefined;
@@ -245,30 +225,15 @@ export function Chat(props: { botId: string }) {
     },
     [activeId],
   );
-  const liveMessages = messagesQuery.data ?? [];
-  const peeked = activeId ? peekMessages(activeId) : [];
-  const messages =
-    liveMessages.length > 0 || peeked.length === 0 ? liveMessages : peeked;
-  const working =
+  const streamWorking =
     metaQuery.data?.working ??
     (activeId ? threadMetaCollection.get(activeId)?.working : undefined) ??
     "";
+  const working = pokeView ? streamWorking : thinkBusy ? "working…" : "";
   const error =
     metaQuery.data?.error ??
     (activeId ? threadMetaCollection.get(activeId)?.error : undefined) ??
     "";
-  const statusLabel = working ? "Working" : "Idle";
-  const activity = useMemo(
-    () =>
-      messages
-        .filter((item) => item.actorType === "bot")
-        .slice(-8)
-        .reverse()
-        .map((item) => ({ id: item.id, text: messageText(item).slice(0, 200) }))
-        .filter((item) => item.text),
-    [messages],
-  );
-  const computerPreview = working || activity[0]?.text || undefined;
   const q = search.trim().toLowerCase();
   const matchesSearch = useCallback(
     (item: Bot) => !q || item.name.toLowerCase().includes(q),
@@ -289,11 +254,7 @@ export function Chat(props: { botId: string }) {
       );
   }, [bots, matchesSearch]);
   const showArchived = archivedOpen || Boolean(q) || Boolean(bot?.archivedAt);
-  const listedApps = appsQuery.data ?? [];
-  const workspaceApps = useMemo(
-    () => mergeWorkspaceApps(listedApps, messages),
-    [listedApps, messages],
-  );
+  const workspaceApps = appsQuery.data ?? [];
   const visibleApps = useMemo(() => {
     return workspaceApps.filter((item) => {
       if (!q) return true;
@@ -307,24 +268,6 @@ export function Chat(props: { botId: string }) {
   useEffect(() => {
     if (bot?.archivedAt) setArchivedOpen(true);
   }, [bot?.archivedAt]);
-
-  const liveAppKey = useMemo(
-    () =>
-      messages
-        .flatMap((message) =>
-          message.blocks.flatMap((block) =>
-            block.kind === "app" ? [block.appId] : [],
-          ),
-        )
-        .join("|"),
-    [messages],
-  );
-  useEffect(() => {
-    if (!liveAppKey) return;
-    void queryClient.invalidateQueries({
-      queryKey: orpc.apps.list.queryOptions().queryKey,
-    });
-  }, [liveAppKey, queryClient]);
 
   useEffect(() => {
     if (!me?.workspaceId) return;
@@ -394,10 +337,28 @@ export function Chat(props: { botId: string }) {
         setSettingsTab("general");
         setSettingsOpen(true);
       }
+      if (
+        (event.key === "ArrowDown" || event.key === "ArrowUp") &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        !settingsOpen &&
+        !pluginsOpen &&
+        !isTypingTarget(event.target)
+      ) {
+        const nextId = neighborBotId(
+          liveBots.map((item) => item.id),
+          activeId,
+          event.key === "ArrowDown" ? 1 : -1,
+        );
+        if (!nextId || nextId === activeId) return;
+        event.preventDefault();
+        void navigate({ to: "/$botId", params: { botId: nextId } });
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [hire]);
+  }, [hire, liveBots, activeId, navigate, settingsOpen, pluginsOpen]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset overlay when the office changes
   useEffect(() => {
@@ -466,37 +427,7 @@ export function Chat(props: { botId: string }) {
         if (cancelled || next.done) break;
         const event = next.value;
         cursor = event.seq;
-        let patched = false;
-        if (event.type === "message.created") {
-          const message = asMessage(event.payload);
-          if (message) {
-            upsertCachedMessage(activeId, message);
-            patchThreadMeta(activeId, { cursor });
-            patched = true;
-            touchBotPreview(activeId, messageText(message));
-          }
-        }
-        if (event.type === "run.updated") {
-          const status = String(event.payload.status ?? "");
-          const text = String(event.payload.text ?? "");
-          if (status === "running" || status === "queued") {
-            patchThreadMeta(activeId, {
-              working: text || "working…",
-              error: "",
-              cursor,
-            });
-          } else if (status === "failed") {
-            patchThreadMeta(activeId, {
-              working: "",
-              error: humanizeRunError(text.trim() || "Run failed"),
-              cursor,
-            });
-          } else {
-            patchThreadMeta(activeId, { working: "", cursor });
-          }
-          patched = true;
-        }
-        if (!patched) patchThreadMeta(activeId, { cursor });
+        patchThreadMeta(activeId, { cursor });
         if (event.type === "guest.updated") {
           patchBot(activeId, {
             guestOnline: Boolean(event.payload.connected),
@@ -505,9 +436,7 @@ export function Chat(props: { botId: string }) {
       }
     })().catch((caught: unknown) => {
       if (!cancelled) {
-        patchThreadMeta(activeId, {
-          error: caught instanceof Error ? caught.message : "Lost the thread",
-        });
+        console.warn("office events", caught);
       }
     });
     return () => {
@@ -515,35 +444,6 @@ export function Chat(props: { botId: string }) {
       void iterator?.return?.();
     };
   }, [activeId]);
-
-  async function send(event: FormEvent) {
-    event.preventDefault();
-    if (!bot || !draft.trim()) return;
-    if (bot.archivedAt) return;
-    if (me?.needsModel) {
-      setSettingsTab("models");
-      setSettingsOpen(true);
-      patchThreadMeta(bot.id, {
-        error:
-          "Add a model key, or use Groxbot’s included gateway, to talk to teammates.",
-      });
-      return;
-    }
-    const text = draft.trim();
-    setDraft("");
-    const optimistic = appendOptimisticMessage(bot.id, text);
-    try {
-      await client.threads.send({ botId: bot.id, text });
-    } catch (caught) {
-      const message = userFacingError(caught, "Could not send");
-      failOptimisticSend(bot.id, optimistic.id, message);
-      setDraft(text);
-      if (isModelSetupError(message)) {
-        setSettingsTab("models");
-        setSettingsOpen(true);
-      }
-    }
-  }
 
   const openDocument = useCallback(
     (app: { appId: string; title: string; templateId: TemplateId }) => {
@@ -556,11 +456,6 @@ export function Chat(props: { botId: string }) {
     },
     [],
   );
-
-  const openComputer = useCallback(() => {
-    setOpenApp(null);
-    setPaneMode("computer");
-  }, []);
 
   return (
     <div
@@ -725,33 +620,15 @@ export function Chat(props: { botId: string }) {
             </button>
           )}
           <div className="no-drag flex flex-wrap items-center gap-1.5">
-            {working ? (
+            {working && !pokeView ? (
               <Button
                 variant="mini"
                 type="button"
-                onClick={() =>
-                  bot && void client.threads.stop({ botId: bot.id })
-                }
+                onClick={() => stopThink.current?.()}
               >
                 Stop now
               </Button>
             ) : null}
-            <Button
-              variant="icon"
-              type="button"
-              aria-label="Computer"
-              title="Computer"
-              on={paneMode === "computer"}
-              onClick={() => {
-                if (paneMode === "computer") {
-                  setPaneMode(null);
-                  return;
-                }
-                openComputer();
-              }}
-            >
-              <MonitorIcon />
-            </Button>
           </div>
         </div>
         {me?.needsModel || me?.modelWarning ? (
@@ -773,112 +650,66 @@ export function Chat(props: { botId: string }) {
             </Button>
           </div>
         ) : null}
-        <div className="min-h-0 flex-1">
-          <ThreadList
-            botId={pokeView ? "_" : (activeId ?? "_")}
-            teammateNames={Object.fromEntries(
-              bots.map((item) => [item.id, item.name]),
-            )}
-            messages={pokeView ? pokeMessages : messages}
-            empty={
-              pokeView
-                ? pokeMessages.length === 0
-                : !working && messages.length === 0
-            }
-            computer={
-              pokeView || !bot
-                ? null
-                : {
-                    title: working || `${bot.name}'s computer`,
-                    status: statusLabel,
-                    done: !working,
-                    preview: computerPreview,
-                  }
-            }
-            working={pokeView ? "" : working}
-            onOpenComputer={openComputer}
-            onOpenApp={openDocument}
-            onOpenPokeThread={(threadId, peerName) =>
-              setPokeView({ threadId, peerName })
-            }
-          />
-        </div>
-        <div className="px-5 pt-2 pb-[18px]">
-          {error ? (
-            <p className="mb-2 text-[13px] text-danger">{error}</p>
-          ) : null}
-          {pokeView ? (
-            <p className="mb-1 px-1 text-[13px] text-muted">
-              {bot?.name} and {pokeView.peerName} talking. Back to stay with{" "}
-              {bot?.name}.
-            </p>
-          ) : bot?.archivedAt ? (
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-card px-3 py-2.5 text-[13px]">
-              <span>Archived. Unarchive to keep working with {bot.name}.</span>
-              <Button
-                variant="text"
-                type="button"
-                onClick={() => {
-                  void client.bots
-                    .unarchive({ botId: bot.id })
-                    .then(applyArchiveChange)
-                    .catch((caught: unknown) =>
-                      patchThreadMeta(bot.id, {
-                        error: userFacingError(caught, "Could not unarchive"),
-                      }),
-                    );
-                }}
-              >
-                Unarchive
-              </Button>
-            </div>
-          ) : (
-            <form
-              className="grid grid-cols-[auto_1fr_auto] items-end gap-1.5 rounded-pill border border-[#262626] bg-[#141414] py-1.5 pr-2 pl-2.5 light:border-line light:bg-white"
-              onSubmit={(event) => void send(event)}
-            >
-              <Button
-                variant="icon"
-                className="size-[34px] rounded-pill"
-                type="button"
-                aria-label="Attach"
-                title="Attach"
-              >
-                <PlusIcon />
-              </Button>
-              <textarea
-                rows={1}
-                className="max-h-[140px] min-h-6 resize-none border-0 bg-transparent px-1 py-2 outline-none"
-                value={draft}
-                placeholder={
-                  me?.needsModel
-                    ? "Add a model key to send"
-                    : messages.length === 0
-                      ? FIRST_TASK
-                      : bot
-                        ? `Message ${bot.name}`
-                        : "Message"
-                }
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    event.currentTarget.form?.requestSubmit();
-                  }
-                }}
+        {pokeView ? (
+          <>
+            <div className="min-h-0 flex-1">
+              <ThreadList
+                botId="_"
+                teammateNames={Object.fromEntries(
+                  bots.map((item) => [item.id, item.name]),
+                )}
+                messages={pokeMessages}
+                empty={pokeMessages.length === 0}
+                working=""
+                onOpenApp={openDocument}
               />
-              <Button
-                variant="icon"
-                className="size-[34px] rounded-pill"
-                type="button"
-                aria-label="Voice"
-                title="Voice"
-              >
-                <MicIcon />
-              </Button>
-            </form>
-          )}
-        </div>
+            </div>
+            <div className="px-5 pt-2 pb-[18px]">
+              {error ? (
+                <p className="mb-2 text-[13px] text-danger">{error}</p>
+              ) : null}
+              <p className="mb-1 px-1 text-[13px] text-muted">
+                {bot?.name} and {pokeView.peerName} talking. Back to stay with{" "}
+                {bot?.name}.
+              </p>
+            </div>
+          </>
+        ) : bot ? (
+          <ThinkThread
+            key={bot.id}
+            botId={bot.id}
+            botName={bot.name}
+            draft={draft}
+            setDraft={setDraft}
+            archived={Boolean(bot.archivedAt)}
+            needsModel={Boolean(me?.needsModel)}
+            placeholder={
+              me?.needsModel
+                ? "Add a model key to send"
+                : `Message ${bot.name}`
+            }
+            error={error}
+            onBusy={setThinkBusy}
+            onError={(message) =>
+              patchThreadMeta(bot.id, { error: message })
+            }
+            onNeedsModel={() => {
+              setSettingsTab("models");
+              setSettingsOpen(true);
+            }}
+            onUnarchive={() => {
+              void client.bots
+                .unarchive({ botId: bot.id })
+                .then(applyArchiveChange)
+                .catch((caught: unknown) =>
+                  patchThreadMeta(bot.id, {
+                    error: userFacingError(caught, "Could not unarchive"),
+                  }),
+                );
+            }}
+            stopRef={stopThink}
+          />
+        ) : null}
       </section>
       {paneMode === "app" && openApp ? (
         <AppPane
@@ -889,19 +720,6 @@ export function Chat(props: { botId: string }) {
             setPaneMode(null);
             setOpenApp(null);
           }}
-        />
-      ) : null}
-      {paneMode === "computer" && bot ? (
-        <ComputerPane
-          bot={bot}
-          statusLabel={statusLabel}
-          working={working}
-          activity={activity}
-          onSettings={() => {
-            setOpenApp(null);
-            setPaneMode("settings");
-          }}
-          onCollapse={() => setPaneMode(null)}
         />
       ) : null}
       {paneMode === "settings" && bot ? (

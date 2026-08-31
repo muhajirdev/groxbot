@@ -3,7 +3,7 @@
   "name": "groxbot-api",
   "main": "src/worker.ts",
   "account_id": "67f961331110b81774851ee4f54349b9",
-  "compatibility_date": "2026-08-16",
+  "compatibility_date": "2026-08-28",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "routes": [{ "pattern": "api.groxbot.com", "custom_domain": true }],
@@ -56,7 +56,6 @@
     "API_URL": "https://api.groxbot.com",
     "WEB_ORIGIN": "https://app.groxbot.com",
     "CORS_ORIGINS": "https://app.groxbot.com,https://groxbot.com,https://www.groxbot.com",
-    "EMAIL_FROM": "Groxbot <noreply@groxbot.com>",
-    "SANDBOX_PROVIDER": "fake"
+    "EMAIL_FROM": "Groxbot <noreply@groxbot.com>"
   }
 }

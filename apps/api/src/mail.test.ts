@@ -56,6 +56,26 @@ describe("createMailer", () => {
     });
   });
 
+  it("does not call Function.bind on the EMAIL stub", async () => {
+    const send = vi.fn(async () => ({ messageId: "msg_rpc" }));
+    Object.defineProperty(send, "bind", {
+      value() {
+        throw new TypeError(
+          'The RPC receiver does not implement the method "bind".',
+        );
+      },
+    });
+    const mailer = createMailer({
+      emailFrom: "Groxbot <noreply@groxbot.com>",
+      email: { send },
+    });
+    await mailer.sendMagicLink({
+      email: "you@example.com",
+      url: "https://app.groxbot.com/api/auth/magic-link/verify?token=abc",
+    });
+    expect(send).toHaveBeenCalledOnce();
+  });
+
   it("sends workspace invites through the binding", async () => {
     const send = vi.fn(async () => ({ messageId: "msg_2" }));
     const mailer = createMailer({

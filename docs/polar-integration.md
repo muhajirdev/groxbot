@@ -35,7 +35,7 @@ Nothing Polar-related. Billing-shaped pieces:
 - Product API is **oRPC** (`packages/contracts`). Web, desktop, and later mobile share that contract — not Better Auth client methods.
 - `MeSchema` has `workspaceId` and `isDeploymentOwner`. No plan, seats, or usage.
 - Self-host vs cloud is already a thing: packaged desktop talks to groxbot.com / api.groxbot.com; local Compose does not.
-- Tests are offline: `ScriptedAgentRuntime`, `SANDBOX_PROVIDER=fake`. Polar must follow that rule.
+- Tests are offline: `ScriptedAgentRuntime`. Polar must follow that rule.
 
 v1 does not need payments. Hosted computers and a paid groxbot.com are later, same bucket as store signing.
 
@@ -89,7 +89,7 @@ Hono’s `@polar-sh/hono` (`Checkout`, `CustomerPortal`, `Webhooks`) is closer t
 
 ## Recommended shape
 
-Same pattern as `WakeupDriver` / `SandboxProvider`: a port, a fake, a Polar adapter. Polar SDK stays in the API (and maybe worker for ingest). **Pi/executor must not import `@polar-sh/sdk`.**
+Same pattern as `WakeupDriver`: a port, a fake, a Polar adapter. Polar SDK stays in the API (and maybe worker for ingest). **Pi/executor must not import `@polar-sh/sdk`.**
 
 ```
 Web / desktop / mobile

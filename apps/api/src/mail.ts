@@ -54,14 +54,14 @@ function bindingFrom(value: string): string | { email: string; name?: string } {
 }
 
 export function createMailer(env: MailEnv): Mailer {
-  const send = env.email?.send.bind(env.email);
+  const binding = env.email;
   const fromRaw = env.emailFrom?.trim() ?? "";
-  if (send && fromRaw) {
+  if (binding && fromRaw) {
     const from = bindingFrom(fromRaw);
     return {
       kind: MAIL_CLOUDFLARE,
       sendMagicLink: async ({ email, url }) => {
-        await send({
+        await binding.send({
           to: email,
           from,
           subject: "Sign in to Groxbot",
@@ -70,7 +70,7 @@ export function createMailer(env: MailEnv): Mailer {
         });
       },
       sendInvitation: async ({ email, url, organizationName, inviterName }) => {
-        await send({
+        await binding.send({
           to: email,
           from,
           subject: `Join ${organizationName} on Groxbot`,

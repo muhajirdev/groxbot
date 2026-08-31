@@ -2,10 +2,7 @@ import type {
   AdapterContext,
   AgentRunRequest,
   AgentRuntimeEvent,
-  CommandRequest,
-  ComputerRef,
   PortableFile,
-  ProcessEvent,
 } from "./types.js";
 
 export interface RealtimeFanout {
@@ -37,20 +34,6 @@ export interface HomeStore {
     botId: string,
     context: AdapterContext,
   ): AsyncIterable<PortableFile>;
-}
-
-export interface SandboxProvider {
-  provision(
-    request: { botId: string; homePath: string; providerRef?: string },
-    context: AdapterContext,
-  ): Promise<ComputerRef>;
-  execute(
-    computer: ComputerRef,
-    request: CommandRequest,
-    context: AdapterContext,
-  ): AsyncIterable<ProcessEvent>;
-  stop(computer: ComputerRef, context: AdapterContext): Promise<void>;
-  destroy(computer: ComputerRef, context: AdapterContext): Promise<void>;
 }
 
 export interface AgentRuntime {

@@ -1,5 +1,5 @@
 import type { AgentRuntime, InitApp } from "@groxbot/adapter-kit";
-import type { MessageBlock, RunStatus } from "@groxbot/contracts";
+import { labelForModel, type MessageBlock, type RunStatus } from "@groxbot/contracts";
 import {
   bots,
   type Database,
@@ -17,6 +17,7 @@ import { newId } from "./ids.js";
 import {
   encryptionSecret,
   missingModelMessage,
+  type ModelOverlay,
   resolveRunModel,
 } from "./models.js";
 import { composioUserId, listConnectedToolkits } from "./plugin-connections.js";
@@ -26,12 +27,25 @@ import { redactSecrets } from "./secret-box.js";
 import { appendEvent, nextSeq } from "./threads.js";
 import { recordModelUsage } from "./usage.js";
 
+type RunRow = typeof runs.$inferSelect;
+type BotRow = typeof bots.$inferSelect;
+type TaskRow = typeof tasks.$inferSelect;
+type ThreadRow = typeof threads.$inferSelect;
+
+export type OfficeTurn = {
+  run: RunRow;
+  bot: BotRow;
+  task: TaskRow;
+  thread: ThreadRow;
+  overlay: ModelOverlay;
+};
+
 async function setRunStatus(
   db: Database,
-  run: typeof runs.$inferSelect,
+  run: RunRow,
   status: RunStatus,
   extra: Partial<typeof runs.$inferInsert> = {},
-): Promise<typeof runs.$inferSelect> {
+): Promise<RunRow> {
   assertTransition(run.status as RunStatus, status);
   const [updated] = await db
     .update(runs)
@@ -40,6 +54,234 @@ async function setRunStatus(
     .returning();
   if (!updated) throw new Error("Run missing after update");
   return updated;
+}
+
+export function teammatePrompt(bot: {
+  name: string;
+  title?: string | null;
+  description: string;
+  instructions: string;
+  modelLabel?: string | null;
+}): string {
+  const job = bot.title?.trim();
+  const who = job ? `${bot.name}, ${job}` : bot.name;
+  const model = bot.modelLabel?.trim();
+  return [
+    `You are ${who}, a Groxbot teammate in this office thread.`,
+    bot.description.trim(),
+    bot.instructions.trim(),
+    "Talk like a coworker in chat. Short paragraphs by default. Markdown is allowed for lists, emphasis, and snippets when they help. Do not write a document or stack headings unless they asked.",
+    "This thread is your desk — files and a shell live on this computer. Use tools when they help. Do not send, pay, merge, or delete unless the human clearly asked.",
+    "Learn as you go. Save durable facts with set_context on memory: people, prefs, decisions, dates, owners. Keep it dense. Longer notes go in memory.md on this computer. Reusable how-to lives in skills/<name>/SKILL.md (YAML frontmatter with name and description, then steps). Edit or delete that folder when the playbook changes. Next message you can activate it. Do not copy the whole thread into memory or a skill. Do not change who you are.",
+    "Do not mention Think or how you are hosted. If asked what you are, you are this teammate.",
+    model ? `If asked which model you use, say ${model}.` : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+/** Think appends this identity line; replace it so the model stays a Groxbot teammate. */
+export const THINK_RUNTIME_LINE = "You are running inside a Think agent.";
+export const TEAMMATE_RUNTIME_LINE = "You are this Groxbot teammate.";
+
+export function rewriteThinkCapability(system: string): string {
+  if (!system.includes(THINK_RUNTIME_LINE)) return system;
+  return system.split(THINK_RUNTIME_LINE).join(TEAMMATE_RUNTIME_LINE);
+}
+
+export async function startOfficeRun(opts: {
+  db: Database;
+  runId: string;
+  env?: NodeJS.ProcessEnv;
+  guests?: GuestHub;
+  skipGuestWait?: boolean;
+}): Promise<OfficeTurn | null> {
+  const { db, runId, guests } = opts;
+  const [run] = await db.select().from(runs).where(eq(runs.id, runId)).limit(1);
+  if (run?.status !== "queued") return null;
+
+  const [bot] = await db
+    .select()
+    .from(bots)
+    .where(eq(bots.id, run.botId))
+    .limit(1);
+  if (!bot) return null;
+  if (bot.archivedAt) {
+    await setRunStatus(db, run, "cancelled", {
+      completedAt: new Date(),
+      error: "archived",
+    });
+    await db
+      .update(tasks)
+      .set({ status: "cancelled", updatedAt: new Date() })
+      .where(eq(tasks.id, run.taskId));
+    await appendEvent(db, {
+      workspaceId: run.workspaceId,
+      threadId: run.threadId,
+      botId: run.botId,
+      type: "run.updated",
+      payload: { runId, status: "cancelled", text: "archived" },
+      runId,
+    });
+    return null;
+  }
+
+  const guestEnabled = bot.guestKind !== "off";
+  if (!opts.skipGuestWait && guestEnabled && !guests?.isOnline(bot.id)) {
+    await appendEvent(db, {
+      workspaceId: run.workspaceId,
+      threadId: run.threadId,
+      botId: run.botId,
+      type: "run.updated",
+      payload: {
+        runId,
+        status: "queued",
+        text: `waiting for ${bot.guestKind}…`,
+      },
+      runId,
+    });
+    return null;
+  }
+
+  let current = await setRunStatus(db, run, "leased", {
+    leaseOwner: "worker",
+    leaseFence: run.leaseFence + 1,
+    leaseExpiresAt: new Date(Date.now() + 60_000),
+  });
+  current = await setRunStatus(db, current, "running", {
+    startedAt: new Date(),
+  });
+
+  const [task] = await db
+    .select()
+    .from(tasks)
+    .where(eq(tasks.id, run.taskId))
+    .limit(1);
+  const [thread] = await db
+    .select()
+    .from(threads)
+    .where(eq(threads.id, run.threadId))
+    .limit(1);
+  if (!task || !thread) return null;
+
+  await appendEvent(db, {
+    workspaceId: run.workspaceId,
+    threadId: run.threadId,
+    botId: run.botId,
+    type: "run.updated",
+    payload: { runId, status: "running", text: "working…" },
+    runId,
+  });
+
+  const sourceEnv = opts.env ?? process.env;
+  const overlay = await resolveRunModel(
+    db,
+    bot,
+    sourceEnv,
+    encryptionSecret(sourceEnv),
+  );
+  if (!overlay.configured) {
+    await failOfficeRun(db, current, missingModelMessage(overlay.model));
+    return null;
+  }
+  return { run: current, bot, task, thread, overlay };
+}
+
+export async function failOfficeRun(
+  db: Database,
+  run: RunRow,
+  message: string,
+): Promise<void> {
+  const redacted = redactSecrets(message);
+  await setRunStatus(db, run, "failed", {
+    error: redacted,
+    completedAt: new Date(),
+  });
+  await appendEvent(db, {
+    workspaceId: run.workspaceId,
+    threadId: run.threadId,
+    botId: run.botId,
+    type: "run.updated",
+    payload: { runId: run.id, status: "failed", text: redacted },
+    runId: run.id,
+  });
+}
+
+export async function completeOfficeRun(opts: {
+  db: Database;
+  run: RunRow;
+  bot: BotRow;
+  task: TaskRow;
+  reply: string;
+  initApp?: InitApp;
+}): Promise<void> {
+  const { db, bot, task } = opts;
+  const [fresh] = await db
+    .select()
+    .from(runs)
+    .where(eq(runs.id, opts.run.id))
+    .limit(1);
+  if (fresh?.status === "cancelled") return;
+
+  const seq = await nextSeq(db, messages, opts.run.threadId);
+  const assistantId = newId();
+  const blocks: MessageBlock[] = [
+    { kind: "text", text: opts.reply || "Done." },
+  ];
+  const intent = parseAppIntent(task.prompt);
+  if (intent && opts.initApp) {
+    const app = await stampApp({
+      initApp: opts.initApp,
+      workspaceId: opts.run.workspaceId,
+      templateId: intent.templateId,
+      title: intent.title,
+    });
+    blocks.push({
+      kind: "app",
+      appId: app.id,
+      templateId: app.templateId,
+      title: app.title,
+    });
+  }
+  await db.insert(messages).values({
+    id: assistantId,
+    threadId: opts.run.threadId,
+    seq,
+    actorType: "bot",
+    actorId: bot.id,
+    blocks,
+    runId: opts.run.id,
+  });
+  await appendEvent(db, {
+    workspaceId: opts.run.workspaceId,
+    threadId: opts.run.threadId,
+    botId: opts.run.botId,
+    type: "message.created",
+    payload: {
+      id: assistantId,
+      seq,
+      actorType: "bot",
+      actorId: bot.id,
+      blocks,
+      runId: opts.run.id,
+      createdAt: new Date().toISOString(),
+    },
+    runId: opts.run.id,
+  });
+
+  await setRunStatus(db, opts.run, "completed", { completedAt: new Date() });
+  await db
+    .update(tasks)
+    .set({ status: "completed", updatedAt: new Date() })
+    .where(eq(tasks.id, task.id));
+  await appendEvent(db, {
+    workspaceId: opts.run.workspaceId,
+    threadId: opts.run.threadId,
+    botId: opts.run.botId,
+    type: "run.updated",
+    payload: { runId: opts.run.id, status: "completed", text: opts.reply },
+    runId: opts.run.id,
+  });
 }
 
 export async function continueRun(opts: {
@@ -66,82 +308,17 @@ export async function continueRun(opts: {
   initApp?: InitApp;
 }): Promise<void> {
   const { db, runId, guests } = opts;
-  const [run] = await db.select().from(runs).where(eq(runs.id, runId)).limit(1);
-  if (!run) return;
-  if (run.status !== "queued") return;
-
-  const [bot] = await db
-    .select()
-    .from(bots)
-    .where(eq(bots.id, run.botId))
-    .limit(1);
-  if (!bot) return;
-  if (bot.archivedAt) {
-    await setRunStatus(db, run, "cancelled", {
-      completedAt: new Date(),
-      error: "archived",
-    });
-    await db
-      .update(tasks)
-      .set({ status: "cancelled", updatedAt: new Date() })
-      .where(eq(tasks.id, run.taskId));
-    await appendEvent(db, {
-      workspaceId: run.workspaceId,
-      threadId: run.threadId,
-      botId: run.botId,
-      type: "run.updated",
-      payload: { runId, status: "cancelled", text: "archived" },
-      runId,
-    });
-    return;
-  }
-
-  const guestEnabled = bot.guestKind !== "off";
-  if (guestEnabled && !guests?.isOnline(bot.id)) {
-    await appendEvent(db, {
-      workspaceId: run.workspaceId,
-      threadId: run.threadId,
-      botId: run.botId,
-      type: "run.updated",
-      payload: {
-        runId,
-        status: "queued",
-        text: `waiting for ${bot.guestKind}…`,
-      },
-      runId,
-    });
-    return;
-  }
-
-  let current = await setRunStatus(db, run, "leased", {
-    leaseOwner: "worker",
-    leaseFence: run.leaseFence + 1,
-    leaseExpiresAt: new Date(Date.now() + 60_000),
-  });
-  current = await setRunStatus(db, current, "running", {
-    startedAt: new Date(),
-  });
-
-  const [task] = await db
-    .select()
-    .from(tasks)
-    .where(eq(tasks.id, run.taskId))
-    .limit(1);
-  const [thread] = await db
-    .select()
-    .from(threads)
-    .where(eq(threads.id, run.threadId))
-    .limit(1);
-  if (!task || !thread) return;
-
-  await appendEvent(db, {
-    workspaceId: run.workspaceId,
-    threadId: run.threadId,
-    botId: run.botId,
-    type: "run.updated",
-    payload: { runId, status: "running", text: "working…" },
+  const started = await startOfficeRun({
+    db,
     runId,
+    env: opts.env,
+    guests,
   });
+  if (!started) return;
+  const { bot, task, thread, overlay } = started;
+  const run = started.run;
+  const current = started.run;
+  const guestEnabled = bot.guestKind !== "off";
 
   const historyRows = await db
     .select()
@@ -153,29 +330,6 @@ export async function continueRun(opts: {
 
   const controller = new AbortController();
   let reply = "";
-  const sourceEnv = opts.env ?? process.env;
-  const overlay = await resolveRunModel(
-    db,
-    bot,
-    sourceEnv,
-    encryptionSecret(sourceEnv),
-  );
-  if (!overlay.configured) {
-    const message = missingModelMessage(overlay.model);
-    current = await setRunStatus(db, current, "failed", {
-      error: message,
-      completedAt: new Date(),
-    });
-    await appendEvent(db, {
-      workspaceId: run.workspaceId,
-      threadId: run.threadId,
-      botId: run.botId,
-      type: "run.updated",
-      payload: { runId, status: "failed", text: message },
-      runId,
-    });
-    return;
-  }
   const bound = opts.bindRuntime ? opts.bindRuntime(overlay) : opts.runtime;
   const runner = guestEnabled && guests ? new GuestAgentRuntime(guests) : bound;
   const teammates = await listPokeTeammates(db, bot);
@@ -211,7 +365,10 @@ export async function continueRun(opts: {
         threadId: thread.id,
         runId,
         prompt: task.prompt,
-        instructions: bot.instructions || bot.description,
+        instructions: teammatePrompt({
+          ...bot,
+          modelLabel: labelForModel(overlay.model),
+        }),
         history,
         model: overlay.model,
         teammates,
@@ -257,87 +414,21 @@ export async function continueRun(opts: {
       }
     }
   } catch (error) {
-    const message = redactSecrets(
+    await failOfficeRun(
+      db,
+      current,
       error instanceof Error ? error.message : "Run failed",
     );
-    await setRunStatus(db, current, "failed", {
-      error: message,
-      completedAt: new Date(),
-    });
-    await appendEvent(db, {
-      workspaceId: run.workspaceId,
-      threadId: run.threadId,
-      botId: run.botId,
-      type: "run.updated",
-      payload: { runId, status: "failed", text: message },
-      runId,
-    });
     return;
   }
 
-  const [fresh] = await db
-    .select()
-    .from(runs)
-    .where(eq(runs.id, runId))
-    .limit(1);
-  if (fresh?.status === "cancelled") return;
-
-  const seq = await nextSeq(db, messages, run.threadId);
-  const assistantId = newId();
-  const blocks: MessageBlock[] = [{ kind: "text", text: reply || "Done." }];
-  const intent = parseAppIntent(task.prompt);
-  if (intent && opts.initApp) {
-    const app = await stampApp({
-      initApp: opts.initApp,
-      workspaceId: run.workspaceId,
-      templateId: intent.templateId,
-      title: intent.title,
-    });
-    blocks.push({
-      kind: "app",
-      appId: app.id,
-      templateId: app.templateId,
-      title: app.title,
-    });
-  }
-  await db.insert(messages).values({
-    id: assistantId,
-    threadId: run.threadId,
-    seq,
-    actorType: "bot",
-    actorId: bot.id,
-    blocks,
-    runId,
-  });
-  await appendEvent(db, {
-    workspaceId: run.workspaceId,
-    threadId: run.threadId,
-    botId: run.botId,
-    type: "message.created",
-    payload: {
-      id: assistantId,
-      seq,
-      actorType: "bot",
-      actorId: bot.id,
-      blocks,
-      runId,
-      createdAt: new Date().toISOString(),
-    },
-    runId,
-  });
-
-  await setRunStatus(db, current, "completed", { completedAt: new Date() });
-  await db
-    .update(tasks)
-    .set({ status: "completed", updatedAt: new Date() })
-    .where(eq(tasks.id, task.id));
-  await appendEvent(db, {
-    workspaceId: run.workspaceId,
-    threadId: run.threadId,
-    botId: run.botId,
-    type: "run.updated",
-    payload: { runId, status: "completed", text: reply },
-    runId,
+  await completeOfficeRun({
+    db,
+    run: current,
+    bot,
+    task,
+    reply,
+    initApp: opts.initApp,
   });
 }
 

@@ -4,6 +4,7 @@ import {
   CLOUDFLARE_PROVIDER,
   DEFAULT_AI_GATEWAY_ID,
   HOSTED_AI_ENV,
+  HOSTED_STARTER_MODEL,
   OPENROUTER_PROVIDER,
 } from "@groxbot/contracts";
 
@@ -62,7 +63,7 @@ export function isGatewayProvider(value: string): value is GatewayProvider {
 
 export function defaultGatewayModel(provider: GatewayProvider): string {
   return provider === CLOUDFLARE_PROVIDER
-    ? CLOUDFLARE_DEEPSEEK_V4_FLASH
+    ? gatewayRequestModel(HOSTED_STARTER_MODEL)
     : OPENROUTER_DEEPSEEK_V4_FLASH;
 }
 

@@ -19,6 +19,25 @@ export default defineConfig({
     proxy: {
       "/api": api,
       "/health": api,
+      "/agents": {
+        target: api,
+        ws: true,
+        timeout: 0,
+        proxyTimeout: 0,
+        configure: (proxy) => {
+          proxy.on("error", (_err, _req, res) => {
+            if (
+              res &&
+              "writeHead" in res &&
+              typeof res.writeHead === "function" &&
+              !res.headersSent
+            ) {
+              res.writeHead(502);
+              res.end();
+            }
+          });
+        },
+      },
       "/apps": {
         target: api,
         ws: true,

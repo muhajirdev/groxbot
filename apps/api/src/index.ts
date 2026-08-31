@@ -12,10 +12,10 @@ loadRootEnv();
 
 import { createDb } from "@groxbot/db/node";
 import { createApp } from "./app.js";
-import { agentRuntimeSource, loadEnv } from "./env.js";
+import { agentRuntimeSource, loadEnv, type EnvStrings } from "./env.js";
 
 async function main() {
-  const env = loadEnv();
+  const env = loadEnv(process.env as EnvStrings);
   const { db, close } = createDb(env.databaseUrl);
   const runtime = createHostedAgentRuntime(agentRuntimeSource(env));
   let enqueue: (job: {

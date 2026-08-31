@@ -3,6 +3,7 @@ import {
   DEFAULT_AI_GATEWAY_ID,
   HOSTED_AI_ENV,
   HOSTED_AI_FLAG,
+  HOSTED_STARTER_MODEL,
   OPENROUTER_PROVIDER,
   PRODUCT_RUNTIME,
 } from "@groxbot/contracts";
@@ -64,13 +65,13 @@ function sseResponse(chunks: string[], content = "Hello from DeepSeek") {
 }
 
 describe("loadGatewayConfig", () => {
-  it("defaults Cloudflare to DeepSeek v4 Flash on Workers AI", () => {
+  it("defaults Cloudflare to GLM 5.3 Flash on Workers AI", () => {
     const config = loadGatewayConfig({
       CLOUDFLARE_ACCOUNT_ID: "acct_123",
       CLOUDFLARE_API_TOKEN: "cf-token",
     });
     expect(config.provider).toBe(CLOUDFLARE_PROVIDER);
-    expect(config.model).toBe(CLOUDFLARE_DEEPSEEK_V4_FLASH);
+    expect(config.model).toBe(gatewayRequestModel(HOSTED_STARTER_MODEL));
     expect(config.gatewayId).toBe(DEFAULT_AI_GATEWAY_ID);
     expect(gatewayChatUrl(config)).toBe(cloudflareChatUrl("acct_123"));
     expect(gatewayHeaders(config)["cf-aig-gateway-id"]).toBe(
@@ -240,7 +241,7 @@ describe("GatewayAgentRuntime", () => {
     expect(seen).toEqual([
       {
         url: cloudflareChatUrl("acct_123"),
-        model: CLOUDFLARE_DEEPSEEK_V4_FLASH,
+        model: gatewayRequestModel(HOSTED_STARTER_MODEL),
         gateway: DEFAULT_AI_GATEWAY_ID,
         metadata: JSON.stringify({
           workspaceId: "ws-1",

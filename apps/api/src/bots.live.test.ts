@@ -1,5 +1,5 @@
 import { ScriptedAgentRuntime } from "@groxbot/adapters/edge";
-import { FAKE_SANDBOX, IN_PROCESS_WAKEUP } from "@groxbot/contracts";
+import { IN_PROCESS_WAKEUP } from "@groxbot/contracts";
 import { createWakeHandlers } from "@groxbot/core";
 import { createDb } from "@groxbot/db/node";
 import { createGroxbotClient } from "@groxbot/rpc";
@@ -50,7 +50,6 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
     authUrl: origin,
     webOrigin: origin,
     corsOrigins: [origin],
-    sandboxProvider: FAKE_SANDBOX,
     hostedAiBinding: true,
     production: false,
     wakeupKind: IN_PROCESS_WAKEUP,
@@ -447,7 +446,6 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
     const ownerEmail = `owner-${stamp}@example.com`;
     const memberEmail = `member-${stamp}@example.com`;
     let ownerCookie = "";
-    let memberCookie = "";
 
     const ownerSignUp = await handles.app.request(
       new Request(`${origin}/api/auth/sign-up/email`, {
@@ -482,44 +480,52 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
     expect(invite.email).toBe(memberEmail);
     expect(invite.url).toContain("invite=");
 
-    const memberSignUp = await handles.app.request(
-      new Request(`${origin}/api/auth/sign-up/email`, {
+    const guestRpc = createGroxbotClient({
+      baseUrl: origin,
+      headers: () => ({ origin }),
+      fetch: async (input, init) => {
+        const request =
+          input instanceof Request ? input : new Request(String(input), init);
+        return handles.app.request(request);
+      },
+    });
+    await expect(
+      guestRpc.workspaces.peek({ invitationId: invite.url }),
+    ).resolves.toEqual({
+      email: memberEmail,
+      organizationName: "Shared office",
+      organizationId: office.id,
+    });
+    await expect(
+      guestRpc.workspaces.peek({ invitationId: "missing-invite" }),
+    ).resolves.toBeNull();
+
+    const guestJoin = await handles.app.request(
+      new Request(`${origin}/api/invites/accept`, {
         method: "POST",
         headers: {
           origin,
           "content-type": "application/json",
         },
-        body: JSON.stringify({
-          name: "Member",
-          email: memberEmail,
-          password: "password1",
-        }),
+        body: JSON.stringify({ invitationId: invite.url }),
       }),
     );
-    memberCookie = cookieHeader(memberSignUp);
-    expect(memberSignUp.status, await memberSignUp.text()).toBe(200);
-
-    const memberRpc = createGroxbotClient({
+    expect(guestJoin.status, await guestJoin.text()).toBe(200);
+    const guestCookie = cookieHeader(guestJoin);
+    expect(guestCookie).toContain("=");
+    const joinedGuest = createGroxbotClient({
       baseUrl: origin,
-      headers: () => ({ cookie: memberCookie, origin }),
+      headers: () => ({ cookie: guestCookie, origin }),
       fetch: async (input, init) => {
         const request =
           input instanceof Request ? input : new Request(String(input), init);
-        const response = await handles.app.request(request);
-        memberCookie = cookieHeader(response, memberCookie);
-        return response;
+        return handles.app.request(request);
       },
     });
-    const pending = await memberRpc.workspaces.invitations();
-    expect(pending.some((item) => item.id === invite.id)).toBe(true);
-    const joined = await memberRpc.workspaces.join({
-      invitationId: invite.url,
-    });
-    expect(joined.id).toBe(office.id);
-    expect(joined.name).toBe("Shared office");
-    const me = await memberRpc.me();
-    expect(me.needsWorkspace).toBe(false);
-    expect(me.workspaceId).toBe(office.id);
+    const joinedMe = await joinedGuest.me();
+    expect(joinedMe.needsWorkspace).toBe(false);
+    expect(joinedMe.workspaceId).toBe(office.id);
+    expect(joinedMe.email).toBe(memberEmail);
   }, 15_000);
 
   it("lets one bot poke another and brings the reply back", async () => {

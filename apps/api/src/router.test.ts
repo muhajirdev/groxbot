@@ -1,5 +1,4 @@
 import {
-  FAKE_SANDBOX,
   HTTP_WAKEUP,
   IN_PROCESS_WAKEUP,
   MAIL_CLOUDFLARE,
@@ -18,7 +17,6 @@ const env = {
   authUrl: "http://127.0.0.1:5173",
   webOrigin: "http://127.0.0.1:5173",
   corsOrigins: ["http://127.0.0.1:5173"],
-  sandboxProvider: FAKE_SANDBOX,
   production: false,
   wakeupKind: IN_PROCESS_WAKEUP,
 } as const;

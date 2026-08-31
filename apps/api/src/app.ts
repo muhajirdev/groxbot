@@ -15,6 +15,7 @@ import { createMailer, type SendEmailBinding } from "./mail.js";
 import { completePluginCallback, pluginCallbackPage } from "./plugins.js";
 import { mountRpc } from "./rpc.js";
 import { requireActor } from "./session.js";
+import { acceptInviteFromLink } from "./workspaces.js";
 
 export interface AppHandles extends Omit<RpcContext, "headers"> {
   app: Hono;
@@ -77,6 +78,34 @@ export function createApp(
   };
   mountRpc(app, handles);
   mountDiscovery(app, env.webOrigin);
+
+  app.post("/api/invites/accept", async (c) => {
+    let invitationId = "";
+    try {
+      const body = (await c.req.json()) as { invitationId?: unknown };
+      invitationId =
+        typeof body.invitationId === "string" ? body.invitationId : "";
+    } catch {
+      return c.json({ message: "Paste an invite to join." }, 400);
+    }
+    try {
+      const accepted = await acceptInviteFromLink(
+        { ...handles, headers: c.req.raw.headers },
+        c.req.raw,
+        invitationId,
+      );
+      const response = c.json(accepted.workspace);
+      for (const cookie of accepted.cookies) {
+        response.headers.append("Set-Cookie", cookie);
+      }
+      return response;
+    } catch (caught) {
+      if (caught instanceof ORPCError) {
+        return c.json({ message: caught.message }, caught.status);
+      }
+      return c.json({ message: "Could not join workspace" }, 400);
+    }
+  });
 
   if (opts.connectApp) {
     const connectApp = opts.connectApp;

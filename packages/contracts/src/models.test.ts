@@ -15,6 +15,8 @@ import {
   modelIsRunnable,
   OPENROUTER_PROVIDER,
   PRODUCT_RUNTIME,
+  catalogGroupLabel,
+  pickerCatalog,
   providerForModel,
   resolveStoredModelId,
   validateCloudflareAccountId,
@@ -112,12 +114,25 @@ describe("model catalog", () => {
     expect(
       MODEL_CATALOG.some((item) => item.provider === CLOUDFLARE_PROVIDER),
     ).toBe(true);
+    expect(catalogGroupLabel(CLOUDFLARE_PROVIDER)).toBe("Groxbot");
+    expect(catalogGroupLabel(OPENROUTER_PROVIDER)).toBe("OpenRouter");
+    const groxOnly = pickerCatalog(
+      MODEL_CATALOG,
+      "cloudflare-ai-gateway/workers-ai/@cf/zai-org/glm-5.3-flash",
+    );
+    expect(groxOnly.every((item) => item.provider === CLOUDFLARE_PROVIDER)).toBe(
+      true,
+    );
+    expect(
+      pickerCatalog(MODEL_CATALOG, "openrouter/deepseek/deepseek-v4-flash"),
+    ).toHaveLength(MODEL_CATALOG.length);
     expect(MODEL_CATALOG.map((item) => item.id)).toEqual(
       expect.arrayContaining([
         "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-flash-0731",
         "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-pro-0813",
         "cloudflare-ai-gateway/workers-ai/@cf/zai-org/glm-4.7-flash",
         "cloudflare-ai-gateway/workers-ai/@cf/zai-org/glm-5.2",
+        "cloudflare-ai-gateway/workers-ai/@cf/zai-org/glm-5.3-flash",
       ]),
     );
   });

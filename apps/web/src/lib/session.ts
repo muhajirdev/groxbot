@@ -57,9 +57,9 @@ export async function loadBotsForRoute(requiredBotId?: string): Promise<Bot[]> {
 /** Send the user to hire, join, or the office. */
 export async function redirectAuthedHome(): Promise<never> {
   const me = await queryClient.ensureQueryData(orpc.me.queryOptions());
-  if (me.needsWorkspace) throw redirect({ to: "/onboarding" });
+  if (me.needsWorkspace) throw redirect({ to: "/onboarding", search: {} });
   const bots = await loadBotsForRoute();
   const first = firstLiveBot(bots);
-  if (!first) throw redirect({ to: "/onboarding" });
+  if (!first) throw redirect({ to: "/onboarding", search: {} });
   throw redirect({ to: "/$botId", params: { botId: first.id } });
 }

@@ -19,6 +19,7 @@ import {
   UpdateBotInput,
   WorkspaceAppSchema,
   WorkspaceInvitationSchema,
+  WorkspaceInvitePeekSchema,
   WorkspaceInviteSchema,
   WorkspaceSchema,
 } from "./domain.js";
@@ -40,7 +41,6 @@ export const appContract = oc.router({
       ok: z.literal(true),
       version: z.string(),
       runtime: z.literal(PRODUCT_RUNTIME),
-      sandbox: z.string(),
       wakeup: WakeupKind,
       oauth: z.array(z.enum(["google", "github"])),
       mail: MailKind,
@@ -53,6 +53,7 @@ export const appContract = oc.router({
     join: oc.input(JoinWorkspaceInput).output(WorkspaceSchema),
     invite: oc.input(InviteWorkspaceInput).output(WorkspaceInviteSchema),
     invitations: oc.output(z.array(WorkspaceInvitationSchema)),
+    peek: oc.input(JoinWorkspaceInput).output(WorkspaceInvitePeekSchema),
   },
   models: {
     get: oc.output(ModelSettingsSchema),

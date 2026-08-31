@@ -5,7 +5,6 @@ import { cloudflareMailConfigured } from "./mail.js";
 export function healthPayload(
   env: Pick<
     Env,
-    | "sandboxProvider"
     | "workerUrl"
     | "googleClientId"
     | "googleClientSecret"
@@ -21,7 +20,6 @@ export function healthPayload(
     ok: true as const,
     version: "0.0.1",
     runtime: PRODUCT_RUNTIME,
-    sandbox: env.sandboxProvider,
     wakeup: env.wakeupKind,
     oauth: oauthProviders(env),
     mail: cloudflareMailConfigured(env) ? MAIL_CLOUDFLARE : MAIL_LOG,

@@ -21,6 +21,7 @@ export interface SessionUser {
   isDeploymentOwner: boolean;
 }
 
+/** Session + active workspace. Skips org listing and owner when the session already has one. */
 export async function requireUser(context: RpcContext): Promise<SessionUser> {
   if (!context.auth) {
     throw new ORPCError("UNAUTHORIZED", { message: "Sign in" });
@@ -33,9 +34,10 @@ export async function requireUser(context: RpcContext): Promise<SessionUser> {
 
   let workspaceId = session.session.activeOrganizationId ?? null;
   let workspaceName: string | null = null;
-  const orgs = await context.auth.api.listOrganizations({ headers });
   if (!workspaceId) {
+    const orgs = await context.auth.api.listOrganizations({ headers });
     workspaceId = orgs[0]?.id ?? null;
+    workspaceName = orgs[0]?.name ?? null;
     if (workspaceId) {
       await context.auth.api.setActiveOrganization({
         body: { organizationId: workspaceId },
@@ -43,15 +45,6 @@ export async function requireUser(context: RpcContext): Promise<SessionUser> {
       });
     }
   }
-  if (workspaceId) {
-    workspaceName =
-      orgs.find((org) => org.id === workspaceId)?.name ?? orgs[0]?.name ?? null;
-  }
-
-  const isDeploymentOwner = await ensureDeploymentOwner(
-    context,
-    session.user.id,
-  );
 
   return {
     userId: session.user.id,
@@ -60,7 +53,7 @@ export async function requireUser(context: RpcContext): Promise<SessionUser> {
     workspaceId,
     workspaceName,
     headers,
-    isDeploymentOwner,
+    isDeploymentOwner: false,
   };
 }
 
@@ -80,7 +73,23 @@ export async function requireActor(context: RpcContext): Promise<Actor> {
   };
 }
 
-async function ensureDeploymentOwner(
+export async function loadWorkspaceName(
+  context: RpcContext,
+  user: SessionUser,
+): Promise<string | null> {
+  if (user.workspaceName) return user.workspaceName;
+  if (!user.workspaceId || !context.auth) return null;
+  const orgs = await context.auth.api.listOrganizations({
+    headers: user.headers,
+  });
+  return (
+    orgs.find((org) => org.id === user.workspaceId)?.name ??
+    orgs[0]?.name ??
+    null
+  );
+}
+
+export async function ensureDeploymentOwner(
   context: RpcContext,
   userId: string,
 ): Promise<boolean> {

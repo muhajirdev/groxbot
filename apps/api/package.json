@@ -12,6 +12,8 @@
     "check": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^3.0.41",
+    "@cloudflare/ai-chat": "^0.11.0",
     "@cloudflare/think": "^0.16.0",
     "@groxbot/adapter-kit": "workspace:*",
     "@groxbot/adapters": "workspace:*",
@@ -24,10 +26,13 @@
     "@hono/node-server": "^1.19.1",
     "@orpc/server": "^1.10.0",
     "agents": "^0.21.0",
+    "ai": "^6",
     "capnweb": "^0.12.0",
     "dotenv": "^17.2.1",
     "drizzle-orm": "^0.44.5",
-    "hono": "^4.9.6"
+    "hono": "^4.9.6",
+    "workers-ai-provider": "^4.0.0",
+    "zod": "^4.1.5"
   },
   "devDependencies": {
     "@groxbot/rpc": "workspace:*",

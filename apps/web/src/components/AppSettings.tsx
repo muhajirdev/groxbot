@@ -6,6 +6,8 @@ import {
   missingProviderMessage,
   PROVIDER_META,
   PROVIDER_ORDER,
+  catalogGroupLabel,
+  pickerCatalog,
 } from "@groxbot/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -48,7 +50,7 @@ export function AppSettings(props: {
   );
 
   return (
-    <ModalShell wide onClose={props.onClose}>
+    <ModalShell wide className="h-[min(86vh,720px)]" onClose={props.onClose}>
       <div className="settings-shell">
         <nav className="settings-nav">
           {(
@@ -287,8 +289,8 @@ function WorkspaceInvite(props: {
           {sent ? (
             <div className="field">
               <p className="muted">
-                Invite emailed to {sent.email}. They sign in with that address,
-                then join. You can also copy the link:
+                Invite emailed to {sent.email}. They open the link and join. You
+                can also copy the link:
               </p>
               <input readOnly value={sent.url} />
               <button
@@ -323,8 +325,8 @@ function BillingTab() {
   if (!settings.hostedGateway && settings.usage.requests === 0) {
     return (
       <p className="muted">
-        Usage is counted when this workspace uses Groxbot’s included Cloudflare
-        AI Gateway. Bring-your-own keys are not metered here.
+        Usage is counted when this workspace uses Groxbot’s included models.
+        Your own keys are not metered here.
       </p>
     );
   }
@@ -332,8 +334,8 @@ function BillingTab() {
     <section className="set-block">
       <p className="group-label">This workspace</p>
       <p className="hint">
-        Hosted Cloudflare AI Gateway only. Your own keys are not counted. Per
-        person rollups come later.
+        Included models only. Your own keys are not counted. Per person rollups
+        come later.
       </p>
       <p>
         {formatCount(settings.usage.requests)} requests ·{" "}
@@ -373,8 +375,14 @@ function ModelsTab() {
   const cfAccount = accountId ?? cf?.accountId ?? "";
   const cfGateway = gatewayId ?? cf?.gatewayId ?? "";
   const providers = PROVIDER_ORDER;
+  const pickerItems = pickerCatalog(
+    settings?.catalog ?? [],
+    selectedModel === CUSTOM_MODEL_SENTINEL
+      ? settings?.defaultModelId ?? ""
+      : selectedModel,
+  );
   const grouped = new Map<ModelProvider, ModelCatalogItem[]>();
-  for (const item of settings?.catalog ?? []) {
+  for (const item of pickerItems) {
     const list = grouped.get(item.provider) ?? [];
     list.push(item);
     grouped.set(item.provider, list);
@@ -494,7 +502,7 @@ function ModelsTab() {
             }}
           >
             {[...grouped.entries()].map(([provider, items]) => (
-              <optgroup key={provider} label={PROVIDER_META[provider].label}>
+              <optgroup key={provider} label={catalogGroupLabel(provider)}>
                 {items.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.label}
@@ -523,8 +531,8 @@ function ModelsTab() {
       <section className="set-block">
         <p className="group-label">Provider keys</p>
         <p className="hint">
-          Groxbot includes Cloudflare AI Gateway so you can start without a key.
-          Paste your own anytime — BYOK wins when it is on file.
+          Groxbot includes hosted models so you can start without a key. Paste
+          your own anytime — your key wins when it is on file.
         </p>
         <div className="provider-keys">
           <div
@@ -544,8 +552,8 @@ function ModelsTab() {
             {settings.hostedGateway ? (
               <div className="provider-key-body">
                 <p className="hint">
-                  This workspace uses Groxbot’s Cloudflare AI Gateway. Token
-                  counts are per workspace.
+                  This workspace uses Groxbot’s included models. Token counts
+                  are per workspace.
                 </p>
                 <p className="muted">
                   {formatCount(settings.usage.requests)} requests ·{" "}

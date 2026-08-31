@@ -179,12 +179,13 @@ export function fallbackRunnableModel(
 ): string {
   const current = flueModelId(model);
   if (current && modelIsRunnable(current, providers)) return current;
+  if (hosted && modelIsRunnable(HOSTED_STARTER_MODEL, providers)) {
+    return flueModelId(HOSTED_STARTER_MODEL);
+  }
   const fromCatalog = MODEL_CATALOG.find((item) =>
     modelIsRunnable(item.id, providers),
   )?.id;
-  return flueModelId(
-    fromCatalog || (hosted ? HOSTED_STARTER_MODEL : SUGGESTED_STARTER_MODEL),
-  );
+  return flueModelId(fromCatalog || SUGGESTED_STARTER_MODEL);
 }
 
 function configuredProviders(keys: ModelKeyStatus[]): ModelProvider[] {
@@ -278,6 +279,9 @@ export async function loadModelSettings(
     creds.find((row) => row.isDefault)?.defaultModel?.trim() ||
     "";
   const fallback =
+    (hosted && modelIsRunnable(HOSTED_STARTER_MODEL, available)
+      ? HOSTED_STARTER_MODEL
+      : undefined) ??
     MODEL_CATALOG.find((item) => modelIsRunnable(item.id, available))?.id ??
     (hosted ? HOSTED_STARTER_MODEL : SUGGESTED_STARTER_MODEL);
   const defaultModelId = flueModelId(stored || fallback);

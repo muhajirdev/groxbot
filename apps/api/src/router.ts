@@ -50,12 +50,18 @@ import {
   refreshPlugins,
   removePlugin,
 } from "./plugins.js";
-import { requireActor, requireUser } from "./session.js";
+import {
+  ensureDeploymentOwner,
+  loadWorkspaceName,
+  requireActor,
+  requireUser,
+} from "./session.js";
 import {
   createWorkspace,
   inviteToWorkspace,
   joinWorkspace,
   pendingInvitations,
+  peekWorkspaceInvite,
 } from "./workspaces.js";
 
 const os = implement(appContract).$context<RpcContext>();
@@ -64,6 +70,10 @@ export const appRouter = os.router({
   health: os.health.handler(async ({ context }) => healthPayload(context.env)),
   me: os.me.handler(async ({ context }) => {
     const user = await requireUser(context);
+    const isDeploymentOwner = await ensureDeploymentOwner(
+      context,
+      user.userId,
+    );
     if (!user.workspaceId) {
       return {
         userId: user.userId,
@@ -72,7 +82,7 @@ export const appRouter = os.router({
         workspaceId: null,
         workspaceName: null,
         needsWorkspace: true,
-        isDeploymentOwner: user.isDeploymentOwner,
+        isDeploymentOwner,
         needsModel: false,
         defaultModel: SUGGESTED_STARTER_MODEL,
         defaultModelLabel: labelForModel(SUGGESTED_STARTER_MODEL),
@@ -84,7 +94,7 @@ export const appRouter = os.router({
       email: user.email,
       name: user.name,
       workspaceId: user.workspaceId,
-      isDeploymentOwner: user.isDeploymentOwner,
+      isDeploymentOwner,
     };
     const source = agentRuntimeSource(context.env);
     const secret = encryptionSecret(
@@ -105,9 +115,9 @@ export const appRouter = os.router({
       email: actor.email,
       name: actor.name,
       workspaceId: actor.workspaceId,
-      workspaceName: user.workspaceName,
+      workspaceName: await loadWorkspaceName(context, user),
       needsWorkspace: false,
-      isDeploymentOwner: actor.isDeploymentOwner,
+      isDeploymentOwner,
       needsModel:
         !settings.hostedGateway && !userHasModelCredentials(creds.length),
       defaultModel: settings.defaultModelId,
@@ -130,6 +140,9 @@ export const appRouter = os.router({
     invitations: os.workspaces.invitations.handler(async ({ context }) => {
       const user = await requireUser(context);
       return pendingInvitations(context, user.email);
+    }),
+    peek: os.workspaces.peek.handler(async ({ context, input }) => {
+      return peekWorkspaceInvite(context, input.invitationId);
     }),
   },
   models: {

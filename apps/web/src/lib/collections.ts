@@ -1,18 +1,12 @@
-import type {
-  Bot,
-  PluginConnection,
-  ThreadMessage,
-  WorkspaceApp,
-} from "@groxbot/contracts";
+import type { Bot, PluginConnection, WorkspaceApp } from "@groxbot/contracts";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
 import {
   createCollection,
   localOnlyCollectionOptions,
 } from "@tanstack/react-db";
 import { orpc, queryClient } from "./orpc";
+import { clearThinkMessages } from "./think-messages";
 import { client } from "./rpc";
-
-export type CachedMessage = ThreadMessage & { botId: string };
 
 export type ThreadMeta = {
   botId: string;
@@ -20,13 +14,6 @@ export type ThreadMeta = {
   working: string;
   error: string;
 };
-
-export const messagesCollection = createCollection(
-  localOnlyCollectionOptions<CachedMessage>({
-    id: "thread-messages",
-    getKey: (item) => item.id,
-  }),
-);
 
 export const threadMetaCollection = createCollection(
   localOnlyCollectionOptions<ThreadMeta>({
@@ -95,8 +82,7 @@ export function patchBot(id: string, patch: Partial<Omit<Bot, "id">>): void {
 }
 
 export function clearThreadStore(): void {
-  const messageKeys = [...messagesCollection.keys()];
-  if (messageKeys.length > 0) messagesCollection.delete(messageKeys);
+  clearThinkMessages();
   const metaKeys = [...threadMetaCollection.keys()];
   if (metaKeys.length > 0) threadMetaCollection.delete(metaKeys);
   const botKeys = [...botsCollection.keys()];

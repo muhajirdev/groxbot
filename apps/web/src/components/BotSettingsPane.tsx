@@ -1,8 +1,9 @@
 import type { Bot, GuestAgentKind } from "@groxbot/contracts";
 import {
   CUSTOM_MODEL_SENTINEL,
-  PROVIDER_META,
   PROVIDER_ORDER,
+  catalogGroupLabel,
+  pickerCatalog,
 } from "@groxbot/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -39,12 +40,16 @@ export function BotSettingsPane(props: {
   const [archiveError, setArchiveError] = useState("");
   const archived = Boolean(bot.archivedAt);
   const modelsQuery = useQuery(orpc.models.get.queryOptions());
-  const catalog = modelsQuery.data?.catalog ?? [];
+  const fullCatalog = modelsQuery.data?.catalog ?? [];
+  const catalog = pickerCatalog(
+    fullCatalog,
+    bot.model || modelsQuery.data?.defaultModelId || "",
+  );
   const defaultLabel =
-    modelsQuery.data?.catalog.find(
+    fullCatalog.find(
       (item) => item.id === modelsQuery.data?.defaultModelId,
     )?.label ?? "workspace default";
-  const listed = catalog.some((item) => item.id === bot.model);
+  const listed = fullCatalog.some((item) => item.id === bot.model);
   const [model, setModel] = useState(
     listed || !bot.model ? bot.model : CUSTOM_MODEL_SENTINEL,
   );
@@ -172,7 +177,7 @@ export function BotSettingsPane(props: {
             {PROVIDER_ORDER.filter((provider) =>
               catalog.some((item) => item.provider === provider),
             ).map((provider) => (
-              <optgroup key={provider} label={PROVIDER_META[provider].label}>
+              <optgroup key={provider} label={catalogGroupLabel(provider)}>
                 {catalog
                   .filter((item) => item.provider === provider)
                   .map((item) => (

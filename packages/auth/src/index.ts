@@ -48,6 +48,12 @@ export function createAuth(
     baseURL: opts.baseURL,
     trustedOrigins: opts.trustedOrigins,
     advanced: cookieAdvanced(opts),
+    session: {
+      cookieCache: {
+        enabled: true,
+        maxAge: 5 * 60,
+      },
+    },
     database: drizzleAdapter(db, {
       provider: "pg",
       schema: {

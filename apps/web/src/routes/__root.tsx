@@ -38,12 +38,8 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 async function loadAuthedContext(client: typeof queryClient) {
   const session = await loadSession(client);
   if (!session) return { session: null };
-  try {
-    await client.ensureQueryData(orpc.me.queryOptions());
-    return { session };
-  } catch {
-    return { session: null };
-  }
+  void client.ensureQueryData(orpc.me.queryOptions());
+  return { session };
 }
 
 function RootComponent() {

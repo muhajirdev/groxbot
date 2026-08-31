@@ -106,3 +106,30 @@ export async function listPendingInvitations(db: Database, email: string) {
     expiresAt: row.expiresAt.toISOString(),
   }));
 }
+
+/** Public lookup by invite id. The id is the secret; missing/expired returns null. */
+export async function peekInvitation(db: Database, raw: string) {
+  const invitationId = invitationIdFromInput(raw);
+  if (!invitationId) return null;
+  const rows = await db
+    .select({
+      email: invitation.email,
+      organizationId: invitation.organizationId,
+      organizationName: organization.name,
+      status: invitation.status,
+      expiresAt: invitation.expiresAt,
+    })
+    .from(invitation)
+    .innerJoin(organization, eq(invitation.organizationId, organization.id))
+    .where(eq(invitation.id, invitationId))
+    .limit(1);
+  const row = rows[0];
+  if (!row?.status || row.status !== "pending" || row.expiresAt <= new Date()) {
+    return null;
+  }
+  return {
+    email: row.email,
+    organizationName: row.organizationName,
+    organizationId: row.organizationId,
+  };
+}

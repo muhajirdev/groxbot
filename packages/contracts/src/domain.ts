@@ -179,6 +179,15 @@ export const JoinWorkspaceInput = z.object({
   invitationId: z.string().min(1).max(400),
 });
 
+export const WorkspaceInvitePeekSchema = z
+  .object({
+    email: z.string().email(),
+    organizationName: z.string(),
+    organizationId: Id,
+  })
+  .nullable();
+export type WorkspaceInvitePeek = z.infer<typeof WorkspaceInvitePeekSchema>;
+
 export const InviteWorkspaceInput = z.object({
   email: z.string().email(),
 });

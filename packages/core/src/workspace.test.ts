@@ -36,6 +36,12 @@ describe("invitationIdFromInput", () => {
       invitationIdFromInput("https://app.groxbot.com/login?invite=inv_abc"),
     ).toBe("inv_abc");
   });
+
+  it("pulls invite from a relative onboarding path", () => {
+    expect(
+      invitationIdFromInput("/onboarding?invite=inv_abc"),
+    ).toBe("inv_abc");
+  });
 });
 
 describe("invitationUrl", () => {

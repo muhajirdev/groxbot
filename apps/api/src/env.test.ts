@@ -1,6 +1,6 @@
-import { HOSTED_AI_ENV, HOSTED_AI_FLAG } from "@groxbot/contracts";
+import { DURABLE_OBJECT_WAKEUP, HOSTED_AI_ENV, HOSTED_AI_FLAG } from "@groxbot/contracts";
 import { describe, expect, it } from "vitest";
-import { agentRuntimeSource, loadEnv } from "./env.js";
+import { agentRuntimeSource, loadEnv, productEnv } from "./env.js";
 
 const base = {
   DATABASE_URL: "postgres://groxbot:groxbot@127.0.0.1:5433/groxbot",
@@ -35,5 +35,19 @@ describe("agentRuntimeSource", () => {
     expect(source.CLOUDFLARE_API_TOKEN).toBeUndefined();
     expect(source[HOSTED_AI_ENV]).toBeUndefined();
     expect(source.AGENT_RUNTIME).toBeUndefined();
+  });
+});
+
+describe("productEnv", () => {
+  it("reads Worker string bindings and DO wakeup, not process.env", () => {
+    const env = productEnv({
+      ...base,
+      EMAIL: { send: () => undefined },
+      AI: { run: () => undefined },
+    });
+    expect(env.wakeupKind).toBe(DURABLE_OBJECT_WAKEUP);
+    expect(env.emailBinding).toBe(true);
+    expect(env.hostedAiBinding).toBe(true);
+    expect(env.databaseUrl).toBe(base.DATABASE_URL);
   });
 });

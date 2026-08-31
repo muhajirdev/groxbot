@@ -3,7 +3,6 @@ import {
   CLOUD_LANDING_ORIGIN,
   CLOUD_WEB_ORIGIN,
   DURABLE_OBJECT_WAKEUP,
-  FAKE_SANDBOX,
   HOSTED_AI_ENV,
   HOSTED_AI_FLAG,
   HTTP_WAKEUP,
@@ -25,7 +24,6 @@ export interface Env {
   authUrl: string;
   webOrigin: string;
   corsOrigins: string[];
-  sandboxProvider: string;
   workerUrl?: string;
   apiUrl?: string;
   guestUrl?: string;
@@ -87,22 +85,55 @@ function parseOrigins(value: string | undefined, fallback: string[]): string[] {
   return [...new Set([...fallback, ...extra])];
 }
 
-export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
-  const databaseUrl = source.DATABASE_URL;
+/** String bindings / test bags. Worker objects (AI, EMAIL, DOs) are not included. */
+export type EnvStrings = {
+  DATABASE_URL?: string;
+  BETTER_AUTH_SECRET?: string;
+  NODE_ENV?: string;
+  WEB_ORIGIN?: string;
+  BETTER_AUTH_URL?: string;
+  CORS_ORIGINS?: string;
+  WORKER_URL?: string;
+  API_URL?: string;
+  GUEST_URL?: string;
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  GITHUB_CLIENT_ID?: string;
+  GITHUB_CLIENT_SECRET?: string;
+  CLOUDFLARE_ACCOUNT_ID?: string;
+  CLOUDFLARE_AI_GATEWAY_TOKEN?: string;
+  CLOUDFLARE_API_TOKEN?: string;
+  CLOUDFLARE_AI_GATEWAY_ID?: string;
+  EMAIL_FROM?: string;
+  ENCRYPTION_KEY?: string;
+  COMPOSIO_API_KEY?: string;
+  WAKEUP_KIND?: string;
+};
+
+/** BYOK / hosted gateway keys. Same names as wrangler vars, not Node process.env. */
+export type RuntimeSource = Record<string, string | undefined>;
+
+function read(source: EnvStrings, key: keyof EnvStrings): string | undefined {
+  const value = source[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+export function loadEnv(source: EnvStrings): Env {
+  const databaseUrl = read(source, "DATABASE_URL");
   if (!databaseUrl) throw new Error("DATABASE_URL is required");
-  const authSecret = source.BETTER_AUTH_SECRET ?? "";
-  if (authSecret.length < 32 && source.NODE_ENV === "production") {
+  const authSecret = read(source, "BETTER_AUTH_SECRET") ?? "";
+  if (authSecret.length < 32 && read(source, "NODE_ENV") === "production") {
     throw new Error(
       "BETTER_AUTH_SECRET must be at least 32 characters in production",
     );
   }
-  const webOrigin = source.WEB_ORIGIN ?? "http://127.0.0.1:5173";
+  const webOrigin = read(source, "WEB_ORIGIN") ?? "http://127.0.0.1:5173";
   return {
     databaseUrl,
     authSecret: authSecret || "development-only-change-me-please-32ch",
-    authUrl: source.BETTER_AUTH_URL ?? "http://127.0.0.1:5173",
+    authUrl: read(source, "BETTER_AUTH_URL") ?? "http://127.0.0.1:5173",
     webOrigin,
-    corsOrigins: parseOrigins(source.CORS_ORIGINS, [
+    corsOrigins: parseOrigins(read(source, "CORS_ORIGINS"), [
       webOrigin,
       CLOUD_LANDING_ORIGIN,
       CLOUD_WEB_ORIGIN,
@@ -117,35 +148,46 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
       "http://127.0.0.1:8081",
       "http://localhost:8081",
     ]),
-    sandboxProvider: source.SANDBOX_PROVIDER ?? FAKE_SANDBOX,
-    workerUrl: source.WORKER_URL,
-    apiUrl: source.API_URL ?? "http://127.0.0.1:3100",
-    guestUrl: source.GUEST_URL,
-    googleClientId: source.GOOGLE_CLIENT_ID,
-    googleClientSecret: source.GOOGLE_CLIENT_SECRET,
-    githubClientId: source.GITHUB_CLIENT_ID,
-    githubClientSecret: source.GITHUB_CLIENT_SECRET,
-    cloudflareAccountId: source.CLOUDFLARE_ACCOUNT_ID,
+    workerUrl: read(source, "WORKER_URL"),
+    apiUrl: read(source, "API_URL") ?? "http://127.0.0.1:3100",
+    guestUrl: read(source, "GUEST_URL"),
+    googleClientId: read(source, "GOOGLE_CLIENT_ID"),
+    googleClientSecret: read(source, "GOOGLE_CLIENT_SECRET"),
+    githubClientId: read(source, "GITHUB_CLIENT_ID"),
+    githubClientSecret: read(source, "GITHUB_CLIENT_SECRET"),
+    cloudflareAccountId: read(source, "CLOUDFLARE_ACCOUNT_ID"),
     cloudflareAiGatewayToken:
-      source.CLOUDFLARE_AI_GATEWAY_TOKEN?.trim() ||
-      source.CLOUDFLARE_API_TOKEN?.trim() ||
+      read(source, "CLOUDFLARE_AI_GATEWAY_TOKEN")?.trim() ||
+      read(source, "CLOUDFLARE_API_TOKEN")?.trim() ||
       undefined,
-    cloudflareAiGatewayId: source.CLOUDFLARE_AI_GATEWAY_ID?.trim() || undefined,
-    emailFrom: source.EMAIL_FROM,
-    encryptionKey: source.ENCRYPTION_KEY,
-    composioApiKey: source.COMPOSIO_API_KEY?.trim() || undefined,
-    production: source.NODE_ENV === "production",
+    cloudflareAiGatewayId:
+      read(source, "CLOUDFLARE_AI_GATEWAY_ID")?.trim() || undefined,
+    emailFrom: read(source, "EMAIL_FROM"),
+    encryptionKey: read(source, "ENCRYPTION_KEY"),
+    composioApiKey: read(source, "COMPOSIO_API_KEY")?.trim() || undefined,
+    production: read(source, "NODE_ENV") === "production",
     wakeupKind:
-      source.WAKEUP_KIND === DURABLE_OBJECT_WAKEUP
+      read(source, "WAKEUP_KIND") === DURABLE_OBJECT_WAKEUP
         ? DURABLE_OBJECT_WAKEUP
-        : source.WORKER_URL
+        : read(source, "WORKER_URL")
           ? HTTP_WAKEUP
           : IN_PROCESS_WAKEUP,
   };
 }
 
-/** Process env for agent boot / model settings. Hosted CF gateway + encryption. */
-export function agentRuntimeSource(env: Env): NodeJS.ProcessEnv {
+/** Worker / BotActor: bindings in, product Env out. Wakeup is always the DO. */
+export function productEnv(
+  env: EnvStrings & { EMAIL?: unknown; AI?: unknown },
+): Env {
+  const loaded = loadEnv(env);
+  loaded.emailBinding = Boolean(env.EMAIL);
+  loaded.hostedAiBinding = Boolean(env.AI);
+  loaded.wakeupKind = DURABLE_OBJECT_WAKEUP;
+  return loaded;
+}
+
+/** Overlay for resolveRunModel / AI gateway. Hosted CF gateway + encryption. */
+export function agentRuntimeSource(env: Env): RuntimeSource {
   const hosted = env.hostedAiBinding
     ? hostedCloudflareGateway({
         [HOSTED_AI_ENV]: HOSTED_AI_FLAG,

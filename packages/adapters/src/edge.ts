@@ -20,9 +20,11 @@ export {
   WorkersAiRuntime,
 } from "./edge-runtime.js";
 export {
-  createSandboxProvider,
-  FakeSandboxProvider,
-} from "./sandbox.js";
+  gatewayChatUrl,
+  gatewayConfigured,
+  gatewayRequestModel,
+  loadGatewayConfig,
+} from "./gateway.js";
 export {
   createWakeupDriver,
   InProcessWakeupDriver,

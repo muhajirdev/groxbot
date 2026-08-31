@@ -29,7 +29,7 @@ export const SUGGESTED_STARTER_MODEL = "openrouter/deepseek/deepseek-v4-flash";
 
 /** Built-in Groxbot gateway (Cloudflare AI Gateway → Workers AI). */
 export const HOSTED_STARTER_MODEL =
-  "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-flash-0731";
+  "cloudflare-ai-gateway/workers-ai/@cf/zai-org/glm-5.3-flash";
 
 /** Product brain. Worker `AI` binding, else REST gateway keys. */
 export const PRODUCT_RUNTIME = CLOUDFLARE_PROVIDER;
@@ -59,8 +59,6 @@ export const MAIL_CLOUDFLARE = CLOUDFLARE_PROVIDER;
 export const MAIL_LOG = "log" as const;
 export const MailKind = z.enum([MAIL_CLOUDFLARE, MAIL_LOG]);
 export type MailKind = z.infer<typeof MailKind>;
-
-export const FAKE_SANDBOX = "fake" as const;
 
 export function hostedAiEnabled(
   env: { [HOSTED_AI_ENV]?: string } = {},
@@ -102,9 +100,28 @@ export const PROVIDER_META: Record<
     placeholder: "API token",
     docsUrl:
       "https://developers.cloudflare.com/ai-gateway/integrations/coding-agents/pi/",
-    hint: `Pi routes through your gateway (Workers AI, and Anthropic/OpenAI when billed on the gateway). Account id + token; gateway id can stay ${DEFAULT_AI_GATEWAY_ID}.`,
+    hint: `Account id and API token. Gateway id can stay ${DEFAULT_AI_GATEWAY_ID}.`,
   },
 };
+
+/** Model picker group. Hosted catalog models are Groxbot, not the upstream vendor. */
+export function catalogGroupLabel(provider: ModelProvider): string {
+  if (provider === CLOUDFLARE_PROVIDER) return "Groxbot";
+  return PROVIDER_META[provider].label;
+}
+
+/** Groxbot picker: hide OpenRouter / Anthropic / OpenAI while a Groxbot model is selected. */
+export function pickerCatalog<T extends { id: string; provider: ModelProvider }>(
+  catalog: readonly T[],
+  selectedModelId: string,
+): T[] {
+  const selected = selectedModelId.trim();
+  if (!selected || selected === CUSTOM_MODEL_SENTINEL) return [...catalog];
+  const listed = catalog.find((item) => item.id === selected);
+  const provider = listed?.provider ?? providerForModel(selected);
+  if (provider !== CLOUDFLARE_PROVIDER) return [...catalog];
+  return catalog.filter((item) => item.provider === CLOUDFLARE_PROVIDER);
+}
 
 export const MODEL_CATALOG = [
   {
@@ -143,28 +160,33 @@ export const MODEL_CATALOG = [
     provider: OPENAI_PROVIDER,
   },
   {
+    id: "cloudflare-ai-gateway/workers-ai/@cf/zai-org/glm-5.3-flash",
+    label: "GLM 5.3 Flash",
+    provider: CLOUDFLARE_PROVIDER,
+  },
+  {
     id: "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-flash-0731",
-    label: "DeepSeek V4 Flash (Workers AI)",
+    label: "DeepSeek V4 Flash",
     provider: CLOUDFLARE_PROVIDER,
   },
   {
     id: "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-pro-0813",
-    label: "DeepSeek V4 Pro (Workers AI)",
+    label: "DeepSeek V4 Pro",
     provider: CLOUDFLARE_PROVIDER,
   },
   {
     id: "cloudflare-ai-gateway/workers-ai/@cf/zai-org/glm-4.7-flash",
-    label: "GLM 4.7 Flash (Workers AI)",
+    label: "GLM 4.7 Flash",
     provider: CLOUDFLARE_PROVIDER,
   },
   {
     id: "cloudflare-ai-gateway/workers-ai/@cf/zai-org/glm-5.2",
-    label: "GLM 5.2 (Workers AI)",
+    label: "GLM 5.2",
     provider: CLOUDFLARE_PROVIDER,
   },
   {
     id: "cloudflare-ai-gateway/workers-ai/@cf/moonshotai/kimi-k2.6",
-    label: "Kimi K2.6 (Workers AI)",
+    label: "Kimi K2.6",
     provider: CLOUDFLARE_PROVIDER,
   },
 ] as const;

@@ -11,6 +11,7 @@ export * from "./poke.js";
 export * from "./run-continue.js";
 export * from "./run-state.js";
 export * from "./secret-box.js";
+export * from "./skills.js";
 export * from "./threads.js";
 export * from "./usage.js";
 export * from "./wakeup-handlers.js";

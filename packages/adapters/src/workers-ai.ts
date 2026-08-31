@@ -64,7 +64,7 @@ export class WorkersAiRuntime implements AgentRuntime {
       const model = gatewayRequestModel(
         request.model?.trim() || this.options.model || "",
       );
-      if (!model) throw new Error("Hosted Workers AI needs a model id.");
+      if (!model) throw new Error("Hosted Groxbot needs a model id.");
       const result = await this.options.ai.run(
         model,
         { messages: chatMessages(request), stream: true },
@@ -108,7 +108,7 @@ export class WorkersAiRuntime implements AgentRuntime {
         return;
       }
       if (!reply.trim()) {
-        throw new Error("Workers AI returned an empty reply");
+        throw new Error("The hosted model returned an empty reply");
       }
       yield { type: "text", text: reply };
       if (usage) yield { type: "usage", ...usage };
@@ -119,7 +119,7 @@ export class WorkersAiRuntime implements AgentRuntime {
         return;
       }
       const message =
-        error instanceof Error ? error.message : "Workers AI failed";
+        error instanceof Error ? error.message : "The hosted model failed";
       yield { type: "error", text: message };
     } finally {
       this.running.delete(request.runId);

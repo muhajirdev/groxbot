@@ -1,5 +1,3 @@
-import type { SandboxKind } from "@groxbot/contracts";
-
 export interface AdapterContext {
   operationId: string;
   workspaceId: string;
@@ -28,23 +26,6 @@ export type InitApp = (
   templateId: string,
   opts: { workspaceId: string; title: string },
 ) => Promise<void>;
-
-export interface ComputerRef {
-  id: string;
-  botId: string;
-  kind: SandboxKind;
-  providerRef?: string;
-}
-
-export interface CommandRequest {
-  argv: string[];
-  cwd?: string;
-}
-
-export type ProcessEvent =
-  | { type: "stdout"; data: string }
-  | { type: "stderr"; data: string }
-  | { type: "exit"; code: number };
 
 export interface PokeTeammate {
   id: string;

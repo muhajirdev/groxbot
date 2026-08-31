@@ -9,6 +9,8 @@ import {
   OPENROUTER_PROVIDER,
   PROVIDER_META,
   PROVIDER_ORDER,
+  catalogGroupLabel,
+  pickerCatalog,
   providerForModel,
   SUGGESTED_STARTER_MODEL,
 } from "@groxbot/contracts";
@@ -109,19 +111,19 @@ export function Onboarding(props: { invite?: string }) {
 
   const grouped = useMemo(() => {
     const map = new Map<ModelProvider, ModelCatalogItem[]>();
-    for (const item of settings?.catalog ?? []) {
+    for (const item of pickerCatalog(settings?.catalog ?? [], selectedModel)) {
       const list = map.get(item.provider) ?? [];
       list.push(item);
       map.set(item.provider, list);
     }
     return map;
-  }, [settings?.catalog]);
+  }, [settings?.catalog, selectedModel]);
 
   const modelGroups = useMemo(
     () =>
       PROVIDER_ORDER.filter((provider) => grouped.has(provider)).map(
         (provider) => ({
-          label: PROVIDER_META[provider].label,
+          label: catalogGroupLabel(provider),
           options: (grouped.get(provider) ?? []).map((item) => ({
             value: item.id,
             label: `${item.label}${item.available ? "" : " — needs key"}`,
@@ -570,9 +572,9 @@ export function Onboarding(props: { invite?: string }) {
           <p className="lede">
             {modelsReady
               ? settings?.hostedGateway
-                ? "Groxbot includes Cloudflare AI Gateway. Continue to hire, or paste your own key later in Settings."
+                ? "Groxbot includes hosted models. Continue to hire, or paste your own key later in Settings."
                 : "This workspace already has a model key. Continue to hire your first teammate."
-              : "Groxbot includes Cloudflare AI Gateway when it is configured on this host. Or paste an OpenRouter key — one key covers Claude, GPT, Grok, Kimi, DeepSeek."}
+              : "Groxbot includes hosted models when they are configured on this host. Or paste an OpenRouter key — one key covers Claude, GPT, Grok, Kimi, DeepSeek."}
           </p>
           <div className="model-strip" aria-hidden>
             {MODEL_MARKS.map((mark) => (

@@ -2,6 +2,7 @@ import {
   invitationIdFromInput,
   invitationUrl,
   listPendingInvitations,
+  peekInvitation,
   slugForWorkspace,
   workspaceAuthMessage,
 } from "@groxbot/core";
@@ -59,34 +60,7 @@ export async function joinWorkspace(
   if (!invitationId) {
     throw new ORPCError("BAD_REQUEST", { message: "Paste an invite to join." });
   }
-  try {
-    const accepted = await context.auth.api.acceptInvitation({
-      body: { invitationId },
-      headers: user.headers,
-    });
-    const organizationId = accepted?.invitation?.organizationId;
-    if (!organizationId) {
-      throw new ORPCError("BAD_REQUEST", {
-        message: "That invite is missing or expired.",
-      });
-    }
-    await context.auth.api.setActiveOrganization({
-      body: { organizationId },
-      headers: user.headers,
-    });
-    const org = await context.auth.api.getFullOrganization({
-      query: { organizationId },
-      headers: user.headers,
-    });
-    return {
-      id: organizationId,
-      name: org?.name ?? "Workspace",
-      slug: org?.slug ?? organizationId,
-    };
-  } catch (caught) {
-    if (caught instanceof ORPCError) throw caught;
-    throwWorkspaceError(caught, "Could not join workspace");
-  }
+  return joinWithHeaders(context, user.headers, invitationId);
 }
 
 export async function inviteToWorkspace(context: RpcContext, email: string) {
@@ -121,6 +95,146 @@ export async function inviteToWorkspace(context: RpcContext, email: string) {
 
 export async function pendingInvitations(context: RpcContext, email: string) {
   return listPendingInvitations(context.db, email);
+}
+
+export async function peekWorkspaceInvite(
+  context: RpcContext,
+  invitationId: string,
+) {
+  return peekInvitation(context.db, invitationId);
+}
+
+export async function acceptInviteFromLink(
+  context: RpcContext,
+  request: Request,
+  rawInvitationId: string,
+): Promise<{
+  workspace: { id: string; name: string; slug: string };
+  cookies: string[];
+}> {
+  if (!context.auth) {
+    throw new ORPCError("UNAUTHORIZED", { message: "Sign in" });
+  }
+  const invitationId = invitationIdFromInput(rawInvitationId);
+  if (!invitationId) {
+    throw new ORPCError("BAD_REQUEST", { message: "Paste an invite to join." });
+  }
+  const peek = await peekInvitation(context.db, invitationId);
+  if (!peek) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: "That invite is missing or expired.",
+    });
+  }
+
+  const headers = new Headers(request.headers);
+  if (!headers.get("origin")) {
+    headers.set("origin", context.env.webOrigin);
+  }
+  const session = await context.auth.api.getSession({ headers });
+  let cookies: string[] = [];
+  let joinHeaders = headers;
+
+  if (session) {
+    if (
+      session.user.email.trim().toLowerCase() !==
+      peek.email.trim().toLowerCase()
+    ) {
+      throw new ORPCError("BAD_REQUEST", {
+        message: "That invite is for a different email.",
+      });
+    }
+  } else {
+    const signedIn = await signInAsInvitedEmail(context, headers, peek.email);
+    cookies = signedIn.cookies;
+    joinHeaders = signedIn.headers;
+  }
+
+  const workspace = await joinWithHeaders(context, joinHeaders, invitationId);
+  return { workspace, cookies };
+}
+
+async function signInAsInvitedEmail(
+  context: RpcContext,
+  requestHeaders: Headers,
+  email: string,
+) {
+  const auth = context.auth;
+  if (!auth) {
+    throw new ORPCError("UNAUTHORIZED", { message: "Sign in" });
+  }
+  const token = randomToken();
+  const authCtx = await auth.$context;
+  await authCtx.internalAdapter.createVerificationValue({
+    identifier: token,
+    value: JSON.stringify({
+      email,
+      name: email.split("@")[0] || email,
+    }),
+    expiresAt: new Date(Date.now() + 60_000),
+  });
+  const verify = await auth.api.magicLinkVerify({
+    query: { token },
+    headers: requestHeaders,
+    asResponse: true,
+  });
+  if (!(verify instanceof Response) || !verify.ok) {
+    throw new ORPCError("INTERNAL_SERVER_ERROR", {
+      message: "Could not join workspace",
+    });
+  }
+  const cookies = verify.headers.getSetCookie();
+  const next = new Headers(requestHeaders);
+  const pairs = cookies
+    .map((line) => line.split(";", 1)[0]?.trim())
+    .filter((pair): pair is string => Boolean(pair));
+  const existing = next.get("cookie");
+  next.set("cookie", [existing, ...pairs].filter(Boolean).join("; "));
+  return { cookies, headers: next };
+}
+
+function randomToken(): string {
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return Array.from(bytes, (byte) => chars[byte % chars.length]).join("");
+}
+
+async function joinWithHeaders(
+  context: RpcContext,
+  headers: Headers,
+  invitationId: string,
+) {
+  const auth = context.auth;
+  if (!auth) {
+    throw new ORPCError("UNAUTHORIZED", { message: "Sign in" });
+  }
+  try {
+    const accepted = await auth.api.acceptInvitation({
+      body: { invitationId },
+      headers,
+    });
+    const organizationId = accepted?.invitation?.organizationId;
+    if (!organizationId) {
+      throw new ORPCError("BAD_REQUEST", {
+        message: "That invite is missing or expired.",
+      });
+    }
+    await auth.api.setActiveOrganization({
+      body: { organizationId },
+      headers,
+    });
+    const org = await auth.api.getFullOrganization({
+      query: { organizationId },
+      headers,
+    });
+    return {
+      id: organizationId,
+      name: org?.name ?? "Workspace",
+      slug: org?.slug ?? organizationId,
+    };
+  } catch (caught) {
+    if (caught instanceof ORPCError) throw caught;
+    throwWorkspaceError(caught, "Could not join workspace");
+  }
 }
 
 export function throwWorkspaceError(caught: unknown, fallback: string): never {

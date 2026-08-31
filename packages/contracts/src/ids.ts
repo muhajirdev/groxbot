@@ -26,9 +26,6 @@ export const RunStatus = z.enum([
 ]);
 export type RunStatus = z.infer<typeof RunStatus>;
 
-export const SandboxKind = z.enum(["docker", "e2b", "desktop", "fake"]);
-export type SandboxKind = z.infer<typeof SandboxKind>;
-
 export const MemoryScope = z.enum(["bot", "user", "workspace"]);
 export type MemoryScope = z.infer<typeof MemoryScope>;
 
