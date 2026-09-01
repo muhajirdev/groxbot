@@ -1,6 +1,13 @@
 import { ScriptedAgentRuntime } from "@groxbot/adapters/edge";
 import { IN_PROCESS_WAKEUP } from "@groxbot/contracts";
-import { createWakeHandlers } from "@groxbot/core";
+import {
+  createWakeHandlers,
+  decodeComputerBytes,
+  listComputerEntries,
+  readComputerFile,
+  writeInboxFile,
+  type ComputerDisk,
+} from "@groxbot/core";
 import { createDb } from "@groxbot/db/node";
 import { createGroxbotClient } from "@groxbot/rpc";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -25,6 +32,55 @@ try {
 }
 
 const origin = "http://127.0.0.1:5173";
+
+const computerHomes = new Map<string, Map<string, string>>();
+
+function diskFor(botId: string): MapDisk {
+  let files = computerHomes.get(botId);
+  if (!files) {
+    files = new Map();
+    computerHomes.set(botId, files);
+  }
+  return new MapDisk(files);
+}
+
+class MapDisk implements ComputerDisk {
+  constructor(private readonly files: Map<string, string>) {}
+
+  async readFile(path: string) {
+    return this.files.get(path) ?? null;
+  }
+
+  async glob(pattern: string) {
+    const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(
+      `^${escaped.replace(/\*\*/g, ":::").replace(/\*/g, "[^/]+").replace(/:::/g, ".*")}$`,
+    );
+    return [...this.files.keys()].filter((path) => re.test(path)).sort();
+  }
+
+  async readDir(path: string) {
+    const prefix = path && path !== "." ? `${path}/` : "";
+    const names = new Map<string, string>();
+    for (const file of this.files.keys()) {
+      if (prefix && !file.startsWith(prefix)) continue;
+      const rest = prefix ? file.slice(prefix.length) : file;
+      if (!rest) continue;
+      const cut = rest.indexOf("/");
+      if (cut === -1) names.set(rest, "file");
+      else names.set(rest.slice(0, cut), "directory");
+    }
+    return [...names.entries()].map(([name, type]) => ({ path: name, type }));
+  }
+
+  async writeFile(path: string, content: string) {
+    this.files.set(path, content);
+  }
+}
+
+function seedComputer(botId: string, files: Record<string, string>) {
+  computerHomes.set(botId, new Map(Object.entries(files)));
+}
 
 function cookieHeader(response: Response, previous = ""): string {
   const jar = new Map<string, string>();
@@ -79,6 +135,12 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
       close,
       enqueue,
       initApp: async () => {},
+      computer: {
+        list: (botId, path) => listComputerEntries(diskFor(botId), path),
+        read: (botId, path) => readComputerFile(diskFor(botId), path),
+        write: (botId, filename, content) =>
+          writeInboxFile(diskFor(botId), filename, decodeComputerBytes(content)),
+      },
     });
     handlers = createWakeHandlers({
       db,
@@ -151,7 +213,12 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
     });
     expect(bot.name).toBe("Piper");
 
-    const nameless = await rpc.bots.create({ name: "Scout" });
+    const namelessId = crypto.randomUUID();
+    const nameless = await rpc.bots.create({
+      id: namelessId,
+      name: "Scout",
+    });
+    expect(nameless.id).toBe(namelessId);
     expect(nameless.title).toBe("");
 
     const listed = await rpc.bots.list();
@@ -246,6 +313,78 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
       ["Expense", "Piper", "Scout"].sort(),
     );
   }, 15_000);
+
+  it("lists files on this bot's computer", async () => {
+    const email = `desk-files-${Date.now()}@example.com`;
+    const signUp = await handles.app.request(
+      new Request(`${origin}/api/auth/sign-up/email`, {
+        method: "POST",
+        headers: {
+          origin,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "Files Tester",
+          email,
+          password: "password1",
+        }),
+      }),
+    );
+    cookie = cookieHeader(signUp, cookie);
+    expect(signUp.status, await signUp.text()).toBe(200);
+
+    const rpc = client();
+    await rpc.workspaces.create({ name: "Files office" });
+    const piper = await rpc.bots.create({
+      name: "Piper",
+      title: "Product",
+      description: "Keep notes.",
+      instructions: "Keep notes.",
+    });
+    seedComputer(piper.id, {
+      "memory.md": "office notes",
+      "skills/digest/SKILL.md": "write the digest",
+    });
+
+    const listed = await rpc.computer.list({ botId: piper.id });
+    expect(listed.entries.map((row) => row.path)).toContain("memory.md");
+    expect(listed.entries.map((row) => row.path)).toContain(
+      "skills/digest/SKILL.md",
+    );
+
+    const file = await rpc.computer.read({
+      botId: piper.id,
+      path: "memory.md",
+    });
+    expect(file).toMatchObject({
+      path: "memory.md",
+      content: "office notes",
+      encoding: "text",
+    });
+
+    await expect(
+      rpc.computer.list({ botId: piper.id, path: "../secret" }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(
+      rpc.computer.list({ botId: "bot_missing" }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+
+    const attached = await rpc.computer.write({
+      botId: piper.id,
+      filename: "brief.md",
+      content: btoa("week one"),
+    });
+    expect(attached.path).toBe("inbox/brief.md");
+    const listedInbox = await rpc.computer.list({ botId: piper.id });
+    expect(listedInbox.entries.map((row) => row.path)).toContain(
+      "inbox/brief.md",
+    );
+    const inboxFile = await rpc.computer.read({
+      botId: piper.id,
+      path: "inbox/brief.md",
+    });
+    expect(inboxFile.content).toBe("week one");
+  }, 20_000);
 
   it("lets a guest agent dial in and answer", async () => {
     const email = `guest-${Date.now()}@example.com`;

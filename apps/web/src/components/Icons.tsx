@@ -105,6 +105,35 @@ export function FileIcon(props: IconProps) {
   );
 }
 
+export function ImageFileIcon(props: IconProps) {
+  return (
+    <Svg className={props.className}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3 16l5-5 4 4 3-3 6 6" />
+      <circle cx="8.5" cy="9" r="1.2" />
+    </Svg>
+  );
+}
+
+export function MarkdownFileIcon(props: IconProps) {
+  return (
+    <Svg className={props.className}>
+      <path d="M4 6h16v12H4z" />
+      <path d="M7 15V9l2.5 3L12 9v6M15 12.5l1.5 2.5 1.5-2.5V9" />
+    </Svg>
+  );
+}
+
+export function MoreIcon(props: IconProps) {
+  return (
+    <Svg className={props.className}>
+      <circle cx="6" cy="12" r="1.2" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.2" fill="currentColor" />
+      <circle cx="18" cy="12" r="1.2" fill="currentColor" />
+    </Svg>
+  );
+}
+
 export function FilterIcon(props: IconProps) {
   return (
     <Svg className={props.className}>

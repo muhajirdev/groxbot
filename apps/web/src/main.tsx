@@ -1,6 +1,7 @@
-import { RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { RouterProvider } from "@tanstack/react-router";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { installViewTransitionGuard } from "./lib/gate-transition";
 import { router } from "./router";
 import "./styles.css";
@@ -16,6 +17,8 @@ if (!root) throw new Error("Missing #root");
 
 createRoot(root).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <TooltipProvider>
+      <RouterProvider router={router} />
+    </TooltipProvider>
   </StrictMode>,
 );

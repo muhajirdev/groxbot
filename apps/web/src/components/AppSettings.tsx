@@ -10,7 +10,7 @@ import {
   pickerCatalog,
 } from "@groxbot/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { userFacingError } from "../lib/errors";
 import { orpc } from "../lib/orpc";
 import {
@@ -32,6 +32,7 @@ import { ChevronDownIcon, CloseIcon } from "./Icons";
 type Tab = "general" | "models" | "billing" | "updates";
 
 export function AppSettings(props: {
+  open: boolean;
   me: Me | undefined;
   theme: Theme;
   onTheme: (theme: Theme) => void;
@@ -49,8 +50,17 @@ export function AppSettings(props: {
     [],
   );
 
+  useEffect(() => {
+    if (props.open) setTab(props.initialTab ?? "general");
+  }, [props.open, props.initialTab]);
+
   return (
-    <ModalShell wide className="h-[min(86vh,720px)]" onClose={props.onClose}>
+    <ModalShell
+      open={props.open}
+      wide
+      className="h-[min(86vh,720px)]"
+      onClose={props.onClose}
+    >
       <div className="settings-shell">
         <nav className="settings-nav">
           {(

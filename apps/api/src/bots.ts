@@ -143,6 +143,7 @@ export async function createBot(
   context: RpcContext,
   actor: Actor,
   input: {
+    id?: string;
     name: string;
     title?: string;
     description: string;
@@ -151,7 +152,7 @@ export async function createBot(
     avatarShape: string;
   },
 ): Promise<Bot> {
-  const botId = newId();
+  const botId = input.id?.trim() || newId();
   const threadId = newId();
   const now = new Date();
   await context.db.insert(bots).values({

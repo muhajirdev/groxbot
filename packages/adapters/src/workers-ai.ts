@@ -29,6 +29,12 @@ export interface WorkersAiBinding {
     },
     options?: { gateway?: WorkersAiGatewayOptions },
   ): Promise<unknown>;
+  /** Workers AI Markdown Conversion. HTML/PDF/docs are free; images may use Neurons. */
+  toMarkdown?(
+    files:
+      | { name: string; blob: unknown }
+      | Array<{ name: string; blob: unknown }>,
+  ): Promise<unknown>;
 }
 
 export interface WorkersAiRuntimeOptions {

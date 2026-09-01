@@ -1,7 +1,11 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+
+const root = path.dirname(fileURLToPath(import.meta.url));
 
 const api = "http://127.0.0.1:3100";
 
@@ -15,6 +19,11 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  resolve: {
+    alias: {
+      "@": path.resolve(root, "src"),
+    },
+  },
   server: {
     proxy: {
       "/api": api,
@@ -25,7 +34,11 @@ export default defineConfig({
         timeout: 0,
         proxyTimeout: 0,
         configure: (proxy) => {
-          proxy.on("error", (_err, _req, res) => {
+          proxy.on("error", (err, _req, res) => {
+            const code = (err as NodeJS.ErrnoException).code;
+            if (code === "EPIPE" || code === "ECONNRESET" || code === "ECONNREFUSED") {
+              return;
+            }
             if (
               res &&
               "writeHead" in res &&

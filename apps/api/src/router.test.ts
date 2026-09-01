@@ -136,4 +136,31 @@ describe("oRPC", () => {
       code: "UNAUTHORIZED",
     });
   });
+
+  it("requires a session to list a bot computer", async () => {
+    const app = new Hono();
+    mountRpc(app, { env } as unknown as RpcContext);
+    const client = createGroxbotClient({
+      baseUrl: "http://groxbot.test",
+      fetch: async (input, init) => {
+        const request =
+          input instanceof Request ? input : new Request(String(input), init);
+        return app.request(request);
+      },
+    });
+    await expect(
+      client.computer.list({ botId: "bot_test" }),
+    ).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+    await expect(
+      client.computer.write({
+        botId: "bot_test",
+        filename: "notes.md",
+        content: "YWJj",
+      }),
+    ).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+  });
 });

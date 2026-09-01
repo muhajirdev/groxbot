@@ -2,10 +2,15 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import {
   Think,
+  skills,
   type MessageConcurrency,
   type ToolCallResultContext,
   type TurnContext,
 } from "@cloudflare/think";
+import { createExecuteTool } from "@cloudflare/think/tools/execute";
+import type { ToolSet } from "ai";
+import { createBundlingExecutor } from "./bot-execute.js";
+import { bindToMarkdown, createPageTools } from "./bot-markdown.js";
 import type { WorkersAiBinding } from "@groxbot/adapters/edge";
 import {
   gatewayChatUrl,
@@ -16,10 +21,17 @@ import {
 import { HOSTED_STARTER_MODEL, labelForModel } from "@groxbot/contracts";
 import {
   encryptionSecret,
+  listComputerEntries,
+  readComputerFile,
+  decodeComputerBytes,
+  writeInboxFile,
   resolveRunModel,
   rewriteThinkCapability,
   teammatePrompt,
   workspaceSkillSource,
+  ComputerFileError,
+  ComputerPathError,
+  ComputerWriteError,
 } from "@groxbot/core";
 import { bots } from "@groxbot/db";
 import { createNeonHttpDb } from "@groxbot/db/neon";
@@ -55,6 +67,7 @@ export interface WorkerEnv {
   BOT_ACTOR: DurableObjectNamespace;
   APP_RUNTIME: DurableObjectNamespace;
   LOADER: unknown;
+  BROWSER: unknown;
 }
 
 type StoredJob = {
@@ -65,8 +78,21 @@ type StoredJob = {
   jobKey?: string;
 };
 
+function workspaceError(error: unknown): Response {
+  if (error instanceof ComputerPathError || error instanceof ComputerWriteError) {
+    return Response.json({ error: error.message }, { status: 400 });
+  }
+  if (error instanceof ComputerFileError) {
+    return Response.json({ error: error.message }, { status: 404 });
+  }
+  console.error("bot actor workspace", error);
+  return Response.json({ error: "Could not read this computer." }, { status: 500 });
+}
+
 export class BotActor extends Think<WorkerEnv> {
   override messageConcurrency: MessageConcurrency = "queue";
+  /** MCP is tools.* inside execute, not a dumped AI SDK catalog. */
+  override includeMcpTools = false;
   private soulPrompt = "You are a helpful teammate.";
   private turnModel = HOSTED_STARTER_MODEL;
   private turnHosted = true;
@@ -114,7 +140,9 @@ export class BotActor extends Think<WorkerEnv> {
       .withContext("soul", {
         provider: {
           get: async () => {
-            await this.ensureBotLoaded();
+            // Do not block Think hydrate / get-messages on Neon. Chat turns
+            // still wait in beforeTurn; loadBot refreshes the prompt after.
+            void this.ensureBotLoaded();
             return this.soulPrompt;
           },
         },
@@ -127,8 +155,30 @@ export class BotActor extends Think<WorkerEnv> {
       .withCachedPrompt();
   }
 
+  getTools(): ToolSet {
+    const pageTools = createPageTools({
+      workspace: this.workspace,
+      convert: bindToMarkdown(this.env.AI),
+    });
+    return {
+      ...pageTools,
+      execute: createExecuteTool(this, {
+        executor: createBundlingExecutor(this.env.LOADER, { timeout: 120_000 }),
+        session: { mode: "reuse", key: this.name },
+        tools: pageTools,
+      }),
+    };
+  }
+
   getSkills() {
     return [workspaceSkillSource(this.workspace)];
+  }
+
+  getSkillScriptRunner() {
+    return skills.runner({
+      loader: this.env.LOADER,
+      workspaceInstance: this.workspace,
+    });
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -138,6 +188,15 @@ export class BotActor extends Think<WorkerEnv> {
     console.log(`[bot ${this.name}] fetch in ${request.method} ${tail}`);
     if (request.method === "POST" && url.pathname === "/wakeup") {
       return this.handleWakeup(request);
+    }
+    if (request.method === "POST" && url.pathname === "/workspace/list") {
+      return this.handleWorkspaceList(request);
+    }
+    if (request.method === "POST" && url.pathname === "/workspace/read") {
+      return this.handleWorkspaceRead(request);
+    }
+    if (request.method === "POST" && url.pathname === "/workspace/write") {
+      return this.handleWorkspaceWrite(request);
     }
     const response = await super.fetch(request);
     console.log(
@@ -209,6 +268,47 @@ export class BotActor extends Think<WorkerEnv> {
       ...bot,
       modelLabel: labelForModel(this.turnModel),
     });
+  }
+
+  private async handleWorkspaceList(request: Request): Promise<Response> {
+    const body = (await request.json().catch(() => ({}))) as { path?: unknown };
+    const path = typeof body.path === "string" ? body.path : "";
+    const t0 = Date.now();
+    try {
+      const listed = await listComputerEntries(this.workspace, path);
+      console.log(
+        `[bot ${this.name}] workspace list ${listed.entries.length} +${Date.now() - t0}ms`,
+      );
+      return Response.json(listed);
+    } catch (error) {
+      console.error(`[bot ${this.name}] workspace list +${Date.now() - t0}ms`, error);
+      return workspaceError(error);
+    }
+  }
+
+  private async handleWorkspaceRead(request: Request): Promise<Response> {
+    const body = (await request.json().catch(() => ({}))) as { path?: unknown };
+    const path = typeof body.path === "string" ? body.path : "";
+    try {
+      return Response.json(await readComputerFile(this.workspace, path));
+    } catch (error) {
+      return workspaceError(error);
+    }
+  }
+
+  private async handleWorkspaceWrite(request: Request): Promise<Response> {
+    const body = (await request.json().catch(() => ({}))) as {
+      filename?: unknown;
+      content?: unknown;
+    };
+    const filename = typeof body.filename === "string" ? body.filename : "";
+    const content = typeof body.content === "string" ? body.content : "";
+    try {
+      const bytes = decodeComputerBytes(content);
+      return Response.json(await writeInboxFile(this.workspace, filename, bytes));
+    } catch (error) {
+      return workspaceError(error);
+    }
   }
 
   private async handleWakeup(request: Request): Promise<Response> {

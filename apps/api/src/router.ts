@@ -15,6 +15,9 @@ import {
   sleep,
   toBotDto,
   userHasModelCredentials,
+  ComputerFileError,
+  ComputerPathError,
+  ComputerWriteError,
 } from "@groxbot/core";
 import { guestConnectors, threads, userModelCredentials } from "@groxbot/db";
 import { implement, ORPCError } from "@orpc/server";
@@ -349,6 +352,57 @@ export const appRouter = os.router({
       return createRoutine(context, actor, input);
     }),
   },
+  computer: {
+    list: os.computer.list.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      await getBotThread(context, actor, input.botId);
+      try {
+        if (!context.computer) return { entries: [], truncated: false };
+        return await context.computer.list(input.botId, input.path ?? "");
+      } catch (error) {
+        throwComputerError(error);
+      }
+    }),
+    read: os.computer.read.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      await getBotThread(context, actor, input.botId);
+      try {
+        if (!context.computer) {
+          throw new ComputerFileError();
+        }
+        return await context.computer.read(input.botId, input.path);
+      } catch (error) {
+        throwComputerError(error);
+      }
+    }),
+    write: os.computer.write.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      await getBotThread(context, actor, input.botId);
+      try {
+        if (!context.computer?.write) {
+          throw new ComputerWriteError();
+        }
+        return await context.computer.write(
+          input.botId,
+          input.filename,
+          input.content,
+          input.mediaType,
+        );
+      } catch (error) {
+        throwComputerError(error);
+      }
+    }),
+  },
 });
+
+function throwComputerError(error: unknown): never {
+  if (error instanceof ComputerPathError || error instanceof ComputerWriteError) {
+    throw new ORPCError("BAD_REQUEST", { message: error.message });
+  }
+  if (error instanceof ComputerFileError) {
+    throw new ORPCError("NOT_FOUND", { message: error.message });
+  }
+  throw error;
+}
 
 export type AppRouter = typeof appRouter;

@@ -1,23 +1,35 @@
 import type { Bot, Routine } from "@groxbot/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import {
+  filterComputerTree,
+  nestComputerEntries,
+  type ComputerTreeNode,
+} from "../lib/computer-tree";
+import { userFacingError } from "../lib/errors";
+import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
 import { ModalShell } from "../ui";
-import { CloseIcon, GearIcon } from "./Icons";
+import {
+  ChevronDownIcon,
+  CloseIcon,
+  FileIcon,
+  GearIcon,
+  ImageFileIcon,
+  MarkdownFileIcon,
+  MoreIcon,
+  SearchIcon,
+} from "./Icons";
 
+const NONE_COLLAPSED = new Set<string>();
 const CRONS = [
   { label: "Every day at 9:00", value: "0 9 * * *" },
   { label: "Every night at 22:00", value: "0 22 * * *" },
   { label: "Weekdays at 9:00", value: "0 9 * * 1-5" },
 ] as const;
 
-export type ComputerActivityItem = { id: string; text: string };
-
 export function ComputerPane(props: {
   bot: Bot;
-  statusLabel: string;
-  working?: string;
-  activity: ComputerActivityItem[];
   onSettings: () => void;
   onCollapse: () => void;
 }) {
@@ -28,14 +40,26 @@ export function ComputerPane(props: {
   const [cron, setCron] = useState<string>(CRONS[0].value);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const botId = props.bot.id;
-  const booting = Boolean(props.working);
+  const filesQuery = useQuery({
+    ...orpc.computer.list.queryOptions({ input: { botId } }),
+    refetchInterval: (queryState) =>
+      queryState.state.data ? 15_000 : false,
+  });
   const routinesQuery = useQuery({
     queryKey: ["routines", botId],
     queryFn: () => client.routines.list({ botId }),
     staleTime: 30_000,
   });
   const routines: Routine[] = routinesQuery.data ?? [];
+  const tree = useMemo(() => {
+    const nested = nestComputerEntries(filesQuery.data?.entries ?? []);
+    return filterComputerTree(nested, query);
+  }, [filesQuery.data, query]);
+  const searching = query.trim().length > 0;
 
   return (
     <aside className="pane computer-pane">
@@ -63,45 +87,53 @@ export function ComputerPane(props: {
         </div>
       </div>
       <div className="pane-scroll">
-        <div className="boot-card">
-          {booting ? (
-            <>
-              <p>{props.statusLabel}</p>
-              <div className="progress">
-                <i />
-              </div>
-            </>
+        <label className="search-field explorer-search">
+          <SearchIcon />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search..."
+            aria-label="Search files"
+          />
+        </label>
+        <div className="explorer">
+          {filesQuery.isPending && tree.length === 0 ? (
+            <p className="explorer-empty">Opening…</p>
+          ) : filesQuery.error ? (
+            <p className="explorer-empty">
+              {userFacingError(filesQuery.error, "Could not read files")}
+            </p>
+          ) : tree.length === 0 ? (
+            <p className="explorer-empty">
+              {searching
+                ? "No files match."
+                : "Files this teammate writes — and files you attach — land here."}
+            </p>
           ) : (
-            <p className="boot-status">{props.statusLabel}</p>
+            <ul className="explorer-tree">
+              {tree.map((node) => (
+                <TreeRows
+                  key={node.path}
+                  node={node}
+                  depth={0}
+                  selected={selected}
+                  collapsed={searching ? NONE_COLLAPSED : collapsed}
+                  onSelect={setSelected}
+                  onToggle={(path) => {
+                    setCollapsed((current) => {
+                      const next = new Set(current);
+                      if (next.has(path)) next.delete(path);
+                      else next.add(path);
+                      return next;
+                    });
+                  }}
+                />
+              ))}
+            </ul>
           )}
-        </div>
-        <div className="screen-box inset">
-          <div className="desk">
-            <section className="desk-workspace">
-              <p className="desk-kicker">Workspace</p>
-              <ul className="desk-tree">
-                <li>
-                  <span className="desk-dir">/workspace</span>
-                </li>
-              </ul>
-            </section>
-            <section className="desk-artifact">
-              <p className="desk-empty">
-                Files this teammate writes land here. Work continues if you
-                close this.
-              </p>
-            </section>
-            <section className="desk-activity">
-              <p className="desk-kicker">Activity</p>
-              {props.working ? (
-                <p className="desk-now">{props.working}</p>
-              ) : null}
-              <ActivityList
-                items={props.activity}
-                nowDoing={props.working ?? null}
-              />
-            </section>
-          </div>
+          {filesQuery.data?.truncated ? (
+            <p className="explorer-empty">Showing the first 200 paths.</p>
+          ) : null}
         </div>
         <section className="routines">
           <p className="muted">
@@ -132,97 +164,192 @@ export function ComputerPane(props: {
           </button>
         </section>
       </div>
-      {creating ? (
-        <ModalShell onClose={() => setCreating(false)}>
-          <h2>Create Routine</h2>
-          <label className="field">
-            <span>Name</span>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Nightly Gmail check"
-            />
-          </label>
-          <label className="field">
-            <span>Schedule</span>
-            <select value={cron} onChange={(e) => setCron(e.target.value)}>
-              {CRONS.map((item) => (
-                <option key={item.value} value={item.value}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span>What to do</span>
-            <textarea
-              rows={3}
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-            />
-          </label>
-          {error ? <p className="error">{error}</p> : null}
-          <div className="row">
-            <button
-              className="btn"
-              type="button"
-              disabled={busy || !name.trim() || !prompt.trim()}
-              onClick={() => {
-                setBusy(true);
-                setError("");
-                void client.routines
-                  .create({
-                    botId: props.bot.id,
-                    name,
-                    prompt,
-                    cron,
-                  })
-                  .then(async () => {
-                    await queryClient.invalidateQueries({
-                      queryKey: ["routines", props.bot.id],
-                    });
-                    setCreating(false);
-                  })
-                  .catch((caught: unknown) =>
-                    setError(
-                      caught instanceof Error
-                        ? caught.message
-                        : "Could not create",
-                    ),
-                  )
-                  .finally(() => setBusy(false));
-              }}
-            >
-              Create
-            </button>
-            <button
-              className="btn ghost"
-              type="button"
-              onClick={() => setCreating(false)}
-            >
-              Close
-            </button>
-          </div>
-        </ModalShell>
-      ) : null}
+      <ModalShell open={creating} onClose={() => setCreating(false)}>
+        <h2>Create Routine</h2>
+        <label className="field">
+          <span>Name</span>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Nightly Gmail check"
+          />
+        </label>
+        <label className="field">
+          <span>Schedule</span>
+          <select value={cron} onChange={(e) => setCron(e.target.value)}>
+            {CRONS.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span>What to do</span>
+          <textarea
+            rows={3}
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+          />
+        </label>
+        {error ? <p className="error">{error}</p> : null}
+        <div className="row">
+          <button
+            className="btn"
+            type="button"
+            disabled={busy || !name.trim() || !prompt.trim()}
+            onClick={() => {
+              setBusy(true);
+              setError("");
+              void client.routines
+                .create({
+                  botId: props.bot.id,
+                  name,
+                  prompt,
+                  cron,
+                })
+                .then(async () => {
+                  await queryClient.invalidateQueries({
+                    queryKey: ["routines", props.bot.id],
+                  });
+                  setCreating(false);
+                })
+                .catch((caught: unknown) =>
+                  setError(
+                    caught instanceof Error
+                      ? caught.message
+                      : "Could not create",
+                  ),
+                )
+                .finally(() => setBusy(false));
+            }}
+          >
+            Create
+          </button>
+          <button
+            className="btn ghost"
+            type="button"
+            onClick={() => setCreating(false)}
+          >
+            Close
+          </button>
+        </div>
+      </ModalShell>
     </aside>
   );
 }
 
-function ActivityList(props: {
-  items: ComputerActivityItem[];
-  nowDoing: string | null;
+function TreeRows(props: {
+  node: ComputerTreeNode;
+  depth: number;
+  selected: string | null;
+  collapsed: Set<string>;
+  onSelect: (path: string) => void;
+  onToggle: (path: string) => void;
 }) {
-  const rows = props.items.filter((item) => item.text !== props.nowDoing);
-  if (rows.length === 0 && !props.nowDoing) {
-    return <p className="desk-empty">No recent steps.</p>;
-  }
-  if (rows.length === 0) return null;
+  const node = props.node;
+  const open = node.kind !== "dir" || !props.collapsed.has(node.path);
+  const on = props.selected === node.path;
   return (
-    <ul className="desk-log">
-      {rows.map((item) => (
-        <li key={item.id}>{item.text}</li>
-      ))}
-    </ul>
+    <>
+      <li>
+        <div
+          className={`explorer-row${on ? " on" : ""}${node.kind === "dir" ? " dir" : ""}`}
+          style={{ paddingLeft: 8 + props.depth * 16 }}
+        >
+          {node.kind === "dir" ? (
+            <button
+              className={`explorer-chevron${open ? "" : " closed"}`}
+              type="button"
+              aria-label={open ? `Collapse ${node.name}` : `Expand ${node.name}`}
+              onClick={() => props.onToggle(node.path)}
+            >
+              <ChevronDownIcon />
+            </button>
+          ) : (
+            <FileKindMark name={node.name} />
+          )}
+          <button
+            className="explorer-name"
+            type="button"
+            onClick={() => {
+              if (node.kind === "dir") props.onToggle(node.path);
+              else props.onSelect(node.path);
+            }}
+          >
+            {node.name}
+          </button>
+          {node.kind === "file" && on ? (
+            <button
+              className="explorer-more"
+              type="button"
+              aria-label="Copy path"
+              title="Copy path"
+              onClick={() => {
+                void navigator.clipboard.writeText(node.path);
+              }}
+            >
+              <MoreIcon />
+            </button>
+          ) : null}
+        </div>
+      </li>
+      {node.kind === "dir" && open
+        ? node.children.map((child) => (
+            <TreeRows
+              key={child.path}
+              node={child}
+              depth={props.depth + 1}
+              selected={props.selected}
+              collapsed={props.collapsed}
+              onSelect={props.onSelect}
+              onToggle={props.onToggle}
+            />
+          ))
+        : null}
+    </>
   );
+}
+
+function FileKindMark(props: { name: string }) {
+  const kind = fileKind(props.name);
+  if (kind === "image") {
+    return (
+      <span className="explorer-mark image" aria-hidden>
+        <ImageFileIcon />
+      </span>
+    );
+  }
+  if (kind === "md") {
+    return (
+      <span className="explorer-mark md" aria-hidden>
+        <MarkdownFileIcon />
+      </span>
+    );
+  }
+  return (
+    <span className={`explorer-mark ${kind}`} aria-hidden>
+      <FileIcon />
+    </span>
+  );
+}
+
+function fileKind(name: string): "pdf" | "image" | "svg" | "md" | "html" | "file" {
+  const ext = name.includes(".")
+    ? name.slice(name.lastIndexOf(".")).toLowerCase()
+    : "";
+  if (ext === ".pdf") return "pdf";
+  if (ext === ".svg") return "svg";
+  if (ext === ".md" || ext === ".markdown") return "md";
+  if (ext === ".html" || ext === ".htm") return "html";
+  if (
+    ext === ".png" ||
+    ext === ".jpg" ||
+    ext === ".jpeg" ||
+    ext === ".gif" ||
+    ext === ".webp"
+  ) {
+    return "image";
+  }
+  return "file";
 }

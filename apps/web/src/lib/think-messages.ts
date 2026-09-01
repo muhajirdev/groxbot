@@ -50,7 +50,7 @@ export async function fetchThinkMessages(
   try {
     const response = await fetch(messagesUrl, {
       credentials: "include",
-      signal: AbortSignal.timeout(8_000),
+      signal: AbortSignal.timeout(25_000),
     });
     if (!response.ok) return null;
     const text = await response.text();

@@ -13,13 +13,18 @@ import { AppPane } from "../components/AppPane";
 import { AppSettings } from "../components/AppSettings";
 import { AvatarMark } from "../components/Avatar";
 import { BotSettingsPane } from "../components/BotSettingsPane";
+import { ComputerPane } from "../components/ComputerPane";
 import {
   ChevronLeftIcon,
   FileIcon,
+  GearIcon,
+  MicIcon,
+  MonitorIcon,
   PlugIcon,
   PlusIcon,
   SearchIcon,
 } from "../components/Icons";
+import { HireDialog } from "../components/HireDialog";
 import { PluginsModal } from "../components/PluginsModal";
 import { ThinkThread } from "../components/ThinkThread";
 import { ThreadList } from "../components/ThreadList";
@@ -31,11 +36,17 @@ import {
   clearThreadStore,
   patchBot,
   peekBots,
+  removeBot,
   threadMetaCollection,
 } from "../lib/collections";
 import { userFacingError } from "../lib/errors";
-import { AVATAR_COLORS } from "../lib/jobs";
+import {
+  draftCreatedBot,
+  nextAvatarColor,
+} from "../lib/hire";
+import { FIRST_TASK } from "../lib/jobs";
 import { orpc } from "../lib/orpc";
+import { usePanePresence } from "../lib/presence";
 import { client } from "../lib/rpc";
 import {
   cacheBot,
@@ -43,6 +54,7 @@ import {
   firstLiveBot,
   isArchivedBot,
 } from "../lib/session";
+import { setThinkMessages } from "../lib/think-messages";
 import { applyTheme, readTheme, type Theme } from "../lib/theme";
 import {
   ensureThreadMeta,
@@ -109,7 +121,7 @@ function BotRow(props: {
       to="/$botId"
       params={{ botId: item.id }}
       preload="intent"
-      preloadDelay={0}
+      preloadDelay={300}
       className={cn(
         "chat-conv grid min-w-0 grid-cols-[40px_minmax(0,1fr)] items-center gap-2.5 rounded-[14px] border-0 bg-transparent px-2 py-2.5 text-left text-inherit no-underline",
         props.selected && "bg-selected",
@@ -189,20 +201,23 @@ export function Chat(props: { botId: string }) {
       ? liveBotsRows
       : peekedBots;
   const me = meQuery.data;
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<"general" | "models">(
     "general",
   );
   const [pluginsOpen, setPluginsOpen] = useState(false);
-  const [newOpen, setNewOpen] = useState(false);
-  const [paneMode, setPaneMode] = useState<"settings" | "app" | null>(null);
+  const [hireOpen, setHireOpen] = useState(false);
+  const [paneMode, setPaneMode] = useState<
+    "settings" | "app" | "computer" | null
+  >(null);
   const [openApp, setOpenApp] = useState<{
     id: string;
     title: string;
     templateId: TemplateId;
   } | null>(null);
+  const lastApp = useRef(openApp);
+  if (openApp) lastApp.current = openApp;
   const [archivedOpen, setArchivedOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>(readTheme());
   const [pokeView, setPokeView] = useState<{
@@ -211,10 +226,15 @@ export function Chat(props: { botId: string }) {
   } | null>(null);
   const [thinkBusy, setThinkBusy] = useState(false);
   const stopThink = useRef<(() => void) | null>(null);
+  const hiring = useRef(false);
+  const [creatingId, setCreatingId] = useState<string | null>(null);
   const [pokeMessages, setPokeMessages] = useState<ThreadMessage[]>([]);
-  const bot = bots.find((item) => item.id === props.botId);
+  const bot =
+    (creatingId
+      ? bots.find((item) => item.id === creatingId)
+      : undefined) ?? bots.find((item) => item.id === props.botId);
+  const hiringThis = Boolean(creatingId && bot?.id === creatingId);
   const activeId = bot?.id;
-  const draft = activeId ? (drafts[activeId] ?? "") : "";
   const metaQuery = useLiveQuery(
     (q) => {
       if (!activeId) return undefined;
@@ -274,11 +294,6 @@ export function Chat(props: { botId: string }) {
     void appsCollection.utils.refetch();
   }, [me?.workspaceId]);
 
-  function setDraft(text: string) {
-    if (!activeId) return;
-    setDrafts((current) => ({ ...current, [activeId]: text }));
-  }
-
   async function refreshBots(selectId?: string) {
     await botsCollection.utils.refetch();
     const next = selectId ?? props.botId ?? firstLiveBot(peekBots())?.id;
@@ -303,24 +318,53 @@ export function Chat(props: { botId: string }) {
     }
   }
 
-  const hire = useCallback(async () => {
-    setNewOpen(false);
-    try {
-      const created = await client.bots.create({
-        name: "New Bot",
-        avatarColor: AVATAR_COLORS[0],
+  const hire = useCallback(
+    async (name: string) => {
+      const trimmed = name.trim();
+      if (!trimmed || hiring.current) return;
+      hiring.current = true;
+      setHireOpen(false);
+      const id = crypto.randomUUID();
+      const roster = peekBots();
+      const avatarColor = nextAvatarColor(roster);
+      const draft = draftCreatedBot({
+        id,
+        workspaceId: meQuery.data?.workspaceId ?? id,
+        name: trimmed,
+        avatarColor,
       });
-      await cacheCreatedBot(created);
-      void navigate({ to: "/$botId", params: { botId: created.id } });
-      setOpenApp(null);
-      setPaneMode("settings");
-    } catch (caught) {
-      if (!activeId) return;
-      patchThreadMeta(activeId, {
-        error: caught instanceof Error ? caught.message : "Could not create",
-      });
-    }
-  }, [activeId, navigate]);
+      try {
+        await cacheCreatedBot(draft);
+        setThinkMessages(id, []);
+        setCreatingId(id);
+        setOpenApp(null);
+        setPaneMode(null);
+        void navigate({ to: "/$botId", params: { botId: id } });
+        const created = await client.bots.create({
+          id,
+          name: trimmed,
+          avatarColor,
+        });
+        cacheBot(created);
+      } catch (caught) {
+        removeBot(id);
+        setCreatingId(null);
+        const fallback = firstLiveBot(peekBots());
+        if (fallback) {
+          patchThreadMeta(fallback.id, {
+            error: userFacingError(caught, "Could not create"),
+          });
+          if (fallback.id !== props.botId) {
+            void navigate({ to: "/$botId", params: { botId: fallback.id } });
+          }
+        }
+      } finally {
+        hiring.current = false;
+        setCreatingId((current) => (current === id ? null : current));
+      }
+    },
+    [meQuery.data?.workspaceId, navigate, props.botId],
+  );
 
   useEffect(() => {
     applyTheme(theme);
@@ -330,10 +374,11 @@ export function Chat(props: { botId: string }) {
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "n") {
         event.preventDefault();
-        void hire();
+        if (!hiring.current) setHireOpen(true);
       }
       if ((event.metaKey || event.ctrlKey) && event.key === ",") {
         event.preventDefault();
+        if (hireOpen) return;
         setSettingsTab("general");
         setSettingsOpen(true);
       }
@@ -344,6 +389,7 @@ export function Chat(props: { botId: string }) {
         !event.altKey &&
         !settingsOpen &&
         !pluginsOpen &&
+        !hireOpen &&
         !isTypingTarget(event.target)
       ) {
         const nextId = neighborBotId(
@@ -358,7 +404,7 @@ export function Chat(props: { botId: string }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [hire, liveBots, activeId, navigate, settingsOpen, pluginsOpen]);
+  }, [liveBots, activeId, navigate, settingsOpen, pluginsOpen, hireOpen]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset overlay when the office changes
   useEffect(() => {
@@ -412,7 +458,7 @@ export function Chat(props: { botId: string }) {
   }, [pokeView, activeId]);
 
   useEffect(() => {
-    if (!activeId) return;
+    if (!activeId || hiringThis) return;
     let cancelled = false;
     let iterator: AsyncIterator<ProductEvent> | undefined;
     let cursor = readCursor(activeId);
@@ -443,7 +489,7 @@ export function Chat(props: { botId: string }) {
       cancelled = true;
       void iterator?.return?.();
     };
-  }, [activeId]);
+  }, [activeId, hiringThis]);
 
   const openDocument = useCallback(
     (app: { appId: string; title: string; templateId: TemplateId }) => {
@@ -457,15 +503,23 @@ export function Chat(props: { botId: string }) {
     [],
   );
 
+  const activePane =
+    paneMode === "app" && openApp
+      ? "app"
+      : paneMode === "settings" && bot
+        ? "settings"
+        : paneMode === "computer" && bot
+          ? "computer"
+          : null;
+  const pane = usePanePresence(activePane);
+  const exitingApp = openApp ?? lastApp.current;
+
   return (
     <div
       className={cn(
-        "chat-shell relative grid h-screen bg-bg",
-        paneMode === "app"
-          ? "grid-cols-[280px_minmax(260px,0.9fr)_minmax(420px,1.2fr)]"
-          : paneMode
-            ? "grid-cols-[280px_minmax(0,1fr)_320px]"
-            : "grid-cols-[280px_minmax(0,1fr)]",
+        "chat-shell relative h-screen bg-bg",
+        paneMode === "app" && "is-app",
+        paneMode && paneMode !== "app" && "is-pane",
       )}
     >
       <aside className="flex min-h-0 flex-col border-r border-line bg-bg-side px-2.5 pb-2">
@@ -477,17 +531,13 @@ export function Chat(props: { botId: string }) {
                 variant="icon"
                 type="button"
                 aria-label="New"
-                onClick={() => setNewOpen((open) => !open)}
+                aria-busy={hiringThis}
+                disabled={hiringThis}
+                on={hireOpen}
+                onClick={() => setHireOpen(true)}
               >
                 <PlusIcon />
               </Button>
-              {newOpen ? (
-                <div className="menu">
-                  <button type="button" onClick={() => void hire()}>
-                    Create new agent
-                  </button>
-                </div>
-              ) : null}
             </div>
           </div>
           <label className="search-field">
@@ -505,7 +555,10 @@ export function Chat(props: { botId: string }) {
               key={item.id}
               item={item}
               selected={item.id === bot?.id}
-              working={item.id === bot?.id && Boolean(working)}
+              working={
+                item.id === creatingId ||
+                (item.id === bot?.id && Boolean(working))
+              }
             />
           ))}
           {liveBots.length === 0 && archivedBots.length === 0 ? (
@@ -609,7 +662,9 @@ export function Chat(props: { botId: string }) {
                   name={bot.name}
                   color={bot.avatarColor}
                   shape={bot.avatarShape}
-                  mood={working ? "working" : "idle"}
+                  mood={
+                    hiringThis || working ? "working" : "idle"
+                  }
                   size="sm"
                   hero
                 />
@@ -628,6 +683,40 @@ export function Chat(props: { botId: string }) {
               >
                 Stop now
               </Button>
+            ) : null}
+            {bot && !pokeView ? (
+              <>
+                <Button
+                  variant="icon"
+                  type="button"
+                  aria-label="Open computer"
+                  title="Computer"
+                  on={paneMode === "computer"}
+                  onClick={() => {
+                    setOpenApp(null);
+                    setPaneMode((mode) =>
+                      mode === "computer" ? null : "computer",
+                    );
+                  }}
+                >
+                  <MonitorIcon />
+                </Button>
+                <Button
+                  variant="icon"
+                  type="button"
+                  aria-label="Bot settings"
+                  title="Settings"
+                  on={paneMode === "settings"}
+                  onClick={() => {
+                    setOpenApp(null);
+                    setPaneMode((mode) =>
+                      mode === "settings" ? null : "settings",
+                    );
+                  }}
+                >
+                  <GearIcon />
+                </Button>
+              </>
             ) : null}
           </div>
         </div>
@@ -674,13 +763,49 @@ export function Chat(props: { botId: string }) {
               </p>
             </div>
           </>
+        ) : bot && hiringThis ? (
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex min-h-0 flex-1 flex-col gap-2.5 px-7 pt-2.5 pb-6">
+              <p className="mb-6 text-base leading-normal text-muted">
+                First message is a real task. A good handoff has an outcome,
+                sources, and when to stop.
+              </p>
+            </div>
+            <div className="px-5 pt-2 pb-[18px]">
+              <div className="flex items-end gap-0.5 rounded-pill border border-[#262626] bg-[#141414] p-1 opacity-60 light:border-line light:bg-white">
+                <Button
+                  variant="icon"
+                  className="size-9 shrink-0 rounded-pill text-muted"
+                  type="button"
+                  disabled
+                  aria-label="Attach"
+                >
+                  <PlusIcon />
+                </Button>
+                <textarea
+                  rows={1}
+                  disabled
+                  className="box-border min-h-9 max-h-[140px] flex-1 resize-none border-0 bg-transparent px-1.5 py-2 !text-[15px] !leading-5 outline-none placeholder:text-muted"
+                  placeholder={FIRST_TASK}
+                  value=""
+                />
+                <Button
+                  variant="icon"
+                  className="size-9 shrink-0 rounded-pill text-muted"
+                  type="button"
+                  disabled
+                  aria-label="Voice"
+                >
+                  <MicIcon />
+                </Button>
+              </div>
+            </div>
+          </div>
         ) : bot ? (
           <ThinkThread
             key={bot.id}
             botId={bot.id}
             botName={bot.name}
-            draft={draft}
-            setDraft={setDraft}
             archived={Boolean(bot.archivedAt)}
             needsModel={Boolean(me?.needsModel)}
             placeholder={
@@ -711,54 +836,74 @@ export function Chat(props: { botId: string }) {
           />
         ) : null}
       </section>
-      {paneMode === "app" && openApp ? (
-        <AppPane
-          appId={openApp.id}
-          title={openApp.title}
-          templateId={openApp.templateId}
-          onCollapse={() => {
-            setPaneMode(null);
-            setOpenApp(null);
-          }}
-        />
-      ) : null}
-      {paneMode === "settings" && bot ? (
-        <BotSettingsPane
-          bot={bot}
-          onCollapse={() => setPaneMode(null)}
-          onSaved={async () => {
-            await refreshBots(bot.id);
-          }}
-          onArchiveChange={applyArchiveChange}
-        />
-      ) : null}
-      {pluginsOpen ? (
-        <PluginsModal onClose={() => setPluginsOpen(false)} />
-      ) : null}
-      {settingsOpen ? (
-        <AppSettings
-          me={me}
-          theme={theme}
-          initialTab={settingsTab}
-          onTheme={(value) => {
-            setTheme(value);
-            applyTheme(value);
-          }}
-          onClose={() => {
-            setSettingsOpen(false);
-            setSettingsTab("general");
-          }}
-          onSignOut={() => {
-            void (async () => {
-              await authClient.signOut();
-              clearThreadStore();
-              queryClient.clear();
-              await router.invalidate();
-              await navigate({ to: "/" });
-            })();
-          }}
-        />
-      ) : null}
+      <div
+        className={cn("chat-pane-slot", pane.leaving && "is-leaving")}
+        aria-hidden={!activePane}
+      >
+        {pane.rendered === "app" && exitingApp ? (
+          <AppPane
+            appId={exitingApp.id}
+            title={exitingApp.title}
+            templateId={exitingApp.templateId}
+            onCollapse={() => setPaneMode(null)}
+          />
+        ) : null}
+        {pane.rendered === "settings" && bot ? (
+          <BotSettingsPane
+            key={bot.id}
+            bot={bot}
+            pending={hiringThis}
+            onCollapse={() => setPaneMode(null)}
+            onSaved={async () => {
+              await refreshBots(bot.id);
+            }}
+            onArchiveChange={applyArchiveChange}
+          />
+        ) : null}
+        {pane.rendered === "computer" && bot ? (
+          <ComputerPane
+            key={bot.id}
+            bot={bot}
+            onSettings={() => {
+              setOpenApp(null);
+              setPaneMode("settings");
+            }}
+            onCollapse={() => setPaneMode(null)}
+          />
+        ) : null}
+      </div>
+      <PluginsModal
+        open={pluginsOpen}
+        onClose={() => setPluginsOpen(false)}
+      />
+      <AppSettings
+        open={settingsOpen}
+        me={me}
+        theme={theme}
+        initialTab={settingsTab}
+        onTheme={(value) => {
+          setTheme(value);
+          applyTheme(value);
+        }}
+        onClose={() => {
+          setSettingsOpen(false);
+          setSettingsTab("general");
+        }}
+        onSignOut={() => {
+          void (async () => {
+            await authClient.signOut();
+            clearThreadStore();
+            queryClient.clear();
+            await router.invalidate();
+            await navigate({ to: "/" });
+          })();
+        }}
+      />
+      <HireDialog
+        open={hireOpen}
+        onClose={() => setHireOpen(false)}
+        onHire={(name) => void hire(name)}
+      />
     </div>
   );
 }

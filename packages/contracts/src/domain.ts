@@ -33,6 +33,8 @@ export const BotSchema = z.object({
 export type Bot = z.infer<typeof BotSchema>;
 
 export const CreateBotInput = z.object({
+  /** Client-generated id so the office can open the teammate before the insert returns. */
+  id: Id.max(64).optional(),
   name: z.string().min(1).max(80),
   /** Optional job line. Empty is fine — name is enough. */
   title: z.string().max(160).optional().default(""),
@@ -128,6 +130,33 @@ export const RoutineSchema = z.object({
   nextRunAt: z.string().nullable(),
 });
 export type Routine = z.infer<typeof RoutineSchema>;
+
+/** Human-attached files land here on this bot’s Think workspace. */
+export const COMPUTER_INBOX_DIR = "inbox";
+export const MAX_COMPUTER_ATTACHMENTS = 6;
+export const MAX_COMPUTER_WRITE_BYTES = 4 * 1024 * 1024;
+
+/** One path on this bot’s Think workspace. Not a computers catalog. */
+export const ComputerEntrySchema = z.object({
+  path: z.string(),
+  kind: z.enum(["file", "dir"]),
+  size: z.number().int().nonnegative().optional(),
+});
+export type ComputerEntry = z.infer<typeof ComputerEntrySchema>;
+
+export const ComputerListSchema = z.object({
+  entries: z.array(ComputerEntrySchema),
+  truncated: z.boolean(),
+});
+export type ComputerList = z.infer<typeof ComputerListSchema>;
+
+export const ComputerFileSchema = z.object({
+  path: z.string(),
+  content: z.string(),
+  truncated: z.boolean(),
+  encoding: z.enum(["text", "binary"]),
+});
+export type ComputerFile = z.infer<typeof ComputerFileSchema>;
 
 export const MemoryDocumentSchema = z.object({
   id: Id,

@@ -72,6 +72,15 @@ export function upsertBot(bot: Bot): void {
   botsCollection.utils.writeUpsert(bot);
 }
 
+export function removeBot(id: string): void {
+  if (!botsCollection.has(id)) return;
+  try {
+    botsCollection.utils.writeDelete([id]);
+  } catch {
+    // Query sync never started; there is nothing durable to drop.
+  }
+}
+
 export function patchBot(id: string, patch: Partial<Omit<Bot, "id">>): void {
   if (!botsCollection.has(id)) return;
   try {

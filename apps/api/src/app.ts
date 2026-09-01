@@ -35,6 +35,7 @@ export function createApp(
       request: Request,
       workspaceId: string,
     ) => Promise<Response>;
+    computer?: RpcContext["computer"];
   },
 ): AppHandles {
   const oauth = oauthCredentials(env);
@@ -71,6 +72,7 @@ export function createApp(
     initApp: opts.initApp,
     guests,
     env,
+    computer: opts.computer,
     close: async () => {
       guests.stop();
       await opts.close();

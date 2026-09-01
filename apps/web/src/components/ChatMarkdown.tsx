@@ -1,4 +1,10 @@
-import { memo, type ComponentProps, type ReactNode } from "react";
+import {
+  createElement,
+  memo,
+  type ComponentProps,
+  type JSX,
+  type ReactNode,
+} from "react";
 import { Streamdown, defaultRehypePlugins } from "streamdown";
 import "streamdown/styles.css";
 import { safeMarkdownUrl } from "../lib/chat-markdown";
@@ -32,8 +38,7 @@ type MdProps = {
 
 function md<T extends keyof JSX.IntrinsicElements>(tag: T) {
   return function Md(props: MdProps) {
-    const Tag = tag;
-    return <Tag>{props.children}</Tag>;
+    return createElement(tag, null, props.children);
   };
 }
 

@@ -28,8 +28,14 @@ describe("teammatePrompt", () => {
       modelLabel: "Kimi K2.6",
     });
     expect(prompt).toMatch(/You are Reja, Chief of Staff, a Groxbot teammate/);
-    expect(prompt).toMatch(/Talk like a coworker in chat/);
-    expect(prompt).toMatch(/Markdown is allowed/);
+    expect(prompt).toMatch(/This thread is your desk/);
+    expect(prompt).toMatch(/inbox\//);
+    expect(prompt).toMatch(/import npm packages/);
+    expect(prompt).toMatch(/fetch_url/);
+    expect(prompt).toMatch(/to_markdown/);
+    expect(prompt).toMatch(/Keep each reply short/);
+    expect(prompt).toMatch(/Do the work with tools/);
+    expect(prompt).toMatch(/Markdown is fine/);
     expect(prompt).toMatch(/Learn as you go/);
     expect(prompt).toMatch(/set_context/);
     expect(prompt).toMatch(/memory\.md/);

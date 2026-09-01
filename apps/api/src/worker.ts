@@ -7,10 +7,12 @@ import { and, eq } from "drizzle-orm";
 import { createApp } from "./app.js";
 import { AppRuntime, DurableObjectAppStore } from "./app-runtime-do.js";
 import { BotActor, type WorkerEnv } from "./bot-actor.js";
+import { listBotComputer, readBotComputer, writeBotComputer } from "./bot-computer.js";
 import { enqueueOnBot } from "./bot-enqueue.js";
 import { productEnv } from "./env.js";
 import { requireActor } from "./session.js";
 
+export { CodemodeRuntime } from "@cloudflare/codemode";
 export { AppRuntime, BotActor };
 
 /** `/agents/{binding}/{botId}` — instance name is the bot id. */
@@ -52,6 +54,12 @@ export default {
       initApp: (appId, templateId, opts) => apps.init(appId, templateId, opts),
       connectApp: (appId, request, workspaceId) =>
         apps.connect(appId, request, workspaceId),
+      computer: {
+        list: (botId, path) => listBotComputer(env.BOT_ACTOR, botId, path),
+        read: (botId, path) => readBotComputer(env.BOT_ACTOR, botId, path),
+        write: (botId, filename, content, mediaType) =>
+          writeBotComputer(env.BOT_ACTOR, botId, filename, content, mediaType),
+      },
       email: env.EMAIL,
     });
 

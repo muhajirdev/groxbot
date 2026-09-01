@@ -1,4 +1,4 @@
-import type { Bot, GuestAgentKind } from "@groxbot/contracts";
+import type { Bot } from "@groxbot/contracts";
 import {
   CUSTOM_MODEL_SENTINEL,
   PROVIDER_ORDER,
@@ -6,35 +6,29 @@ import {
   pickerCatalog,
 } from "@groxbot/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { patchBot } from "../lib/collections";
 import { AVATAR_COLORS, AVATAR_SHAPES } from "../lib/jobs";
 import { orpc } from "../lib/orpc";
-import { readNotify, writeNotify } from "../lib/prefs";
 import { client } from "../lib/rpc";
 import { AvatarMark, ShapePicks } from "./Avatar";
 import { CloseIcon } from "./Icons";
 
 export function BotSettingsPane(props: {
   bot: Bot;
+  pending?: boolean;
   onCollapse: () => void;
   onSaved: () => Promise<void>;
   onArchiveChange: (bot: Bot) => Promise<void>;
 }) {
   const bot = props.bot;
+  const pending = Boolean(props.pending);
   const [name, setName] = useState(bot.name);
   const [title, setTitle] = useState(bot.title);
   const [description, setDescription] = useState(bot.description);
   const [color, setColor] = useState(bot.avatarColor);
   const [shape, setShape] = useState(bot.avatarShape);
-  const [notify, setNotify] = useState(() => readNotify(bot.id));
-  const [advancedOpen, setAdvancedOpen] = useState(bot.guestKind !== "off");
-  const [guestBusy, setGuestBusy] = useState(false);
-  const [guestError, setGuestError] = useState("");
-  const [issued, setIssued] = useState<{
-    token: string;
-    command: string;
-    kind: string;
-  } | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(Boolean(bot.model));
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [archiveBusy, setArchiveBusy] = useState(false);
   const [archiveError, setArchiveError] = useState("");
@@ -54,24 +48,24 @@ export function BotSettingsPane(props: {
     listed || !bot.model ? bot.model : CUSTOM_MODEL_SENTINEL,
   );
   const [customModel, setCustomModel] = useState(listed ? "" : bot.model);
+  const queued = useRef<
+    | {
+        name?: string;
+        title?: string;
+        description?: string;
+        avatarColor?: string;
+        avatarShape?: typeof shape;
+        model?: string;
+      }
+    | null
+  >(null);
 
   useEffect(() => {
     const ids = modelsQuery.data?.catalog ?? [];
     const inCatalog = ids.some((item) => item.id === bot.model);
-    setName(bot.name);
-    setTitle(bot.title);
-    setDescription(bot.description);
-    setColor(bot.avatarColor);
-    setShape(bot.avatarShape);
-    setNotify(readNotify(bot.id));
     setModel(inCatalog || !bot.model ? bot.model : CUSTOM_MODEL_SENTINEL);
     setCustomModel(inCatalog ? "" : bot.model);
-    setIssued(null);
-    setGuestError("");
-    setAdvancedOpen(bot.guestKind !== "off");
-    setConfirmArchive(false);
-    setArchiveError("");
-  }, [bot, modelsQuery.data]);
+  }, [bot.model, modelsQuery.data]);
 
   async function save(patch: {
     name?: string;
@@ -81,6 +75,24 @@ export function BotSettingsPane(props: {
     avatarShape?: typeof shape;
     model?: string;
   }) {
+    if (pending) {
+      queued.current = { ...queued.current, ...patch };
+      patchBot(bot.id, {
+        ...(patch.name !== undefined ? { name: patch.name } : {}),
+        ...(patch.title !== undefined ? { title: patch.title } : {}),
+        ...(patch.description !== undefined
+          ? { description: patch.description, instructions: patch.description }
+          : {}),
+        ...(patch.avatarColor !== undefined
+          ? { avatarColor: patch.avatarColor }
+          : {}),
+        ...(patch.avatarShape !== undefined
+          ? { avatarShape: patch.avatarShape }
+          : {}),
+        ...(patch.model !== undefined ? { model: patch.model } : {}),
+      });
+      return;
+    }
     await client.bots.update({
       botId: bot.id,
       ...patch,
@@ -88,6 +100,23 @@ export function BotSettingsPane(props: {
     });
     await props.onSaved();
   }
+
+  const onSavedRef = useRef(props.onSaved);
+  onSavedRef.current = props.onSaved;
+
+  useEffect(() => {
+    if (pending) return;
+    const patch = queued.current;
+    if (!patch) return;
+    queued.current = null;
+    void client.bots
+      .update({
+        botId: bot.id,
+        ...patch,
+        instructions: patch.description ?? description,
+      })
+      .then(() => onSavedRef.current());
+  }, [pending, bot.id, description]);
 
   return (
     <aside className="pane">
@@ -154,7 +183,7 @@ export function BotSettingsPane(props: {
         <label className="field">
           <span>Description</span>
           <textarea
-            rows={4}
+            rows={3}
             value={description}
             placeholder="What this Bot is for"
             onChange={(e) => setDescription(e.target.value)}
@@ -163,62 +192,6 @@ export function BotSettingsPane(props: {
             }}
           />
         </label>
-        <label className="field">
-          <span>Model</span>
-          <select
-            value={model}
-            onChange={(e) => {
-              const next = e.target.value;
-              setModel(next);
-              if (next !== CUSTOM_MODEL_SENTINEL) void save({ model: next });
-            }}
-          >
-            <option value="">Workspace default ({defaultLabel})</option>
-            {PROVIDER_ORDER.filter((provider) =>
-              catalog.some((item) => item.provider === provider),
-            ).map((provider) => (
-              <optgroup key={provider} label={catalogGroupLabel(provider)}>
-                {catalog
-                  .filter((item) => item.provider === provider)
-                  .map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.label}
-                      {item.available ? "" : " — needs key"}
-                    </option>
-                  ))}
-              </optgroup>
-            ))}
-            <option value={CUSTOM_MODEL_SENTINEL}>Custom…</option>
-          </select>
-        </label>
-        {model === CUSTOM_MODEL_SENTINEL ? (
-          <label className="field">
-            <span>Model id</span>
-            <input
-              value={customModel}
-              placeholder="anthropic/claude-sonnet-4-6"
-              onChange={(e) => setCustomModel(e.target.value)}
-              onBlur={() => {
-                const next = customModel.trim();
-                if (next && next !== bot.model) void save({ model: next });
-              }}
-            />
-          </label>
-        ) : null}
-        <section className="set-block">
-          <p className="group-label">Notifications</p>
-          <label className="toggle-row">
-            <span>Get notified when this Bot finishes or needs input.</span>
-            <input
-              type="checkbox"
-              checked={notify}
-              onChange={(e) => {
-                setNotify(e.target.checked);
-                writeNotify(bot.id, e.target.checked);
-              }}
-            />
-          </label>
-        </section>
         <button
           className="text-btn"
           type="button"
@@ -228,74 +201,49 @@ export function BotSettingsPane(props: {
         </button>
         {advancedOpen ? (
           <div className="advanced">
-            <p className="hint">
-              Off by default. Hermes or OpenClaw connect outbound to this bot.
-            </p>
-            <div className="row">
-              {(["hermes", "openclaw"] as GuestAgentKind[]).map((kind) => (
-                <button
-                  key={kind}
-                  className={`chip${bot.guestKind === kind ? " on" : ""}`}
-                  type="button"
-                  disabled={guestBusy || archived}
-                  onClick={() => {
-                    setGuestBusy(true);
-                    setGuestError("");
-                    void client.guests
-                      .enable({ botId: bot.id, kind })
-                      .then((result) => {
-                        setIssued({
-                          token: result.token,
-                          command: result.command,
-                          kind,
-                        });
-                        return props.onSaved();
-                      })
-                      .catch((caught: unknown) =>
-                        setGuestError(
-                          caught instanceof Error
-                            ? caught.message
-                            : "Could not enable",
-                        ),
-                      )
-                      .finally(() => setGuestBusy(false));
+            <label className="field">
+              <span>Model</span>
+              <select
+                value={model}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setModel(next);
+                  if (next !== CUSTOM_MODEL_SENTINEL)
+                    void save({ model: next });
+                }}
+              >
+                <option value="">Workspace default ({defaultLabel})</option>
+                {PROVIDER_ORDER.filter((provider) =>
+                  catalog.some((item) => item.provider === provider),
+                ).map((provider) => (
+                  <optgroup key={provider} label={catalogGroupLabel(provider)}>
+                    {catalog
+                      .filter((item) => item.provider === provider)
+                      .map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.label}
+                          {item.available ? "" : " — needs key"}
+                        </option>
+                      ))}
+                  </optgroup>
+                ))}
+                <option value={CUSTOM_MODEL_SENTINEL}>Custom…</option>
+              </select>
+            </label>
+            {model === CUSTOM_MODEL_SENTINEL ? (
+              <label className="field">
+                <span>Model id</span>
+                <input
+                  value={customModel}
+                  placeholder="anthropic/claude-sonnet-4-6"
+                  onChange={(e) => setCustomModel(e.target.value)}
+                  onBlur={() => {
+                    const next = customModel.trim();
+                    if (next && next !== bot.model) void save({ model: next });
                   }}
-                >
-                  {kind}
-                </button>
-              ))}
-              {bot.guestKind !== "off" ? (
-                <button
-                  className="mini"
-                  type="button"
-                  disabled={guestBusy || archived}
-                  onClick={() => {
-                    setGuestBusy(true);
-                    setIssued(null);
-                    void client.guests
-                      .disable({ botId: bot.id })
-                      .then(props.onSaved)
-                      .catch((caught: unknown) =>
-                        setGuestError(
-                          caught instanceof Error
-                            ? caught.message
-                            : "Could not disable",
-                        ),
-                      )
-                      .finally(() => setGuestBusy(false));
-                  }}
-                >
-                  Turn off
-                </button>
-              ) : null}
-            </div>
-            {issued ? (
-              <label className="field" style={{ marginTop: 12 }}>
-                <span>Run this on the machine that has {issued.kind}</span>
-                <textarea rows={3} readOnly value={issued.command} />
+                />
               </label>
             ) : null}
-            {guestError ? <p className="error">{guestError}</p> : null}
           </div>
         ) : null}
         <section className="set-block">
@@ -309,7 +257,7 @@ export function BotSettingsPane(props: {
               <button
                 className="text-btn"
                 type="button"
-                disabled={archiveBusy}
+                disabled={archiveBusy || pending}
                 onClick={() => {
                   setArchiveBusy(true);
                   setArchiveError("");
@@ -340,7 +288,7 @@ export function BotSettingsPane(props: {
                   <button
                     className="text-btn danger"
                     type="button"
-                    disabled={archiveBusy}
+                    disabled={archiveBusy || pending}
                     onClick={() => {
                       setArchiveBusy(true);
                       setArchiveError("");
@@ -362,7 +310,7 @@ export function BotSettingsPane(props: {
                   <button
                     className="text-btn"
                     type="button"
-                    disabled={archiveBusy}
+                    disabled={archiveBusy || pending}
                     onClick={() => setConfirmArchive(false)}
                   >
                     Cancel
@@ -373,6 +321,7 @@ export function BotSettingsPane(props: {
                   className="text-btn"
                   type="button"
                   onClick={() => setConfirmArchive(true)}
+                  disabled={pending}
                 >
                   Archive
                 </button>

@@ -37,9 +37,26 @@ export function humanizeRunError(raw: string): string {
   if (missing) {
     return `${missing[1]} isn’t configured. Add a key in Settings → Models.`;
   }
+  if (/^error code:\s*\d+/i.test(text)) {
+    return "Could not reach this teammate. Try sending again.";
+  }
   return text;
 }
 
 export function isModelSetupError(message: string): boolean {
   return /add a model key|needs a .+ key/i.test(message);
+}
+
+/** Footer banner under the composer: live run/socket errors, never a stale copy. */
+export function composerBannerError(input: {
+  inFlight: boolean;
+  agentError: string;
+  connectionError: string;
+  persisted: string;
+}): string {
+  if (input.inFlight) return "";
+  if (input.agentError) return humanizeRunError(input.agentError);
+  if (input.connectionError) return humanizeRunError(input.connectionError);
+  if (isModelSetupError(input.persisted)) return input.persisted;
+  return "";
 }

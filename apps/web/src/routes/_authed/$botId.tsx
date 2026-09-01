@@ -7,8 +7,11 @@ import { Chat } from "../../screens/Chat";
 export const Route = createFileRoute("/_authed/$botId")({
   pendingMs: 1000,
   preloadStaleTime: 30_000,
-  loader: ({ params, context }) => {
+  loader: ({ params, context, cause }) => {
     const prefetch = (botId: string) => {
+      // Hover-preload must not wake the Think Durable Object. Cold hydrate
+      // plus Neon can take seconds and local wrangler dies if many bots fire.
+      if (cause === "preload") return;
       void context.queryClient.prefetchQuery(thinkMessagesQueryOptions(botId));
     };
     if (botsCollection.has(params.botId)) {

@@ -22,6 +22,9 @@ import {
   WorkspaceInvitePeekSchema,
   WorkspaceInviteSchema,
   WorkspaceSchema,
+  ComputerFileSchema,
+  ComputerListSchema,
+  MAX_COMPUTER_WRITE_BYTES,
 } from "./domain.js";
 import { ProductEventSchema } from "./events.js";
 import { GuestAgentKind, Id } from "./ids.js";
@@ -130,6 +133,25 @@ export const appContract = oc.router({
         }),
       )
       .output(RoutineSchema),
+  },
+  /** This bot’s Think workspace. Not a computers catalog. */
+  computer: {
+    list: oc
+      .input(z.object({ botId: Id, path: z.string().max(240).optional() }))
+      .output(ComputerListSchema),
+    read: oc
+      .input(z.object({ botId: Id, path: z.string().min(1).max(240) }))
+      .output(ComputerFileSchema),
+    write: oc
+      .input(
+        z.object({
+          botId: Id,
+          filename: z.string().min(1).max(120),
+          content: z.string().max(Math.ceil(MAX_COMPUTER_WRITE_BYTES * 1.4)),
+          mediaType: z.string().max(127).optional(),
+        }),
+      )
+      .output(z.object({ path: z.string(), size: z.number().int().nonnegative() })),
   },
 });
 

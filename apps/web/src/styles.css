@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "tw-shimmer";
 @source "../node_modules/streamdown/dist/*.js";
 @source "../../node_modules/streamdown/dist/*.js";
 
@@ -19,11 +21,31 @@
   --color-accent: var(--accent);
   --color-ok: var(--ok);
   --color-danger: var(--danger);
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
+  --color-muted-foreground: var(--muted);
+  --color-border: var(--line);
+  --color-input: var(--line);
+  --color-primary: var(--ink);
+  --color-primary-foreground: var(--bg);
+  --color-secondary: var(--card-2);
+  --color-secondary-foreground: var(--ink);
+  --color-accent-foreground: var(--ink);
+  --color-destructive: var(--danger);
+  --color-popover: var(--card);
+  --color-popover-foreground: var(--ink);
+  --color-card-foreground: var(--ink);
+  --color-ring: var(--accent);
   --radius-card: var(--radius);
   --radius-pill: var(--pill);
   --shadow-modal: var(--shadow);
   --font-sans:
     -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-dialog: cubic-bezier(0.23, 1, 0.32, 1);
+  --dur-pane: 280ms;
+  --dur-dialog: 220ms;
+  --dur-dialog-out: 160ms;
 }
 
 :root {
@@ -45,6 +67,11 @@
   --shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
   --radius: 16px;
   --pill: 999px;
+  --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-dialog: cubic-bezier(0.23, 1, 0.32, 1);
+  --dur-pane: 280ms;
+  --dur-dialog: 220ms;
+  --dur-dialog-out: 160ms;
   font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
 }
@@ -1083,130 +1110,132 @@ a.btn {
   margin: 4px 0 8px;
 }
 
-.screen-box.inset {
-  margin: 0;
-  min-height: 280px;
-  padding: 12px;
+.explorer-search {
+  margin-bottom: 10px;
+  border-radius: 12px;
 }
 
-.desk {
-  display: grid;
-  gap: 14px;
-  min-height: 100%;
+.explorer {
+  flex: 1;
+  min-height: 0;
 }
 
-.desk-kicker {
-  margin: 0 0 6px;
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #8a8a8a;
-  font-family: inherit;
-}
-
-.desk-banner {
-  margin: 0;
-  color: #cfcfcf;
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.desk-tree {
+.explorer-tree {
   list-style: none;
   margin: 0;
   padding: 0;
+}
+
+.explorer-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  margin: 1px 0;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--ink);
+}
+
+.explorer-row:hover {
+  background: var(--hover);
+}
+
+.explorer-row.on {
+  background: color-mix(in srgb, #4f7fe8 18%, transparent);
+  border-color: color-mix(in srgb, #6b93ee 70%, transparent);
+}
+
+.explorer-chevron {
   display: grid;
-  gap: 2px;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--muted);
 }
 
-.desk-dir {
-  display: block;
-  color: #8a8a8a;
+.explorer-chevron.closed {
+  transform: rotate(-90deg);
 }
 
-.desk-file {
-  display: block;
-  width: 100%;
-  text-align: left;
+.explorer-mark {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: #9aa0a6;
+}
+
+.explorer-mark.pdf,
+.explorer-mark.file,
+.explorer-mark.html {
+  color: #b0b4ba;
+}
+
+.explorer-mark.image {
+  color: #e89ab8;
+}
+
+.explorer-mark.svg {
+  color: #e0a36c;
+}
+
+.explorer-mark.md {
+  color: #3ecf8e;
+}
+
+.explorer-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   border: 0;
   background: transparent;
-  color: #d0d0d0;
-  padding: 2px 0 2px 14px;
+  color: inherit;
   font: inherit;
-  border-radius: 6px;
-}
-
-.desk-file:hover,
-.desk-file.on {
-  background: #1a1a1a;
-}
-
-.desk-file.on {
-  color: #fff;
-}
-
-.desk-artifact {
-  background: #141414;
-  border-radius: 10px;
-  padding: 12px 14px;
-}
-
-.desk-artifact-title {
-  margin: 0 0 8px;
-  color: #f2f2f2;
   font-size: 13px;
-  font-weight: 600;
-  font-family: inherit;
+  text-align: left;
+  padding: 0;
 }
 
-.desk-artifact-body {
-  margin: 0;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  color: #c8c8c8;
-  font: inherit;
+.explorer-more {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.explorer-more:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.explorer-empty {
+  margin: 12px 4px 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .desk-empty {
   margin: 0;
-  color: #8a8a8a;
-  font-family: inherit;
+  color: var(--muted);
 }
 
-.desk-now {
-  margin: 0 0 6px;
-  color: #f2f2f2;
-}
-
-.desk-log {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  color: #8a8a8a;
-}
-
-.desk-log li {
-  padding: 2px 0;
-}
-
-:root[data-theme="light"] .desk-file:hover,
-:root[data-theme="light"] .desk-file.on {
-  background: #ececec;
-}
-
-:root[data-theme="light"] .desk-artifact {
-  background: #f3f3f3;
-}
-
-:root[data-theme="light"] .desk-artifact-title,
-:root[data-theme="light"] .desk-now,
-:root[data-theme="light"] .desk-file {
-  color: #111;
-}
-
-:root[data-theme="light"] .desk-artifact-body,
-:root[data-theme="light"] .desk-banner {
-  color: #333;
+:root[data-theme="light"] .explorer-row.on {
+  background: color-mix(in srgb, #4f7fe8 12%, white);
+  border-color: color-mix(in srgb, #4f7fe8 45%, transparent);
 }
 
 .routines {
@@ -1358,6 +1387,7 @@ a.btn {
   flex-direction: column;
   background: var(--bg-pane);
   border-left: 1px solid var(--line);
+  animation: pane-in var(--dur-pane) var(--ease-soft) both;
 }
 
 .drag {
@@ -2018,9 +2048,127 @@ html.electron .pane-head {
   border-top: 1px solid var(--line);
 }
 
+.chat-shell {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) 0px;
+  transition: grid-template-columns var(--dur-pane) var(--ease-soft);
+  overflow: hidden;
+}
+
+.chat-shell.is-pane {
+  grid-template-columns: 280px minmax(0, 1fr) 320px;
+}
+
+.chat-shell.is-app {
+  grid-template-columns: 280px minmax(260px, 0.9fr) minmax(420px, 1.2fr);
+}
+
+.chat-pane-slot {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+}
+
+.chat-pane-slot > .pane {
+  min-width: 320px;
+  height: 100%;
+}
+
+.chat-pane-slot > .pane.app-pane {
+  min-width: 420px;
+}
+
+.chat-pane-slot.is-leaving > .pane {
+  animation: pane-out var(--dur-pane) var(--ease-soft) both;
+}
+
+@keyframes pane-in {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+}
+
+@keyframes pane-out {
+  to {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+}
+
+@keyframes pane-overlay-in {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes pane-overlay-out {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.modal-backdrop {
+  opacity: 1;
+  transition: opacity var(--dur-dialog) var(--ease-dialog);
+}
+
+.modal-backdrop[data-starting-style],
+.modal-backdrop[data-ending-style] {
+  opacity: 0;
+}
+
+.modal-backdrop[data-ending-style] {
+  transition-duration: var(--dur-dialog-out);
+}
+
+.modal-popup {
+  transform-origin: center;
+  translate: -50% -50%;
+  opacity: 1;
+  scale: 1;
+  transition:
+    opacity var(--dur-dialog) var(--ease-dialog),
+    scale var(--dur-dialog) var(--ease-dialog);
+}
+
+.modal-popup[data-starting-style],
+.modal-popup[data-ending-style] {
+  opacity: 0;
+  scale: 0.96;
+}
+
+.modal-popup[data-ending-style] {
+  transition-duration: var(--dur-dialog-out);
+}
+
 @media (max-width: 960px) {
-  .chat-shell {
+  .chat-shell,
+  .chat-shell.is-pane,
+  .chat-shell.is-app {
     grid-template-columns: 72px minmax(0, 1fr) !important;
+  }
+  .chat-pane-slot:not(:empty) {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 8;
+    width: min(320px, calc(100% - 72px));
+    overflow: visible;
+  }
+  .chat-shell.is-app .chat-pane-slot:not(:empty) {
+    width: min(720px, calc(100% - 72px));
+  }
+  .chat-pane-slot > .pane,
+  .chat-pane-slot > .pane.app-pane {
+    min-width: 100%;
+    box-shadow: var(--shadow);
+    animation: pane-overlay-in var(--dur-pane) var(--ease-soft) both;
+  }
+  .chat-pane-slot.is-leaving > .pane {
+    animation: pane-overlay-out var(--dur-pane) var(--ease-soft) both;
   }
   .chat-conv-copy,
   .chat-foot span,
@@ -2034,19 +2182,6 @@ html.electron .pane-head {
     gap: 0;
     padding: 8px;
   }
-  .pane {
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: min(320px, calc(100% - 72px));
-    z-index: 8;
-    box-shadow: var(--shadow);
-  }
-
-  .pane.app-pane {
-    width: min(720px, calc(100% - 72px));
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2059,8 +2194,24 @@ html.electron .pane-head {
   .gate-handoff .phone-frame,
   .gate-handoff .status-pill i,
   .gate-handoff .phone-typing i,
-  .typing-dots i {
+  .typing-dots i,
+  .pane,
+  .chat-pane-slot.is-leaving > .pane {
     animation: none;
+  }
+
+  .chat-shell {
+    transition: none;
+  }
+
+  .modal-backdrop,
+  .modal-popup {
+    transition: opacity 80ms linear;
+  }
+
+  .modal-popup[data-starting-style],
+  .modal-popup[data-ending-style] {
+    scale: 1;
   }
 
   .mascot-hero,
@@ -2076,6 +2227,45 @@ html.electron .pane-head {
 
 .think-stick > div {
   scrollbar-gutter: auto !important;
+}
+
+.aui-root {
+  --color-muted: var(--hover);
+  --color-accent: var(--hover);
+  --color-primary: var(--ink);
+  --color-primary-foreground: var(--bg);
+}
+
+/* Native button appearance draws a light OS outline; keep reasoning as text. */
+.aui-root [data-slot="reasoning-root"] {
+  align-self: start;
+  width: fit-content;
+  max-width: 100%;
+  border: 0;
+  outline: none;
+  box-shadow: none;
+}
+
+.aui-root [data-slot="reasoning-trigger"],
+.aui-root [data-slot="reasoning-trigger"]:hover,
+.aui-root [data-slot="reasoning-trigger"]:focus,
+.aui-root [data-slot="reasoning-trigger"]:focus-visible,
+.aui-root [data-slot="reasoning-trigger"]:active,
+.aui-root [data-slot="reasoning-root"] button,
+.aui-root [data-slot="reasoning-root"] button:hover,
+.aui-root [data-slot="reasoning-root"] button:focus,
+.aui-root [data-slot="reasoning-root"] button:focus-visible,
+.aui-root [data-slot="reasoning-root"] button:active {
+  appearance: none;
+  -webkit-appearance: none;
+  width: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
 }
 
 .chat-md {
@@ -2181,4 +2371,27 @@ html.electron .pane-head {
 :root[data-theme="light"] .chat-md pre,
 :root[data-theme="light"] .chat-md :not(pre) > code {
   background: rgba(0, 0, 0, 0.05);
+}
+
+@custom-variant data-open (&:where([data-state="open"], [data-open]:not([data-open="false"])));
+
+@custom-variant data-closed (&:where([data-state="closed"], [data-closed]:not([data-closed="false"])));
+
+@theme inline {
+  @keyframes collapsible-down {
+  from {
+    height: 0;
+    }
+  to {
+    height: var(--radix-collapsible-content-height, var(--collapsible-panel-height, auto));
+    }
+  }
+  @keyframes collapsible-up {
+  from {
+    height: var(--radix-collapsible-content-height, var(--collapsible-panel-height, auto));
+    }
+  to {
+    height: 0;
+    }
+  }
 }

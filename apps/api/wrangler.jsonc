@@ -18,6 +18,9 @@
   "ai": {
     "binding": "AI"
   },
+  "browser": {
+    "binding": "BROWSER"
+  },
   "send_email": [
     {
       "name": "EMAIL"

@@ -15,7 +15,7 @@ import { CheckIcon, CloseIcon, FilterIcon, SearchIcon } from "./Icons";
 
 const PLUGIN_MESSAGE = "groxbot:plugin";
 
-export function PluginsModal(props: { onClose: () => void }) {
+export function PluginsModal(props: { open: boolean; onClose: () => void }) {
   const [tab, setTab] = useState<"market" | "yours">("market");
   const [query, setQuery] = useState("");
   const [catalog, setCatalog] = useState<PluginCard[]>([]);
@@ -128,7 +128,7 @@ export function PluginsModal(props: { onClose: () => void }) {
   const emptySearch = q.length > 0 && visible.length === 0;
 
   return (
-    <ModalShell wide onClose={props.onClose}>
+    <ModalShell open={props.open} wide onClose={props.onClose}>
       <div className="flex items-center justify-between border-b border-line px-[18px] py-3.5">
         <h2 className="m-0 text-lg">Plugins</h2>
         <button
