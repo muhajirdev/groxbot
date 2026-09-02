@@ -1,46 +1,66 @@
 /** Workspace knowledge on R2. One prefix per office — not this bot’s computer. */
 
 import {
-  MAX_COMPUTER_WRITE_BYTES,
   type ComputerDownload,
   type KnowledgeEntry,
   type KnowledgeFile,
   type KnowledgeGraph,
   type KnowledgeList,
   type KnowledgeWrite,
+  MAX_COMPUTER_WRITE_BYTES,
 } from "@groxbot/contracts";
 import { encodeComputerBytes } from "./computer.js";
 import {
-  KNOWLEDGE_LINKS_PATH,
   dropKnowledgeLinkPrefix,
   dropKnowledgeLinkSource,
+  emptyKnowledgeLinkSnapshot,
   encodeKnowledgeLinkSnapshot,
   extractOfficeMarkdownPaths,
   indexesMarkdownForLinks,
   isKnowledgeLinksPath,
+  KNOWLEDGE_LINKS_PATH,
+  type KnowledgeLinkSnapshot,
   knowledgeBacklinks,
   parseKnowledgeLinkSnapshot,
   setKnowledgeLinkSource,
-  emptyKnowledgeLinkSnapshot,
-  type KnowledgeLinkSnapshot,
 } from "./knowledge-links.js";
 import {
+  dropKnowledgeSearchDoc,
+  dropKnowledgeSearchPrefix,
+  emptyKnowledgeSearchSnapshot,
+  encodeKnowledgeSearchSnapshot,
+  isKnowledgeSearchPath,
+  isKnowledgeSearchSegmentPath,
+  KNOWLEDGE_SEARCH_LEGACY_MANIFEST,
+  KNOWLEDGE_SEARCH_PATH,
+  type KnowledgeSearchHit,
+  type KnowledgeSearchSnapshot,
+  knowledgeSearchDoc,
+  MAX_KNOWLEDGE_READ_MANY,
+  MAX_KNOWLEDGE_SEARCH_HITS,
+  parseKnowledgeSearchDocs,
+  parseKnowledgeSearchManifest,
+  parseKnowledgeSearchSnapshot,
+  rankKnowledgeSearch,
+  setKnowledgeSearchDoc,
+} from "./knowledge-search.js";
+import {
+  isSkillName,
   MAX_SKILL_BYTES,
   MAX_SKILL_RESOURCES,
   MAX_WORKSPACE_SKILLS,
-  SKILL_FILE,
-  isSkillName,
   parseSkillMarkdown,
-  skillResourceKind,
-  skillResourcePathError,
+  SKILL_FILE,
   type SkillContent,
   type SkillDescriptor,
   type SkillResourceDescriptor,
   type SkillWorkspace,
+  skillResourceKind,
+  skillResourcePathError,
   type WorkspaceSkillSource,
 } from "./skills.js";
 
-export const MAX_KNOWLEDGE_ENTRIES = 200;
+export const MAX_KNOWLEDGE_ENTRIES = 800;
 export const MAX_KNOWLEDGE_READ_CHARS = 64_000;
 export const MAX_KNOWLEDGE_NOTE_CHARS = 64_000;
 export const MAX_KNOWLEDGE_PATH = 240;
@@ -115,10 +135,7 @@ export type KnowledgeTreeNode = {
   children: KnowledgeTreeNode[];
 };
 
-export function knowledgeObjectKey(
-  workspaceId: string,
-  path: string,
-): string {
+export function knowledgeObjectKey(workspaceId: string, path: string): string {
   const office = sanitizeWorkspaceId(workspaceId);
   const relative = sanitizeKnowledgePath(path);
   if (!relative) throw new KnowledgePathError();
@@ -153,6 +170,10 @@ export function sanitizeKnowledgePath(raw: string | undefined): string {
   const path = parts.join("/");
   if (path.length > MAX_KNOWLEDGE_PATH) throw new KnowledgePathError();
   return path;
+}
+
+function isKnowledgeHiddenPath(path: string): boolean {
+  return isKnowledgeLinksPath(path) || isKnowledgeSearchPath(path);
 }
 
 export function isKnowledgeSkillFile(path: string): boolean {
@@ -191,7 +212,7 @@ export async function listKnowledge(
     }
     if (!object.key.startsWith(prefix)) continue;
     const path = object.key.slice(prefix.length);
-    if (!path || path.endsWith("/") || isKnowledgeLinksPath(path)) continue;
+    if (!path || path.endsWith("/") || isKnowledgeHiddenPath(path)) continue;
     const entry = await entryFromObject(disk, office, path, object);
     if (entry) entries.push(entry);
   }
@@ -208,14 +229,60 @@ export async function readKnowledge(
 ): Promise<KnowledgeFile> {
   const path = sanitizeKnowledgePath(rawPath);
   if (!path) throw new KnowledgePathError("Pick a file in the office.");
-  if (isKnowledgeLinksPath(path)) throw new KnowledgeFileError();
-  const key = knowledgeObjectKey(workspaceId, path);
-  const bytes = await disk.getBytes(key);
+  if (isKnowledgeHiddenPath(path)) throw new KnowledgeFileError();
+  const bytes = await disk.getBytes(knowledgeObjectKey(workspaceId, path));
   if (!bytes) throw new KnowledgeFileError();
+  const snapshot = await loadKnowledgeLinkSnapshot(disk, workspaceId);
+  return knowledgeFileFromBytes(disk, workspaceId, path, bytes, snapshot);
+}
+
+export async function readKnowledgeMany(
+  disk: KnowledgeDisk,
+  workspaceId: string,
+  rawPaths: string[],
+): Promise<{ files: KnowledgeFile[]; missing: string[]; truncated: boolean }> {
+  const seen = new Set<string>();
+  const paths: string[] = [];
+  for (const raw of rawPaths) {
+    let path = "";
+    try {
+      path = sanitizeKnowledgePath(raw);
+    } catch {
+      continue;
+    }
+    if (!path || isKnowledgeHiddenPath(path) || seen.has(path)) continue;
+    seen.add(path);
+    paths.push(path);
+  }
+  const truncated = paths.length > MAX_KNOWLEDGE_READ_MANY;
+  const picked = paths.slice(0, MAX_KNOWLEDGE_READ_MANY);
+  const snapshot = await loadKnowledgeLinkSnapshot(disk, workspaceId);
+  const files: KnowledgeFile[] = [];
+  const missing: string[] = [];
+  for (const path of picked) {
+    const bytes = await disk.getBytes(knowledgeObjectKey(workspaceId, path));
+    if (!bytes) {
+      missing.push(path);
+      continue;
+    }
+    files.push(
+      await knowledgeFileFromBytes(disk, workspaceId, path, bytes, snapshot),
+    );
+  }
+  return { files, missing, truncated };
+}
+
+async function knowledgeFileFromBytes(
+  disk: KnowledgeDisk,
+  workspaceId: string,
+  path: string,
+  bytes: Uint8Array,
+  snapshot: KnowledgeLinkSnapshot,
+): Promise<KnowledgeFile> {
   const name = path.split("/").at(-1) ?? path;
   const mediaType = mediaTypeForKnowledgePath(path);
   const meta = await fileMeta(disk, sanitizeWorkspaceId(workspaceId), path);
-  const backlinks = await listKnowledgeBacklinks(disk, workspaceId, path);
+  const backlinks = knowledgeBacklinks(snapshot, path);
   if (!isTextBytes(path, bytes)) {
     return {
       path,
@@ -249,7 +316,7 @@ export async function downloadKnowledge(
 ): Promise<ComputerDownload> {
   const path = sanitizeKnowledgePath(rawPath);
   if (!path) throw new KnowledgePathError("Pick a file in the office.");
-  if (isKnowledgeLinksPath(path)) throw new KnowledgeFileError();
+  if (isKnowledgeHiddenPath(path)) throw new KnowledgeFileError();
   const bytes = await disk.getBytes(knowledgeObjectKey(workspaceId, path));
   if (!bytes) throw new KnowledgeFileError();
   if (bytes.byteLength > MAX_COMPUTER_WRITE_BYTES) {
@@ -270,7 +337,7 @@ export async function writeKnowledge(
 ): Promise<{ path: string }> {
   const path = sanitizeKnowledgePath(input.path);
   if (!path) throw new KnowledgePathError("Name the file.");
-  if (isKnowledgeLinksPath(path)) {
+  if (isKnowledgeHiddenPath(path)) {
     throw new KnowledgePathError("That path is reserved.");
   }
   const mediaType = input.mediaType || mediaTypeForKnowledgePath(path);
@@ -280,13 +347,15 @@ export async function writeKnowledge(
       throw new KnowledgeWriteError("That file is too large for the office.");
     }
     await disk.put(knowledgeObjectKey(workspaceId, path), bytes, mediaType);
-    await syncKnowledgeLinks(
+    const text = indexesMarkdownForLinks(path)
+      ? new TextDecoder().decode(bytes)
+      : null;
+    await syncKnowledgeLinks(disk, workspaceId, path, text);
+    await syncKnowledgeSearch(
       disk,
       workspaceId,
       path,
-      indexesMarkdownForLinks(path)
-        ? new TextDecoder().decode(bytes)
-        : null,
+      isTextBytes(path, bytes) ? new TextDecoder().decode(bytes) : null,
     );
     return { path };
   }
@@ -304,6 +373,7 @@ export async function writeKnowledge(
     path,
     indexesMarkdownForLinks(path) ? input.content : null,
   );
+  await syncKnowledgeSearch(disk, workspaceId, path, input.content);
   return { path };
 }
 
@@ -319,6 +389,7 @@ export async function removeKnowledge(
   if ((await disk.getBytes(fileKey)) != null) {
     await disk.delete(fileKey);
     await syncKnowledgeLinksRemoved(disk, workspaceId, path);
+    await syncKnowledgeSearchRemoved(disk, workspaceId, path);
     return;
   }
   const prefix = `${fileKey}/`;
@@ -329,6 +400,7 @@ export async function removeKnowledge(
   if (keys.length === 0) throw new KnowledgeFileError();
   for (const key of keys) await disk.delete(key);
   await syncKnowledgeLinksRemoved(disk, workspaceId, path);
+  await syncKnowledgeSearchRemoved(disk, workspaceId, path);
 }
 
 export async function listKnowledgeBacklinks(
@@ -337,7 +409,7 @@ export async function listKnowledgeBacklinks(
   rawPath: string,
 ): Promise<string[]> {
   const path = sanitizeKnowledgePath(rawPath);
-  if (!path || isKnowledgeLinksPath(path)) return [];
+  if (!path || isKnowledgeHiddenPath(path)) return [];
   const snapshot = await loadKnowledgeLinkSnapshot(disk, workspaceId);
   return knowledgeBacklinks(snapshot, path);
 }
@@ -348,6 +420,22 @@ export async function listKnowledgeGraph(
 ): Promise<KnowledgeGraph> {
   const snapshot = await loadKnowledgeLinkSnapshot(disk, workspaceId);
   return { paths: snapshot.paths, out: snapshot.out };
+}
+
+export async function searchKnowledge(
+  disk: KnowledgeDisk,
+  workspaceId: string,
+  query: string,
+  limit = MAX_KNOWLEDGE_SEARCH_HITS,
+): Promise<{ hits: KnowledgeSearchHit[]; truncated: boolean }> {
+  const snapshot = await loadKnowledgeSearchSnapshot(disk, workspaceId);
+  const ready =
+    snapshot.docs.length > 0
+      ? snapshot
+      : await rebuildKnowledgeSearch(disk, workspaceId);
+  const cap = Math.max(1, Math.min(limit, MAX_KNOWLEDGE_SEARCH_HITS));
+  const hits = rankKnowledgeSearch(ready.docs, query, cap);
+  return { hits, truncated: ready.docs.length >= MAX_KNOWLEDGE_ENTRIES };
 }
 
 async function loadKnowledgeLinkSnapshot(
@@ -371,7 +459,165 @@ async function saveKnowledgeLinkSnapshot(
     await disk.delete(key);
     return;
   }
-  await disk.put(key, encodeKnowledgeLinkSnapshot(snapshot), "application/json");
+  await disk.put(
+    key,
+    encodeKnowledgeLinkSnapshot(snapshot),
+    "application/json",
+  );
+}
+
+async function loadKnowledgeSearchSnapshot(
+  disk: KnowledgeDisk,
+  workspaceId: string,
+): Promise<KnowledgeSearchSnapshot> {
+  const office = sanitizeWorkspaceId(workspaceId);
+  const raw = await disk.getText(`${office}/${KNOWLEDGE_SEARCH_PATH}`);
+  if (raw) {
+    const parsed = parseKnowledgeSearchSnapshot(raw);
+    if (parsed) return parsed;
+  }
+  return loadLegacyShardedSearch(disk, workspaceId, office);
+}
+
+async function loadLegacyShardedSearch(
+  disk: KnowledgeDisk,
+  workspaceId: string,
+  office: string,
+): Promise<KnowledgeSearchSnapshot> {
+  const manifestRaw = await disk.getText(
+    `${office}/${KNOWLEDGE_SEARCH_LEGACY_MANIFEST}`,
+  );
+  if (!manifestRaw) return emptyKnowledgeSearchSnapshot();
+  const manifest = parseKnowledgeSearchManifest(manifestRaw);
+  if (!manifest) return emptyKnowledgeSearchSnapshot();
+  const shards = await Promise.all(
+    manifest.segments.map((path) => disk.getText(`${office}/${path}`)),
+  );
+  const docs: KnowledgeSearchSnapshot["docs"] = [];
+  for (const raw of shards) {
+    if (!raw) continue;
+    const part = parseKnowledgeSearchDocs(raw);
+    if (part) docs.push(...part);
+  }
+  const snapshot: KnowledgeSearchSnapshot = {
+    v: manifest.v,
+    rev: manifest.rev,
+    updatedAt: manifest.updatedAt,
+    docs,
+  };
+  if (snapshot.docs.length === 0) return snapshot;
+  try {
+    await saveKnowledgeSearchSnapshot(disk, workspaceId, snapshot);
+  } catch {
+    // Disposable. Search can still use the in-memory docs.
+  }
+  return snapshot;
+}
+
+async function saveKnowledgeSearchSnapshot(
+  disk: KnowledgeDisk,
+  workspaceId: string,
+  snapshot: KnowledgeSearchSnapshot,
+): Promise<void> {
+  const office = sanitizeWorkspaceId(workspaceId);
+  const keep = new Set<string>();
+  if (snapshot.docs.length === 0) {
+    await deleteKnowledgeSearchObjects(disk, office, keep);
+    return;
+  }
+  keep.add(KNOWLEDGE_SEARCH_PATH);
+  await disk.put(
+    `${office}/${KNOWLEDGE_SEARCH_PATH}`,
+    encodeKnowledgeSearchSnapshot(snapshot),
+    "application/json",
+  );
+  await deleteKnowledgeSearchObjects(disk, office, keep);
+}
+
+async function deleteKnowledgeSearchObjects(
+  disk: KnowledgeDisk,
+  office: string,
+  keep: Set<string>,
+): Promise<void> {
+  const prefix = `${office}/`;
+  const objects = await disk.list(`${office}/_search/`);
+  for (const object of objects) {
+    if (!object.key.startsWith(prefix)) continue;
+    const path = object.key.slice(prefix.length);
+    if (keep.has(path)) continue;
+    if (
+      path === KNOWLEDGE_SEARCH_PATH ||
+      path === KNOWLEDGE_SEARCH_LEGACY_MANIFEST ||
+      isKnowledgeSearchSegmentPath(path)
+    ) {
+      await disk.delete(object.key);
+    }
+  }
+}
+
+async function syncKnowledgeSearch(
+  disk: KnowledgeDisk,
+  workspaceId: string,
+  path: string,
+  content: string | null,
+): Promise<void> {
+  try {
+    const current = await loadKnowledgeSearchSnapshot(disk, workspaceId);
+    const next = setKnowledgeSearchDoc(
+      current,
+      knowledgeSearchDoc(path, content),
+      MAX_KNOWLEDGE_ENTRIES,
+    );
+    if (next.rev === current.rev) return;
+    await saveKnowledgeSearchSnapshot(disk, workspaceId, next);
+  } catch {
+    // Disposable cache. The note already landed.
+  }
+}
+
+async function syncKnowledgeSearchRemoved(
+  disk: KnowledgeDisk,
+  workspaceId: string,
+  path: string,
+): Promise<void> {
+  try {
+    const current = await loadKnowledgeSearchSnapshot(disk, workspaceId);
+    const dropped = dropKnowledgeSearchDoc(current, path);
+    const next =
+      dropped.rev === current.rev
+        ? dropKnowledgeSearchPrefix(current, path)
+        : dropped;
+    if (next.rev === current.rev) return;
+    await saveKnowledgeSearchSnapshot(disk, workspaceId, next);
+  } catch {
+    // Disposable cache.
+  }
+}
+
+async function rebuildKnowledgeSearch(
+  disk: KnowledgeDisk,
+  workspaceId: string,
+): Promise<KnowledgeSearchSnapshot> {
+  const listed = await listKnowledge(disk, workspaceId);
+  let snapshot = emptyKnowledgeSearchSnapshot();
+  for (const entry of listed.entries) {
+    if (entry.encoding !== "text") {
+      snapshot = setKnowledgeSearchDoc(
+        snapshot,
+        knowledgeSearchDoc(entry.path, null),
+        MAX_KNOWLEDGE_ENTRIES,
+      );
+      continue;
+    }
+    const raw = await disk.getText(knowledgeObjectKey(workspaceId, entry.path));
+    snapshot = setKnowledgeSearchDoc(
+      snapshot,
+      knowledgeSearchDoc(entry.path, raw),
+      MAX_KNOWLEDGE_ENTRIES,
+    );
+  }
+  await saveKnowledgeSearchSnapshot(disk, workspaceId, snapshot);
+  return snapshot;
 }
 
 async function syncKnowledgeLinks(

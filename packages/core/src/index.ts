@@ -9,6 +9,7 @@ export * from "./guest-token.js";
 export * from "./ids.js";
 export * from "./knowledge.js";
 export * from "./knowledge-links.js";
+export * from "./knowledge-search.js";
 export * from "./markdown.js";
 export * from "./mcp-connections.js";
 export * from "./models.js";

@@ -387,31 +387,36 @@ export function KnowledgeModal(props: {
             ) : empty ? (
               <p className="explorer-empty">Empty. Add a file, import a skill, or drop one in.</p>
             ) : (
-              <ul className="explorer-tree">
-                {tree.map((node) => (
-                  <TreeRows
-                    key={node.path}
-                    node={node}
-                    depth={0}
-                    selected={selected}
-                    collapsed={searching ? ROOT_COLLAPSED : collapsed}
-                    onSelect={(path) => {
-                      setDraft(null);
-                      setImporting(false);
-                      setMapOpen(false);
-                      setSelected(path);
-                    }}
-                    onToggle={(path) => {
-                      setCollapsed((current) => {
-                        const next = new Set(current);
-                        if (next.has(path)) next.delete(path);
-                        else next.add(path);
-                        return next;
-                      });
-                    }}
-                  />
-                ))}
-              </ul>
+              <>
+                <ul className="explorer-tree">
+                  {tree.map((node) => (
+                    <TreeRows
+                      key={node.path}
+                      node={node}
+                      depth={0}
+                      selected={selected}
+                      collapsed={searching ? ROOT_COLLAPSED : collapsed}
+                      onSelect={(path) => {
+                        setDraft(null);
+                        setImporting(false);
+                        setMapOpen(false);
+                        setSelected(path);
+                      }}
+                      onToggle={(path) => {
+                        setCollapsed((current) => {
+                          const next = new Set(current);
+                          if (next.has(path)) next.delete(path);
+                          else next.add(path);
+                          return next;
+                        });
+                      }}
+                    />
+                  ))}
+                </ul>
+                {listQuery.data?.truncated ? (
+                  <p className="explorer-empty">Showing the first 800 files.</p>
+                ) : null}
+              </>
             )}
           </div>
         </aside>

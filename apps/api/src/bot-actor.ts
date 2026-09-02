@@ -10,7 +10,7 @@ import {
 import { createExecuteTool } from "@cloudflare/think/tools/execute";
 import type { ToolSet } from "ai";
 import { createBundlingExecutor } from "./bot-execute.js";
-import { createKnowledgeTools } from "./bot-knowledge.js";
+import { KnowledgeConnector } from "./bot-knowledge.js";
 import { WorkspaceMcpConnector } from "./bot-mcp-connector.js";
 import { bindToMarkdown, createPageTools } from "./bot-markdown.js";
 import type { WorkersAiBinding } from "@groxbot/adapters/edge";
@@ -171,6 +171,10 @@ export class BotActor extends Think<WorkerEnv> {
   }
 
   async onStart(): Promise<void> {
+    const stored = await this.ctx.storage.get<string>("officeId");
+    if (typeof stored === "string" && stored && !this.officeId) {
+      this.officeId = stored;
+    }
     this.ensureMcpOAuthCallback();
     console.log(`[bot ${this.name}] onStart after think hydrate`);
   }
@@ -234,20 +238,13 @@ export class BotActor extends Think<WorkerEnv> {
       workspace: this.workspace,
       convert: bindToMarkdown(this.env.AI),
     });
-    const knowledge = this.officeKnowledge();
     return {
       ...pageTools,
-      ...(knowledge
-        ? createKnowledgeTools({
-            disk: knowledge,
-            workspaceId: this.officeId,
-          })
-        : {}),
       execute: createExecuteTool(this, {
         executor: createBundlingExecutor(this.env.LOADER, { timeout: 120_000 }),
         session: { mode: "reuse", key: this.name },
         tools: pageTools,
-        connectors: this.mcpExecuteConnectors(),
+        connectors: this.executeConnectors(),
       }),
     };
   }
@@ -349,6 +346,7 @@ export class BotActor extends Think<WorkerEnv> {
       .limit(1);
     if (!bot) return;
     this.officeId = bot.workspaceId;
+    await this.ctx.storage.put("officeId", bot.workspaceId);
     const overlay = await resolveRunModel(
       db,
       bot,
@@ -444,6 +442,22 @@ export class BotActor extends Think<WorkerEnv> {
   private officeKnowledge() {
     if (!this.env.KNOWLEDGE || !this.officeId) return null;
     return r2KnowledgeDisk(this.env.KNOWLEDGE);
+  }
+
+  private executeConnectors() {
+    const connectors: Array<KnowledgeConnector | WorkspaceMcpConnector> = [];
+    if (this.env.KNOWLEDGE) {
+      connectors.push(
+        new KnowledgeConnector(
+          this.ctx,
+          this.env,
+          r2KnowledgeDisk(this.env.KNOWLEDGE),
+          () => this.officeId,
+        ),
+      );
+    }
+    connectors.push(...this.mcpExecuteConnectors());
+    return connectors;
   }
 
   private mcpExecuteConnectors(): WorkspaceMcpConnector[] {

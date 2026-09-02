@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { encodeComputerBytes } from "./computer.js";
 import {
-  KnowledgePathError,
   downloadKnowledge,
   filterKnowledgeTree,
   formatSkillMarkdown,
   isKnowledgeSkillFile,
+  type KnowledgeDisk,
+  type KnowledgeObject,
+  KnowledgePathError,
   knowledgeObjectKey,
   knowledgeSkillWorkspace,
   listKnowledge,
@@ -13,11 +15,11 @@ import {
   nestKnowledgeTree,
   officeSkillSource,
   readKnowledge,
+  readKnowledgeMany,
   removeKnowledge,
   sanitizeKnowledgePath,
+  searchKnowledge,
   writeKnowledge,
-  type KnowledgeDisk,
-  type KnowledgeObject,
 } from "./knowledge.js";
 
 class MemoryKnowledge implements KnowledgeDisk {
@@ -73,9 +75,9 @@ describe("isKnowledgeSkillFile", () => {
   it("is a SKILL.md anywhere in the tree", () => {
     expect(isKnowledgeSkillFile("SKILL.md")).toBe(true);
     expect(isKnowledgeSkillFile("playbooks/weekly-update/SKILL.md")).toBe(true);
-    expect(isKnowledgeSkillFile("playbooks/weekly-update/references/voice.md")).toBe(
-      false,
-    );
+    expect(
+      isKnowledgeSkillFile("playbooks/weekly-update/references/voice.md"),
+    ).toBe(false);
   });
 });
 
@@ -107,9 +109,9 @@ describe("listKnowledge", () => {
       title: "weekly-update",
       description: "Five bullets.",
     });
-    expect(listed.entries.find((row) => row.path === "brief.pdf")?.encoding).toBe(
-      "binary",
-    );
+    expect(
+      listed.entries.find((row) => row.path === "brief.pdf")?.encoding,
+    ).toBe("binary");
   });
 
   it("does not leak another office", async () => {
@@ -128,7 +130,11 @@ describe("write and read", () => {
     const disk = new MemoryKnowledge();
     await writeKnowledge(disk, OFFICE, {
       path: "playbooks/weekly-update/SKILL.md",
-      content: skillDoc("weekly-update", "Five-bullet Monday.", "One line each."),
+      content: skillDoc(
+        "weekly-update",
+        "Five-bullet Monday.",
+        "One line each.",
+      ),
     });
     await writeKnowledge(disk, OFFICE, {
       path: "how-we-work/constraints.md",
@@ -142,7 +148,11 @@ describe("write and read", () => {
     expect(skill.title).toBe("weekly-update");
     expect(skill.description).toBe("Five-bullet Monday.");
     expect(skill.content).toMatch(/One line each/);
-    const note = await readKnowledge(disk, OFFICE, "how-we-work/constraints.md");
+    const note = await readKnowledge(
+      disk,
+      OFFICE,
+      "how-we-work/constraints.md",
+    );
     expect(note.content).toBe("Never send mail without approval.");
   });
 
@@ -160,7 +170,14 @@ describe("write and read", () => {
     expect(listed.entries.map((row) => row.path)).not.toContain(
       "_links/index.json",
     );
-    const note = await readKnowledge(disk, OFFICE, "how-we-work/constraints.md");
+    expect(listed.entries.map((row) => row.path)).not.toContain(
+      "_search/index.json",
+    );
+    const note = await readKnowledge(
+      disk,
+      OFFICE,
+      "how-we-work/constraints.md",
+    );
     expect(note.backlinks).toEqual(["for/example/this-file.md"]);
     expect(await listKnowledgeGraph(disk, OFFICE)).toEqual({
       paths: ["for/example/this-file.md", "how-we-work/constraints.md"],
@@ -174,7 +191,9 @@ describe("write and read", () => {
     const file = await downloadKnowledge(disk, OFFICE, "brief.pdf");
     expect(file.filename).toBe("brief.pdf");
     expect(file.mediaType).toBe("application/pdf");
-    expect(file.content).toBe(encodeComputerBytes(new Uint8Array([1, 2, 3, 4])));
+    expect(file.content).toBe(
+      encodeComputerBytes(new Uint8Array([1, 2, 3, 4])),
+    );
   });
 
   it("removes a folder prefix", async () => {
@@ -189,6 +208,103 @@ describe("write and read", () => {
     );
     await removeKnowledge(disk, OFFICE, "playbooks/weekly-update");
     expect(disk.files.size).toBe(0);
+  });
+
+  it("searches the office by title and body", async () => {
+    const disk = new MemoryKnowledge();
+    await writeKnowledge(disk, OFFICE, {
+      path: "skills/weekly-update/SKILL.md",
+      content: skillDoc("weekly-update", "Five bullets.", "Keep it tight."),
+    });
+    await writeKnowledge(disk, OFFICE, {
+      path: "how-we-work/constraints.md",
+      content: "# Constraints\nNever send mail without approval.",
+    });
+    const found = await searchKnowledge(disk, OFFICE, "weekly update");
+    expect(found.hits[0]?.path).toBe("skills/weekly-update/SKILL.md");
+    const mail = await searchKnowledge(disk, OFFICE, "never send mail");
+    expect(mail.hits[0]?.path).toBe("how-we-work/constraints.md");
+    expect(
+      [...disk.files.keys()].some((key) => key.endsWith("/_search/index.json")),
+    ).toBe(true);
+    expect(
+      [...disk.files.keys()].some((key) => key.endsWith("/_search/manifest.json")),
+    ).toBe(false);
+    expect(
+      [...disk.files.keys()].some((key) => key.includes("/_search/s/")),
+    ).toBe(false);
+  });
+
+  it("rebuilds search when the snapshot is missing", async () => {
+    const disk = new MemoryKnowledge();
+    await disk.put(
+      `${OFFICE}/how-we-work/constraints.md`,
+      "Never send mail without approval.",
+    );
+    const found = await searchKnowledge(disk, OFFICE, "send mail");
+    expect(found.hits[0]?.path).toBe("how-we-work/constraints.md");
+  });
+
+  it("folds leftover search shards into one index.json", async () => {
+    const disk = new MemoryKnowledge();
+    await disk.put(`${OFFICE}/notes/a.md`, "# Alpha\nThe weekly update.");
+    await disk.put(
+      `${OFFICE}/_search/s/000.json`,
+      JSON.stringify({
+        docs: [
+          {
+            path: "notes/a.md",
+            title: "Alpha",
+            description: "",
+            text: "The weekly update.",
+          },
+        ],
+      }),
+    );
+    await disk.put(
+      `${OFFICE}/_search/manifest.json`,
+      JSON.stringify({
+        v: 4,
+        rev: 1,
+        updatedAt: new Date().toISOString(),
+        segments: ["_search/s/000.json"],
+      }),
+    );
+    const found = await searchKnowledge(disk, OFFICE, "weekly update");
+    expect(found.hits[0]?.path).toBe("notes/a.md");
+    expect(
+      [...disk.files.keys()].some((key) => key.endsWith("/_search/index.json")),
+    ).toBe(true);
+    expect(
+      [...disk.files.keys()].some((key) =>
+        key.endsWith("/_search/manifest.json"),
+      ),
+    ).toBe(false);
+    expect(
+      [...disk.files.keys()].some((key) => key.includes("/_search/s/")),
+    ).toBe(false);
+  });
+
+  it("reads several files in one pass", async () => {
+    const disk = new MemoryKnowledge();
+    await writeKnowledge(disk, OFFICE, {
+      path: "how-we-work/constraints.md",
+      content: "Never send mail without approval.",
+    });
+    await writeKnowledge(disk, OFFICE, {
+      path: "how-we-work/voice.md",
+      content: "Short. Direct.",
+    });
+    const many = await readKnowledgeMany(disk, OFFICE, [
+      "how-we-work/constraints.md",
+      "how-we-work/voice.md",
+      "missing.md",
+    ]);
+    expect(many.files.map((row) => row.path)).toEqual([
+      "how-we-work/constraints.md",
+      "how-we-work/voice.md",
+    ]);
+    expect(many.missing).toEqual(["missing.md"]);
   });
 });
 
@@ -216,10 +332,7 @@ describe("nestKnowledgeTree", () => {
         mediaType: "text/markdown",
       },
     ]);
-    expect(tree.map((node) => node.path)).toEqual([
-      "playbooks",
-      "voice.md",
-    ]);
+    expect(tree.map((node) => node.path)).toEqual(["playbooks", "voice.md"]);
     expect(tree[0]?.children[0]?.path).toBe("playbooks/weekly-update");
     expect(tree[0]?.children[0]?.children[0]).toMatchObject({
       path: "playbooks/weekly-update/SKILL.md",

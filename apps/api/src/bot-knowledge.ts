@@ -1,63 +1,215 @@
-/** Cloudflare-only. Excluded from `tsc`. Office library tools on R2. */
-import { tool, type ToolSet } from "ai";
-import { z } from "zod";
+/** Cloudflare-only. Excluded from `tsc`. Office library as a Code Mode connector. */
+import { CodemodeConnector, type ConnectorTools } from "@cloudflare/codemode";
 import {
-  listKnowledge,
-  readKnowledge,
-  writeKnowledge,
   type KnowledgeDisk,
+  KnowledgePathError,
+  listKnowledge,
+  listKnowledgeBacklinks,
+  readKnowledge,
+  readKnowledgeMany,
+  removeKnowledge,
+  searchKnowledge,
+  writeKnowledge,
 } from "@groxbot/core";
 
-export function createKnowledgeTools(opts: {
-  disk: KnowledgeDisk;
-  workspaceId: string;
-}): ToolSet {
-  const { disk, workspaceId } = opts;
-  return {
-    save_office_knowledge: tool({
-      description:
-        "Save a file to the office knowledge base so every teammate can use it. Not this computer. Path is yours (skills/weekly-update/SKILL.md, how-we-work/constraints.md, brief.pdf). A folder with SKILL.md (YAML name + description) is a reusable playbook — prefer skills/<name>/. Link other office files with [label](path/from/office/root.md) — not ../, not [[wikilinks]].",
-      inputSchema: z.object({
-        path: z.string().min(1).max(240),
-        content: z.string().min(1).max(64_000),
-      }),
-      execute: async (input) => {
-        const saved = await writeKnowledge(disk, workspaceId, {
-          path: input.path,
-          content: input.content,
-        });
-        return { path: saved.path };
+const PATH = {
+  type: "string",
+  minLength: 1,
+  maxLength: 240,
+} as const;
+
+export class KnowledgeConnector extends CodemodeConnector {
+  constructor(
+    ctx: DurableObjectState,
+    env: unknown,
+    private readonly disk: KnowledgeDisk,
+    private readonly officeId: () => string,
+  ) {
+    super(ctx, env as never);
+  }
+
+  override name() {
+    return "knowledge";
+  }
+
+  protected override instructions() {
+    return [
+      "Shared office knowledge — not this computer (state.*).",
+      "Search first, then read. Write playbooks at skills/<name>/SKILL.md (YAML name + description).",
+      "Markdown links are office-root paths: [constraints](how-we-work/constraints.md). Not ../, not [[wikilinks]].",
+    ].join(" ");
+  }
+
+  protected override tools(): ConnectorTools {
+    return {
+      search: {
+        description:
+          "Search office knowledge by title, path, and markdown body. Returns ranked hits with snippets — then read the paths you need. truncated means the office has more than 800 files; only those are indexed.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            query: { type: "string", minLength: 1, maxLength: 200 },
+            limit: { type: "integer", minimum: 1, maximum: 12 },
+          },
+          required: ["query"],
+        },
+        replay: "reexecute",
+        execute: async (args) => {
+          const query = stringArg(args, "query");
+          const limit = numberArg(args, "limit");
+          return searchKnowledge(this.disk, this.workspaceId(), query, limit);
+        },
       },
-    }),
-    read_office_knowledge: tool({
-      description:
-        "Read a file from the office knowledge base. Path is the full path, e.g. skills/weekly-update/SKILL.md.",
-      inputSchema: z.object({
-        path: z.string().min(1).max(240),
-      }),
-      execute: async (input) => {
-        const file = await readKnowledge(disk, workspaceId, input.path);
-        return {
-          path: file.path,
-          title: file.title,
-          description: file.description,
-          content: file.content,
-          encoding: file.encoding,
-        };
+      list: {
+        description:
+          "List files in this office’s knowledge base. Use the returned paths in markdown links. truncated means more than 800 files exist.",
+        inputSchema: { type: "object", properties: {} },
+        replay: "reexecute",
+        execute: async () => {
+          const listed = await listKnowledge(this.disk, this.workspaceId());
+          return {
+            truncated: listed.truncated,
+            entries: listed.entries.map((row) => ({
+              path: row.path,
+              title: row.title,
+              description: row.description,
+            })),
+          };
+        },
       },
-    }),
-    list_office_knowledge: tool({
-      description:
-        "List files in this office’s knowledge base. Use the returned paths in markdown links.",
-      inputSchema: z.object({}),
-      execute: async () => {
-        const listed = await listKnowledge(disk, workspaceId);
-        return listed.entries.map((row) => ({
-          path: row.path,
-          title: row.title,
-          description: row.description,
-        }));
+      read: {
+        description:
+          "Read one office knowledge file. Path is the full office-root path, e.g. skills/weekly-update/SKILL.md.",
+        inputSchema: {
+          type: "object",
+          properties: { path: PATH },
+          required: ["path"],
+        },
+        replay: "reexecute",
+        execute: async (args) => {
+          const file = await readKnowledge(
+            this.disk,
+            this.workspaceId(),
+            stringArg(args, "path"),
+          );
+          return {
+            path: file.path,
+            title: file.title,
+            description: file.description,
+            content: file.content,
+            encoding: file.encoding,
+            truncated: file.truncated,
+            backlinks: file.backlinks,
+          };
+        },
       },
-    }),
-  };
+      readMany: {
+        description:
+          "Read up to 8 office knowledge files in one call. Prefer this after search.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            paths: {
+              type: "array",
+              items: PATH,
+              minItems: 1,
+              maxItems: 8,
+            },
+          },
+          required: ["paths"],
+        },
+        replay: "reexecute",
+        execute: async (args) => {
+          const paths = stringArrayArg(args, "paths");
+          return readKnowledgeMany(this.disk, this.workspaceId(), paths);
+        },
+      },
+      write: {
+        description:
+          "Save a file to the office knowledge base so every teammate can use it. Not this computer. A folder with SKILL.md (YAML name + description) is a reusable playbook — prefer skills/<name>/. Link other office files with [label](path/from/office/root.md).",
+        inputSchema: {
+          type: "object",
+          properties: {
+            path: PATH,
+            content: { type: "string", minLength: 1, maxLength: 64_000 },
+          },
+          required: ["path", "content"],
+        },
+        execute: async (args) => {
+          const saved = await writeKnowledge(this.disk, this.workspaceId(), {
+            path: stringArg(args, "path"),
+            content: stringArg(args, "content"),
+          });
+          return { path: saved.path };
+        },
+      },
+      backlinks: {
+        description:
+          "List office files that link to this path with [label](this-path).",
+        inputSchema: {
+          type: "object",
+          properties: { path: PATH },
+          required: ["path"],
+        },
+        replay: "reexecute",
+        execute: async (args) => {
+          const sources = await listKnowledgeBacklinks(
+            this.disk,
+            this.workspaceId(),
+            stringArg(args, "path"),
+          );
+          return { sources };
+        },
+      },
+      remove: {
+        description:
+          "Delete an office knowledge file or folder. Needs approval.",
+        inputSchema: {
+          type: "object",
+          properties: { path: PATH },
+          required: ["path"],
+        },
+        requiresApproval: true,
+        execute: async (args) => {
+          const path = stringArg(args, "path");
+          await removeKnowledge(this.disk, this.workspaceId(), path);
+          return { path };
+        },
+      },
+    };
+  }
+
+  private workspaceId(): string {
+    const id = this.officeId().trim();
+    if (!id) throw new KnowledgePathError("Unknown office.");
+    return id;
+  }
+}
+
+function stringArg(args: unknown, key: string): string {
+  if (!args || typeof args !== "object" || Array.isArray(args)) {
+    throw new KnowledgePathError();
+  }
+  const value = (args as Record<string, unknown>)[key];
+  if (typeof value !== "string" || !value.trim())
+    throw new KnowledgePathError();
+  return value;
+}
+
+function numberArg(args: unknown, key: string): number | undefined {
+  if (!args || typeof args !== "object" || Array.isArray(args))
+    return undefined;
+  const value = (args as Record<string, unknown>)[key];
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
+}
+
+function stringArrayArg(args: unknown, key: string): string[] {
+  if (!args || typeof args !== "object" || Array.isArray(args)) {
+    throw new KnowledgePathError();
+  }
+  const value = (args as Record<string, unknown>)[key];
+  if (!Array.isArray(value)) throw new KnowledgePathError();
+  return value.filter((row): row is string => typeof row === "string");
 }

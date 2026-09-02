@@ -43,7 +43,8 @@ describe("teammatePrompt", () => {
     expect(prompt).toMatch(/Keep your name/);
     expect(prompt).not.toMatch(/Do not change who you are/);
     expect(prompt).toMatch(/memory\.md/);
-    expect(prompt).toMatch(/save_office_knowledge/);
+    expect(prompt).toMatch(/knowledge\.search/);
+    expect(prompt).toMatch(/knowledge\.write/);
     expect(prompt).toMatch(/skills\/<name>\/SKILL\.md/);
     expect(prompt).toMatch(/how-we-work\/constraints\.md/);
     expect(prompt).toMatch(/not \[\[wikilinks\]\]/);

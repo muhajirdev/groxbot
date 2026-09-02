@@ -26,7 +26,7 @@ export type KnowledgeBucket = {
 };
 
 const LIST_PAGE = 1000;
-const LIST_CAP = 400;
+const LIST_CAP = 800;
 
 export function r2KnowledgeDisk(bucket: KnowledgeBucket): KnowledgeDisk {
   return {
