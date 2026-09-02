@@ -1,56 +1,170 @@
+import Lottie, { type LottieRefCurrentProps } from "lottie-react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+} from "react";
 import { cn } from "@/lib/utils";
-import type { ComponentProps, CSSProperties } from "react";
+import { spiralFastData, spiralSlowData } from "./spiral-loader-data";
 
 export type SpiralLoaderProps = ComponentProps<"span"> & {
   size?: number;
 };
 
+const FAST_REPEATS = 4;
+const SLOW_REPEATS = 2;
+
+/** Invert Lottie's white stroke when the app is in light theme. */
+function useNeedsInvert() {
+  const [invert, setInvert] = useState(() => {
+    if (typeof document === "undefined") return false;
+    return document.documentElement.dataset.theme !== "dark";
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const sync = () => setInvert(root.dataset.theme !== "dark");
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(root, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  return invert;
+}
+
 /**
- * Agent Elements spiral: one period of the ribbon crawls left.
- * Trim and shift stay locked to the path period so the loop doesn't hitch.
+ * Agent Elements SpiralLoader — two-phase Lottie from
+ * https://agent-elements.21st.dev/docs/spiral-loader
+ * (lottie-react@2 API, same as their registry source).
  */
 export function SpiralLoader({
   size = 16,
   className,
   ...props
 }: SpiralLoaderProps) {
+  const [mounted, setMounted] = useState(false);
+  const [phase, setPhase] = useState<"fast" | "slow">("fast");
+  const repeats = useRef(0);
+  const fastRef = useRef<LottieRefCurrentProps>(null);
+  const slowRef = useRef<LottieRefCurrentProps>(null);
+  const needsInvert = useNeedsInvert();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const startFast = useCallback(() => {
+    repeats.current = 0;
+    setPhase("fast");
+    slowRef.current?.stop();
+    fastRef.current?.goToAndPlay(0, true);
+  }, []);
+
+  const startSlow = useCallback(() => {
+    repeats.current = 0;
+    setPhase("slow");
+    fastRef.current?.stop();
+    slowRef.current?.goToAndPlay(0, true);
+  }, []);
+
+  const onFastComplete = useCallback(() => {
+    repeats.current += 1;
+    if (repeats.current < FAST_REPEATS) {
+      fastRef.current?.goToAndPlay(0, true);
+    } else {
+      startSlow();
+    }
+  }, [startSlow]);
+
+  const onSlowComplete = useCallback(() => {
+    repeats.current += 1;
+    if (repeats.current < SLOW_REPEATS) {
+      slowRef.current?.goToAndPlay(0, true);
+    } else {
+      startFast();
+    }
+  }, [startFast]);
+
+  if (!mounted) {
+    return (
+      <span
+        aria-hidden
+        className={cn("spiral-loader", className)}
+        style={{ width: size, height: size }}
+        {...props}
+      />
+    );
+  }
+
   return (
     <span
       aria-hidden
-      className={cn("spiral-loader", className)}
-      style={
-        {
-          width: size,
-          height: size,
-          "--spiral-shift": `${size * 0.5}px`,
-        } as CSSProperties
-      }
+      className={cn("spiral-loader relative", className)}
+      style={{ width: size, height: size }}
       {...props}
     >
-      <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false">
-        <title>Loading</title>
-        <path
-          className="spiral-loader-path"
-          pathLength={100}
-          d="M0 14C4.452 14 6.736 10.284 7.025 6.988C7.255 4.361 6.218 2 4 2C1.782 2 .745 4.361 .975 6.988C1.264 10.284 3.548 14 8 14C12.452 14 14.736 10.284 15.025 6.988C15.255 4.361 14.218 2 12 2C9.782 2 8.745 4.361 8.975 6.988C9.264 10.284 11.548 14 16 14C20.452 14 22.736 10.284 23.025 6.988C23.255 4.361 22.218 2 20 2C17.782 2 16.748 4.361 16.98 6.988C17.272 10.284 19.557 14 24 14"
+      <span
+        className={cn(
+          "absolute inset-0 transition-opacity duration-75",
+          needsInvert && "invert",
+          phase === "fast" ? "opacity-100" : "opacity-0",
+        )}
+      >
+        <Lottie
+          lottieRef={fastRef}
+          animationData={spiralFastData}
+          loop={false}
+          autoplay
+          onComplete={onFastComplete}
+          style={{ width: "100%", height: "100%" }}
         />
-      </svg>
+      </span>
+      <span
+        className={cn(
+          "absolute inset-0 transition-opacity duration-75",
+          needsInvert && "invert",
+          phase === "slow" ? "opacity-100" : "opacity-0",
+        )}
+      >
+        <Lottie
+          lottieRef={slowRef}
+          animationData={spiralSlowData}
+          loop={false}
+          autoplay={false}
+          onComplete={onSlowComplete}
+          style={{ width: "100%", height: "100%" }}
+        />
+      </span>
     </span>
   );
 }
 
-export function ThinkingStatus({ className }: { className?: string }) {
+export function ThinkingStatus({
+  name,
+  className,
+}: {
+  name?: string;
+  className?: string;
+}) {
+  const who = name?.trim();
+  const label = who ? `${who} is working` : "Working";
   return (
     <div
       role="status"
-      aria-label="Thinking"
+      aria-label={label}
       className={cn(
         "flex w-fit items-center gap-1.5 text-[12px] leading-none text-muted-foreground",
         className,
       )}
     >
       <SpiralLoader size={14} />
-      <span className="shimmer motion-reduce:animate-none">Thinking</span>
+      <span className="shimmer motion-reduce:animate-none">{label}</span>
     </div>
   );
 }

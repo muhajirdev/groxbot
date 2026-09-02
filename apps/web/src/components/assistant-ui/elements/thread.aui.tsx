@@ -203,7 +203,7 @@ const ThreadRoot: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
             </ThreadPrimitive.Messages>
             <AuiIf condition={isWaitingForAssistantMessage}>
               <div className="px-2">
-                <ThinkingStatus />
+                <AssistantWorkingStatus />
               </div>
             </AuiIf>
           </div>
@@ -302,13 +302,18 @@ const MessageError: FC = () => {
   );
 };
 
+const AssistantWorkingStatus: FC = () => {
+  const { botName } = useContext(ThreadChromeContext);
+  return <ThinkingStatus name={botName} />;
+};
+
 const AssistantWorkingDots: FC = () => {
   const show = useAuiState((s) => {
     if (s.message.status?.type !== "running") return false;
     return !messageHasVisibleText(s.message);
   });
   if (!show) return null;
-  return <ThinkingStatus />;
+  return <AssistantWorkingStatus />;
 };
 
 const AssistantMessage: FC = () => {

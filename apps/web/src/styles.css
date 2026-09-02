@@ -849,37 +849,12 @@ html.vt-ready .gate > .gate-steps {
   animation-delay: 0.28s;
 }
 
-/* Agent Elements spiral: one path period, linear so the wrap is invisible. */
+/* Agent Elements SpiralLoader (Lottie canvas). */
 .spiral-loader {
   display: inline-block;
   overflow: hidden;
   line-height: 0;
   flex-shrink: 0;
-}
-
-.spiral-loader svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.spiral-loader-path {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.4;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-dasharray: 21 79;
-  stroke-dashoffset: 23;
-  transform-origin: 0 0;
-  animation: spiral-loader 0.5s linear infinite;
-}
-
-@keyframes spiral-loader {
-  to {
-    stroke-dashoffset: 56.3333;
-    transform: translateX(calc(-1 * var(--spiral-shift, 8px)));
-  }
 }
 
 @keyframes typing-dot {
@@ -2426,7 +2401,12 @@ html.electron .pane-head {
   cursor: grab;
   touch-action: none;
   border-radius: 12px;
-  background: var(--bg-pane);
+  background:
+    radial-gradient(
+      ellipse at 50% 42%,
+      color-mix(in srgb, var(--card) 70%, transparent),
+      var(--bg-pane) 72%
+    );
 }
 
 .knowledge-graph svg.panning {
@@ -2435,13 +2415,17 @@ html.electron .pane-head {
 
 .knowledge-graph-edge {
   fill: none;
-  stroke: var(--line);
-  stroke-width: 1.4;
+  stroke: color-mix(in srgb, var(--ink) 22%, transparent);
+  stroke-width: 0.9;
 }
 
 .knowledge-graph-edge.linked {
-  stroke: var(--accent);
-  stroke-width: 1.8;
+  stroke: color-mix(in srgb, var(--accent) 78%, var(--ink));
+  stroke-width: 1.35;
+}
+
+.knowledge-graph-edge.faded {
+  stroke-opacity: 0.14;
 }
 
 .knowledge-graph-node {
@@ -2449,29 +2433,42 @@ html.electron .pane-head {
 }
 
 .knowledge-graph-node circle {
-  fill: var(--card);
-  stroke: var(--line);
-  stroke-width: 1.5;
+  fill: var(--muted);
+  stroke: none;
 }
 
 .knowledge-graph-node.linked circle {
-  stroke: var(--ink);
+  fill: var(--ink);
 }
 
 .knowledge-graph-node.selected circle {
   fill: var(--accent);
-  stroke: var(--accent);
+}
+
+.knowledge-graph-glow {
+  fill: color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
 .knowledge-graph-node.missing circle {
-  fill: var(--card-2);
-  stroke-dasharray: 3 2;
+  fill: var(--muted);
+  stroke: var(--muted);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+  fill-opacity: 0.35;
+}
+
+.knowledge-graph-node.faded {
+  opacity: 0.18;
 }
 
 .knowledge-graph-node text {
-  font-size: 11px;
+  font-size: 10px;
   fill: var(--ink);
   pointer-events: none;
+  paint-order: stroke;
+  stroke: var(--bg-pane);
+  stroke-width: 4px;
+  stroke-linejoin: round;
 }
 
 .knowledge-graph-node.missing text {
@@ -2646,7 +2643,6 @@ html.electron .pane-head {
   .gate-handoff .status-pill i,
   .gate-handoff .phone-typing i,
   .typing-dots i,
-  .spiral-loader-path,
   .pane,
   .chat-pane-slot.is-leaving > .pane {
     animation: none;
@@ -2823,6 +2819,224 @@ html.electron .pane-head {
 :root[data-theme="light"] .chat-md pre,
 :root[data-theme="light"] .chat-md :not(pre) > code {
   background: rgba(0, 0, 0, 0.05);
+}
+
+.design-page {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.design-head {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 28px 32px 20px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(16px);
+}
+
+.design-brand h1 {
+  font-size: 32px;
+}
+
+.design-brand .hint {
+  max-width: 36rem;
+  margin-top: 6px;
+}
+
+.design-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.design-body {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 32px;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 28px 32px 80px;
+}
+
+.design-toc {
+  position: sticky;
+  top: 132px;
+  align-self: start;
+  display: grid;
+  gap: 4px;
+}
+
+.design-toc a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13px;
+  padding: 6px 0;
+}
+
+.design-toc a:hover {
+  color: var(--ink);
+}
+
+.design-main {
+  min-width: 0;
+}
+
+.design-section {
+  scroll-margin-top: 120px;
+  margin-bottom: 48px;
+}
+
+.design-section .lede {
+  max-width: 40rem;
+  margin-bottom: 18px;
+}
+
+.design-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.design-specimen {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg-thread);
+  overflow: hidden;
+}
+
+.design-specimen > figcaption {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px 0;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.design-specimen > figcaption .hint {
+  margin: 0;
+}
+
+.design-canvas {
+  padding: 16px;
+}
+
+.design-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.design-row.wrap,
+.row.wrap {
+  flex-wrap: wrap;
+}
+
+.design-spiral {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  color: var(--muted);
+}
+
+.design-mascot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 16px;
+}
+
+.design-mascot-grid.sm {
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+}
+
+.design-mascot {
+  margin: 0;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+
+.design-mascot figcaption {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.design-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.design-sidebar {
+  max-width: 320px;
+  padding: 6px;
+  border-radius: 16px;
+  background: var(--bg-side);
+}
+
+.design-swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+  gap: 10px;
+}
+
+.design-swatch {
+  margin: 0;
+}
+
+.design-swatch span {
+  display: block;
+  height: 48px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+
+.design-swatch figcaption {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.design-graph {
+  height: 380px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-pane);
+}
+
+.design-graph .knowledge-graph,
+.design-graph .knowledge-graph svg {
+  height: 100%;
+}
+
+@media (max-width: 840px) {
+  .design-head,
+  .design-body {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .design-body {
+    grid-template-columns: 1fr;
+  }
+
+  .design-toc {
+    position: static;
+    grid-auto-flow: column;
+    overflow-x: auto;
+    gap: 16px;
+  }
 }
 
 @custom-variant data-open (&:where([data-state="open"], [data-open]:not([data-open="false"])));

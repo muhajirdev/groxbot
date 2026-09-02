@@ -37,7 +37,8 @@
     "overrides": {
       "react": "19.2.3",
       "react-dom": "19.2.3",
-      "wrangler": "4.113.0"
+      "wrangler": "4.113.0",
+      "chat": "4.38.1"
     }
   }
 }

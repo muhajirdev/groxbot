@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from "./routes/__root"
 import { Route as IndexRouteImport } from "./routes/index"
 import { Route as AuthedRouteRouteImport } from "./routes/_authed/route"
+import { Route as DesignRouteImport } from "./routes/design"
 import { Route as LoginRouteImport } from "./routes/login"
 import { Route as AuthedBotIdRouteImport } from "./routes/_authed/$botId"
 import { Route as AuthedOnboardingRouteImport } from "./routes/_authed/onboarding"
@@ -22,6 +23,11 @@ const IndexRoute = IndexRouteImport.update({
 } as any)
 const AuthedRouteRoute = AuthedRouteRouteImport.update({
   id: "/_authed",
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DesignRoute = DesignRouteImport.update({
+  id: "/design",
+  path: "/design",
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -42,12 +48,14 @@ const AuthedOnboardingRoute = AuthedOnboardingRouteImport.update({
 
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute
+  "/design": typeof DesignRoute
   "/login": typeof LoginRoute
   "/$botId": typeof AuthedBotIdRoute
   "/onboarding": typeof AuthedOnboardingRoute
 }
 export interface FileRoutesByTo {
   "/": typeof IndexRoute
+  "/design": typeof DesignRoute
   "/login": typeof LoginRoute
   "/$botId": typeof AuthedBotIdRoute
   "/onboarding": typeof AuthedOnboardingRoute
@@ -56,19 +64,21 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   "/": typeof IndexRoute
   "/_authed": typeof AuthedRouteRouteWithChildren
+  "/design": typeof DesignRoute
   "/login": typeof LoginRoute
   "/_authed/$botId": typeof AuthedBotIdRoute
   "/_authed/onboarding": typeof AuthedOnboardingRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: "/" | "/login" | "/$botId" | "/onboarding"
+  fullPaths: "/" | "/design" | "/login" | "/$botId" | "/onboarding"
   fileRoutesByTo: FileRoutesByTo
-  to: "/" | "/login" | "/$botId" | "/onboarding"
+  to: "/" | "/design" | "/login" | "/$botId" | "/onboarding"
   id:
     | "__root__"
     | "/"
     | "/_authed"
+    | "/design"
     | "/login"
     | "/_authed/$botId"
     | "/_authed/onboarding"
@@ -77,6 +87,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthedRouteRoute: typeof AuthedRouteRouteWithChildren
+  DesignRoute: typeof DesignRoute
   LoginRoute: typeof LoginRoute
 }
 
@@ -94,6 +105,13 @@ declare module "@tanstack/react-router" {
       path: ""
       fullPath: "/"
       preLoaderRoute: typeof AuthedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    "/design": {
+      id: "/design"
+      path: "/design"
+      fullPath: "/design"
+      preLoaderRoute: typeof DesignRouteImport
       parentRoute: typeof rootRouteImport
     }
     "/login": {
@@ -137,6 +155,7 @@ const AuthedRouteRouteWithChildren = AuthedRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthedRouteRoute: AuthedRouteRouteWithChildren,
+  DesignRoute: DesignRoute,
   LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport

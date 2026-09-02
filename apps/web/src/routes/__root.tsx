@@ -36,10 +36,15 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 });
 
 async function loadAuthedContext(client: typeof queryClient) {
-  const session = await loadSession(client);
-  if (!session) return { session: null };
-  void client.ensureQueryData(orpc.me.queryOptions());
-  return { session };
+  try {
+    const session = await loadSession(client);
+    if (!session) return { session: null };
+    void client.ensureQueryData(orpc.me.queryOptions());
+    return { session };
+  } catch {
+    // API down / offline — treat as signed out so public routes still render.
+    return { session: null };
+  }
 }
 
 function RootComponent() {
