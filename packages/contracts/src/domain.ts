@@ -27,6 +27,7 @@ export const BotSchema = z.object({
   lastPreview: z.string(),
   lastAt: z.string(),
   archivedAt: z.string().nullable(),
+  pinnedAt: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -158,6 +159,15 @@ export const ComputerFileSchema = z.object({
 });
 export type ComputerFile = z.infer<typeof ComputerFileSchema>;
 
+/** Full file bytes as base64 for a browser download. Not the preview read. */
+export const ComputerDownloadSchema = z.object({
+  path: z.string(),
+  filename: z.string(),
+  content: z.string(),
+  mediaType: z.string(),
+});
+export type ComputerDownload = z.infer<typeof ComputerDownloadSchema>;
+
 export const MemoryDocumentSchema = z.object({
   id: Id,
   scope: MemoryScope,
@@ -167,6 +177,74 @@ export const MemoryDocumentSchema = z.object({
   revision: z.number().int(),
   updatedAt: z.string(),
 });
+
+/** One file in the office library. Folders are implied by path. */
+export const KnowledgeEntrySchema = z.object({
+  path: z.string(),
+  name: z.string(),
+  title: z.string(),
+  description: z.string(),
+  size: z.number().int().nonnegative().optional(),
+  encoding: z.enum(["text", "binary"]),
+  mediaType: z.string(),
+});
+export type KnowledgeEntry = z.infer<typeof KnowledgeEntrySchema>;
+
+export const KnowledgeListSchema = z.object({
+  entries: z.array(KnowledgeEntrySchema),
+  truncated: z.boolean(),
+});
+export type KnowledgeList = z.infer<typeof KnowledgeListSchema>;
+
+/** Interned office-link snapshot. Invert `out` in RAM; do not persist incoming. */
+export const KnowledgeGraphSchema = z.object({
+  paths: z.array(z.string()),
+  out: z.array(z.array(z.number().int().nonnegative())),
+});
+export type KnowledgeGraph = z.infer<typeof KnowledgeGraphSchema>;
+
+export const KnowledgeFileSchema = z.object({
+  path: z.string(),
+  title: z.string(),
+  description: z.string(),
+  content: z.string(),
+  truncated: z.boolean(),
+  encoding: z.enum(["text", "binary"]),
+  mediaType: z.string(),
+  backlinks: z.array(z.string()).default([]),
+});
+export type KnowledgeFile = z.infer<typeof KnowledgeFileSchema>;
+
+export const KnowledgeWriteSchema = z.object({
+  path: z.string().min(1).max(240),
+  content: z.string().max(Math.ceil(MAX_COMPUTER_WRITE_BYTES * 1.4)),
+  encoding: z.enum(["text", "base64"]).optional(),
+  mediaType: z.string().max(127).optional(),
+});
+export type KnowledgeWrite = z.infer<typeof KnowledgeWriteSchema>;
+
+export const KnowledgeImportInput = z.object({
+  source: z.string().min(1).max(500),
+  name: z.string().min(1).max(64).optional(),
+});
+export type KnowledgeImportInput = z.infer<typeof KnowledgeImportInput>;
+
+export const KnowledgeImportResultSchema = z.object({
+  imported: z.array(
+    z.object({
+      name: z.string(),
+      path: z.string(),
+      description: z.string(),
+    }),
+  ),
+  skipped: z.array(
+    z.object({
+      name: z.string(),
+      reason: z.string(),
+    }),
+  ),
+});
+export type KnowledgeImportResult = z.infer<typeof KnowledgeImportResultSchema>;
 
 export const GuestStatusSchema = z.object({
   botId: Id,
@@ -201,6 +279,10 @@ export const WorkspaceInvitationSchema = z.object({
 export type WorkspaceInvitation = z.infer<typeof WorkspaceInvitationSchema>;
 
 export const CreateWorkspaceInput = z.object({
+  name: z.string().min(1).max(80),
+});
+
+export const UpdateWorkspaceInput = z.object({
   name: z.string().min(1).max(80),
 });
 
@@ -262,6 +344,51 @@ export type PluginConnectResult = z.infer<typeof PluginConnectResultSchema>;
 export const PluginStatusSchema = z.object({
   composio: z.boolean(),
 });
+
+export const McpName = z
+  .string()
+  .min(1)
+  .max(64)
+  .regex(/^[a-z][a-z0-9-]*$/);
+export type McpName = z.infer<typeof McpName>;
+
+export const McpUrl = z
+  .string()
+  .min(8)
+  .max(500)
+  .refine((value) => {
+    try {
+      const url = new URL(value);
+      if (url.protocol === "https:") return true;
+      if (url.protocol !== "http:") return false;
+      return (
+        url.hostname === "localhost" ||
+        url.hostname === "127.0.0.1" ||
+        url.hostname === "::1"
+      );
+    } catch {
+      return false;
+    }
+  }, "Paste an https MCP URL.");
+export type McpUrl = z.infer<typeof McpUrl>;
+
+export const McpConnectionSchema = z.object({
+  id: Id,
+  name: McpName,
+  url: z.string(),
+  status: PluginStatus,
+  hostBotId: Id.nullable(),
+  lastError: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type McpConnection = z.infer<typeof McpConnectionSchema>;
+
+export const McpConnectResultSchema = z.object({
+  connection: McpConnectionSchema,
+  redirectUrl: z.string().nullable(),
+});
+export type McpConnectResult = z.infer<typeof McpConnectResultSchema>;
 
 export const MeSchema = z.object({
   userId: Id,

@@ -376,7 +376,7 @@ pnpm db:migrate
 pnpm dev
 \`\`\`
 
-- Web: http://127.0.0.1:5173 (Vite; proxies /api /rpc /health)
+- Web: http://127.0.0.1:5173 (Vite; browser calls :3100 for API / auth / Think)
 - API Worker: http://127.0.0.1:3100/health (wrangler dev)
 - oRPC: http://127.0.0.1:3100/rpc
 

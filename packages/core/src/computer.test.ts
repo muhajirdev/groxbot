@@ -5,10 +5,14 @@ import {
   MAX_COMPUTER_READ_CHARS,
   MAX_COMPUTER_WRITE_BYTES,
   decodeComputerBytes,
+  downloadComputerFile,
+  encodeComputerBytes,
   listComputerEntries,
+  mediaTypeForComputerPath,
   readComputerFile,
   sanitizeAttachmentName,
   sanitizeComputerPath,
+  hostedChatMessages,
   writeInboxFile,
   type ComputerDisk,
 } from "./computer.js";
@@ -176,6 +180,61 @@ describe("readComputerFile", () => {
   });
 });
 
+describe("downloadComputerFile", () => {
+  it("returns text as utf-8 base64", async () => {
+    const disk = new MemoryDisk();
+    disk.files.set("inbox/notes.md", "office notes");
+    const file = await downloadComputerFile(disk, "inbox/notes.md");
+    expect(file).toEqual({
+      path: "inbox/notes.md",
+      filename: "notes.md",
+      content: encodeComputerBytes(new TextEncoder().encode("office notes")),
+      mediaType: "text/markdown",
+    });
+  });
+
+  it("returns binary bytes from readFileBytes", async () => {
+    const png = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0, 1, 2]);
+    const disk: ComputerDisk = {
+      readFile: async () => null,
+      readFileBytes: async (path) => (path === "shot.png" ? png : null),
+    };
+    const file = await downloadComputerFile(disk, "shot.png");
+    expect(file.filename).toBe("shot.png");
+    expect(file.mediaType).toBe("image/png");
+    expect(decodeComputerBytes(file.content)).toEqual(png);
+  });
+
+  it("falls back to latin1 for binary strings", async () => {
+    const disk = new MemoryDisk();
+    disk.files.set("shot.png", "\0png");
+    const file = await downloadComputerFile(disk, "shot.png");
+    expect(decodeComputerBytes(file.content)).toEqual(
+      Uint8Array.from([0, 112, 110, 103]),
+    );
+  });
+
+  it("rejects oversized files", async () => {
+    const disk: ComputerDisk = {
+      readFile: async () => null,
+      readFileBytes: async () => new Uint8Array(MAX_COMPUTER_WRITE_BYTES + 1),
+    };
+    await expect(downloadComputerFile(disk, "huge.bin")).rejects.toThrow(
+      /too large/,
+    );
+  });
+});
+
+describe("mediaTypeForComputerPath", () => {
+  it("maps common extensions", () => {
+    expect(mediaTypeForComputerPath("inbox/shot.png")).toBe("image/png");
+    expect(mediaTypeForComputerPath("notes.md")).toBe("text/markdown");
+    expect(mediaTypeForComputerPath("mystery")).toBe(
+      "application/octet-stream",
+    );
+  });
+});
+
 describe("writeInboxFile", () => {
   it("sanitizes names and rejects escapes", () => {
     expect(sanitizeAttachmentName("../secret.md")).toBe("secret.md");
@@ -215,5 +274,80 @@ describe("writeInboxFile", () => {
   it("decodes data URLs", () => {
     const bytes = decodeComputerBytes("data:text/plain;base64,aGk=");
     expect(new TextDecoder().decode(bytes)).toBe("hi");
+  });
+
+  it("round-trips raw bytes", () => {
+    const bytes = Uint8Array.from([0, 1, 255, 10]);
+    expect(decodeComputerBytes(encodeComputerBytes(bytes))).toEqual(bytes);
+  });
+});
+
+describe("hostedChatMessages", () => {
+  it("drops file parts so only the inbox path text remains", () => {
+    const messages = [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "read this" },
+          {
+            type: "file",
+            mediaType: "application/pdf",
+            filename: "a.pdf",
+            data: "inbox/a.pdf",
+          },
+          {
+            type: "file",
+            mediaType: "image/png",
+            data: "data:image/png;base64,aa",
+          },
+        ],
+      },
+    ];
+    expect(hostedChatMessages(messages)).toEqual([
+      {
+        role: "user",
+        content: [{ type: "text", text: "read this" }],
+      },
+    ]);
+  });
+
+  it("drops UI file parts whose url is a workspace path", () => {
+    const messages = [
+      {
+        role: "user",
+        parts: [
+          { type: "text", text: "On this computer: inbox/a.pdf" },
+          {
+            type: "file",
+            mediaType: "application/pdf",
+            filename: "a.pdf",
+            url: "inbox/a.pdf",
+          },
+        ],
+      },
+    ];
+    expect(hostedChatMessages(messages)).toEqual([
+      {
+        role: "user",
+        parts: [{ type: "text", text: "On this computer: inbox/a.pdf" }],
+      },
+    ]);
+  });
+
+  it("prefixes the speaker so the model can tell humans apart", () => {
+    const messages = [
+      {
+        role: "user",
+        metadata: { user: { userId: "usr_1", name: "Alex" } },
+        parts: [{ type: "text", text: "ship the brief" }],
+      },
+    ];
+    expect(hostedChatMessages(messages)).toEqual([
+      {
+        role: "user",
+        metadata: { user: { userId: "usr_1", name: "Alex" } },
+        parts: [{ type: "text", text: "Alex: ship the brief" }],
+      },
+    ]);
   });
 });

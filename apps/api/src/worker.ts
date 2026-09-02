@@ -1,4 +1,9 @@
 /** Product API: Cloudflare Worker + Neon HTTP + Durable Object BotActor (Think). */
+import {
+  officeUserFromActor,
+  withOfficeUserRequest,
+} from "@groxbot/contracts";
+import { createSkillImportHttp } from "@groxbot/core";
 import { bots } from "@groxbot/db";
 import { createNeonHttpDb } from "@groxbot/db/neon";
 import { ORPCError } from "@orpc/server";
@@ -7,9 +12,18 @@ import { and, eq } from "drizzle-orm";
 import { createApp } from "./app.js";
 import { AppRuntime, DurableObjectAppStore } from "./app-runtime-do.js";
 import { BotActor, type WorkerEnv } from "./bot-actor.js";
-import { listBotComputer, readBotComputer, writeBotComputer } from "./bot-computer.js";
+import {
+  destroyBotActor,
+  downloadBotComputer,
+  listBotComputer,
+  readBotComputer,
+  writeBotComputer,
+} from "./bot-computer.js";
 import { enqueueOnBot } from "./bot-enqueue.js";
+import { addBotMcp, oauthBotMcp, removeBotMcp } from "./bot-mcp.js";
 import { productEnv } from "./env.js";
+import { knowledgeAccess } from "./knowledge.js";
+import { r2KnowledgeDisk } from "./knowledge-r2.js";
 import { requireActor } from "./session.js";
 
 export { CodemodeRuntime } from "@cloudflare/codemode";
@@ -37,14 +51,9 @@ function agentCors(request: Request, origins: string[]): HeadersInit | true {
   };
 }
 
-function agentLog(id: string, t0: number, pathname: string, step: string) {
-  console.log(`[agents ${id}] +${Date.now() - t0}ms ${pathname} ${step}`);
-}
-
 export default {
   async fetch(request: Request, env: WorkerEnv): Promise<Response> {
     const loaded = productEnv(env);
-    const t0 = Date.now();
     const { db, close } = createNeonHttpDb(loaded.databaseUrl);
     const apps = new DurableObjectAppStore(env.APP_RUNTIME);
     const handles = createApp(loaded, {
@@ -57,24 +66,38 @@ export default {
       computer: {
         list: (botId, path) => listBotComputer(env.BOT_ACTOR, botId, path),
         read: (botId, path) => readBotComputer(env.BOT_ACTOR, botId, path),
+        download: (botId, path) =>
+          downloadBotComputer(env.BOT_ACTOR, botId, path),
         write: (botId, filename, content, mediaType) =>
           writeBotComputer(env.BOT_ACTOR, botId, filename, content, mediaType),
       },
+      knowledge: env.KNOWLEDGE
+        ? knowledgeAccess(
+            r2KnowledgeDisk(env.KNOWLEDGE),
+            createSkillImportHttp(),
+          )
+        : undefined,
+      mcp: {
+        add: (botId, input) => addBotMcp(env.BOT_ACTOR, botId, input),
+        remove: (botId, serverId) => removeBotMcp(env.BOT_ACTOR, botId, serverId),
+        oauth: (botId, request) => oauthBotMcp(env.BOT_ACTOR, botId, request),
+      },
+      forgetBot: (botId) => destroyBotActor(env.BOT_ACTOR, botId),
       email: env.EMAIL,
     });
 
     const url = new URL(request.url);
     if (url.pathname.startsWith("/agents/")) {
-      const id = crypto.randomUUID().slice(0, 8);
       const pathname = url.pathname;
-      agentLog(id, t0, pathname, `start ${request.method}`);
+      let inbound = request;
       if (request.method !== "OPTIONS") {
         try {
           const actor = await requireActor({
             ...handles,
             headers: request.headers,
           });
-          agentLog(id, t0, pathname, `auth ${actor.workspaceId}`);
+          const officeUser = officeUserFromActor(actor);
+          if (officeUser) inbound = withOfficeUserRequest(request, officeUser);
           const botId = agentInstanceName(pathname);
           const messagesOnly = pathname.endsWith("/get-messages");
           if (botId && !messagesOnly) {
@@ -88,23 +111,19 @@ export default {
                 ),
               )
               .limit(1);
-            agentLog(id, t0, pathname, bot ? "membership ok" : "membership miss");
             if (!bot) return new Response("Not found", { status: 404 });
           }
         } catch (error) {
-          agentLog(id, t0, pathname, "auth fail");
           if (error instanceof ORPCError) {
             return new Response(error.message, { status: error.status });
           }
           throw error;
         }
       }
-      agentLog(id, t0, pathname, "do begin");
       const response =
-        (await routeAgentRequest(request, env, {
+        (await routeAgentRequest(inbound, env, {
           cors: agentCors(request, loaded.corsOrigins),
         })) || new Response("Not found", { status: 404 });
-      agentLog(id, t0, pathname, `do done ${response.status}`);
       return response;
     }
 

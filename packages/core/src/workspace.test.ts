@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   invitationIdFromInput,
   invitationUrl,
+  renameWorkspace,
   slugForWorkspace,
   workspaceAuthMessage,
 } from "./workspace.js";
@@ -52,6 +53,14 @@ describe("invitationUrl", () => {
   });
 });
 
+describe("renameWorkspace", () => {
+  it("does not write a blank name", async () => {
+    await expect(
+      renameWorkspace({} as never, "ws_1", "   "),
+    ).resolves.toBeNull();
+  });
+});
+
 describe("workspaceAuthMessage", () => {
   it("rewrites recipient mismatches", () => {
     expect(
@@ -60,5 +69,14 @@ describe("workspaceAuthMessage", () => {
         "Join failed",
       ),
     ).toBe("That invite is for a different email.");
+  });
+
+  it("rewrites organization update permission errors", () => {
+    expect(
+      workspaceAuthMessage(
+        "You are not allowed to update this organization",
+        "Could not update workspace",
+      ),
+    ).toBe("You can't rename this workspace.");
   });
 });

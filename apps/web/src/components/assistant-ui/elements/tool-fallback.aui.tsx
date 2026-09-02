@@ -2,12 +2,11 @@
 
 import { memo, useCallback, useRef, useState } from "react";
 import {
-  AlertCircleIcon,
+  CaretDownIcon,
   CheckIcon,
-  ChevronDownIcon,
-  LoaderIcon,
+  WarningCircleIcon,
   XCircleIcon,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 import {
   useScrollLock,
   useToolCallElapsed,
@@ -24,6 +23,7 @@ import {
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { SpiralLoader } from "./spiral-loader";
 
 const ANIMATION_DURATION = 200;
 
@@ -86,13 +86,12 @@ function ToolFallbackRoot({
   );
 }
 
-type ToolStatus = ToolCallMessagePartStatus["type"];
+type ToolStatus = Exclude<ToolCallMessagePartStatus["type"], "running">;
 
 const statusIconMap: Record<ToolStatus, React.ElementType> = {
-  running: LoaderIcon,
   complete: CheckIcon,
   incomplete: XCircleIcon,
-  "requires-action": AlertCircleIcon,
+  "requires-action": WarningCircleIcon,
 };
 
 const formatToolDuration = (ms: number) => {
@@ -137,8 +136,7 @@ function ToolFallbackTrigger({
   const isRunning = statusType === "running";
   const isCancelled =
     status?.type === "incomplete" && status.reason === "cancelled";
-
-  const Icon = statusIconMap[statusType];
+  const Icon = isRunning ? null : statusIconMap[statusType];
   const label = isCancelled ? "Cancelled tool" : "Used tool";
 
   return (
@@ -150,14 +148,21 @@ function ToolFallbackTrigger({
       )}
       {...props}
     >
-      <Icon
-        data-slot="tool-fallback-trigger-icon"
-        className={cn(
-          "aui-tool-fallback-trigger-icon size-4 shrink-0",
-          isCancelled && "text-muted-foreground",
-          isRunning && "animate-spin [animation-duration:0.6s]",
-        )}
-      />
+      {Icon ? (
+        <Icon
+          data-slot="tool-fallback-trigger-icon"
+          className={cn(
+            "aui-tool-fallback-trigger-icon size-4 shrink-0",
+            isCancelled && "text-muted-foreground",
+          )}
+        />
+      ) : (
+        <SpiralLoader
+          data-slot="tool-fallback-trigger-icon"
+          size={16}
+          className="aui-tool-fallback-trigger-icon"
+        />
+      )}
       <span
         data-slot="tool-fallback-trigger-label"
         className={cn(
@@ -169,7 +174,7 @@ function ToolFallbackTrigger({
         {label}: <b>{toolName}</b>
       </span>
       <ToolFallbackDuration />
-      <ChevronDownIcon
+      <CaretDownIcon
         data-slot="tool-fallback-trigger-chevron"
         className={cn(
           "aui-tool-fallback-trigger-chevron size-4 shrink-0",

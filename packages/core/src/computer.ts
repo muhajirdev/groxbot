@@ -3,6 +3,8 @@
 import {
   COMPUTER_INBOX_DIR,
   MAX_COMPUTER_WRITE_BYTES,
+  parseOfficeUserMeta,
+  type ComputerDownload,
   type ComputerEntry,
   type ComputerFile,
   type ComputerList,
@@ -63,6 +65,7 @@ export class ComputerWriteError extends Error {
 
 export type ComputerDisk = {
   readFile(path: string): Promise<string | null>;
+  readFileBytes?(path: string): Promise<Uint8Array | null>;
   glob?(pattern: string): Promise<unknown>;
   readDir?(path: string, opts?: { limit?: number }): Promise<unknown>;
   stat?(
@@ -144,6 +147,58 @@ export async function readComputerFile(
   };
 }
 
+export async function downloadComputerFile(
+  disk: ComputerDisk,
+  rawPath: string,
+): Promise<ComputerDownload> {
+  const path = sanitizeComputerPath(rawPath);
+  if (!path) throw new ComputerPathError("Pick a file on this computer.");
+  const bytes = await readComputerBytes(disk, path);
+  if (bytes.byteLength > MAX_COMPUTER_WRITE_BYTES) {
+    throw new ComputerWriteError("That file is too large to download.");
+  }
+  return {
+    path,
+    filename: path.split("/").at(-1) ?? path,
+    content: encodeComputerBytes(bytes),
+    mediaType: mediaTypeForComputerPath(path),
+  };
+}
+
+export function mediaTypeForComputerPath(path: string): string {
+  const file = path.split("/").at(-1) ?? path;
+  const index = file.lastIndexOf(".");
+  const ext = index === -1 ? "" : file.slice(index).toLowerCase();
+  return MEDIA_TYPES[ext] ?? "application/octet-stream";
+}
+
+async function readComputerBytes(
+  disk: ComputerDisk,
+  path: string,
+): Promise<Uint8Array> {
+  if (disk.readFileBytes) {
+    try {
+      const bytes = await disk.readFileBytes(path);
+      if (bytes) return bytes;
+    } catch {
+      // Fall through to text read.
+    }
+  }
+  let content: string | null;
+  try {
+    content = await disk.readFile(path);
+  } catch {
+    throw new ComputerFileError();
+  }
+  if (content == null) throw new ComputerFileError();
+  if (isTextFile(path, content)) return new TextEncoder().encode(content);
+  const bytes = new Uint8Array(content.length);
+  for (let i = 0; i < content.length; i++) {
+    bytes[i] = content.charCodeAt(i) & 0xff;
+  }
+  return bytes;
+}
+
 export function sanitizeAttachmentName(filename: string): string {
   const base = filename.replaceAll("\\", "/").split("/").pop() ?? "";
   const cleaned = base
@@ -173,6 +228,21 @@ export function decodeComputerBytes(raw: string): Uint8Array {
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return bytes;
+}
+
+export function encodeComputerBytes(bytes: Uint8Array): string {
+  const buffer = (
+    globalThis as {
+      Buffer?: { from(data: Uint8Array): { toString(enc: string): string } };
+    }
+  ).Buffer;
+  if (buffer) return buffer.from(bytes).toString("base64");
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
 }
 
 export async function writeInboxFile(
@@ -390,4 +460,123 @@ function isTextFile(path: string, content: string): boolean {
   const ext = index === -1 ? "" : file.slice(index).toLowerCase();
   if (ext && !TEXT_EXTENSIONS.has(ext)) return false;
   return true;
+}
+
+const MEDIA_TYPES: Record<string, string> = {
+  ".css": "text/css",
+  ".csv": "text/csv",
+  ".gif": "image/gif",
+  ".htm": "text/html",
+  ".html": "text/html",
+  ".jpeg": "image/jpeg",
+  ".jpg": "image/jpeg",
+  ".js": "text/javascript",
+  ".json": "application/json",
+  ".jsx": "text/javascript",
+  ".md": "text/markdown",
+  ".mjs": "text/javascript",
+  ".pdf": "application/pdf",
+  ".png": "image/png",
+  ".py": "text/x-python",
+  ".svg": "image/svg+xml",
+  ".ts": "text/plain",
+  ".tsx": "text/plain",
+  ".txt": "text/plain",
+  ".webp": "image/webp",
+  ".xml": "application/xml",
+  ".yaml": "text/yaml",
+  ".yml": "text/yaml",
+};
+
+type HostedChatMessage = {
+  role: string;
+  content?: unknown;
+  parts?: unknown;
+  metadata?: unknown;
+};
+
+function isDirectMediaPart(part: unknown): boolean {
+  if (!part || typeof part !== "object") return false;
+  const type = (part as { type?: unknown }).type;
+  return type === "file" || type === "image";
+}
+
+function withoutDirectMedia<T>(list: T[]): T[] {
+  return list.filter((part) => !isDirectMediaPart(part));
+}
+
+function speakerPrefix(name: string): string {
+  return `${name}: `;
+}
+
+function labelTextParts(list: unknown[], name: string): unknown[] {
+  const prefix = speakerPrefix(name);
+  let labeled = false;
+  let changed = false;
+  const next = list.map((part) => {
+    if (labeled || !part || typeof part !== "object") return part;
+    const row = part as { type?: unknown; text?: unknown };
+    if (row.type !== "text" || typeof row.text !== "string") return part;
+    labeled = true;
+    if (row.text.startsWith(prefix)) return part;
+    changed = true;
+    return { ...row, text: `${prefix}${row.text}` };
+  });
+  return changed ? next : list;
+}
+
+function withSpeakerLabel<T extends HostedChatMessage>(message: T): T {
+  if (message.role !== "user") return message;
+  const user = parseOfficeUserMeta(message.metadata);
+  if (!user) return message;
+  let row = message;
+  if (Array.isArray(message.parts)) {
+    const parts = labelTextParts(message.parts, user.name);
+    if (parts !== message.parts) row = { ...row, parts };
+  }
+  if (Array.isArray(message.content)) {
+    const content = labelTextParts(message.content, user.name);
+    if (content !== message.content) row = { ...row, content };
+  } else if (typeof message.content === "string") {
+    const prefix = speakerPrefix(user.name);
+    if (!message.content.startsWith(prefix)) {
+      row = { ...row, content: `${prefix}${message.content}` };
+    }
+  }
+  return row;
+}
+
+/**
+ * Files live on the computer. Drop file/image parts so the model only sees
+ * the inbox path as text — never a workspace path stuffed into `url`.
+ * User turns keep metadata.user; the model sees `Name: …` on the text.
+ */
+export function hostedChatMessages<T extends HostedChatMessage>(
+  messages: T[],
+): T[] {
+  let changed = false;
+  const next = messages.map((message) => {
+    let row = message;
+    if (Array.isArray(message.parts)) {
+      const parts = withoutDirectMedia(message.parts);
+      if (parts.length !== message.parts.length) {
+        changed = true;
+        row = { ...row, parts };
+      }
+    }
+    if (Array.isArray(message.content)) {
+      const content = withoutDirectMedia(message.content);
+      if (content.length !== message.content.length) {
+        changed = true;
+        row = { ...row, content };
+      }
+    }
+    const labeled = withSpeakerLabel(row);
+    if (labeled !== row) {
+      changed = true;
+      row = labeled;
+    }
+    return row;
+  });
+  return changed ? next : messages;
 }

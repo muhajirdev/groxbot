@@ -9,7 +9,7 @@ BETTER_AUTH_SECRET=development-only-change-me-please-32ch
 ENCRYPTION_KEY=replace-with-64-char-hex-or-passphrase
 
 NODE_ENV=development
-BETTER_AUTH_URL=http://127.0.0.1:5173
+BETTER_AUTH_URL=http://127.0.0.1:3100
 API_URL=http://127.0.0.1:3100
 WEB_ORIGIN=http://127.0.0.1:5173
 CORS_ORIGINS=http://127.0.0.1:5173,http://127.0.0.1:5174

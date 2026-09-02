@@ -1,33 +1,46 @@
 import type {
   Bot,
   ProductEvent,
-  TemplateId,
   ThreadMessage,
   WorkspaceApp,
 } from "@groxbot/contracts";
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useHotkeys } from "@tanstack/react-hotkeys";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
 import { AppPane } from "../components/AppPane";
 import { AppSettings } from "../components/AppSettings";
 import { AvatarMark } from "../components/Avatar";
 import { BotSettingsPane } from "../components/BotSettingsPane";
 import { ComputerPane } from "../components/ComputerPane";
+import { CommandPalette, SearchTrigger } from "../components/CommandPalette";
 import {
   ChevronLeftIcon,
   FileIcon,
   GearIcon,
-  MicIcon,
   MonitorIcon,
+  MoreIcon,
+  PinIcon,
   PlugIcon,
   PlusIcon,
-  SearchIcon,
+  KnowledgeIcon,
+  TrashIcon,
 } from "../components/Icons";
 import { HireDialog } from "../components/HireDialog";
+import { KnowledgeModal } from "../components/KnowledgeModal";
 import { PluginsModal } from "../components/PluginsModal";
-import { ThinkThread } from "../components/ThinkThread";
+import { KeptThinkThread } from "../components/ThinkThread";
 import { ThreadList } from "../components/ThreadList";
+import { WorkspaceSwitcher } from "../components/WorkspaceSwitcher";
 import { APP_KIND_COLOR, APP_KIND_LABEL } from "../lib/app-kind";
 import { authClient } from "../lib/auth";
 import {
@@ -44,7 +57,19 @@ import {
   draftCreatedBot,
   nextAvatarColor,
 } from "../lib/hire";
-import { FIRST_TASK } from "../lib/jobs";
+import {
+  neighborBotId,
+  type PaletteActionId,
+} from "../lib/command-palette";
+import {
+  deskApp,
+  deskClosed,
+  deskComputer,
+  deskSettings,
+  officeSearch,
+  toggleDesk,
+  type OfficeSearch,
+} from "../lib/office-search";
 import { orpc } from "../lib/orpc";
 import { usePanePresence } from "../lib/presence";
 import { client } from "../lib/rpc";
@@ -54,12 +79,27 @@ import {
   firstLiveBot,
   isArchivedBot,
 } from "../lib/session";
-import { setThinkMessages } from "../lib/think-messages";
+import {
+  botMenuBox,
+  botMenuItems,
+  compareSidebarBots,
+  isPinnedBot,
+  nextBotIdAfterDelete,
+  type BotMenuPhase,
+} from "../lib/sidebar";
+import {
+  dropThinkKeepAlive,
+  rememberThinkKeepAlive,
+  sameThinkKeepAlive,
+} from "../lib/think-keepalive";
+import { forgetThinkMessages, setThinkMessages } from "../lib/think-messages";
 import { applyTheme, readTheme, type Theme } from "../lib/theme";
 import {
+  dropThreadMeta,
   ensureThreadMeta,
   patchThreadMeta,
   readCursor,
+  readThreadMeta,
 } from "../lib/thread-cache";
 import { formatListTime } from "../lib/time";
 import { Button, cn } from "../ui";
@@ -91,67 +131,90 @@ function initials(name: string): string {
   return `${parts[0]?.[0] ?? ""}${parts[1]?.[0] ?? ""}`.toUpperCase();
 }
 
-function isTypingTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  const tag = target.tagName;
-  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
-  return target.isContentEditable;
-}
-
-function neighborBotId(
-  ids: string[],
-  current: string | undefined,
-  delta: 1 | -1,
-): string | undefined {
-  if (ids.length === 0) return undefined;
-  const index = current ? ids.indexOf(current) : -1;
-  if (index < 0) return delta > 0 ? ids[0] : ids[ids.length - 1];
-  return ids[(index + delta + ids.length) % ids.length];
-}
-
-function BotRow(props: {
+const BotRow = memo(function BotRow(props: {
   item: Bot;
   selected: boolean;
   working: boolean;
   muted?: boolean;
+  desk: OfficeSearch;
+  onMenu: (event: MouseEvent, bot: Bot) => void;
 }) {
   const item = props.item;
+  const pinned = isPinnedBot(item);
   return (
-    <Link
-      to="/$botId"
-      params={{ botId: item.id }}
-      preload="intent"
-      preloadDelay={300}
-      className={cn(
-        "chat-conv grid min-w-0 grid-cols-[40px_minmax(0,1fr)] items-center gap-2.5 rounded-[14px] border-0 bg-transparent px-2 py-2.5 text-left text-inherit no-underline",
-        props.selected && "bg-selected",
-        props.muted && "opacity-70",
-      )}
-    >
-      <AvatarMark
-        name={item.name}
-        color={item.avatarColor}
-        shape={item.avatarShape}
-        mood={props.working ? "working" : "idle"}
-      />
-      <span className="chat-conv-copy min-w-0">
-        <span className="flex items-baseline justify-between gap-2">
-          <span className="text-sm font-semibold">{item.name}</span>
-          <span className="shrink-0 text-[11px] whitespace-nowrap text-muted">
-            {formatListTime(item.lastAt)}
-          </span>
+    <div className="group/bot relative">
+      <Link
+        to="/$botId"
+        params={{ botId: item.id }}
+        search={props.desk}
+        preload="intent"
+        preloadDelay={300}
+        className={cn(
+          "chat-conv grid min-w-0 grid-cols-[40px_minmax(0,1fr)] items-center gap-2.5 rounded-[14px] border-0 bg-transparent px-2 py-2.5 text-left text-inherit no-underline",
+          props.selected && "bg-selected",
+          props.muted && "opacity-70",
+        )}
+        aria-label={pinned ? `${item.name}, pinned` : item.name}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          props.onMenu(event, item);
+        }}
+      >
+        <span className="relative inline-grid shrink-0">
+          <AvatarMark
+            name={item.name}
+            color={item.avatarColor}
+            shape={item.avatarShape}
+            mood={props.working ? "working" : "idle"}
+          />
+          {pinned ? (
+            <span
+              className="chat-conv-pin pointer-events-none absolute -right-px -bottom-px hidden size-3.5 place-items-center rounded-full bg-bg-side text-muted max-[960px]:grid"
+              title="Pinned"
+            >
+              <PinIcon className="size-2.5" weight="fill" />
+            </span>
+          ) : null}
         </span>
-        {item.lastPreview || item.title ? (
-          <div className="mt-0.5 overflow-hidden text-xs text-ellipsis whitespace-nowrap text-muted">
-            {item.lastPreview || item.title}
-          </div>
-        ) : null}
-      </span>
-    </Link>
+        <span className="chat-conv-copy min-w-0">
+          <span className="flex items-center justify-between gap-2">
+            <span className="flex min-w-0 items-center gap-1">
+              <span className="truncate text-sm font-semibold">{item.name}</span>
+              {pinned ? (
+                <PinIcon
+                  className="size-3 shrink-0 text-muted"
+                  weight="fill"
+                />
+              ) : null}
+            </span>
+            <span className="chat-conv-time shrink-0 text-[11px] whitespace-nowrap text-muted group-hover/bot:invisible">
+              {formatListTime(item.lastAt)}
+            </span>
+          </span>
+          {item.lastPreview || item.title ? (
+            <div className="mt-0.5 overflow-hidden text-xs text-ellipsis whitespace-nowrap text-muted">
+              {item.lastPreview || item.title}
+            </div>
+          ) : null}
+        </span>
+      </Link>
+      <button
+        className="chat-conv-more absolute top-1.5 right-1.5 grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted opacity-0 group-hover/bot:opacity-100 hover:bg-hover hover:text-ink focus-visible:opacity-100"
+        type="button"
+        aria-label={`${item.name} actions`}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          props.onMenu(event, item);
+        }}
+      >
+        <MoreIcon />
+      </button>
+    </div>
   );
-}
+});
 
-function AppRow(props: {
+const AppRow = memo(function AppRow(props: {
   item: WorkspaceApp;
   selected: boolean;
   onOpen: () => void;
@@ -185,9 +248,9 @@ function AppRow(props: {
       </span>
     </button>
   );
-}
+});
 
-export function Chat(props: { botId: string }) {
+export function Chat(props: { botId: string; desk: OfficeSearch }) {
   const navigate = useNavigate();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -201,40 +264,46 @@ export function Chat(props: { botId: string }) {
       ? liveBotsRows
       : peekedBots;
   const me = meQuery.data;
-  const [search, setSearch] = useState("");
+  const desk = officeSearch(props.desk);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<"general" | "models">(
     "general",
   );
   const [pluginsOpen, setPluginsOpen] = useState(false);
+  const [knowledgeOpen, setKnowledgeOpen] = useState(false);
   const [hireOpen, setHireOpen] = useState(false);
-  const [paneMode, setPaneMode] = useState<
-    "settings" | "app" | "computer" | null
-  >(null);
-  const [openApp, setOpenApp] = useState<{
+  const lastApp = useRef<{
     id: string;
     title: string;
-    templateId: TemplateId;
+    templateId: WorkspaceApp["templateId"];
   } | null>(null);
-  const lastApp = useRef(openApp);
-  if (openApp) lastApp.current = openApp;
   const [archivedOpen, setArchivedOpen] = useState(false);
+  const [botMenu, setBotMenu] = useState<{
+    bot: Bot;
+    x: number;
+    y: number;
+    phase: BotMenuPhase;
+  } | null>(null);
   const [theme, setTheme] = useState<Theme>(readTheme());
   const [pokeView, setPokeView] = useState<{
     threadId: string;
     peerName: string;
   } | null>(null);
-  const [thinkBusy, setThinkBusy] = useState(false);
   const stopThink = useRef<(() => void) | null>(null);
   const hiring = useRef(false);
-  const [creatingId, setCreatingId] = useState<string | null>(null);
   const [pokeMessages, setPokeMessages] = useState<ThreadMessage[]>([]);
-  const bot =
-    (creatingId
-      ? bots.find((item) => item.id === creatingId)
-      : undefined) ?? bots.find((item) => item.id === props.botId);
-  const hiringThis = Boolean(creatingId && bot?.id === creatingId);
+  const [thinkKeepAlive, setThinkKeepAlive] = useState<string[]>(() =>
+    props.botId ? [props.botId] : [],
+  );
+  const thinkLruRef = useRef<string[]>(props.botId ? [props.botId] : []);
+  const bot = bots.find((item) => item.id === props.botId);
   const activeId = bot?.id;
+  const mountedThinkIds = useMemo(() => {
+    if (!activeId) return thinkKeepAlive;
+    return rememberThinkKeepAlive(thinkKeepAlive, thinkLruRef.current, activeId)
+      .mounted;
+  }, [activeId, thinkKeepAlive]);
   const metaQuery = useLiveQuery(
     (q) => {
       if (!activeId) return undefined;
@@ -245,49 +314,76 @@ export function Chat(props: { botId: string }) {
     },
     [activeId],
   );
-  const streamWorking =
-    metaQuery.data?.working ??
-    (activeId ? threadMetaCollection.get(activeId)?.working : undefined) ??
-    "";
-  const working = pokeView ? streamWorking : thinkBusy ? "working…" : "";
-  const error =
-    metaQuery.data?.error ??
-    (activeId ? threadMetaCollection.get(activeId)?.error : undefined) ??
-    "";
-  const q = search.trim().toLowerCase();
-  const matchesSearch = useCallback(
-    (item: Bot) => !q || item.name.toLowerCase().includes(q),
-    [q],
-  );
+  const meta = metaQuery.data ?? (activeId ? readThreadMeta(activeId) : undefined);
+  const hiringThis = Boolean(meta?.opening);
+  const working = meta?.working ?? "";
+  const error = meta?.error ?? "";
   const liveBots = useMemo(() => {
     return bots
-      .filter((item) => !isArchivedBot(item) && matchesSearch(item))
-      .sort(
-        (a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime(),
-      );
-  }, [bots, matchesSearch]);
+      .filter((item) => !isArchivedBot(item))
+      .sort(compareSidebarBots);
+  }, [bots]);
   const archivedBots = useMemo(() => {
     return bots
-      .filter((item) => isArchivedBot(item) && matchesSearch(item))
+      .filter((item) => isArchivedBot(item))
       .sort(
         (a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime(),
       );
-  }, [bots, matchesSearch]);
-  const showArchived = archivedOpen || Boolean(q) || Boolean(bot?.archivedAt);
+  }, [bots]);
+  const showArchived = archivedOpen || Boolean(bot?.archivedAt);
   const workspaceApps = appsQuery.data ?? [];
-  const visibleApps = useMemo(() => {
-    return workspaceApps.filter((item) => {
-      if (!q) return true;
-      return (
-        item.title.toLowerCase().includes(q) ||
-        APP_KIND_LABEL[item.templateId].toLowerCase().includes(q)
-      );
-    });
-  }, [workspaceApps, q]);
+  const openAppRow =
+    desk.pane === "app" && desk.app
+      ? workspaceApps.find((item) => item.id === desk.app)
+      : undefined;
+  if (openAppRow) {
+    lastApp.current = {
+      id: openAppRow.id,
+      title: openAppRow.title,
+      templateId: openAppRow.templateId,
+    };
+  }
+  const openApp = openAppRow
+    ? lastApp.current
+    : desk.pane === "app"
+      ? lastApp.current
+      : null;
+
+  const goToBot = useCallback(
+    (botId: string, nextDesk: OfficeSearch = desk) =>
+      navigate({ to: "/$botId", params: { botId }, search: nextDesk }),
+    [desk, navigate],
+  );
+  const setDesk = useCallback(
+    (next: OfficeSearch) => goToBot(props.botId, next),
+    [goToBot, props.botId],
+  );
 
   useEffect(() => {
     if (bot?.archivedAt) setArchivedOpen(true);
   }, [bot?.archivedAt]);
+
+  useEffect(() => {
+    if (!activeId) return;
+    const next = rememberThinkKeepAlive(
+      thinkKeepAlive,
+      thinkLruRef.current,
+      activeId,
+    );
+    thinkLruRef.current = next.lru;
+    setThinkKeepAlive((prev) =>
+      sameThinkKeepAlive(prev, next.mounted) ? prev : next.mounted,
+    );
+  }, [activeId, thinkKeepAlive]);
+
+  useEffect(() => {
+    const live = new Set(bots.map((item) => item.id));
+    thinkLruRef.current = thinkLruRef.current.filter((id) => live.has(id));
+    setThinkKeepAlive((prev) => {
+      const next = prev.filter((id) => live.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [bots]);
 
   useEffect(() => {
     if (!me?.workspaceId) return;
@@ -298,23 +394,113 @@ export function Chat(props: { botId: string }) {
     await botsCollection.utils.refetch();
     const next = selectId ?? props.botId ?? firstLiveBot(peekBots())?.id;
     if (next && next !== props.botId) {
-      await navigate({ to: "/$botId", params: { botId: next } });
+      await goToBot(next);
     }
   }
 
-  async function applyArchiveChange(next: Bot) {
-    cacheBot(next);
-    if (!next.archivedAt) {
-      if (next.id !== props.botId) {
-        await navigate({ to: "/$botId", params: { botId: next.id } });
+  const applyArchiveChange = useCallback(
+    async (next: Bot) => {
+      cacheBot(next);
+      if (!next.archivedAt) {
+        if (next.id !== props.botId) {
+          await goToBot(next.id);
+        }
+        return;
       }
-      return;
+      const fallback =
+        firstLiveBot(peekBots().filter((item) => item.id !== next.id)) ?? next;
+      if (fallback.id !== props.botId) {
+        await goToBot(fallback.id, deskClosed());
+      }
+    },
+    [goToBot, props.botId],
+  );
+
+  const onNeedsModel = useCallback(() => {
+    setSettingsTab("models");
+    setSettingsOpen(true);
+  }, []);
+
+  const onUnarchiveBot = useCallback(
+    (botId: string) => {
+      void client.bots
+        .unarchive({ botId })
+        .then(applyArchiveChange)
+        .catch((caught: unknown) =>
+          patchThreadMeta(botId, {
+            error: userFacingError(caught, "Could not unarchive"),
+          }),
+        );
+    },
+    [applyArchiveChange],
+  );
+
+  async function deleteTeammate(botId: string) {
+    const snapshot = peekBots().find((item) => item.id === botId);
+    if (!snapshot) return;
+    const keepAlive = thinkKeepAlive;
+    const lru = [...thinkLruRef.current];
+    const currentId = props.botId;
+
+    setThinkKeepAlive((prev) => dropThinkKeepAlive(prev, botId));
+    thinkLruRef.current = dropThinkKeepAlive(thinkLruRef.current, botId);
+    removeBot(botId);
+
+    const nextId = nextBotIdAfterDelete(peekBots(), botId, currentId);
+    const leave =
+      !nextId
+        ? navigate({ to: "/onboarding", search: {} })
+        : nextId !== currentId
+          ? goToBot(nextId, deskClosed())
+          : undefined;
+
+    try {
+      await client.bots.delete({ botId });
+      dropThreadMeta(botId);
+      forgetThinkMessages(botId);
+      void appsCollection.utils.refetch();
+      await leave;
+    } catch (caught: unknown) {
+      await leave;
+      cacheBot(snapshot);
+      setThinkKeepAlive(keepAlive);
+      thinkLruRef.current = lru;
+      patchThreadMeta(botId, {
+        error: userFacingError(caught, "Could not delete"),
+      });
+      if (currentId === botId) {
+        await goToBot(botId, deskClosed());
+      }
+      throw caught;
     }
-    const fallback =
-      firstLiveBot(peekBots().filter((item) => item.id !== next.id)) ?? next;
-    if (fallback.id !== props.botId) {
-      await navigate({ to: "/$botId", params: { botId: fallback.id } });
-      setPaneMode(null);
+  }
+
+  const openBotMenu = useCallback((event: MouseEvent, item: Bot) => {
+    const box = botMenuBox("actions");
+    setBotMenu({
+      bot: item,
+      phase: "actions",
+      x: Math.min(event.clientX, window.innerWidth - box.width - 8),
+      y: Math.min(event.clientY, window.innerHeight - box.height - 8),
+    });
+  }, []);
+
+  async function togglePin(item: Bot) {
+    const previous = item.pinnedAt;
+    patchBot(item.id, {
+      pinnedAt: previous ? null : new Date().toISOString(),
+    });
+    setBotMenu(null);
+    try {
+      const next = previous
+        ? await client.bots.unpin({ botId: item.id })
+        : await client.bots.pin({ botId: item.id });
+      patchBot(item.id, { pinnedAt: next.pinnedAt });
+    } catch (caught: unknown) {
+      patchBot(item.id, { pinnedAt: previous });
+      patchThreadMeta(item.id, {
+        error: userFacingError(caught, "Could not pin"),
+      });
     }
   }
 
@@ -336,75 +522,125 @@ export function Chat(props: { botId: string }) {
       try {
         await cacheCreatedBot(draft);
         setThinkMessages(id, []);
-        setCreatingId(id);
-        setOpenApp(null);
-        setPaneMode(null);
-        void navigate({ to: "/$botId", params: { botId: id } });
+        patchThreadMeta(id, { opening: true });
+        void goToBot(id, deskClosed());
         const created = await client.bots.create({
           id,
           name: trimmed,
           avatarColor,
         });
         cacheBot(created);
+        patchThreadMeta(id, { opening: false });
       } catch (caught) {
         removeBot(id);
-        setCreatingId(null);
+        dropThreadMeta(id);
         const fallback = firstLiveBot(peekBots());
         if (fallback) {
           patchThreadMeta(fallback.id, {
             error: userFacingError(caught, "Could not create"),
           });
           if (fallback.id !== props.botId) {
-            void navigate({ to: "/$botId", params: { botId: fallback.id } });
+            void goToBot(fallback.id, deskClosed());
           }
         }
       } finally {
         hiring.current = false;
-        setCreatingId((current) => (current === id ? null : current));
       }
     },
-    [meQuery.data?.workspaceId, navigate, props.botId],
+    [goToBot, meQuery.data?.workspaceId, props.botId],
   );
 
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "n") {
-        event.preventDefault();
+  const blocking =
+    hireOpen || settingsOpen || pluginsOpen || knowledgeOpen || paletteOpen;
+  const cycleBots = useCallback(
+    (delta: 1 | -1) => {
+      const nextId = neighborBotId(
+        liveBots.map((item) => item.id),
+        activeId,
+        delta,
+      );
+      if (!nextId || nextId === activeId) return;
+      void goToBot(nextId);
+    },
+    [liveBots, activeId, goToBot],
+  );
+  const runPaletteAction = useCallback(
+    (id: PaletteActionId) => {
+      setPaletteOpen(false);
+      if (id === "hire") {
         if (!hiring.current) setHireOpen(true);
+        return;
       }
-      if ((event.metaKey || event.ctrlKey) && event.key === ",") {
-        event.preventDefault();
-        if (hireOpen) return;
+      if (id === "plugins") {
+        setPluginsOpen(true);
+        return;
+      }
+      if (id === "knowledge") {
+        setKnowledgeOpen(true);
+        return;
+      }
+      if (id === "workspace") {
         setSettingsTab("general");
         setSettingsOpen(true);
+        return;
       }
-      if (
-        (event.key === "ArrowDown" || event.key === "ArrowUp") &&
-        !event.metaKey &&
-        !event.ctrlKey &&
-        !event.altKey &&
-        !settingsOpen &&
-        !pluginsOpen &&
-        !hireOpen &&
-        !isTypingTarget(event.target)
-      ) {
-        const nextId = neighborBotId(
-          liveBots.map((item) => item.id),
-          activeId,
-          event.key === "ArrowDown" ? 1 : -1,
-        );
-        if (!nextId || nextId === activeId) return;
-        event.preventDefault();
-        void navigate({ to: "/$botId", params: { botId: nextId } });
+      if (id === "settings") {
+        setDesk(deskSettings());
+        return;
       }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [liveBots, activeId, navigate, settingsOpen, pluginsOpen, hireOpen]);
+      setDesk(deskComputer());
+    },
+    [setDesk],
+  );
+
+  useHotkeys([
+    {
+      hotkey: "Mod+K",
+      callback: () => {
+        setPaletteOpen((open) => !open);
+        setBotMenu(null);
+      },
+      options: {
+        enabled: (!hireOpen && !settingsOpen && !pluginsOpen && !knowledgeOpen) || paletteOpen,
+      },
+    },
+    {
+      hotkey: "Mod+N",
+      callback: () => {
+        setPaletteOpen(false);
+        if (!hiring.current) setHireOpen(true);
+      },
+      options: { enabled: !settingsOpen && !pluginsOpen && !knowledgeOpen },
+    },
+    {
+      hotkey: "Mod+,",
+      callback: () => {
+        setPaletteOpen(false);
+        setSettingsTab("general");
+        setSettingsOpen(true);
+      },
+      options: { enabled: !hireOpen },
+    },
+    {
+      hotkey: "Escape",
+      callback: () => setBotMenu(null),
+      options: { enabled: Boolean(botMenu) && !paletteOpen },
+    },
+    {
+      hotkey: "ArrowDown",
+      callback: () => cycleBots(1),
+      options: { enabled: !blocking },
+    },
+    {
+      hotkey: "ArrowUp",
+      callback: () => cycleBots(-1),
+      options: { enabled: !blocking },
+    },
+  ]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset overlay when the office changes
   useEffect(() => {
@@ -492,17 +728,13 @@ export function Chat(props: { botId: string }) {
   }, [activeId, hiringThis]);
 
   const openDocument = useCallback(
-    (app: { appId: string; title: string; templateId: TemplateId }) => {
-      setOpenApp({
-        id: app.appId,
-        title: app.title,
-        templateId: app.templateId,
-      });
-      setPaneMode("app");
+    (app: { appId: string }) => {
+      setDesk(deskApp(app.appId));
     },
-    [],
+    [setDesk],
   );
 
+  const paneMode = desk.pane ?? null;
   const activePane =
     paneMode === "app" && openApp
       ? "app"
@@ -524,8 +756,13 @@ export function Chat(props: { botId: string }) {
     >
       <aside className="flex min-h-0 flex-col border-r border-line bg-bg-side px-2.5 pb-2">
         <div className="flex flex-col gap-2 px-0.5 pt-1.5 pb-2.5">
-          <div className="side-chrome drag flex min-h-9 items-center">
-            <div className="min-w-0 flex-1" />
+          <div className="side-chrome drag flex min-h-9 items-center gap-1">
+            <div className="no-drag min-w-0 flex-1">
+              <WorkspaceSwitcher
+                name={me?.workspaceName}
+                workspaceId={me?.workspaceId}
+              />
+            </div>
             <div className="no-drag relative shrink-0">
               <Button
                 variant="icon"
@@ -540,14 +777,12 @@ export function Chat(props: { botId: string }) {
               </Button>
             </div>
           </div>
-          <label className="search-field">
-            <SearchIcon />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search"
-            />
-          </label>
+          <SearchTrigger
+            onOpen={() => {
+              setBotMenu(null);
+              setPaletteOpen(true);
+            }}
+          />
         </div>
         <div className="grid flex-1 content-start gap-0.5 overflow-auto px-1">
           {liveBots.map((item) => (
@@ -555,30 +790,25 @@ export function Chat(props: { botId: string }) {
               key={item.id}
               item={item}
               selected={item.id === bot?.id}
-              working={
-                item.id === creatingId ||
-                (item.id === bot?.id && Boolean(working))
-              }
+              working={item.id === bot?.id && (hiringThis || Boolean(working))}
+              desk={desk}
+              onMenu={openBotMenu}
             />
           ))}
           {liveBots.length === 0 && archivedBots.length === 0 ? (
             <p className="empty">No teammates yet.</p>
           ) : null}
-          {visibleApps.length > 0 ? (
+          {workspaceApps.length > 0 ? (
             <div className="mt-2">
               <div className="px-2 py-2 text-[12px] text-muted">Apps</div>
-              {visibleApps.map((item) => (
+              {workspaceApps.map((item) => (
                 <AppRow
                   key={item.id}
                   item={item}
                   selected={paneMode === "app" && openApp?.id === item.id}
                   onOpen={() => {
                     setPokeView(null);
-                    openDocument({
-                      appId: item.id,
-                      title: item.title,
-                      templateId: item.templateId,
-                    });
+                    openDocument({ appId: item.id });
                   }}
                 />
               ))}
@@ -602,6 +832,8 @@ export function Chat(props: { botId: string }) {
                       selected={item.id === bot?.id}
                       working={false}
                       muted
+                      desk={desk}
+                      onMenu={openBotMenu}
                     />
                   ))
                 : null}
@@ -616,6 +848,14 @@ export function Chat(props: { botId: string }) {
           >
             <PlugIcon />
             <span>Plugins</span>
+          </button>
+          <button
+            className="flex w-full items-center gap-2.5 rounded-xl border-0 bg-transparent px-2 py-2 text-left text-inherit hover:bg-hover"
+            type="button"
+            onClick={() => setKnowledgeOpen(true)}
+          >
+            <KnowledgeIcon />
+            <span>Knowledge</span>
           </button>
           <button
             className="flex w-full items-center gap-2.5 rounded-xl border-0 bg-transparent px-2 py-2 text-left text-inherit hover:bg-hover"
@@ -653,8 +893,7 @@ export function Chat(props: { botId: string }) {
               className="no-drag flex items-center gap-2.5 border-0 bg-transparent p-0 text-inherit"
               type="button"
               onClick={() => {
-                setOpenApp(null);
-                setPaneMode("settings");
+                setDesk(deskSettings());
               }}
             >
               {bot ? (
@@ -693,10 +932,7 @@ export function Chat(props: { botId: string }) {
                   title="Computer"
                   on={paneMode === "computer"}
                   onClick={() => {
-                    setOpenApp(null);
-                    setPaneMode((mode) =>
-                      mode === "computer" ? null : "computer",
-                    );
+                    setDesk(toggleDesk(desk, "computer"));
                   }}
                 >
                   <MonitorIcon />
@@ -708,10 +944,7 @@ export function Chat(props: { botId: string }) {
                   title="Settings"
                   on={paneMode === "settings"}
                   onClick={() => {
-                    setOpenApp(null);
-                    setPaneMode((mode) =>
-                      mode === "settings" ? null : "settings",
-                    );
+                    setDesk(toggleDesk(desk, "settings"));
                   }}
                 >
                   <GearIcon />
@@ -763,77 +996,39 @@ export function Chat(props: { botId: string }) {
               </p>
             </div>
           </>
-        ) : bot && hiringThis ? (
-          <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex min-h-0 flex-1 flex-col gap-2.5 px-7 pt-2.5 pb-6">
-              <p className="mb-6 text-base leading-normal text-muted">
-                First message is a real task. A good handoff has an outcome,
-                sources, and when to stop.
-              </p>
-            </div>
-            <div className="px-5 pt-2 pb-[18px]">
-              <div className="flex items-end gap-0.5 rounded-pill border border-[#262626] bg-[#141414] p-1 opacity-60 light:border-line light:bg-white">
-                <Button
-                  variant="icon"
-                  className="size-9 shrink-0 rounded-pill text-muted"
-                  type="button"
-                  disabled
-                  aria-label="Attach"
-                >
-                  <PlusIcon />
-                </Button>
-                <textarea
-                  rows={1}
-                  disabled
-                  className="box-border min-h-9 max-h-[140px] flex-1 resize-none border-0 bg-transparent px-1.5 py-2 !text-[15px] !leading-5 outline-none placeholder:text-muted"
-                  placeholder={FIRST_TASK}
-                  value=""
-                />
-                <Button
-                  variant="icon"
-                  className="size-9 shrink-0 rounded-pill text-muted"
-                  type="button"
-                  disabled
-                  aria-label="Voice"
-                >
-                  <MicIcon />
-                </Button>
-              </div>
-            </div>
-          </div>
         ) : bot ? (
-          <ThinkThread
-            key={bot.id}
-            botId={bot.id}
-            botName={bot.name}
-            archived={Boolean(bot.archivedAt)}
-            needsModel={Boolean(me?.needsModel)}
-            placeholder={
-              me?.needsModel
-                ? "Add a model key to send"
-                : `Message ${bot.name}`
-            }
-            error={error}
-            onBusy={setThinkBusy}
-            onError={(message) =>
-              patchThreadMeta(bot.id, { error: message })
-            }
-            onNeedsModel={() => {
-              setSettingsTab("models");
-              setSettingsOpen(true);
-            }}
-            onUnarchive={() => {
-              void client.bots
-                .unarchive({ botId: bot.id })
-                .then(applyArchiveChange)
-                .catch((caught: unknown) =>
-                  patchThreadMeta(bot.id, {
-                    error: userFacingError(caught, "Could not unarchive"),
-                  }),
-                );
-            }}
-            stopRef={stopThink}
-          />
+          <div className="relative flex min-h-0 flex-1 flex-col">
+            {mountedThinkIds.map((id) => {
+              const item = bots.find((row) => row.id === id);
+              if (!item) return null;
+              const isActive = item.id === bot.id;
+              const itemMeta = isActive ? meta : readThreadMeta(item.id);
+              const itemOpening = Boolean(itemMeta?.opening);
+              const itemError = isActive ? error : (itemMeta?.error ?? "");
+              return (
+                <KeptThinkThread
+                  key={item.id}
+                  botId={item.id}
+                  botName={item.name}
+                  active={isActive}
+                  archived={Boolean(item.archivedAt)}
+                  needsModel={Boolean(me?.needsModel)}
+                  userId={me?.userId}
+                  userName={me?.name}
+                  opening={itemOpening}
+                  placeholder={
+                    me?.needsModel
+                      ? "Add a model key to send"
+                      : `Message ${item.name}`
+                  }
+                  error={itemError}
+                  onNeedsModel={onNeedsModel}
+                  onUnarchive={onUnarchiveBot}
+                  stopRef={stopThink}
+                />
+              );
+            })}
+          </div>
         ) : null}
       </section>
       <div
@@ -845,7 +1040,7 @@ export function Chat(props: { botId: string }) {
             appId={exitingApp.id}
             title={exitingApp.title}
             templateId={exitingApp.templateId}
-            onCollapse={() => setPaneMode(null)}
+            onCollapse={() => setDesk(deskClosed())}
           />
         ) : null}
         {pane.rendered === "settings" && bot ? (
@@ -853,11 +1048,14 @@ export function Chat(props: { botId: string }) {
             key={bot.id}
             bot={bot}
             pending={hiringThis}
-            onCollapse={() => setPaneMode(null)}
+            onCollapse={() => setDesk(deskClosed())}
             onSaved={async () => {
               await refreshBots(bot.id);
             }}
             onArchiveChange={applyArchiveChange}
+            onDeleted={async (bot) => {
+              await deleteTeammate(bot.id);
+            }}
           />
         ) : null}
         {pane.rendered === "computer" && bot ? (
@@ -865,17 +1063,25 @@ export function Chat(props: { botId: string }) {
             key={bot.id}
             bot={bot}
             onSettings={() => {
-              setOpenApp(null);
-              setPaneMode("settings");
+              setDesk(deskSettings());
             }}
-            onCollapse={() => setPaneMode(null)}
+            onCollapse={() => setDesk(deskClosed())}
           />
         ) : null}
       </div>
-      <PluginsModal
-        open={pluginsOpen}
-        onClose={() => setPluginsOpen(false)}
-      />
+      {pluginsOpen ? (
+        <PluginsModal
+          open
+          botId={activeId}
+          onClose={() => setPluginsOpen(false)}
+        />
+      ) : null}
+      {knowledgeOpen ? (
+        <KnowledgeModal
+          open
+          onClose={() => setKnowledgeOpen(false)}
+        />
+      ) : null}
       <AppSettings
         open={settingsOpen}
         me={me}
@@ -899,11 +1105,105 @@ export function Chat(props: { botId: string }) {
           })();
         }}
       />
+      <CommandPalette
+        open={paletteOpen}
+        bots={[...liveBots, ...archivedBots]}
+        apps={workspaceApps}
+        onClose={() => setPaletteOpen(false)}
+        onBot={(botId) => {
+          setPaletteOpen(false);
+          setPokeView(null);
+          void goToBot(botId);
+        }}
+        onApp={(appId) => {
+          setPaletteOpen(false);
+          setPokeView(null);
+          openDocument({ appId });
+        }}
+        onAction={runPaletteAction}
+      />
       <HireDialog
         open={hireOpen}
         onClose={() => setHireOpen(false)}
         onHire={(name) => void hire(name)}
       />
+      {botMenu ? (
+        <>
+          <button
+            className="fixed inset-0 z-30 cursor-default border-0 bg-transparent"
+            type="button"
+            aria-label="Close bot menu"
+            onClick={() => setBotMenu(null)}
+          />
+          <div
+            className="menu"
+            role="menu"
+            style={{
+              position: "fixed",
+              left: botMenu.x,
+              top: botMenu.y,
+              right: "auto",
+              zIndex: 31,
+            }}
+          >
+            {botMenuItems({
+              pinned: isPinnedBot(botMenu.bot),
+              name: botMenu.bot.name,
+              phase: botMenu.phase,
+            }).flatMap((item, index) => {
+              const nodes = [];
+              if (
+                item.id === "delete" &&
+                botMenu.phase === "actions" &&
+                index > 0
+              ) {
+                nodes.push(<div key="sep" className="menu-sep" />);
+              }
+              nodes.push(
+                <button
+                  key={item.id}
+                  className={item.id === "delete" ? "danger" : undefined}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    if (item.id === "pin") {
+                      void togglePin(botMenu.bot);
+                      return;
+                    }
+                    if (item.id === "cancel-delete") {
+                      setBotMenu({ ...botMenu, phase: "actions" });
+                      return;
+                    }
+                    if (botMenu.phase === "actions") {
+                      const box = botMenuBox("confirm-delete");
+                      setBotMenu({
+                        ...botMenu,
+                        phase: "confirm-delete",
+                        x: Math.min(
+                          botMenu.x,
+                          window.innerWidth - box.width - 8,
+                        ),
+                        y: Math.min(
+                          botMenu.y,
+                          window.innerHeight - box.height - 8,
+                        ),
+                      });
+                      return;
+                    }
+                    setBotMenu(null);
+                    void deleteTeammate(botMenu.bot.id);
+                  }}
+                >
+                  {item.id === "pin" ? <PinIcon /> : null}
+                  {item.id === "delete" ? <TrashIcon /> : null}
+                  <span className="min-w-0 truncate">{item.label}</span>
+                </button>,
+              );
+              return nodes;
+            })}
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { cn } from "./cn";
 
 const controlClass =
-  "w-full border border-line bg-card rounded-xl px-3 py-2.5 text-ink outline-none placeholder:text-muted";
+  "w-full border border-line bg-card rounded-xl px-3 py-2.5 text-ink outline-none placeholder:text-muted focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/40";
 
 type BaseInputProps = Omit<ComponentProps<typeof BaseInput>, "className">;
 

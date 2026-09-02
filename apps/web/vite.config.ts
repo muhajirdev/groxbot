@@ -25,6 +25,7 @@ export default defineConfig({
     },
   },
   server: {
+    // Fallback for leftover relative URLs and old 5173 OAuth callbacks.
     proxy: {
       "/api": api,
       "/health": api,

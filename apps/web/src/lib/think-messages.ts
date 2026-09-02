@@ -1,9 +1,13 @@
-import { queryOptions } from "@tanstack/react-query";
+import type { Bot } from "@groxbot/contracts";
 import type { UIMessage } from "ai";
-import { agentSocketHost } from "./host";
-import { queryClient } from "./orpc";
+import { lastThinkPreview } from "./chat-messages";
+import { orpc, queryClient } from "./orpc";
 
-const THINK_MESSAGES_KEY = ["think-messages"] as const;
+export const THINK_MESSAGES_ROOT = "think-messages" as const;
+const THINK_MESSAGES_KEY = [THINK_MESSAGES_ROOT] as const;
+
+/** Keep restored threads for the IndexedDB persist window. */
+export const THINK_MESSAGES_GC_TIME = 7 * 24 * 60 * 60 * 1000;
 
 /** Durable Object instance name: `bots.id`, same as `useAgent({ name })`. */
 export function thinkAgentId(botId: string): string {
@@ -20,60 +24,43 @@ export function peekThinkMessages(botId: string): UIMessage[] | undefined {
   return queryClient.getQueryData(thinkMessagesKey(botId));
 }
 
+export function thinkPreviewsFromCache(): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const [key, data] of queryClient.getQueriesData<UIMessage[]>({
+    queryKey: THINK_MESSAGES_KEY,
+  })) {
+    const id = key[1];
+    if (typeof id !== "string" || !data) continue;
+    const preview = lastThinkPreview(data);
+    if (preview) out.set(id, preview);
+  }
+  return out;
+}
+
+function writeRosterPreview(botId: string, preview: string): void {
+  if (!preview) return;
+  const key = orpc.bots.list.queryOptions().queryKey;
+  queryClient.setQueryData<Bot[]>(key, (current) => {
+    if (!current) return current;
+    let changed = false;
+    const next = current.map((bot) => {
+      if (bot.id !== botId || bot.lastPreview === preview) return bot;
+      changed = true;
+      return { ...bot, lastPreview: preview };
+    });
+    return changed ? next : current;
+  });
+}
+
 export function setThinkMessages(botId: string, messages: UIMessage[]) {
   queryClient.setQueryData(thinkMessagesKey(botId), messages);
+  writeRosterPreview(botId, lastThinkPreview(messages));
+}
+
+export function forgetThinkMessages(botId: string) {
+  queryClient.removeQueries({ queryKey: thinkMessagesKey(botId) });
 }
 
 export function clearThinkMessages() {
   queryClient.removeQueries({ queryKey: THINK_MESSAGES_KEY });
-}
-
-export function thinkAgentHttpUrl(botId: string): string {
-  const id = thinkAgentId(botId);
-  const host = agentSocketHost();
-  if (typeof window === "undefined") {
-    return `https://${host ?? "api.groxbot.com"}/agents/bot-actor/${encodeURIComponent(id)}`;
-  }
-  const origin = host
-    ? `${window.location.protocol}//${host}`
-    : window.location.origin;
-  return `${origin}/agents/bot-actor/${encodeURIComponent(id)}`;
-}
-
-/** `null` means the request failed; `[]` is a real empty thread. */
-export async function fetchThinkMessages(
-  agentHttpUrl: string | undefined,
-): Promise<UIMessage[] | null> {
-  if (!agentHttpUrl) return null;
-  const messagesUrl = new URL(agentHttpUrl);
-  messagesUrl.pathname += "/get-messages";
-  try {
-    const response = await fetch(messagesUrl, {
-      credentials: "include",
-      signal: AbortSignal.timeout(25_000),
-    });
-    if (!response.ok) return null;
-    const text = await response.text();
-    if (!text.trim()) return [];
-    return JSON.parse(text) as UIMessage[];
-  } catch {
-    return null;
-  }
-}
-
-export const EMPTY_THINK_MESSAGES: UIMessage[] = [];
-
-export function thinkMessagesQueryOptions(botId: string) {
-  const id = thinkAgentId(botId);
-  return queryOptions({
-    queryKey: thinkMessagesKey(id),
-    queryFn: async () => {
-      const next = await fetchThinkMessages(thinkAgentHttpUrl(id));
-      if (next === null) return peekThinkMessages(id) ?? EMPTY_THINK_MESSAGES;
-      return next;
-    },
-    staleTime: Number.POSITIVE_INFINITY,
-    gcTime: 30 * 60_000,
-    retry: false,
-  });
 }

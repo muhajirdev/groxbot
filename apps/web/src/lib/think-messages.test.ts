@@ -1,20 +1,22 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { draftCreatedBot } from "./hire";
+import { orpc, queryClient } from "./orpc";
 import {
   clearThinkMessages,
-  fetchThinkMessages,
+  forgetThinkMessages,
   peekThinkMessages,
   setThinkMessages,
   thinkAgentId,
   thinkMessagesKey,
-  thinkMessagesQueryOptions,
+  thinkPreviewsFromCache,
 } from "./think-messages";
-import { queryClient } from "./orpc";
 
 const botId = "bot-cache-test";
+const botsKey = orpc.bots.list.queryOptions().queryKey;
 
 afterEach(() => {
   clearThinkMessages();
-  vi.unstubAllGlobals();
+  queryClient.removeQueries({ queryKey: botsKey });
 });
 
 describe("thinkAgentId", () => {
@@ -43,28 +45,35 @@ describe("think messages cache", () => {
     expect(peekThinkMessages(botId)).toEqual([]);
   });
 
-  it("uses a stable query key for the route loader", () => {
-    expect(thinkMessagesQueryOptions(botId).queryKey).toEqual(
-      thinkMessagesKey(botId),
-    );
-  });
-});
-
-describe("fetchThinkMessages", () => {
-  it("returns null when the request fails", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response("nope", { status: 500 })),
-    );
-    expect(await fetchThinkMessages("http://127.0.0.1/agents/bot-actor/x")).toBe(
-      null,
-    );
+  it("forgets one bot without clearing others", () => {
+    setThinkMessages(botId, [
+      { id: "m1", role: "user" as const, parts: [{ type: "text" as const, text: "hi" }] },
+    ]);
+    setThinkMessages("bot-keep", [
+      { id: "m2", role: "user" as const, parts: [{ type: "text" as const, text: "stay" }] },
+    ]);
+    forgetThinkMessages(botId);
+    expect(peekThinkMessages(botId)).toBeUndefined();
+    expect(peekThinkMessages("bot-keep")).toEqual([
+      { id: "m2", role: "user" as const, parts: [{ type: "text" as const, text: "stay" }] },
+    ]);
   });
 
-  it("returns [] for an empty body", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 200 })));
-    expect(await fetchThinkMessages("http://127.0.0.1/agents/bot-actor/x")).toEqual(
-      [],
-    );
+  it("writes the last line onto the persisted roster", () => {
+    queryClient.setQueryData(botsKey, [
+      draftCreatedBot({
+        id: botId,
+        workspaceId: "ws-1",
+        name: "Piper",
+        avatarColor: "#e45c9a",
+      }),
+    ]);
+    setThinkMessages(botId, [
+      { id: "m1", role: "user" as const, parts: [{ type: "text" as const, text: "Booked the room" }] },
+    ]);
+    expect(thinkPreviewsFromCache().get(botId)).toBe("Booked the room");
+    expect(queryClient.getQueryData(botsKey)).toEqual([
+      expect.objectContaining({ id: botId, lastPreview: "Booked the room" }),
+    ]);
   });
 });

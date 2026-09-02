@@ -47,6 +47,7 @@ export function draftCreatedBot(input: {
     lastPreview: "",
     lastAt: now,
     archivedAt: null,
+    pinnedAt: null,
     createdAt: now,
     updatedAt: now,
   };

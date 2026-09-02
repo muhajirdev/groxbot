@@ -51,3 +51,12 @@ describe("productEnv", () => {
     expect(env.databaseUrl).toBe(base.DATABASE_URL);
   });
 });
+
+describe("loadEnv", () => {
+  it("defaults local auth to wrangler, office to Vite", () => {
+    const env = loadEnv(base);
+    expect(env.authUrl).toBe("http://127.0.0.1:3100");
+    expect(env.webOrigin).toBe("http://127.0.0.1:5173");
+    expect(env.apiUrl).toBe("http://127.0.0.1:3100");
+  });
+});

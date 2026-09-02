@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
 import { ChatMarkdown } from "../components/ChatMarkdown";
 import { safeMarkdownUrl } from "./chat-markdown";
+import { knowledgeMarkdownUrl } from "./knowledge-link";
 
 describe("safeMarkdownUrl", () => {
   it("keeps http, https, and mailto", () => {
@@ -31,5 +32,26 @@ describe("ChatMarkdown", () => {
     expect(html).toContain("<ol");
     expect(html).toContain('href="https://example.com');
     expect(html).not.toContain("javascript:");
+  });
+
+  it("drops office paths in chat", () => {
+    const html = renderToStaticMarkup(
+      createElement(ChatMarkdown, {
+        text: "See [voice](how-we-work/voice.md) and [[voice]]",
+      }),
+    );
+    expect(html).not.toContain("href=\"how-we-work/voice.md\"");
+    expect(html).toContain("[[voice]]");
+  });
+
+  it("keeps office paths when the knowledge transform is on", () => {
+    const html = renderToStaticMarkup(
+      createElement(ChatMarkdown, {
+        text: "See [voice](how-we-work/voice.md)",
+        officePaths: true,
+        urlTransform: knowledgeMarkdownUrl,
+      }),
+    );
+    expect(html).toContain("/how-we-work/voice.md");
   });
 });

@@ -8,6 +8,20 @@
       "when": 1787754611669,
       "tag": "0000_large_banshee",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788244310835,
+      "tag": "0001_pin_bots",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788266903072,
+      "tag": "0002_illegal_mindworm",
+      "breakpoints": true
     }
   ]
 }

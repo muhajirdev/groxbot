@@ -1,24 +1,28 @@
-import type { Bot, PluginConnection, WorkspaceApp } from "@groxbot/contracts";
+import type { Bot, McpConnection, PluginConnection, WorkspaceApp } from "@groxbot/contracts";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
 import {
   createCollection,
   localOnlyCollectionOptions,
 } from "@tanstack/react-db";
+import { overlayBotList } from "./bot-preview";
 import { orpc, queryClient } from "./orpc";
-import { clearThinkMessages } from "./think-messages";
 import { client } from "./rpc";
+import { THINK_MESSAGES_GC_TIME, clearThinkMessages } from "./think-messages";
+import { clearPersistedThinkCache } from "./think-persist";
 
 export type ThreadMeta = {
   botId: string;
   cursor: number;
   working: string;
   error: string;
+  /** Catalog insert still in flight — delay the Think socket. */
+  opening: boolean;
 };
 
 export const threadMetaCollection = createCollection(
-  localOnlyCollectionOptions<ThreadMeta>({
+  localOnlyCollectionOptions({
     id: "thread-meta",
-    getKey: (item) => item.botId,
+    getKey: (item: ThreadMeta) => item.botId,
   }),
 );
 
@@ -27,10 +31,10 @@ export const botsCollection = createCollection(
     id: "bots",
     queryClient,
     queryKey: orpc.bots.list.queryOptions().queryKey,
-    queryFn: () => client.bots.list(),
+    queryFn: async () => overlayBotList(await client.bots.list()),
     getKey: (bot) => bot.id,
     staleTime: 30_000,
-    gcTime: 30 * 60_000,
+    gcTime: THINK_MESSAGES_GC_TIME,
     retry: false,
     refetchOnWindowFocus: false,
   }),
@@ -48,9 +52,23 @@ export const appsCollection = createCollection(
     queryFn: () => client.apps.list(),
     getKey: (app) => app.id,
     staleTime: 15_000,
-    gcTime: 30 * 60_000,
+    gcTime: THINK_MESSAGES_GC_TIME,
     retry: false,
     refetchOnWindowFocus: false,
+  }),
+);
+
+export const mcpCollection = createCollection(
+  queryCollectionOptions<McpConnection>({
+    id: "mcp",
+    queryClient,
+    queryKey: orpc.mcp.list.queryOptions().queryKey,
+    queryFn: () => client.mcp.list(),
+    getKey: (item) => item.id,
+    staleTime: 15_000,
+    gcTime: THINK_MESSAGES_GC_TIME,
+    retry: false,
+    refetchOnWindowFocus: true,
   }),
 );
 
@@ -62,7 +80,7 @@ export const pluginsCollection = createCollection(
     queryFn: () => client.plugins.list(),
     getKey: (item) => item.id,
     staleTime: 15_000,
-    gcTime: 30 * 60_000,
+    gcTime: THINK_MESSAGES_GC_TIME,
     retry: false,
     refetchOnWindowFocus: true,
   }),
@@ -70,6 +88,19 @@ export const pluginsCollection = createCollection(
 
 export function upsertBot(bot: Bot): void {
   botsCollection.utils.writeUpsert(bot);
+}
+
+function dropSyncedKeys<TKey extends string | number>(collection: {
+  keys(): IterableIterator<TKey>;
+  utils: { writeDelete: (keys: TKey | TKey[]) => void };
+}): void {
+  const keys = [...collection.keys()];
+  if (keys.length === 0) return;
+  try {
+    collection.utils.writeDelete(keys);
+  } catch {
+    // Query sync never started; there is nothing durable to drop.
+  }
 }
 
 export function removeBot(id: string): void {
@@ -92,13 +123,11 @@ export function patchBot(id: string, patch: Partial<Omit<Bot, "id">>): void {
 
 export function clearThreadStore(): void {
   clearThinkMessages();
+  void clearPersistedThinkCache();
   const metaKeys = [...threadMetaCollection.keys()];
   if (metaKeys.length > 0) threadMetaCollection.delete(metaKeys);
-  const botKeys = [...botsCollection.keys()];
-  if (botKeys.length === 0) return;
-  try {
-    botsCollection.utils.writeDelete(botKeys);
-  } catch {
-    // Query sync never started; there is nothing durable to drop.
-  }
+  dropSyncedKeys(botsCollection);
+  dropSyncedKeys(appsCollection);
+  dropSyncedKeys(pluginsCollection);
+  dropSyncedKeys(mcpCollection);
 }

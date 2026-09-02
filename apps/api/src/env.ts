@@ -131,7 +131,7 @@ export function loadEnv(source: EnvStrings): Env {
   return {
     databaseUrl,
     authSecret: authSecret || "development-only-change-me-please-32ch",
-    authUrl: read(source, "BETTER_AUTH_URL") ?? "http://127.0.0.1:5173",
+    authUrl: read(source, "BETTER_AUTH_URL") ?? "http://127.0.0.1:3100",
     webOrigin,
     corsOrigins: parseOrigins(read(source, "CORS_ORIGINS"), [
       webOrigin,

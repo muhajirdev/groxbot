@@ -4,12 +4,15 @@ import {
   BotSchema,
   CreateBotInput,
   CreateWorkspaceInput,
+  UpdateWorkspaceInput,
   GuestConnectSchema,
   GuestStatusSchema,
   InviteWorkspaceInput,
   JoinWorkspaceInput,
   MemoryDocumentSchema,
   MeSchema,
+  McpConnectResultSchema,
+  McpConnectionSchema,
   PluginConnectionSchema,
   PluginConnectResultSchema,
   PluginStatusSchema,
@@ -22,8 +25,15 @@ import {
   WorkspaceInvitePeekSchema,
   WorkspaceInviteSchema,
   WorkspaceSchema,
+  ComputerDownloadSchema,
   ComputerFileSchema,
   ComputerListSchema,
+  KnowledgeFileSchema,
+  KnowledgeGraphSchema,
+  KnowledgeImportInput,
+  KnowledgeImportResultSchema,
+  KnowledgeListSchema,
+  KnowledgeWriteSchema,
   MAX_COMPUTER_WRITE_BYTES,
 } from "./domain.js";
 import { ProductEventSchema } from "./events.js";
@@ -53,6 +63,7 @@ export const appContract = oc.router({
   me: oc.output(MeSchema),
   workspaces: {
     create: oc.input(CreateWorkspaceInput).output(WorkspaceSchema),
+    update: oc.input(UpdateWorkspaceInput).output(WorkspaceSchema),
     join: oc.input(JoinWorkspaceInput).output(WorkspaceSchema),
     invite: oc.input(InviteWorkspaceInput).output(WorkspaceInviteSchema),
     invitations: oc.output(z.array(WorkspaceInvitationSchema)),
@@ -69,6 +80,9 @@ export const appContract = oc.router({
     update: oc.input(UpdateBotInput).output(BotSchema),
     archive: oc.input(botId).output(BotSchema),
     unarchive: oc.input(botId).output(BotSchema),
+    pin: oc.input(botId).output(BotSchema),
+    unpin: oc.input(botId).output(BotSchema),
+    delete: oc.input(botId).output(z.object({ ok: z.literal(true) })),
   },
   threads: {
     subscribe: oc
@@ -120,6 +134,24 @@ export const appContract = oc.router({
       .output(z.object({ ok: z.literal(true) })),
     refresh: oc.output(z.array(PluginConnectionSchema)),
   },
+  mcp: {
+    list: oc.output(z.array(McpConnectionSchema)),
+    add: oc
+      .input(
+        z.object({
+          botId: Id,
+          name: z.string().min(1).max(80),
+          url: z.string().min(8).max(500),
+        }),
+      )
+      .output(McpConnectResultSchema),
+    connect: oc
+      .input(z.object({ id: Id, botId: Id }))
+      .output(McpConnectResultSchema),
+    remove: oc
+      .input(z.object({ id: Id }))
+      .output(z.object({ ok: z.literal(true) })),
+  },
   routines: {
     list: oc.input(botId).output(z.array(RoutineSchema)),
     create: oc
@@ -134,6 +166,29 @@ export const appContract = oc.router({
       )
       .output(RoutineSchema),
   },
+  /** Workspace library on R2. One prefix per office. */
+  knowledge: {
+    list: oc.output(KnowledgeListSchema),
+    read: oc
+      .input(z.object({ path: z.string().min(1).max(240) }))
+      .output(KnowledgeFileSchema),
+    download: oc
+      .input(z.object({ path: z.string().min(1).max(240) }))
+      .output(ComputerDownloadSchema),
+    backlinks: oc
+      .input(z.object({ path: z.string().min(1).max(240) }))
+      .output(z.object({ sources: z.array(z.string()) })),
+    graph: oc.output(KnowledgeGraphSchema),
+    write: oc
+      .input(KnowledgeWriteSchema)
+      .output(z.object({ path: z.string() })),
+    importSkill: oc
+      .input(KnowledgeImportInput)
+      .output(KnowledgeImportResultSchema),
+    remove: oc
+      .input(z.object({ path: z.string().min(1).max(240) }))
+      .output(z.object({ ok: z.literal(true) })),
+  },
   /** This bot’s Think workspace. Not a computers catalog. */
   computer: {
     list: oc
@@ -142,6 +197,9 @@ export const appContract = oc.router({
     read: oc
       .input(z.object({ botId: Id, path: z.string().min(1).max(240) }))
       .output(ComputerFileSchema),
+    download: oc
+      .input(z.object({ botId: Id, path: z.string().min(1).max(240) }))
+      .output(ComputerDownloadSchema),
     write: oc
       .input(
         z.object({

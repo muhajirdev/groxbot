@@ -35,6 +35,8 @@ export const bots = pgTable(
     model: text("model").notNull().default(""),
     /** Set when the teammate is archived (hidden + paused). Null = active. */
     archivedAt: timestamp("archived_at", { withTimezone: true }),
+    /** Set when the teammate is pinned to the top of the sidebar. Null = unpinned. */
+    pinnedAt: timestamp("pinned_at", { withTimezone: true }),
     /** Sidebar office. Extra human↔bot threads for this bot are allowed; v1 never creates them. */
     homeThreadId: text("home_thread_id").references(
       (): AnyPgColumn => threads.id,
@@ -382,5 +384,37 @@ export const pluginConnections = pgTable(
       t.workspaceId,
       t.toolkit,
     ),
+  ],
+);
+
+/** Workspace remote MCP catalog. Live OAuth session lives on the host bot’s actor. */
+export const mcpConnections = pgTable(
+  "mcp_connections",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id),
+    hostBotId: text("host_bot_id").references(() => bots.id, {
+      onDelete: "set null",
+    }),
+    name: text("name").notNull(),
+    url: text("url").notNull(),
+    status: text("status").notNull(),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("mcp_connections_workspace_name").on(t.workspaceId, t.name),
+    uniqueIndex("mcp_connections_workspace_url").on(t.workspaceId, t.url),
+    index("mcp_connections_host_bot_id").on(t.hostBotId),
   ],
 );

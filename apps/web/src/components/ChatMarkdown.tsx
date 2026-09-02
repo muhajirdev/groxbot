@@ -1,6 +1,7 @@
 import {
   createElement,
   memo,
+  useMemo,
   type ComponentProps,
   type JSX,
   type ReactNode,
@@ -8,6 +9,7 @@ import {
 import { Streamdown, defaultRehypePlugins } from "streamdown";
 import "streamdown/styles.css";
 import { safeMarkdownUrl } from "../lib/chat-markdown";
+import { rewriteKnowledgeHrefs } from "../lib/knowledge-link";
 
 const SANITIZE = defaultRehypePlugins.sanitize;
 const HARDEN = Array.isArray(defaultRehypePlugins.harden)
@@ -29,6 +31,11 @@ const REHYPE_PLUGINS = [
       linkBlockPolicy: "remove",
     },
   ],
+] as NonNullable<ComponentProps<typeof Streamdown>["rehypePlugins"]>;
+
+const OFFICE_REHYPE_PLUGINS = [
+  rewriteKnowledgeHrefs,
+  ...REHYPE_PLUGINS,
 ] as NonNullable<ComponentProps<typeof Streamdown>["rehypePlugins"]>;
 
 type MdProps = {
@@ -79,8 +86,21 @@ const COMPONENTS = {
 export const ChatMarkdown = memo(function ChatMarkdown(props: {
   text: string;
   live?: boolean;
+  officePaths?: boolean;
+  urlTransform?: (url: string) => string | null;
+  renderLink?: (props: { href: string; children: ReactNode }) => ReactNode;
 }) {
   const text = props.text.trim();
+  const transform = props.urlTransform ?? safeMarkdownUrl;
+  const renderLink = props.renderLink;
+  const components = useMemo(() => {
+    if (!renderLink) return COMPONENTS;
+    return {
+      ...COMPONENTS,
+      a: ({ href, children }: MdProps) =>
+        href ? renderLink({ href, children }) : <span>{children}</span>,
+    };
+  }, [renderLink]);
   if (!text) return null;
   const live = Boolean(props.live);
   return (
@@ -99,9 +119,9 @@ export const ChatMarkdown = memo(function ChatMarkdown(props: {
       tableMaxHeight={0}
       animated={false}
       linkSafety={{ enabled: false }}
-      rehypePlugins={REHYPE_PLUGINS}
-      urlTransform={safeMarkdownUrl}
-      components={COMPONENTS}
+      rehypePlugins={props.officePaths ? OFFICE_REHYPE_PLUGINS : REHYPE_PLUGINS}
+      urlTransform={transform}
+      components={components}
     >
       {text}
     </Streamdown>

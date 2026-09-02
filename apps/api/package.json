@@ -28,7 +28,7 @@
     "@hono/node-server": "^1.19.1",
     "@orpc/server": "^1.10.0",
     "agents": "^0.21.0",
-    "ai": "^6",
+    "ai": "^7.0.85",
     "capnweb": "^0.12.0",
     "dotenv": "^17.2.1",
     "drizzle-orm": "^0.44.5",
@@ -41,6 +41,6 @@
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4",
-    "wrangler": "^4.127.1"
+    "wrangler": "4.113.0"
   }
 }

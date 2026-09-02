@@ -10,8 +10,11 @@
     "src/bot-actor.ts",
     "src/bot-enqueue.ts",
     "src/bot-computer.ts",
+    "src/bot-mcp.ts",
+    "src/bot-mcp-connector.ts",
     "src/bot-execute.ts",
     "src/bot-markdown.ts",
+    "src/bot-knowledge.ts",
     "src/index.ts",
     "src/app-runtime-do.ts",
     "src/**/*.test.ts"

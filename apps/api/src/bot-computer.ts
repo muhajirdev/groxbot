@@ -1,4 +1,4 @@
-import type { ComputerFile, ComputerList } from "@groxbot/contracts";
+import type { ComputerDownload, ComputerFile, ComputerList } from "@groxbot/contracts";
 import { ComputerFileError, ComputerPathError, ComputerWriteError } from "@groxbot/core";
 import { getAgentByName } from "agents";
 
@@ -25,6 +25,19 @@ export async function readBotComputer(
   });
 }
 
+export async function downloadBotComputer(
+  actors: ActorBinding,
+  botId: string,
+  path: string,
+): Promise<ComputerDownload> {
+  return callBotComputer<ComputerDownload>(
+    actors,
+    botId,
+    "/workspace/download",
+    { path },
+  );
+}
+
 export async function writeBotComputer(
   actors: ActorBinding,
   botId: string,
@@ -37,6 +50,20 @@ export async function writeBotComputer(
     content,
     mediaType,
   });
+}
+
+/** Wipe Think SQLite for this botId. Storage is gone even if the stub stays. */
+export async function destroyBotActor(
+  actors: ActorBinding,
+  botId: string,
+): Promise<void> {
+  const stub = await getAgentByName(actors, botId);
+  const response = await stub.fetch(
+    new Request("https://groxbot.internal/destroy", { method: "POST" }),
+  );
+  if (!response.ok) {
+    throw new Error(`forget ${response.status}`);
+  }
 }
 
 async function callBotComputer<T>(

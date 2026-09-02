@@ -1,4 +1,5 @@
 import type { UIMessage } from "ai";
+import { isComputerFileNote } from "./computer-attachment";
 
 type TextPart = { type: "text"; text: string };
 
@@ -32,12 +33,26 @@ export function textFromMessage(message: UIMessage): string {
     .join("");
 }
 
+function visibleTextFromMessage(message: UIMessage): string {
+  return collapseTextParts(message)
+    .parts.filter(isTextPart)
+    .map((part) => part.text)
+    .filter((text) => !isComputerFileNote(text))
+    .join("");
+}
+
+function hasFilePart(message: UIMessage): boolean {
+  return message.parts.some(
+    (part) => part.type === "file" || part.type === "image",
+  );
+}
+
 /** Latest visible line for the sidebar — not used to reorder the list. */
 export function lastThinkPreview(messages: UIMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
     const row = messages[i];
     if (!row) continue;
-    const text = textFromMessage(row).replace(/\s+/g, " ").trim();
+    const text = visibleTextFromMessage(row).replace(/\s+/g, " ").trim();
     if (text) return text.slice(0, 140);
   }
   return "";
@@ -50,7 +65,9 @@ export function usedTools(message: UIMessage): boolean {
 }
 
 export function isVisibleChatMessage(message: UIMessage): boolean {
-  if (message.role === "user") return textFromMessage(message).length > 0;
+  if (message.role === "user") {
+    return visibleTextFromMessage(message).length > 0 || hasFilePart(message);
+  }
   return textFromMessage(message).length > 0 || usedTools(message);
 }
 

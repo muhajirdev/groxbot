@@ -20,6 +20,7 @@ export function BotSettingsPane(props: {
   onCollapse: () => void;
   onSaved: () => Promise<void>;
   onArchiveChange: (bot: Bot) => Promise<void>;
+  onDeleted: (bot: Bot) => Promise<void>;
 }) {
   const bot = props.bot;
   const pending = Boolean(props.pending);
@@ -32,7 +33,13 @@ export function BotSettingsPane(props: {
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [archiveBusy, setArchiveBusy] = useState(false);
   const [archiveError, setArchiveError] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [pinBusy, setPinBusy] = useState(false);
+  const [pinError, setPinError] = useState("");
   const archived = Boolean(bot.archivedAt);
+  const pinned = Boolean(bot.pinnedAt);
   const modelsQuery = useQuery(orpc.models.get.queryOptions());
   const fullCatalog = modelsQuery.data?.catalog ?? [];
   const catalog = pickerCatalog(
@@ -247,6 +254,46 @@ export function BotSettingsPane(props: {
           </div>
         ) : null}
         <section className="set-block">
+          <p className="group-label">Pin</p>
+          <p className="hint">
+            {pinned
+              ? `${bot.name} stays at the top of the sidebar.`
+              : "Keep this teammate at the top of the sidebar."}
+          </p>
+          <button
+            className="text-btn"
+            type="button"
+            disabled={pinBusy || pending}
+            onClick={() => {
+              const previous = bot.pinnedAt;
+              setPinBusy(true);
+              setPinError("");
+              patchBot(bot.id, {
+                pinnedAt: previous ? null : new Date().toISOString(),
+              });
+              void (previous
+                ? client.bots.unpin({ botId: bot.id })
+                : client.bots.pin({ botId: bot.id })
+              )
+                .then((next) => {
+                  patchBot(bot.id, { pinnedAt: next.pinnedAt });
+                })
+                .catch((caught: unknown) => {
+                  patchBot(bot.id, { pinnedAt: previous });
+                  setPinError(
+                    caught instanceof Error
+                      ? caught.message
+                      : "Could not update pin",
+                  );
+                })
+                .finally(() => setPinBusy(false));
+            }}
+          >
+            {pinned ? "Unpin" : "Pin"}
+          </button>
+          {pinError ? <p className="error">{pinError}</p> : null}
+        </section>
+        <section className="set-block">
           <p className="group-label">Archive</p>
           {archived ? (
             <>
@@ -329,6 +376,54 @@ export function BotSettingsPane(props: {
             </>
           )}
           {archiveError ? <p className="error">{archiveError}</p> : null}
+        </section>
+        <section className="set-block">
+          <p className="group-label">Delete</p>
+          <p className="hint">
+            Permanently remove {bot.name}, their conversation, and their
+            computer. This cannot be undone.
+          </p>
+          {confirmDelete ? (
+            <div className="row">
+              <button
+                className="text-btn danger"
+                type="button"
+                disabled={deleteBusy || pending}
+                onClick={() => {
+                  setDeleteBusy(true);
+                  setDeleteError("");
+                  void props.onDeleted(bot).catch((caught: unknown) => {
+                    setDeleteError(
+                      caught instanceof Error
+                        ? caught.message
+                        : "Could not delete",
+                    );
+                    setDeleteBusy(false);
+                  });
+                }}
+              >
+                Delete {bot.name}
+              </button>
+              <button
+                className="text-btn"
+                type="button"
+                disabled={deleteBusy || pending}
+                onClick={() => setConfirmDelete(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              className="text-btn danger"
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              disabled={pending}
+            >
+              Delete
+            </button>
+          )}
+          {deleteError ? <p className="error">{deleteError}</p> : null}
         </section>
       </div>
     </aside>

@@ -69,6 +69,11 @@ describe("oRPC", () => {
     await expect(client.bots.list()).rejects.toMatchObject({
       code: "UNAUTHORIZED",
     });
+    await expect(client.bots.delete({ botId: "bot_test" })).rejects.toMatchObject(
+      {
+        code: "UNAUTHORIZED",
+      },
+    );
   });
 
   it("requires a session to list plugins", async () => {
@@ -83,6 +88,9 @@ describe("oRPC", () => {
       },
     });
     await expect(client.plugins.list()).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+    await expect(client.mcp.list()).rejects.toMatchObject({
       code: "UNAUTHORIZED",
     });
   });
@@ -117,6 +125,24 @@ describe("oRPC", () => {
       },
     });
     await expect(client.models.get()).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+  });
+
+  it("requires a session to update a workspace", async () => {
+    const app = new Hono();
+    mountRpc(app, { env } as unknown as RpcContext);
+    const client = createGroxbotClient({
+      baseUrl: "http://groxbot.test",
+      fetch: async (input, init) => {
+        const request =
+          input instanceof Request ? input : new Request(String(input), init);
+        return app.request(request);
+      },
+    });
+    await expect(
+      client.workspaces.update({ name: "Acme" }),
+    ).rejects.toMatchObject({
       code: "UNAUTHORIZED",
     });
   });
@@ -159,6 +185,50 @@ describe("oRPC", () => {
         filename: "notes.md",
         content: "YWJj",
       }),
+    ).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+    await expect(
+      client.computer.download({ botId: "bot_test", path: "notes.md" }),
+    ).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+  });
+
+  it("requires a session to list knowledge", async () => {
+    const app = new Hono();
+    mountRpc(app, { env } as unknown as RpcContext);
+    const client = createGroxbotClient({
+      baseUrl: "http://groxbot.test",
+      fetch: async (input, init) => {
+        const request =
+          input instanceof Request ? input : new Request(String(input), init);
+        return app.request(request);
+      },
+    });
+    await expect(client.knowledge.list()).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+    await expect(
+      client.knowledge.read({ path: "playbooks/weekly-update/SKILL.md" }),
+    ).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+    await expect(
+      client.knowledge.download({ path: "brief.pdf" }),
+    ).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+    await expect(
+      client.knowledge.backlinks({ path: "how-we-work/constraints.md" }),
+    ).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+    await expect(client.knowledge.graph()).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+    await expect(
+      client.knowledge.importSkill({ source: "acme/playbooks" }),
     ).rejects.toMatchObject({
       code: "UNAUTHORIZED",
     });

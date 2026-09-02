@@ -37,7 +37,7 @@
     "overrides": {
       "react": "19.2.3",
       "react-dom": "19.2.3",
-      "wrangler": "^4.127.1"
+      "wrangler": "4.113.0"
     }
   }
 }

@@ -10,6 +10,8 @@ import {
 import { createExecuteTool } from "@cloudflare/think/tools/execute";
 import type { ToolSet } from "ai";
 import { createBundlingExecutor } from "./bot-execute.js";
+import { createKnowledgeTools } from "./bot-knowledge.js";
+import { WorkspaceMcpConnector } from "./bot-mcp-connector.js";
 import { bindToMarkdown, createPageTools } from "./bot-markdown.js";
 import type { WorkersAiBinding } from "@groxbot/adapters/edge";
 import {
@@ -18,20 +20,34 @@ import {
   gatewayRequestModel,
   loadGatewayConfig,
 } from "@groxbot/adapters/edge";
-import { HOSTED_STARTER_MODEL, labelForModel } from "@groxbot/contracts";
+import {
+  HOSTED_STARTER_MODEL,
+  labelForModel,
+  officeUserFromHeaders,
+  parseOfficeUser,
+  stampIncomingOfficeUser,
+} from "@groxbot/contracts";
+import { getCurrentAgent } from "agents";
+import { AgentContextProvider } from "agents/experimental/memory/session";
 import {
   encryptionSecret,
   listComputerEntries,
   readComputerFile,
+  downloadComputerFile,
   decodeComputerBytes,
   writeInboxFile,
+  hostedChatMessages,
   resolveRunModel,
   rewriteThinkCapability,
+  composeSoul,
+  soulOverlayFromWrite,
   teammatePrompt,
   workspaceSkillSource,
+  officeSkillSource,
   ComputerFileError,
   ComputerPathError,
   ComputerWriteError,
+  saveMcpConnection,
 } from "@groxbot/core";
 import { bots } from "@groxbot/db";
 import { createNeonHttpDb } from "@groxbot/db/neon";
@@ -41,7 +57,17 @@ import {
   productEnv,
   type RuntimeSource,
 } from "./env.js";
+import { mcpCallbackPage } from "./mcp-callback-page.js";
 import type { SendEmailBinding } from "./mail.js";
+import { r2KnowledgeDisk } from "./knowledge-r2.js";
+
+function connectedOfficeUser() {
+  const { connection, request } = getCurrentAgent();
+  return (
+    parseOfficeUser(connection?.state) ??
+    officeUserFromHeaders(request?.headers ?? new Headers())
+  );
+}
 
 export interface WorkerEnv {
   DATABASE_URL: string;
@@ -68,6 +94,7 @@ export interface WorkerEnv {
   APP_RUNTIME: DurableObjectNamespace;
   LOADER: unknown;
   BROWSER: unknown;
+  KNOWLEDGE?: R2Bucket;
 }
 
 type StoredJob = {
@@ -91,8 +118,9 @@ function workspaceError(error: unknown): Response {
 
 export class BotActor extends Think<WorkerEnv> {
   override messageConcurrency: MessageConcurrency = "queue";
-  /** MCP is tools.* inside execute, not a dumped AI SDK catalog. */
+  /** MCP is tools.* / named connectors inside execute, not a dumped AI SDK catalog. */
   override includeMcpTools = false;
+  override waitForMcpConnections = true;
   private soulPrompt = "You are a helpful teammate.";
   private turnModel = HOSTED_STARTER_MODEL;
   private turnHosted = true;
@@ -101,6 +129,7 @@ export class BotActor extends Think<WorkerEnv> {
   private memoryDirty = false;
   private botLoaded = false;
   private botLoading: Promise<void> | null = null;
+  private officeId = "";
 
   getModel() {
     const id = gatewayRequestModel(this.turnModel);
@@ -122,6 +151,17 @@ export class BotActor extends Think<WorkerEnv> {
     return { system: rewriteThinkCapability(ctx.system) };
   }
 
+  /** Strip file parts before `convertToModelMessages` calls `new URL(part.url)`. */
+  async _repairTranscriptForProvider(messages) {
+    return super._repairTranscriptForProvider(hostedChatMessages(messages));
+  }
+
+  beforeStep(ctx: Parameters<Think["beforeStep"]>[0]) {
+    const messages = hostedChatMessages(ctx.messages);
+    if (messages === ctx.messages) return;
+    return { messages };
+  }
+
   afterToolCall(ctx: ToolCallResultContext) {
     if (ctx.success && ctx.toolName === "set_context") this.memoryDirty = true;
   }
@@ -131,19 +171,53 @@ export class BotActor extends Think<WorkerEnv> {
   }
 
   async onStart(): Promise<void> {
+    this.ensureMcpOAuthCallback();
     console.log(`[bot ${this.name}] onStart after think hydrate`);
+  }
+
+  async onConnect(connection, ctx) {
+    const user =
+      officeUserFromHeaders(ctx.request.headers) ??
+      parseOfficeUser(connection.state);
+    if (user) connection.setState(user);
+    return super.onConnect(connection, ctx);
+  }
+
+  /**
+   * Chat-request persist. Stamp only new user rows — `_rowSafe` also runs on
+   * history upserts and would otherwise rewrite other humans as the sender.
+   */
+  async _persistIncomingMessage(msg, serverMessages) {
+    const existing =
+      msg && typeof msg === "object" && "id" in msg
+        ? serverMessages.find((row) => row.id === msg.id)
+        : undefined;
+    return super._persistIncomingMessage(
+      stampIncomingOfficeUser(msg, connectedOfficeUser(), existing),
+      serverMessages,
+    );
   }
 
   configureSession(session: Parameters<Think["configureSession"]>[0]) {
     console.log(`[bot ${this.name}] configureSession`);
+    const evolved = new AgentContextProvider(this, "soul-evolved");
+    const actor = this;
     return session
       .withContext("soul", {
+        description:
+          "Who you are and how you sound. Starts as your name plus how this office works. Grow it with set_context as you learn this desk. Keep it dense. Keep your name. Facts about people and work go in memory.",
+        maxTokens: 2000,
         provider: {
           get: async () => {
             // Do not block Think hydrate / get-messages on Neon. Chat turns
             // still wait in beforeTurn; loadBot refreshes the prompt after.
-            void this.ensureBotLoaded();
-            return this.soulPrompt;
+            void actor.ensureBotLoaded();
+            return composeSoul(actor.soulPrompt, (await evolved.get()) ?? "");
+          },
+          set: async (content: string) => {
+            await evolved.set(
+              soulOverlayFromWrite(actor.soulPrompt, content),
+            );
           },
         },
       })
@@ -160,18 +234,32 @@ export class BotActor extends Think<WorkerEnv> {
       workspace: this.workspace,
       convert: bindToMarkdown(this.env.AI),
     });
+    const knowledge = this.officeKnowledge();
     return {
       ...pageTools,
+      ...(knowledge
+        ? createKnowledgeTools({
+            disk: knowledge,
+            workspaceId: this.officeId,
+          })
+        : {}),
       execute: createExecuteTool(this, {
         executor: createBundlingExecutor(this.env.LOADER, { timeout: 120_000 }),
         session: { mode: "reuse", key: this.name },
         tools: pageTools,
+        connectors: this.mcpExecuteConnectors(),
       }),
     };
   }
 
   getSkills() {
-    return [workspaceSkillSource(this.workspace)];
+    // Office skills first. Computer skills stay as private drafts.
+    const office = this.officeKnowledge();
+    const sources = office
+      ? [officeSkillSource(office, this.officeId)]
+      : [];
+    sources.push(workspaceSkillSource(this.workspace));
+    return sources;
   }
 
   getSkillScriptRunner() {
@@ -183,9 +271,6 @@ export class BotActor extends Think<WorkerEnv> {
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
-    const t0 = Date.now();
-    const tail = url.pathname.split("/").pop() ?? url.pathname;
-    console.log(`[bot ${this.name}] fetch in ${request.method} ${tail}`);
     if (request.method === "POST" && url.pathname === "/wakeup") {
       return this.handleWakeup(request);
     }
@@ -195,14 +280,22 @@ export class BotActor extends Think<WorkerEnv> {
     if (request.method === "POST" && url.pathname === "/workspace/read") {
       return this.handleWorkspaceRead(request);
     }
+    if (request.method === "POST" && url.pathname === "/workspace/download") {
+      return this.handleWorkspaceDownload(request);
+    }
     if (request.method === "POST" && url.pathname === "/workspace/write") {
       return this.handleWorkspaceWrite(request);
     }
-    const response = await super.fetch(request);
-    console.log(
-      `[bot ${this.name}] fetch out ${tail} +${Date.now() - t0}ms ${response.status}`,
-    );
-    return response;
+    if (request.method === "POST" && url.pathname === "/mcp/add") {
+      return this.handleMcpAdd(request);
+    }
+    if (request.method === "POST" && url.pathname === "/mcp/remove") {
+      return this.handleMcpRemove(request);
+    }
+    if (request.method === "POST" && url.pathname === "/destroy") {
+      return this.handleDestroy();
+    }
+    return super.fetch(request);
   }
 
   async onScheduledWake(job: StoredJob): Promise<void> {
@@ -255,6 +348,7 @@ export class BotActor extends Think<WorkerEnv> {
       .where(eq(bots.id, this.name))
       .limit(1);
     if (!bot) return;
+    this.officeId = bot.workspaceId;
     const overlay = await resolveRunModel(
       db,
       bot,
@@ -296,6 +390,16 @@ export class BotActor extends Think<WorkerEnv> {
     }
   }
 
+  private async handleWorkspaceDownload(request: Request): Promise<Response> {
+    const body = (await request.json().catch(() => ({}))) as { path?: unknown };
+    const path = typeof body.path === "string" ? body.path : "";
+    try {
+      return Response.json(await downloadComputerFile(this.workspace, path));
+    } catch (error) {
+      return workspaceError(error);
+    }
+  }
+
   private async handleWorkspaceWrite(request: Request): Promise<Response> {
     const body = (await request.json().catch(() => ({}))) as {
       filename?: unknown;
@@ -308,6 +412,133 @@ export class BotActor extends Think<WorkerEnv> {
       return Response.json(await writeInboxFile(this.workspace, filename, bytes));
     } catch (error) {
       return workspaceError(error);
+    }
+  }
+
+  private async handleDestroy(): Promise<Response> {
+    try {
+      this.cancelAllChats();
+    } catch (error) {
+      console.error("bot actor cancel", this.name, error);
+    }
+    try {
+      await this.ctx.storage.deleteAlarm();
+    } catch {
+      // No alarm scheduled.
+    }
+    await this.ctx.storage.deleteAll();
+    return Response.json({ ok: true });
+  }
+
+  private ensureMcpOAuthCallback(): void {
+    this.mcp.configureOAuthCallback({
+      customHandler: async (result) => {
+        await this.markMcpOAuth(result);
+        return new Response(mcpCallbackPage(this.env.WEB_ORIGIN), {
+          headers: { "content-type": "text/html; charset=utf-8" },
+        });
+      },
+    });
+  }
+
+  private officeKnowledge() {
+    if (!this.env.KNOWLEDGE || !this.officeId) return null;
+    return r2KnowledgeDisk(this.env.KNOWLEDGE);
+  }
+
+  private mcpExecuteConnectors(): WorkspaceMcpConnector[] {
+    const used = new Set<string>();
+    const connectors: WorkspaceMcpConnector[] = [];
+    const servers = this.getMcpServers().servers;
+    for (const [id, server] of Object.entries(servers)) {
+      if (server.state !== "ready") continue;
+      const connection = this.mcp.mcpConnections[id];
+      if (!connection) continue;
+      let name = server.name.trim() || "mcp";
+      if (used.has(name)) name = `${name}-${id.slice(0, 8)}`;
+      used.add(name);
+      connectors.push(
+        new WorkspaceMcpConnector(this.ctx, this.env, connection, name),
+      );
+    }
+    return connectors;
+  }
+
+  private async handleMcpAdd(request: Request): Promise<Response> {
+    this.ensureMcpOAuthCallback();
+    const body = (await request.json().catch(() => ({}))) as {
+      serverId?: unknown;
+      name?: unknown;
+      url?: unknown;
+      callbackHost?: unknown;
+    };
+    const serverId = typeof body.serverId === "string" ? body.serverId : "";
+    const name = typeof body.name === "string" ? body.name : "";
+    const url = typeof body.url === "string" ? body.url : "";
+    const callbackHost =
+      typeof body.callbackHost === "string" ? body.callbackHost : "";
+    if (!serverId || !name || !url || !callbackHost) {
+      return Response.json({ error: "MCP server is missing fields." }, { status: 400 });
+    }
+    try {
+      const result = await this.addMcpServer(name, url, {
+        id: serverId,
+        callbackHost,
+        callbackPath: "api/mcp/oauth",
+      });
+      return Response.json(result);
+    } catch (error) {
+      console.error("bot actor mcp add", this.name, error);
+      return Response.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Could not connect MCP.",
+        },
+        { status: 400 },
+      );
+    }
+  }
+
+  private async handleMcpRemove(request: Request): Promise<Response> {
+    const body = (await request.json().catch(() => ({}))) as {
+      serverId?: unknown;
+    };
+    const serverId = typeof body.serverId === "string" ? body.serverId : "";
+    if (!serverId) {
+      return Response.json({ error: "MCP server missing." }, { status: 400 });
+    }
+    try {
+      await this.removeMcpServer(serverId);
+      return Response.json({ ok: true });
+    } catch (error) {
+      console.error("bot actor mcp remove", this.name, error);
+      return Response.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Could not remove MCP.",
+        },
+        { status: 400 },
+      );
+    }
+  }
+
+  private async markMcpOAuth(result: {
+    serverId?: string;
+    authSuccess: boolean;
+    authError?: string;
+  }): Promise<void> {
+    if (!result.serverId) return;
+    try {
+      const env = productEnv(this.env);
+      const { db } = createNeonHttpDb(env.databaseUrl);
+      await saveMcpConnection(db, result.serverId, {
+        status: result.authSuccess ? "connected" : "error",
+        lastError: result.authSuccess
+          ? null
+          : result.authError || "Authentication failed",
+      });
+    } catch (error) {
+      console.error("bot actor mcp oauth", this.name, error);
     }
   }
 
@@ -342,4 +573,41 @@ export class BotActor extends Think<WorkerEnv> {
       console.error("bot actor", job.botId, job.name, error);
     }
   }
+}
+
+silenceThinkSystemPromptFallbackWarning();
+
+/**
+ * Think warns when getSkills() is set and getSystemPrompt looks replaced.
+ * BotActor never overrides it — always-on instructions are the soul/memory
+ * context blocks. Workerd binds Durable Object methods, so Think's identity
+ * check false-positives; drop that one warning around skill init.
+ */
+function silenceThinkSystemPromptFallbackWarning() {
+  const proto = Think.prototype as unknown as {
+    _initializeSkills: (this: Think) => Promise<void>;
+  };
+  const original = proto._initializeSkills;
+  const nativeWarn = console.warn;
+  let depth = 0;
+  proto._initializeSkills = async function (this: Think) {
+    depth += 1;
+    if (depth === 1) {
+      console.warn = (...args: unknown[]) => {
+        if (
+          typeof args[0] === "string" &&
+          args[0].includes("getSystemPrompt() is only used as a fallback")
+        ) {
+          return;
+        }
+        nativeWarn.apply(console, args);
+      };
+    }
+    try {
+      return await original.call(this);
+    } finally {
+      depth -= 1;
+      if (depth === 0) console.warn = nativeWarn;
+    }
+  };
 }

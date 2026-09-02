@@ -26,6 +26,7 @@ import {
 } from "../lib/prefs";
 import { client } from "../lib/rpc";
 import type { Theme } from "../lib/theme";
+import { canSaveWorkspaceName } from "../lib/workspace-switcher";
 import { ModalShell } from "../ui";
 import { ChevronDownIcon, CloseIcon } from "./Icons";
 
@@ -122,7 +123,8 @@ export function AppSettings(props: {
                 </section>
                 <section className="set-block">
                   <p className="group-label">Workspace</p>
-                  <WorkspaceInvite
+                  <WorkspaceSettings
+                    key={props.me?.workspaceId ?? "none"}
                     name={props.me?.workspaceName}
                     enabled={Boolean(props.me && !props.me.needsWorkspace)}
                   />
@@ -229,15 +231,35 @@ export function AppSettings(props: {
   );
 }
 
-function WorkspaceInvite(props: {
+function WorkspaceSettings(props: {
   name: string | null | undefined;
   enabled: boolean;
 }) {
+  const queryClient = useQueryClient();
+  const [draft, setDraft] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [sent, setSent] = useState<{ email: string; url: string } | null>(null);
+  const name = draft ?? props.name ?? "";
+  const dirty = canSaveWorkspaceName(props.name, name);
+
+  async function saveName() {
+    const trimmed = name.trim();
+    if (!props.enabled || !canSaveWorkspaceName(props.name, trimmed)) return;
+    setSaving(true);
+    setError("");
+    try {
+      await client.workspaces.update({ name: trimmed });
+      await queryClient.invalidateQueries({ queryKey: orpc.me.key() });
+    } catch (caught) {
+      setError(userFacingError(caught, "Could not update workspace name"));
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function send() {
     const trimmed = email.trim();
@@ -269,7 +291,36 @@ function WorkspaceInvite(props: {
 
   return (
     <>
-      <p className="muted">{props.name || "This workspace"}</p>
+      {props.enabled ? (
+        <form
+          className="field"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void saveName();
+          }}
+        >
+          <span>Name</span>
+          <input
+            value={name}
+            maxLength={80}
+            autoComplete="organization"
+            disabled={saving}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              setError("");
+            }}
+          />
+          <button
+            className="mini"
+            type="submit"
+            disabled={saving || !dirty}
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </form>
+      ) : (
+        <p className="muted">{props.name || "This workspace"}</p>
+      )}
       {props.enabled ? (
         <>
           <form

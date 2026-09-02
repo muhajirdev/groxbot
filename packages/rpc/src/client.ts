@@ -6,7 +6,7 @@ import type { ContractRouterClient } from "@orpc/contract";
 export type GroxbotClient = ContractRouterClient<AppContract>;
 
 export interface CreateGroxbotClientOptions {
-  /** Origin of the API, no trailing slash. Empty string uses same-origin `/rpc` (Vite proxy). */
+  /** Origin of the API, no trailing slash. */
   baseUrl: string;
   headers?:
     | Record<string, string>

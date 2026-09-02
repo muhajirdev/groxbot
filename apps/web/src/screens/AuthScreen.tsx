@@ -6,7 +6,7 @@ import { GateMark, GateShell } from "../components/Gate";
 import { GoogleIcon } from "../components/Icons";
 import { authClient } from "../lib/auth";
 import { userFacingError } from "../lib/errors";
-import { apiOrigin } from "../lib/host";
+import { apiOrigin, officeUrl } from "../lib/host";
 import { readRememberedInvite, rememberInvite } from "../lib/invite";
 import { orpc } from "../lib/orpc";
 import { Field, Input } from "../ui";
@@ -30,7 +30,7 @@ export function AuthScreen(props: { errorFromUrl?: string; invite?: string }) {
   const afterAuth = invite
     ? `/onboarding?invite=${encodeURIComponent(invite)}`
     : "/";
-  const errorCallbackURL = invite
+  const errorPath = invite
     ? `/login?invite=${encodeURIComponent(invite)}`
     : "/login";
 
@@ -53,8 +53,8 @@ export function AuthScreen(props: { errorFromUrl?: string; invite?: string }) {
     rememberInvite(invite);
     const result = await authClient.signIn.social({
       provider: "google",
-      callbackURL: afterAuth,
-      errorCallbackURL,
+      callbackURL: officeUrl(afterAuth),
+      errorCallbackURL: officeUrl(errorPath),
     });
     setBusy(false);
     if (result.error) setError(result.error.message ?? "Could not continue");
@@ -72,8 +72,8 @@ export function AuthScreen(props: { errorFromUrl?: string; invite?: string }) {
     rememberInvite(invite);
     const result = await authClient.signIn.magicLink({
       email: address,
-      callbackURL: afterAuth,
-      errorCallbackURL,
+      callbackURL: officeUrl(afterAuth),
+      errorCallbackURL: officeUrl(errorPath),
     });
     setBusy(false);
     if (result.error) {

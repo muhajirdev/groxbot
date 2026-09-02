@@ -14,6 +14,7 @@ import {
 import {
   bots,
   guestConnectors,
+  memoryDocuments,
   messages,
   routines,
   runs,
@@ -22,7 +23,7 @@ import {
   threads,
 } from "@groxbot/db";
 import { ORPCError } from "@orpc/server";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
 import type { RpcContext } from "./context.js";
 import { agentRuntimeSource } from "./env.js";
 import type { Actor } from "./session.js";
@@ -274,6 +275,83 @@ export async function unarchiveBot(
     .returning();
   if (!updated) throw new ORPCError("NOT_FOUND", { message: "Bot not found" });
   return toBotDto(updated, thread.id);
+}
+
+export async function pinBot(
+  context: RpcContext,
+  actor: Actor,
+  botId: string,
+): Promise<Bot> {
+  const { bot, thread } = await getBotThread(context, actor, botId);
+  if (bot.pinnedAt) return toBotDto(bot, thread.id);
+  const now = new Date();
+  const [updated] = await context.db
+    .update(bots)
+    .set({ pinnedAt: now, updatedAt: now })
+    .where(eq(bots.id, bot.id))
+    .returning();
+  if (!updated) throw new ORPCError("NOT_FOUND", { message: "Bot not found" });
+  return toBotDto(updated, thread.id);
+}
+
+export async function unpinBot(
+  context: RpcContext,
+  actor: Actor,
+  botId: string,
+): Promise<Bot> {
+  const { bot, thread } = await getBotThread(context, actor, botId);
+  if (!bot.pinnedAt) return toBotDto(bot, thread.id);
+  const now = new Date();
+  const [updated] = await context.db
+    .update(bots)
+    .set({ pinnedAt: null, updatedAt: now })
+    .where(eq(bots.id, bot.id))
+    .returning();
+  if (!updated) throw new ORPCError("NOT_FOUND", { message: "Bot not found" });
+  return toBotDto(updated, thread.id);
+}
+
+export async function deleteBot(
+  context: RpcContext,
+  actor: Actor,
+  botId: string,
+): Promise<{ ok: true }> {
+  const { bot } = await getBotThread(context, actor, botId);
+  await stopBotRuns(context, actor, botId);
+  const now = new Date();
+  await context.db
+    .update(bots)
+    .set({ homeThreadId: null, updatedAt: now })
+    .where(eq(bots.id, bot.id));
+  await context.db
+    .update(bots)
+    .set({ parentBotId: null, updatedAt: now })
+    .where(eq(bots.parentBotId, bot.id));
+  await context.db
+    .delete(memoryDocuments)
+    .where(eq(memoryDocuments.botId, bot.id));
+  await context.db
+    .delete(threads)
+    .where(
+      or(
+        eq(threads.botId, bot.id),
+        eq(threads.aBotId, bot.id),
+        eq(threads.bBotId, bot.id),
+      ),
+    );
+  const removed = await context.db
+    .delete(bots)
+    .where(and(eq(bots.id, bot.id), eq(bots.workspaceId, actor.workspaceId)))
+    .returning();
+  if (removed.length === 0) {
+    throw new ORPCError("NOT_FOUND", { message: "Bot not found" });
+  }
+  try {
+    await context.forgetBot?.(bot.id);
+  } catch (error) {
+    console.error("bot actor destroy", bot.id, error);
+  }
+  return { ok: true };
 }
 
 export async function sendMessage(

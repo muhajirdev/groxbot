@@ -1,6 +1,8 @@
 import type { Bot, Routine } from "@groxbot/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { saveComputerDownload } from "../lib/computer-download";
+import { computerFileKind } from "../lib/computer-preview";
 import {
   filterComputerTree,
   nestComputerEntries,
@@ -9,15 +11,17 @@ import {
 import { userFacingError } from "../lib/errors";
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
+import { THINK_MESSAGES_GC_TIME } from "../lib/think-messages";
 import { ModalShell } from "../ui";
+import { ComputerFilePreview } from "./ComputerFilePreview";
 import {
   ChevronDownIcon,
   CloseIcon,
+  DownloadIcon,
   FileIcon,
   GearIcon,
   ImageFileIcon,
   MarkdownFileIcon,
-  MoreIcon,
   SearchIcon,
 } from "./Icons";
 
@@ -42,10 +46,14 @@ export function ComputerPane(props: {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
+  const [previewPath, setPreviewPath] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  const [downloading, setDownloading] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState("");
   const botId = props.bot.id;
   const filesQuery = useQuery({
     ...orpc.computer.list.queryOptions({ input: { botId } }),
+    gcTime: THINK_MESSAGES_GC_TIME,
     refetchInterval: (queryState) =>
       queryState.state.data ? 15_000 : false,
   });
@@ -60,11 +68,25 @@ export function ComputerPane(props: {
     return filterComputerTree(nested, query);
   }, [filesQuery.data, query]);
   const searching = query.trim().length > 0;
+  const downloadFile = (path: string) => {
+    if (downloading) return;
+    setDownloading(path);
+    setDownloadError("");
+    void client.computer
+      .download({ botId, path })
+      .then((file) => {
+        saveComputerDownload(file);
+      })
+      .catch((caught: unknown) => {
+        setDownloadError(userFacingError(caught, "Could not download that file"));
+      })
+      .finally(() => setDownloading(null));
+  };
 
   return (
     <aside className="pane computer-pane">
       <div className="pane-head drag">
-        <span className="pane-title">{props.bot.name}'s screen</span>
+        <span className="pane-title">{props.bot.name}'s computer</span>
         <div className="row tight no-drag">
           <button
             className="icon-btn"
@@ -118,7 +140,10 @@ export function ComputerPane(props: {
                   depth={0}
                   selected={selected}
                   collapsed={searching ? NONE_COLLAPSED : collapsed}
+                  downloading={downloading}
                   onSelect={setSelected}
+                  onPreview={setPreviewPath}
+                  onDownload={downloadFile}
                   onToggle={(path) => {
                     setCollapsed((current) => {
                       const next = new Set(current);
@@ -131,6 +156,9 @@ export function ComputerPane(props: {
               ))}
             </ul>
           )}
+          {downloadError ? (
+            <p className="explorer-empty">{downloadError}</p>
+          ) : null}
           {filesQuery.data?.truncated ? (
             <p className="explorer-empty">Showing the first 200 paths.</p>
           ) : null}
@@ -164,6 +192,13 @@ export function ComputerPane(props: {
           </button>
         </section>
       </div>
+      <ComputerFilePreview
+        botId={botId}
+        path={previewPath}
+        downloading={Boolean(downloading)}
+        onClose={() => setPreviewPath(null)}
+        onDownload={downloadFile}
+      />
       <ModalShell open={creating} onClose={() => setCreating(false)}>
         <h2>Create Routine</h2>
         <label className="field">
@@ -244,12 +279,16 @@ function TreeRows(props: {
   depth: number;
   selected: string | null;
   collapsed: Set<string>;
+  downloading: string | null;
   onSelect: (path: string) => void;
+  onPreview: (path: string) => void;
+  onDownload: (path: string) => void;
   onToggle: (path: string) => void;
 }) {
   const node = props.node;
   const open = node.kind !== "dir" || !props.collapsed.has(node.path);
   const on = props.selected === node.path;
+  const saving = props.downloading === node.path;
   return (
     <>
       <li>
@@ -272,24 +311,32 @@ function TreeRows(props: {
           <button
             className="explorer-name"
             type="button"
+            aria-label={
+              node.kind === "file" ? `Preview ${node.name}` : node.name
+            }
+            title={node.kind === "file" ? "Preview" : undefined}
             onClick={() => {
-              if (node.kind === "dir") props.onToggle(node.path);
-              else props.onSelect(node.path);
+              if (node.kind === "dir") {
+                props.onToggle(node.path);
+                return;
+              }
+              props.onSelect(node.path);
+              props.onPreview(node.path);
             }}
           >
             {node.name}
           </button>
-          {node.kind === "file" && on ? (
+          {node.kind === "file" ? (
             <button
-              className="explorer-more"
+              className={`explorer-more${saving ? " busy" : ""}`}
               type="button"
-              aria-label="Copy path"
-              title="Copy path"
-              onClick={() => {
-                void navigator.clipboard.writeText(node.path);
-              }}
+              aria-label={`Download ${node.name}`}
+              aria-busy={saving}
+              title="Download"
+              disabled={Boolean(props.downloading)}
+              onClick={() => props.onDownload(node.path)}
             >
-              <MoreIcon />
+              <DownloadIcon />
             </button>
           ) : null}
         </div>
@@ -302,7 +349,10 @@ function TreeRows(props: {
               depth={props.depth + 1}
               selected={props.selected}
               collapsed={props.collapsed}
+              downloading={props.downloading}
               onSelect={props.onSelect}
+              onPreview={props.onPreview}
+              onDownload={props.onDownload}
               onToggle={props.onToggle}
             />
           ))
@@ -312,7 +362,7 @@ function TreeRows(props: {
 }
 
 function FileKindMark(props: { name: string }) {
-  const kind = fileKind(props.name);
+  const kind = computerFileKind(props.name);
   if (kind === "image") {
     return (
       <span className="explorer-mark image" aria-hidden>
@@ -332,24 +382,4 @@ function FileKindMark(props: { name: string }) {
       <FileIcon />
     </span>
   );
-}
-
-function fileKind(name: string): "pdf" | "image" | "svg" | "md" | "html" | "file" {
-  const ext = name.includes(".")
-    ? name.slice(name.lastIndexOf(".")).toLowerCase()
-    : "";
-  if (ext === ".pdf") return "pdf";
-  if (ext === ".svg") return "svg";
-  if (ext === ".md" || ext === ".markdown") return "md";
-  if (ext === ".html" || ext === ".htm") return "html";
-  if (
-    ext === ".png" ||
-    ext === ".jpg" ||
-    ext === ".jpeg" ||
-    ext === ".gif" ||
-    ext === ".webp"
-  ) {
-    return "image";
-  }
-  return "file";
 }

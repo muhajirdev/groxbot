@@ -5,6 +5,7 @@ import {
   decodeComputerBytes,
   listComputerEntries,
   readComputerFile,
+  downloadComputerFile,
   writeInboxFile,
   type ComputerDisk,
 } from "@groxbot/core";
@@ -138,6 +139,7 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
       computer: {
         list: (botId, path) => listComputerEntries(diskFor(botId), path),
         read: (botId, path) => readComputerFile(diskFor(botId), path),
+        download: (botId, path) => downloadComputerFile(diskFor(botId), path),
         write: (botId, filename, content) =>
           writeInboxFile(diskFor(botId), filename, decodeComputerBytes(content)),
       },
@@ -285,7 +287,11 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
     expect(signUp.status, await signUp.text()).toBe(200);
 
     const rpc = client();
-    await rpc.workspaces.create({ name: "Desk office" });
+    const office = await rpc.workspaces.create({ name: "Desk office" });
+    const renamed = await rpc.workspaces.update({ name: "  Desk HQ  " });
+    expect(renamed.id).toBe(office.id);
+    expect(renamed.name).toBe("Desk HQ");
+    expect((await rpc.me()).workspaceName).toBe("Desk HQ");
     const piper = await rpc.bots.create({
       name: "Piper",
       title: "Product",
@@ -384,6 +390,16 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
       path: "inbox/brief.md",
     });
     expect(inboxFile.content).toBe("week one");
+
+    const downloaded = await rpc.computer.download({
+      botId: piper.id,
+      path: "inbox/brief.md",
+    });
+    expect(downloaded.filename).toBe("brief.md");
+    expect(downloaded.mediaType).toBe("text/markdown");
+    expect(new TextDecoder().decode(decodeComputerBytes(downloaded.content))).toBe(
+      "week one",
+    );
   }, 20_000);
 
   it("lets a guest agent dial in and answer", async () => {
@@ -579,6 +595,104 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
     const after = await rpc.bots.list();
     expect(after.filter((item) => !item.archivedAt)).toHaveLength(2);
   }, 15_000);
+
+  it("pins a bot to the top of the roster", async () => {
+    cookie = "";
+    const email = `pin-${Date.now()}@example.com`;
+    const signUp = await handles.app.request(
+      new Request(`${origin}/api/auth/sign-up/email`, {
+        method: "POST",
+        headers: {
+          origin,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "Pin Tester",
+          email,
+          password: "password1",
+        }),
+      }),
+    );
+    cookie = cookieHeader(signUp, cookie);
+    expect(signUp.status, await signUp.text()).toBe(200);
+
+    const rpc = client();
+    await rpc.workspaces.create({ name: "Pin office" });
+    const lookout = await rpc.bots.create({
+      name: "Lookout",
+      title: "Watch",
+      description: "Gets pinned.",
+      instructions: "Gets pinned.",
+    });
+    expect(lookout.pinnedAt).toBeNull();
+
+    const pinned = await rpc.bots.pin({ botId: lookout.id });
+    expect(pinned.pinnedAt).toBeTruthy();
+    expect(pinned.id).toBe(lookout.id);
+
+    const listed = await rpc.bots.list();
+    expect(listed.find((item) => item.id === lookout.id)?.pinnedAt).toBeTruthy();
+
+    const again = await rpc.bots.pin({ botId: lookout.id });
+    expect(again.pinnedAt).toBe(pinned.pinnedAt);
+
+    const restored = await rpc.bots.unpin({ botId: lookout.id });
+    expect(restored.pinnedAt).toBeNull();
+  }, 30_000);
+
+  it("deletes a bot and drops it from the roster", async () => {
+    cookie = "";
+    const email = `delete-${Date.now()}@example.com`;
+    const signUp = await handles.app.request(
+      new Request(`${origin}/api/auth/sign-up/email`, {
+        method: "POST",
+        headers: {
+          origin,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "Delete Tester",
+          email,
+          password: "password1",
+        }),
+      }),
+    );
+    cookie = cookieHeader(signUp, cookie);
+    expect(signUp.status, await signUp.text()).toBe(200);
+
+    const rpc = client();
+    await rpc.workspaces.create({ name: "Delete office" });
+    const piper = await rpc.bots.create({
+      name: "Piper",
+      title: "Product",
+      description: "Stays.",
+      instructions: "Stays.",
+    });
+    const scout = await rpc.bots.create({
+      name: "Scout",
+      title: "Talent",
+      description: "Gets deleted.",
+      instructions: "Gets deleted.",
+    });
+
+    const gone = await rpc.bots.delete({ botId: scout.id });
+    expect(gone).toEqual({ ok: true });
+
+    const listed = await rpc.bots.list();
+    expect(listed.map((item) => item.id)).toEqual([piper.id]);
+    await expect(rpc.bots.get({ botId: scout.id })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    await expect(
+      rpc.threads.send({ botId: scout.id, text: "still there?" }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(rpc.bots.delete({ botId: scout.id })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+
+    await rpc.bots.delete({ botId: piper.id });
+    expect(await rpc.bots.list()).toEqual([]);
+  }, 60_000);
 
   it("lets a teammate join with an invite", async () => {
     const stamp = Date.now();

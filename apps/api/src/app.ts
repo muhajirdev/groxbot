@@ -13,6 +13,7 @@ import { DURABLE_OBJECT_WAKEUP, type Env, oauthCredentials } from "./env.js";
 import { healthPayload } from "./health.js";
 import { createMailer, type SendEmailBinding } from "./mail.js";
 import { completePluginCallback, pluginCallbackPage } from "./plugins.js";
+import { completeMcpOAuth } from "./mcp.js";
 import { mountRpc } from "./rpc.js";
 import { requireActor } from "./session.js";
 import { acceptInviteFromLink } from "./workspaces.js";
@@ -36,6 +37,9 @@ export function createApp(
       workspaceId: string,
     ) => Promise<Response>;
     computer?: RpcContext["computer"];
+    knowledge?: RpcContext["knowledge"];
+    mcp?: RpcContext["mcp"];
+    forgetBot?: RpcContext["forgetBot"];
   },
 ): AppHandles {
   const oauth = oauthCredentials(env);
@@ -73,6 +77,9 @@ export function createApp(
     guests,
     env,
     computer: opts.computer,
+    knowledge: opts.knowledge,
+    mcp: opts.mcp,
+    forgetBot: opts.forgetBot,
     close: async () => {
       guests.stop();
       await opts.close();
@@ -141,6 +148,10 @@ export function createApp(
         undefined,
     });
     return c.html(pluginCallbackPage(env.webOrigin));
+  });
+
+  app.all("/api/mcp/oauth", async (c) => {
+    return completeMcpOAuth(handles, c.req.raw);
   });
 
   if (!env.workerUrl && env.wakeupKind !== DURABLE_OBJECT_WAKEUP) {

@@ -3,38 +3,19 @@ import { MAX_COMPUTER_ATTACHMENTS } from "@groxbot/contracts";
 import { describe, expect, it, vi } from "vitest";
 import {
   bytesToBase64,
+  computerFileNote,
   createWorkspaceAttachmentAdapter,
   workspaceAttachmentContent,
 } from "./computer-attachment";
 
 describe("workspaceAttachmentContent", () => {
-  it("keeps a small image inline and names the inbox path", () => {
-    const bytes = new TextEncoder().encode("png");
-    const content = workspaceAttachmentContent({
-      path: "inbox/shot.png",
-      mediaType: "image/png",
-      bytes,
-    });
-    expect(content[0]).toMatchObject({
-      type: "text",
-      text: "Saved on this computer as inbox/shot.png.",
-    });
-    expect(content[1]).toMatchObject({
-      type: "file",
-      filename: "inbox/shot.png",
-      mimeType: "image/png",
-    });
-  });
-
-  it("does not inline a document", () => {
-    const content = workspaceAttachmentContent({
-      path: "inbox/brief.md",
-      mediaType: "text/markdown",
-      bytes: new TextEncoder().encode("# hi"),
-    });
-    expect(content).toEqual([
-      { type: "text", text: "Saved on this computer as inbox/brief.md." },
-    ]);
+  it("names the inbox path as text and does not attach bytes", () => {
+    expect(
+      workspaceAttachmentContent({ path: "inbox/shot.png" }),
+    ).toEqual([{ type: "text", text: computerFileNote("inbox/shot.png") }]);
+    expect(
+      workspaceAttachmentContent({ path: "inbox/brief.md" }),
+    ).toEqual([{ type: "text", text: computerFileNote("inbox/brief.md") }]);
   });
 });
 
@@ -53,7 +34,10 @@ describe("createWorkspaceAttachmentAdapter", () => {
       content: bytesToBase64(new TextEncoder().encode("note")),
       mediaType: "text/markdown",
     });
-    expect(sent.name).toBe("inbox/brief.md");
+    expect(sent.name).toBe("brief.md");
+    expect(sent.content).toEqual([
+      { type: "text", text: computerFileNote("inbox/brief.md") },
+    ]);
 
     for (let i = 0; i < MAX_COMPUTER_ATTACHMENTS; i++) {
       await adapter.add({

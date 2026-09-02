@@ -7,13 +7,24 @@ import {
   MAX_COMPUTER_WRITE_BYTES,
 } from "@groxbot/contracts";
 
-const INLINE_ATTACHMENT_BYTES = 512 * 1024;
+export const COMPUTER_FILE_NOTE_PREFIX = "On this computer:";
 
 export type ComputerWrite = (input: {
   filename: string;
   content: string;
   mediaType?: string;
 }) => Promise<{ path: string; size: number }>;
+
+export function computerFileNote(path: string): string {
+  return `${COMPUTER_FILE_NOTE_PREFIX} ${path}`;
+}
+
+export function isComputerFileNote(text: string): boolean {
+  return (
+    text.startsWith(`${COMPUTER_FILE_NOTE_PREFIX} `) ||
+    /^Saved on this computer as \S/u.test(text)
+  );
+}
 
 export function createWorkspaceAttachmentAdapter(opts: {
   write: ComputerWrite;
@@ -55,13 +66,9 @@ export function createWorkspaceAttachmentAdapter(opts: {
       opts.onPlaced?.(placed.path);
       return {
         ...attachment,
-        name: placed.path,
+        name: file.name || attachment.name,
         status: { type: "complete" },
-        content: workspaceAttachmentContent({
-          path: placed.path,
-          mediaType: file.type || attachment.contentType || "",
-          bytes,
-        }),
+        content: workspaceAttachmentContent({ path: placed.path }),
       };
     },
     async remove(attachment) {
@@ -72,28 +79,8 @@ export function createWorkspaceAttachmentAdapter(opts: {
 
 export function workspaceAttachmentContent(input: {
   path: string;
-  mediaType: string;
-  bytes: Uint8Array;
 }): CompleteAttachment["content"] {
-  const note = {
-    type: "text" as const,
-    text: `Saved on this computer as ${input.path}.`,
-  };
-  if (
-    input.mediaType.startsWith("image/") &&
-    input.bytes.byteLength <= INLINE_ATTACHMENT_BYTES
-  ) {
-    return [
-      note,
-      {
-        type: "file",
-        mimeType: input.mediaType,
-        filename: input.path,
-        data: `data:${input.mediaType};base64,${bytesToBase64(input.bytes)}`,
-      },
-    ];
-  }
-  return [note];
+  return [{ type: "text", text: computerFileNote(input.path) }];
 }
 
 export function bytesToBase64(bytes: Uint8Array): string {

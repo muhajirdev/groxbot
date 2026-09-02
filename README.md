@@ -40,7 +40,7 @@ pnpm db:migrate
 pnpm dev
 ```
 
-`pnpm dev` is **wrangler** (API Worker + Durable Objects on :3100) and **Vite** (office on :5173, which proxies `/api` `/rpc` `/health`).
+`pnpm dev` is **wrangler** (API Worker + Durable Objects on :3100) and **Vite** (office on :5173). The browser calls `:3100` for `/api`, `/rpc`, `/agents`, and `/apps`.
 
 - API: http://127.0.0.1:3100/health
 - oRPC: http://127.0.0.1:3100/rpc
@@ -58,8 +58,8 @@ Public LLM / agent discovery (also on https://groxbot.com):
 
 Google / GitHub need client IDs in `.env`. Use **127.0.0.1**, not localhost:
 
-- Google redirect: `http://127.0.0.1:5173/api/auth/callback/google`
-- GitHub callback: `http://127.0.0.1:5173/api/auth/callback/github`
+- Google redirect: `http://127.0.0.1:3100/api/auth/callback/google`
+- GitHub callback: `http://127.0.0.1:3100/api/auth/callback/github`
 
 Email sign-in sends a magic link through the Worker **`EMAIL` binding** (`send_email` in `apps/api/wrangler.jsonc`). Set `EMAIL_FROM`. Local `wrangler dev` logs mail unless you set `"remote": true` on the binding. Tests stay on `mail: log`.
 

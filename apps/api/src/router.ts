@@ -18,6 +18,10 @@ import {
   ComputerFileError,
   ComputerPathError,
   ComputerWriteError,
+  KnowledgeFileError,
+  KnowledgePathError,
+  KnowledgeWriteError,
+  SkillImportError,
 } from "@groxbot/core";
 import { guestConnectors, threads, userModelCredentials } from "@groxbot/db";
 import { implement, ORPCError } from "@orpc/server";
@@ -26,12 +30,15 @@ import {
   archiveBot,
   createBot,
   createRoutine,
+  deleteBot,
   getBotThread,
   listBots,
   listRoutines,
+  pinBot,
   sendMessage,
   stopBotRuns,
   unarchiveBot,
+  unpinBot,
   updateBot,
 } from "./bots.js";
 import type { RpcContext } from "./context.js";
@@ -54,6 +61,12 @@ import {
   removePlugin,
 } from "./plugins.js";
 import {
+  addMcp,
+  connectMcp,
+  listMcp,
+  removeMcp,
+} from "./mcp.js";
+import {
   ensureDeploymentOwner,
   loadWorkspaceName,
   requireActor,
@@ -65,6 +78,7 @@ import {
   joinWorkspace,
   pendingInvitations,
   peekWorkspaceInvite,
+  updateWorkspace,
 } from "./workspaces.js";
 
 const os = implement(appContract).$context<RpcContext>();
@@ -132,6 +146,9 @@ export const appRouter = os.router({
     create: os.workspaces.create.handler(async ({ context, input }) => {
       const user = await requireUser(context);
       return createWorkspace(context, user, input.name);
+    }),
+    update: os.workspaces.update.handler(async ({ context, input }) => {
+      return updateWorkspace(context, input.name);
     }),
     join: os.workspaces.join.handler(async ({ context, input }) => {
       const user = await requireUser(context);
@@ -220,6 +237,18 @@ export const appRouter = os.router({
     unarchive: os.bots.unarchive.handler(async ({ context, input }) => {
       const actor = await requireActor(context);
       return unarchiveBot(context, actor, input.botId);
+    }),
+    pin: os.bots.pin.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      return pinBot(context, actor, input.botId);
+    }),
+    unpin: os.bots.unpin.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      return unpinBot(context, actor, input.botId);
+    }),
+    delete: os.bots.delete.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      return deleteBot(context, actor, input.botId);
     }),
   },
   threads: {
@@ -342,6 +371,16 @@ export const appRouter = os.router({
       refreshPlugins(context),
     ),
   },
+  mcp: {
+    list: os.mcp.list.handler(async ({ context }) => listMcp(context)),
+    add: os.mcp.add.handler(async ({ context, input }) => addMcp(context, input)),
+    connect: os.mcp.connect.handler(async ({ context, input }) =>
+      connectMcp(context, input),
+    ),
+    remove: os.mcp.remove.handler(async ({ context, input }) =>
+      removeMcp(context, input.id),
+    ),
+  },
   routines: {
     list: os.routines.list.handler(async ({ context, input }) => {
       const actor = await requireActor(context);
@@ -350,6 +389,83 @@ export const appRouter = os.router({
     create: os.routines.create.handler(async ({ context, input }) => {
       const actor = await requireActor(context);
       return createRoutine(context, actor, input);
+    }),
+  },
+  knowledge: {
+    list: os.knowledge.list.handler(async ({ context }) => {
+      const actor = await requireActor(context);
+      if (!context.knowledge) return { entries: [], truncated: false };
+      try {
+        return await context.knowledge.list(actor.workspaceId);
+      } catch (error) {
+        throwKnowledgeError(error);
+      }
+    }),
+    read: os.knowledge.read.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      try {
+        if (!context.knowledge) throw new KnowledgeFileError();
+        return await context.knowledge.read(actor.workspaceId, input.path);
+      } catch (error) {
+        throwKnowledgeError(error);
+      }
+    }),
+    download: os.knowledge.download.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      try {
+        if (!context.knowledge) throw new KnowledgeFileError();
+        return await context.knowledge.download(actor.workspaceId, input.path);
+      } catch (error) {
+        throwKnowledgeError(error);
+      }
+    }),
+    backlinks: os.knowledge.backlinks.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      try {
+        if (!context.knowledge) return { sources: [] };
+        return await context.knowledge.backlinks(actor.workspaceId, input.path);
+      } catch (error) {
+        throwKnowledgeError(error);
+      }
+    }),
+    graph: os.knowledge.graph.handler(async ({ context }) => {
+      const actor = await requireActor(context);
+      try {
+        if (!context.knowledge) return { paths: [], out: [] };
+        return await context.knowledge.graph(actor.workspaceId);
+      } catch (error) {
+        throwKnowledgeError(error);
+      }
+    }),
+    write: os.knowledge.write.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      try {
+        if (!context.knowledge) throw new KnowledgeWriteError();
+        return await context.knowledge.write(actor.workspaceId, input);
+      } catch (error) {
+        throwKnowledgeError(error);
+      }
+    }),
+    importSkill: os.knowledge.importSkill.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      try {
+        if (!context.knowledge) {
+          throw new SkillImportError("Knowledge is not configured.");
+        }
+        return await context.knowledge.importSkill(actor.workspaceId, input);
+      } catch (error) {
+        throwKnowledgeError(error);
+      }
+    }),
+    remove: os.knowledge.remove.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      try {
+        if (!context.knowledge) throw new KnowledgeFileError();
+        await context.knowledge.remove(actor.workspaceId, input.path);
+        return { ok: true as const };
+      } catch (error) {
+        throwKnowledgeError(error);
+      }
     }),
   },
   computer: {
@@ -375,6 +491,18 @@ export const appRouter = os.router({
         throwComputerError(error);
       }
     }),
+    download: os.computer.download.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      await getBotThread(context, actor, input.botId);
+      try {
+        if (!context.computer) {
+          throw new ComputerFileError();
+        }
+        return await context.computer.download(input.botId, input.path);
+      } catch (error) {
+        throwComputerError(error);
+      }
+    }),
     write: os.computer.write.handler(async ({ context, input }) => {
       const actor = await requireActor(context);
       await getBotThread(context, actor, input.botId);
@@ -394,6 +522,20 @@ export const appRouter = os.router({
     }),
   },
 });
+
+function throwKnowledgeError(error: unknown): never {
+  if (
+    error instanceof KnowledgePathError ||
+    error instanceof KnowledgeWriteError ||
+    error instanceof SkillImportError
+  ) {
+    throw new ORPCError("BAD_REQUEST", { message: error.message });
+  }
+  if (error instanceof KnowledgeFileError) {
+    throw new ORPCError("NOT_FOUND", { message: error.message });
+  }
+  throw error;
+}
 
 function throwComputerError(error: unknown): never {
   if (error instanceof ComputerPathError || error instanceof ComputerWriteError) {

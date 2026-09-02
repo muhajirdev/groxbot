@@ -3,7 +3,7 @@
   "name": "groxbot-landing",
   // Marketing site at groxbot.com. Account is Muhajir (qalam.workers.dev).
   "account_id": "67f961331110b81774851ee4f54349b9",
-  "compatibility_date": "2026-08-16",
+  "compatibility_date": "2026-07-28",
   "workers_dev": true,
   "compatibility_flags": ["nodejs_compat"],
   "routes": [

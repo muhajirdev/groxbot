@@ -85,6 +85,7 @@ export function toBotDto(
     lastPreview: extras?.lastPreview ?? "",
     lastAt,
     archivedAt: iso(bot.archivedAt),
+    pinnedAt: iso(bot.pinnedAt),
     createdAt: bot.createdAt.toISOString(),
     updatedAt: bot.updatedAt.toISOString(),
   };

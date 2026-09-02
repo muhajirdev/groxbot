@@ -11,15 +11,15 @@ import {
 import { createPortal } from "react-dom";
 import { cva, type VariantProps } from "class-variance-authority";
 import {
+  ArrowClockwiseIcon,
+  CircleNotchIcon,
   CopyIcon,
-  DownloadIcon,
+  DownloadSimpleIcon,
+  ImageBrokenIcon,
   ImageIcon,
-  ImageOffIcon,
-  Loader2Icon,
-  RefreshCwIcon,
-  ShieldAlertIcon,
+  ShieldWarningIcon,
   XIcon,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 import type {
   ImageMessagePart,
   ImageMessagePartComponent,
@@ -202,7 +202,7 @@ function ImagePreview({
           data-slot="image-preview-error"
           className="bg-muted/50 flex min-h-32 items-center justify-center p-4"
         >
-          <ImageOffIcon className="text-muted-foreground size-8" />
+          <ImageBrokenIcon className="text-muted-foreground size-8" />
         </div>
       ) : (
         <img
@@ -374,7 +374,7 @@ function ImageGenerating({ className }: { className?: string }) {
         className,
       )}
     >
-      <Loader2Icon className="text-muted-foreground size-8 animate-spin" />
+      <CircleNotchIcon className="text-muted-foreground size-8 animate-spin" />
       <span className="sr-only">Generating image…</span>
     </div>
   );
@@ -395,7 +395,7 @@ function ImageContentFilterError({
         className,
       )}
     >
-      <ShieldAlertIcon className="text-muted-foreground size-8" />
+      <ShieldWarningIcon className="text-muted-foreground size-8" />
       <p className="text-sm font-medium">Image could not be generated</p>
       {reason && <p className="text-muted-foreground text-xs">{reason}</p>}
     </div>
@@ -435,7 +435,7 @@ function RegenerateButton({
       aria-label="Regenerate image"
       className="hover:bg-muted inline-flex size-7 items-center justify-center rounded disabled:opacity-50"
     >
-      <RefreshCwIcon
+      <ArrowClockwiseIcon
         className={cn("size-4", isRegenerating && "animate-spin")}
       />
     </button>
@@ -455,7 +455,7 @@ function ImageActions({ part, onRegenerate, className }: ImageActionsProps) {
         aria-label="Download image"
         className="hover:bg-muted inline-flex size-7 items-center justify-center rounded"
       >
-        <DownloadIcon className="size-4" />
+        <DownloadSimpleIcon className="size-4" />
       </button>
       <button
         type="button"

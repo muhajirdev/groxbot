@@ -49,6 +49,25 @@ export function invitationUrl(webOrigin: string, invitationId: string): string {
   return `${origin}/onboarding?invite=${encodeURIComponent(invitationId)}`;
 }
 
+export async function renameWorkspace(
+  db: Database,
+  workspaceId: string,
+  name: string,
+) {
+  const trimmed = name.trim();
+  if (!trimmed) return null;
+  const [row] = await db
+    .update(organization)
+    .set({ name: trimmed })
+    .where(eq(organization.id, workspaceId))
+    .returning({
+      id: organization.id,
+      name: organization.name,
+      slug: organization.slug,
+    });
+  return row ?? null;
+}
+
 export function workspaceAuthMessage(raw: string, fallback: string): string {
   const text = raw.trim();
   if (!text) return fallback;
@@ -69,6 +88,9 @@ export function workspaceAuthMessage(raw: string, fallback: string): string {
   }
   if (/not allowed to invite/i.test(text)) {
     return "You can't invite people to this workspace.";
+  }
+  if (/not allowed to (update|perform this action)/i.test(text)) {
+    return "You can't rename this workspace.";
   }
   if (/email verification required/i.test(text)) {
     return "Verify your email, then join the workspace.";

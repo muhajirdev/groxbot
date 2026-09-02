@@ -1,21 +1,15 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { botsCollection, peekBots } from "../../lib/collections";
+import { officeSearch } from "../../lib/office-search";
 import { firstLiveBot, loadBotsForRoute } from "../../lib/session";
-import { thinkMessagesQueryOptions } from "../../lib/think-messages";
 import { Chat } from "../../screens/Chat";
 
 export const Route = createFileRoute("/_authed/$botId")({
   pendingMs: 1000,
   preloadStaleTime: 30_000,
-  loader: ({ params, context, cause }) => {
-    const prefetch = (botId: string) => {
-      // Hover-preload must not wake the Think Durable Object. Cold hydrate
-      // plus Neon can take seconds and local wrangler dies if many bots fire.
-      if (cause === "preload") return;
-      void context.queryClient.prefetchQuery(thinkMessagesQueryOptions(botId));
-    };
+  validateSearch: officeSearch,
+  loader: ({ params }) => {
     if (botsCollection.has(params.botId)) {
-      prefetch(params.botId);
       return peekBots();
     }
     return loadBotsForRoute(params.botId).then((bots) => {
@@ -24,7 +18,6 @@ export const Route = createFileRoute("/_authed/$botId")({
       if (!bots.some((bot) => bot.id === params.botId)) {
         throw redirect({ to: "/$botId", params: { botId: first.id } });
       }
-      prefetch(params.botId);
       return bots;
     });
   },
@@ -33,5 +26,6 @@ export const Route = createFileRoute("/_authed/$botId")({
 
 function ChatPage() {
   const { botId } = Route.useParams();
-  return <Chat botId={botId} />;
+  const desk = Route.useSearch();
+  return <Chat botId={botId} desk={desk} />;
 }

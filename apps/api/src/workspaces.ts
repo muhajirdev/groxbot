@@ -3,6 +3,7 @@ import {
   invitationUrl,
   listPendingInvitations,
   peekInvitation,
+  renameWorkspace,
   slugForWorkspace,
   workspaceAuthMessage,
 } from "@groxbot/core";
@@ -46,6 +47,17 @@ export async function createWorkspace(
   throw new ORPCError("BAD_REQUEST", {
     message: "Pick another workspace name.",
   });
+}
+
+export async function updateWorkspace(context: RpcContext, name: string) {
+  const actor = await requireActor(context);
+  const org = await renameWorkspace(context.db, actor.workspaceId, name);
+  if (!org) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: "Pick another workspace name.",
+    });
+  }
+  return org;
 }
 
 export async function joinWorkspace(

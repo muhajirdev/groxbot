@@ -3,14 +3,14 @@
 import { memo, type FC } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import {
+  BracketsCurlyIcon,
+  DownloadSimpleIcon,
+  FileAudioIcon,
   FileIcon,
   FileTextIcon,
+  FileVideoIcon,
   ImageIcon,
-  MusicIcon,
-  VideoIcon,
-  BracesIcon,
-  DownloadIcon,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 import type { FileMessagePartComponent } from "@assistant-ui/react";
 import { cn } from "@/lib/utils";
 
@@ -45,16 +45,16 @@ function getMimeTypeIcon(mimeType: string): FC<{ className?: string }> {
     return FileTextIcon;
   }
   if (type === "application/json") {
-    return BracesIcon;
+    return BracketsCurlyIcon;
   }
   if (type.startsWith("text/")) {
     return FileTextIcon;
   }
   if (type.startsWith("audio/")) {
-    return MusicIcon;
+    return FileAudioIcon;
   }
   if (type.startsWith("video/")) {
-    return VideoIcon;
+    return FileVideoIcon;
   }
   return FileIcon;
 }
@@ -201,7 +201,7 @@ function FileDownload({
       )}
       {...props}
     >
-      {children || <DownloadIcon className="size-4" />}
+      {children || <DownloadSimpleIcon className="size-4" />}
     </a>
   );
 }

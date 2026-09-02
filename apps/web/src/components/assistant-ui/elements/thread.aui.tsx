@@ -3,7 +3,6 @@
 import {
   ComposerAddAttachment,
   ComposerAttachments,
-  UserMessageAttachments,
 } from "@/components/assistant-ui/elements/attachment.aui";
 import { File } from "@/components/assistant-ui/elements/file";
 import { ThreadFollowupSuggestions } from "@/components/assistant-ui/elements/follow-up-suggestions.aui";
@@ -16,10 +15,12 @@ import {
   ToolGroupTrigger,
 } from "@/components/assistant-ui/elements/tool-group.aui";
 import { TooltipIconButton } from "@/components/assistant-ui/elements/tooltip-icon-button";
+import { ThinkingStatus } from "@/components/assistant-ui/elements/spiral-loader";
+import { OfficeSkillSlash } from "@/components/OfficeSkillSlash";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { officeUserMessageSender } from "@/lib/office-sender";
 import { cn } from "@/lib/utils";
-import { TypingDots } from "@/components/TypingDots";
 import {
   ActionBarMorePrimitive,
   ActionBarPrimitive,
@@ -31,25 +32,23 @@ import {
   groupPartByType,
   MessagePrimitive,
   ThreadPrimitive,
-  type FileMessagePartComponent,
-  type ImageMessagePartComponent,
   type ToolCallMessagePartComponent,
   useAuiState,
 } from "@assistant-ui/react";
 import {
+  ArrowClockwiseIcon,
   ArrowDownIcon,
   ArrowUpIcon,
+  CaretLeftIcon,
+  CaretRightIcon,
   CheckIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
   CopyIcon,
-  DownloadIcon,
-  MicIcon,
-  MoreHorizontalIcon,
-  PencilIcon,
-  RefreshCwIcon,
+  DotsThreeIcon,
+  DownloadSimpleIcon,
+  MicrophoneIcon,
+  PencilSimpleIcon,
   SquareIcon,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 import {
   createContext,
   useContext,
@@ -84,6 +83,8 @@ export type ThreadProps = {
   autoFocus?: boolean | undefined;
   placeholder?: string | undefined;
   hideComposer?: boolean | undefined;
+  viewerUserId?: string | undefined;
+  botName?: string | undefined;
 };
 
 const EMPTY_COMPONENTS: ThreadComponents = {};
@@ -94,6 +95,8 @@ const ThreadComponentsContext =
 const ThreadChromeContext = createContext({
   hideComposer: false,
   placeholder: "Send a message...",
+  viewerUserId: "",
+  botName: "",
 });
 
 // Empty office thread: still a chat — composer stays docked at the bottom.
@@ -153,10 +156,14 @@ export const Thread: FC<ThreadProps> = ({
   autoFocus = true,
   placeholder = "Send a message...",
   hideComposer = false,
+  viewerUserId = "",
+  botName = "",
 }) => {
   return (
     <ThreadComponentsContext.Provider value={components}>
-      <ThreadChromeContext.Provider value={{ hideComposer, placeholder }}>
+      <ThreadChromeContext.Provider
+        value={{ hideComposer, placeholder, viewerUserId, botName }}
+      >
         <ThreadRoot autoFocus={autoFocus} />
       </ThreadChromeContext.Provider>
     </ThreadComponentsContext.Provider>
@@ -196,7 +203,7 @@ const ThreadRoot: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
             </ThreadPrimitive.Messages>
             <AuiIf condition={isWaitingForAssistantMessage}>
               <div className="px-2">
-                <TypingDots label="Working" />
+                <ThinkingStatus />
               </div>
             </AuiIf>
           </div>
@@ -248,6 +255,7 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
   const { placeholder } = useContext(ThreadChromeContext);
   return (
     <ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
+      <OfficeSkillSlash />
       <ComposerPrimitive.AttachmentDropzone render={<div data-slot="aui_composer-shell" className="border-border/60 data-[dragging=true]:border-ring focus-within:border-border dark:border-muted-foreground/15 dark:focus-within:border-muted-foreground/30 flex w-full cursor-text flex-col gap-2 rounded-(--composer-radius) border bg-(--composer-bg) p-(--composer-padding) transition-[border-color] data-[dragging=true]:border-dashed data-[dragging=true]:bg-[color-mix(in_oklab,var(--color-accent)_50%,var(--color-background))]" />}><ComposerAttachments /><ComposerPrimitive.Input
                       placeholder={placeholder}
                       className="aui-composer-input caret-primary placeholder:text-muted-foreground/60 max-h-48 min-h-10 w-full resize-none bg-transparent px-2.5 py-1 text-base leading-6 outline-none"
@@ -267,14 +275,14 @@ const ComposerAction: FC = () => {
       <div className="flex items-center gap-1.5">
         <AuiIf condition={(s) => s.thread.capabilities.dictation}>
           <AuiIf condition={(s) => s.composer.dictation == null}>
-            <ComposerPrimitive.Dictate render={<TooltipIconButton tooltip="Voice input" side="bottom" type="button" variant="ghost" size="icon" className="aui-composer-dictate text-muted-foreground hover:text-foreground size-7 rounded-full" aria-label="Start voice input" />}><MicIcon className="aui-composer-dictate-icon size-4" /></ComposerPrimitive.Dictate>
+            <ComposerPrimitive.Dictate render={<TooltipIconButton tooltip="Voice input" side="bottom" type="button" variant="ghost" size="icon" className="aui-composer-dictate text-muted-foreground hover:text-foreground size-7 rounded-full" aria-label="Start voice input" />}><MicrophoneIcon className="aui-composer-dictate-icon size-4" /></ComposerPrimitive.Dictate>
           </AuiIf>
           <AuiIf condition={(s) => s.composer.dictation != null}>
             <ComposerPrimitive.StopDictation render={<TooltipIconButton tooltip="Stop dictation" side="bottom" type="button" variant="ghost" size="icon" className="aui-composer-stop-dictation text-destructive size-7 rounded-full" aria-label="Stop voice input" />}><SquareIcon className="aui-composer-stop-dictation-icon size-3.5 animate-pulse fill-current" /></ComposerPrimitive.StopDictation>
           </AuiIf>
         </AuiIf>
         <AuiIf condition={(s) => !s.thread.isRunning}>
-          <ComposerPrimitive.Send render={<TooltipIconButton tooltip="Send message" side="bottom" type="button" variant="default" size="icon" className="aui-composer-send size-7 rounded-full" aria-label="Send message" />}><ArrowUpIcon className="aui-composer-send-icon size-4" /></ComposerPrimitive.Send>
+          <ComposerPrimitive.Send render={<TooltipIconButton tooltip="Send message" side="bottom" type="button" variant="default" size="icon" className="aui-composer-send size-7 rounded-full bg-accent text-white hover:bg-accent/90" aria-label="Send message" />}><ArrowUpIcon className="aui-composer-send-icon size-4" /></ComposerPrimitive.Send>
         </AuiIf>
         <AuiIf condition={(s) => s.thread.isRunning}>
           <ComposerPrimitive.Cancel render={<Button type="button" variant="default" size="icon" className="aui-composer-cancel size-7 rounded-full" aria-label="Stop generating" />}><SquareIcon className="aui-composer-cancel-icon size-3.5 fill-current" /></ComposerPrimitive.Cancel>
@@ -300,10 +308,11 @@ const AssistantWorkingDots: FC = () => {
     return !messageHasVisibleText(s.message);
   });
   if (!show) return null;
-  return <TypingDots label="Working" />;
+  return <ThinkingStatus />;
 };
 
 const AssistantMessage: FC = () => {
+  const { botName } = useContext(ThreadChromeContext);
   const {
     ToolFallback: ToolFallbackComponent = ToolFallback,
     ToolGroup,
@@ -323,6 +332,14 @@ const AssistantMessage: FC = () => {
         data-slot="aui_assistant-message-content"
         className="text-foreground flex flex-col items-start gap-2 px-2 leading-snug wrap-break-word"
       >
+        {botName ? (
+          <div
+            data-slot="aui_message-sender"
+            className="-mb-1 text-[11px] font-medium text-muted"
+          >
+            {botName}
+          </div>
+        ) : null}
         <AssistantWorkingDots />
         <MessagePrimitive.GroupedParts
           groupBy={groupPartByType({
@@ -354,7 +371,7 @@ const AssistantMessage: FC = () => {
                 return (
                   <div
                     data-slot="aui_assistant-message-bubble"
-                    className="aui-assistant-message-bubble w-fit max-w-[min(72%,36rem)] rounded-[18px] bg-[#141414] px-3.5 py-2.5 text-[15px] leading-snug wrap-break-word empty:hidden light:bg-[#ececec] [&_.aui-md-p]:my-1.5"
+                    className="aui-assistant-message-bubble w-fit max-w-[min(72%,36rem)] rounded-[18px] bg-card px-3.5 py-2.5 text-[15px] leading-snug wrap-break-word empty:hidden light:bg-card-2 [&_.aui-md-p]:my-1.5"
                   >
                     <MarkdownText />
                   </div>
@@ -408,16 +425,16 @@ const AssistantActionBar: FC = () => {
                     </AuiIf><AuiIf condition={(s) => !s.message.isCopied}>
                       <CopyIcon className="animate-in zoom-in-75 fade-in duration-150" />
                     </AuiIf></ActionBarPrimitive.Copy>
-      <ActionBarPrimitive.Reload render={<TooltipIconButton tooltip="Refresh" />}><RefreshCwIcon /></ActionBarPrimitive.Reload>
+      <ActionBarPrimitive.Reload render={<TooltipIconButton tooltip="Refresh" />}><ArrowClockwiseIcon /></ActionBarPrimitive.Reload>
       <ActionBarMorePrimitive.Root>
-        <ActionBarMorePrimitive.Trigger render={<TooltipIconButton tooltip="More" className="data-[state=open]:bg-accent" />}><MoreHorizontalIcon /></ActionBarMorePrimitive.Trigger>
+        <ActionBarMorePrimitive.Trigger render={<TooltipIconButton tooltip="More" className="data-[state=open]:bg-accent" />}><DotsThreeIcon /></ActionBarMorePrimitive.Trigger>
         <ActionBarMorePrimitive.Content
           side="bottom"
           align="start"
           sideOffset={6}
-          className="aui-action-bar-more-content bg-popover text-popover-foreground data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:animate-out data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 min-w-[8rem] overflow-hidden rounded-xl border p-1.5"
+          className="aui-action-bar-more-content bg-card text-ink shadow-modal data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:animate-out data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 min-w-[8rem] overflow-hidden rounded-xl border border-line p-1.5"
         >
-          <ActionBarPrimitive.ExportMarkdown render={<ActionBarMorePrimitive.Item className="aui-action-bar-more-item hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm outline-none select-none" />}><DownloadIcon className="size-4" />Export as Markdown
+          <ActionBarPrimitive.ExportMarkdown render={<ActionBarMorePrimitive.Item className="aui-action-bar-more-item hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm outline-none select-none" />}><DownloadSimpleIcon className="size-4" />Export as Markdown
                               </ActionBarPrimitive.ExportMarkdown>
         </ActionBarMorePrimitive.Content>
       </ActionBarMorePrimitive.Root>
@@ -425,41 +442,62 @@ const AssistantActionBar: FC = () => {
   );
 };
 
-const UserFilePart: FileMessagePartComponent = (part) => (
-  <div data-slot="aui_user-message-file" className="py-1">
-    <File {...part} />
-  </div>
-);
-
-const UserImagePart: ImageMessagePartComponent = (part) => (
-  <div data-slot="aui_user-message-image" className="py-1">
-    <Image {...part} />
-  </div>
-);
-
 const UserMessage: FC = () => {
+  const { viewerUserId } = useContext(ThreadChromeContext);
+  const senderLabel = useAuiState((s) => {
+    const sender = officeUserMessageSender(s.message.metadata, viewerUserId);
+    return sender?.label ?? "";
+  });
+  const mine = useAuiState((s) => {
+    const sender = officeUserMessageSender(s.message.metadata, viewerUserId);
+    return sender?.mine ?? true;
+  });
   return (
     <MessagePrimitive.Root
       data-slot="aui_user-message-root"
-      className="fade-in slide-in-from-bottom-1 animate-in flex flex-col items-end gap-y-2 px-2 duration-150 [contain-intrinsic-size:auto_200px] [content-visibility:auto]"
       data-role="user"
+      data-mine={mine ? "true" : "false"}
+      className={cn(
+        "fade-in slide-in-from-bottom-1 animate-in flex flex-col gap-y-2 px-2 duration-150 [contain-intrinsic-size:auto_200px] [content-visibility:auto]",
+        mine ? "items-end" : "items-start",
+      )}
     >
-      <UserMessageAttachments />
-
       <div className="aui-user-message-content-wrapper relative max-w-[min(72%,36rem)]">
-        <div className="aui-user-message-content peer rounded-[18px] bg-[#1a1a1a] px-3.5 py-2.5 text-[15px] leading-snug text-foreground wrap-break-word empty:hidden light:border light:border-line light:bg-white">
+        {senderLabel ? (
+          <div
+            data-slot="aui_message-sender"
+            className={cn(
+              "mb-1 text-[11px] font-medium text-muted",
+              mine ? "text-right" : "text-left",
+            )}
+          >
+            {senderLabel}
+          </div>
+        ) : null}
+        <div className="aui-user-message-content peer rounded-[18px] bg-card-2 px-3.5 py-2.5 text-[15px] leading-snug text-foreground wrap-break-word empty:hidden light:border light:border-line light:bg-white">
           <MessagePrimitive.Parts
-            components={{ File: UserFilePart, Image: UserImagePart }}
+            components={{
+              File: () => null,
+              Image: () => null,
+              Text: MarkdownText,
+            }}
           />
         </div>
-        <div className="aui-user-action-bar-wrapper absolute start-0 top-1/2 -translate-x-full -translate-y-1/2 pe-2 peer-empty:hidden rtl:translate-x-full">
+        <div
+          className={cn(
+            "aui-user-action-bar-wrapper absolute top-1/2 -translate-y-1/2 peer-empty:hidden",
+            mine
+              ? "start-0 -translate-x-full pe-2 rtl:translate-x-full"
+              : "end-0 translate-x-full ps-2 rtl:-translate-x-full",
+          )}
+        >
           <UserActionBar />
         </div>
       </div>
 
       <BranchPicker
         data-slot="aui_user-branch-picker"
-        className="-me-1"
+        className={mine ? "-me-1" : "-ms-1"}
       />
     </MessagePrimitive.Root>
   );
@@ -472,7 +510,7 @@ const UserActionBar: FC = () => {
       autohide="not-last"
       className="aui-user-action-bar-root flex flex-col items-end"
     >
-      <ActionBarPrimitive.Edit render={<TooltipIconButton tooltip="Edit" className="aui-user-action-edit" />}><PencilIcon /></ActionBarPrimitive.Edit>
+      <ActionBarPrimitive.Edit render={<TooltipIconButton tooltip="Edit" className="aui-user-action-edit" />}><PencilSimpleIcon /></ActionBarPrimitive.Edit>
     </ActionBarPrimitive.Root>
   );
 };
@@ -512,11 +550,11 @@ const BranchPicker: FC<BranchPickerPrimitive.Root.Props> = ({
       )}
       {...rest}
     >
-      <BranchPickerPrimitive.Previous render={<TooltipIconButton tooltip="Previous" />}><ChevronLeftIcon /></BranchPickerPrimitive.Previous>
+      <BranchPickerPrimitive.Previous render={<TooltipIconButton tooltip="Previous" />}><CaretLeftIcon /></BranchPickerPrimitive.Previous>
       <span className="aui-branch-picker-state font-medium">
         <BranchPickerPrimitive.Number /> / <BranchPickerPrimitive.Count />
       </span>
-      <BranchPickerPrimitive.Next render={<TooltipIconButton tooltip="Next" />}><ChevronRightIcon /></BranchPickerPrimitive.Next>
+      <BranchPickerPrimitive.Next render={<TooltipIconButton tooltip="Next" />}><CaretRightIcon /></BranchPickerPrimitive.Next>
     </BranchPickerPrimitive.Root>
   );
 };

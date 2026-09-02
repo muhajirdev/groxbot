@@ -112,6 +112,45 @@ describe("lastThinkPreview", () => {
       ]),
     ).toBe("got it");
   });
+
+  it("ignores the hidden inbox path note", () => {
+    expect(
+      lastThinkPreview([
+        {
+          id: "u1",
+          role: "user",
+          parts: [
+            { type: "text", text: "can you read this pdf" },
+            { type: "text", text: "On this computer: inbox/a.pdf" },
+            {
+              type: "file",
+              filename: "a.pdf",
+              mediaType: "application/pdf",
+              url: "inbox/a.pdf",
+            },
+          ],
+        },
+      ]),
+    ).toBe("can you read this pdf");
+  });
+
+  it("ignores the old saved-as sentence", () => {
+    expect(
+      lastThinkPreview([
+        {
+          id: "u1",
+          role: "user",
+          parts: [
+            { type: "text", text: "can you read this pdf" },
+            {
+              type: "text",
+              text: "Saved on this computer as inbox/agreement-cas-2026.pdf.",
+            },
+          ],
+        },
+      ]),
+    ).toBe("can you read this pdf");
+  });
 });
 
 describe("splitQueuedFollowUps", () => {

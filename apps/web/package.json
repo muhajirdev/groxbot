@@ -22,9 +22,13 @@
     "@groxbot/mascot": "workspace:*",
     "@groxbot/rpc": "workspace:*",
     "@orpc/tanstack-query": "^1.10.0",
-    "@tanstack/query-db-collection": "^1.2.4",
-    "@tanstack/react-db": "^0.2.1",
-    "@tanstack/react-query": "^5.101.4",
+    "@phosphor-icons/react": "^2.1.10",
+    "@tanstack/query-async-storage-persister": "^5.102.8",
+    "@tanstack/query-db-collection": "^1.2.12",
+    "@tanstack/query-persist-client-core": "^5.102.8",
+    "@tanstack/react-db": "^0.3.7",
+    "@tanstack/react-hotkeys": "^0.10.0",
+    "@tanstack/react-query": "^5.102.8",
     "@tanstack/react-router": "^1.170.29",
     "agents": "^0.21.0",
     "ai": "^7.0.85",
@@ -32,7 +36,7 @@
     "capnweb": "^0.12.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "lucide-react": "^1.38.0",
+    "idb-keyval": "^6.3.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-virtuoso": "^4.18.11",
@@ -53,6 +57,6 @@
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.2",
     "vite": "^7.1.3",
-    "wrangler": "^4.127.1"
+    "wrangler": "4.113.0"
   }
 }

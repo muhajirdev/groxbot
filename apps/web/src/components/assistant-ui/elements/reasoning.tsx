@@ -10,13 +10,14 @@ import {
   useState,
 } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
-import { ChevronDownIcon } from "lucide-react";
+import { CaretDownIcon } from "@phosphor-icons/react";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { SpiralLoader } from "./spiral-loader";
 
 export const ANIMATION_DURATION = 200;
 
@@ -179,11 +180,18 @@ function ReasoningTrigger({
     <CollapsibleTrigger
       data-slot="reasoning-trigger"
       className={cn(
-        "aui-reasoning-trigger group/trigger flex w-fit origin-left cursor-pointer items-center gap-1 border-0 bg-transparent p-0 text-[12px] font-normal tracking-normal text-muted-foreground shadow-none outline-none ring-0 appearance-none transition-colors hover:text-foreground focus:outline-none focus-visible:outline-none focus-visible:ring-0 active:scale-[0.99]",
+        "aui-reasoning-trigger group/trigger flex w-fit origin-left cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 text-[12px] font-normal tracking-normal text-muted-foreground shadow-none outline-none ring-0 appearance-none transition-colors hover:text-foreground focus:outline-none focus-visible:outline-none focus-visible:ring-0 active:scale-[0.99]",
         className,
       )}
       {...props}
     >
+      {active ? (
+        <SpiralLoader
+          data-slot="reasoning-trigger-loader"
+          size={14}
+          className="aui-reasoning-trigger-loader"
+        />
+      ) : null}
       <span
         data-slot="reasoning-trigger-label"
         className={cn(
@@ -194,7 +202,7 @@ function ReasoningTrigger({
         {active ? "Thinking" : "Thought"}
         {durationText}
       </span>
-      <ChevronDownIcon
+      <CaretDownIcon
         data-slot="reasoning-trigger-chevron"
         className={cn(
           "aui-reasoning-trigger-chevron size-3 shrink-0 opacity-50",

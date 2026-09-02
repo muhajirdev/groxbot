@@ -42,5 +42,6 @@ describe("draftCreatedBot", () => {
     expect(bot.threadId).toBe("bot-1");
     expect(bot.guestKind).toBe("off");
     expect(bot.archivedAt).toBeNull();
+    expect(bot.pinnedAt).toBeNull();
   });
 });
