@@ -15,6 +15,7 @@ export * from "./markdown.js";
 export * from "./mcp-connections.js";
 export * from "./models.js";
 export * from "./office-review.js";
+export * from "./office-skill-slash.js";
 export * from "./plugin-connections.js";
 export * from "./poke.js";
 export * from "./routines.js";
