@@ -5,7 +5,7 @@ import type {
   ComputerFile,
   ComputerList,
 } from "@groxbot/contracts";
-import type { GuestHub } from "@groxbot/core";
+import type { GuestHub, KnowledgeDisk } from "@groxbot/core";
 import type { Database } from "@groxbot/db";
 import type { Env } from "./env.js";
 import type { KnowledgeAccess } from "./knowledge.js";
@@ -31,6 +31,8 @@ export interface RpcContext {
   guests: GuestHub;
   computer?: ComputerAccess;
   knowledge?: KnowledgeAccess;
+  /** Profile photos. Same R2 bucket as knowledge, `_avatars/` prefix — not the office tree. */
+  avatars?: KnowledgeDisk;
   /** Live MCP client on a bot actor. Optional in local tests. */
   mcp?: {
     add(

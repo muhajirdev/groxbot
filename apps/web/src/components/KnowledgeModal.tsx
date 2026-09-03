@@ -2,9 +2,13 @@ import type { KnowledgeList } from "@groxbot/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { bytesToBase64 } from "../lib/computer-attachment";
-import { computerFileKind } from "../lib/computer-preview";
 import { saveComputerDownload } from "../lib/computer-download";
+import { computerFileKind } from "../lib/computer-preview";
 import { userFacingError } from "../lib/errors";
+import {
+  indexKnowledgeGraph,
+  knowledgeGraphBacklinks,
+} from "../lib/knowledge-graph";
 import {
   SKILL_IMPORT_PLACEHOLDER,
   skillImportSummary,
@@ -13,8 +17,8 @@ import { insertComposerText } from "../lib/knowledge-slash";
 import {
   filterKnowledgeTree,
   isOfficeSkillPath,
-  nestKnowledgeTree,
   type KnowledgeTreeNode,
+  nestKnowledgeTree,
 } from "../lib/knowledge-tree";
 import {
   knowledgeUploadPath,
@@ -22,16 +26,10 @@ import {
   seedKnowledgePreview,
   upsertKnowledgeEntry,
 } from "../lib/knowledge-upload";
-import {
-  indexKnowledgeGraph,
-  knowledgeGraphBacklinks,
-} from "../lib/knowledge-graph";
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
 import { THINK_MESSAGES_GC_TIME } from "../lib/think-messages";
 import { Button, cn, Field, Input, ModalShell, Textarea } from "../ui";
-import { KnowledgeFilePreview } from "./KnowledgeFilePreview";
-import { KnowledgeGraphMap } from "./KnowledgeGraph";
 import {
   ChevronDownIcon,
   CloseIcon,
@@ -46,6 +44,8 @@ import {
   SearchIcon,
   TrashIcon,
 } from "./Icons";
+import { KnowledgeFilePreview } from "./KnowledgeFilePreview";
+import { KnowledgeGraphMap } from "./KnowledgeGraph";
 
 type Draft = { path: string; content: string };
 
@@ -136,7 +136,8 @@ export function KnowledgeModal(props: {
     if (path) {
       setSelected(path);
       await queryClient.invalidateQueries({
-        queryKey: orpc.knowledge.read.queryOptions({ input: { path } }).queryKey,
+        queryKey: orpc.knowledge.read.queryOptions({ input: { path } })
+          .queryKey,
       });
       await queryClient.invalidateQueries({
         queryKey: orpc.knowledge.download.queryOptions({ input: { path } })
@@ -167,7 +168,9 @@ export function KnowledgeModal(props: {
     setBusy(true);
     setError("");
     try {
-      const result = await client.knowledge.importSkill({ source: source.trim() });
+      const result = await client.knowledge.importSkill({
+        source: source.trim(),
+      });
       const summary = skillImportSummary(result);
       if (result.imported.length === 0) {
         setError(summary);
@@ -385,7 +388,9 @@ export function KnowledgeModal(props: {
                 {userFacingError(listQuery.error, "Could not read knowledge")}
               </p>
             ) : empty ? (
-              <p className="explorer-empty">Empty. Add a file, import a skill, or drop one in.</p>
+              <p className="explorer-empty">
+                Empty office. New file, upload, or import a playbook.
+              </p>
             ) : (
               <>
                 <ul className="explorer-tree">
@@ -488,8 +493,8 @@ export function KnowledgeModal(props: {
           ) : (
             <p className="explorer-empty knowledge-hint">
               {selected && !files.has(selected)
-                ? "A folder. Add a file, or upload into it."
-                : "How the office works — playbooks in skills/, notes, files. Folders are yours."}
+                ? "A folder. New file or upload lands here."
+                : "Playbooks, notes, and files for the office. Pick one on the left."}
             </p>
           )}
         </section>
@@ -514,16 +519,21 @@ function PreviewPane(props: {
   onRemove: () => void;
 }) {
   const skill = isOfficeSkillPath(props.path);
+  const markdown =
+    computerFileKind(props.path) === "md" ||
+    props.mediaType === "text/markdown";
   return (
     <>
       <div className="knowledge-preview-head">
         <div>
-          <p className="knowledge-kicker">
-            {skill ? `/${props.title}` : props.path}
-          </p>
-          <h3>{props.title}</h3>
+          {skill ? (
+            <p className="knowledge-kicker">/{props.title}</p>
+          ) : (
+            <KnowledgePath path={props.path} onOpen={props.onOpen} />
+          )}
+          {markdown ? null : <h3>{props.title}</h3>}
           {props.description ? (
-            <p className="muted">{props.description}</p>
+            <p className="muted knowledge-preview-desc">{props.description}</p>
           ) : null}
           <KnowledgeBacklinks sources={props.backlinks} onOpen={props.onOpen} />
         </div>
@@ -564,6 +574,42 @@ function PreviewPane(props: {
         />
       </div>
     </>
+  );
+}
+
+function KnowledgePath(props: {
+  path: string;
+  onOpen: (path: string) => void;
+}) {
+  const parts = props.path.split("/").filter(Boolean);
+  if (parts.length === 0) return null;
+  return (
+    <p className="knowledge-kicker">
+      {parts.map((part, index) => {
+        const prefix = parts.slice(0, index + 1).join("/");
+        const last = index === parts.length - 1;
+        return (
+          <span key={prefix}>
+            {index > 0 ? (
+              <span className="knowledge-path-sep" aria-hidden>
+                /
+              </span>
+            ) : null}
+            {last ? (
+              <span>{part}</span>
+            ) : (
+              <button
+                type="button"
+                className="knowledge-path-seg"
+                onClick={() => props.onOpen(prefix)}
+              >
+                {part}
+              </button>
+            )}
+          </span>
+        );
+      })}
+    </p>
   );
 }
 
@@ -704,7 +750,9 @@ function TreeRows(props: {
             <button
               className={cn("explorer-chevron", !open && "closed")}
               type="button"
-              aria-label={open ? `Collapse ${node.name}` : `Expand ${node.name}`}
+              aria-label={
+                open ? `Collapse ${node.name}` : `Expand ${node.name}`
+              }
               onClick={() => props.onToggle(node.path)}
             >
               <ChevronDownIcon />

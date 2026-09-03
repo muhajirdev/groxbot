@@ -57,6 +57,7 @@ export const KeptThinkThread = memo(function KeptThinkThread(props: {
   error: string;
   userId?: string;
   userName?: string;
+  userImage?: string;
   opening?: boolean;
   active?: boolean;
   onNeedsModel: () => void;
@@ -80,6 +81,7 @@ export const KeptThinkThread = memo(function KeptThinkThread(props: {
       error={props.error}
       userId={props.userId}
       userName={props.userName}
+      userImage={props.userImage}
       opening={props.opening}
       active={props.active}
       onError={onError}
@@ -99,6 +101,7 @@ export function ThinkThread(props: {
   error: string;
   userId?: string;
   userName?: string;
+  userImage?: string;
   /** Catalog insert still in flight — show the composer, delay the socket. */
   opening?: boolean;
   /**
@@ -150,6 +153,7 @@ export function ThinkThread(props: {
         error={props.error}
         userId={props.userId}
         userName={props.userName}
+        userImage={props.userImage}
         opening={props.opening}
         onError={props.onError}
         onNeedsModel={props.onNeedsModel}
@@ -185,6 +189,7 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
   error: string;
   userId?: string;
   userName?: string;
+  userImage?: string;
   opening?: boolean;
   onError: (error: string) => void;
   onNeedsModel: () => void;
@@ -204,6 +209,7 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
   const sender = officeUserFromActor({
     userId: props.userId ?? "",
     name: props.userName ?? "",
+    image: props.userImage,
   });
   const senderRef = useRef(sender);
   senderRef.current = sender;
@@ -346,6 +352,7 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
             hideComposer={props.archived}
             placeholder={props.placeholder || FIRST_TASK}
             viewerUserId={props.userId}
+            viewerImage={props.userImage}
             botName={props.botName}
             components={THREAD_COMPONENTS}
           />

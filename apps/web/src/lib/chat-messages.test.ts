@@ -7,7 +7,9 @@ import {
   splitQueuedFollowUps,
   textFromMessage,
   usedTools,
+  isVisibleChatMessage,
 } from "./chat-messages";
+import { OFFICE_REVIEW_SOURCE } from "@groxbot/contracts";
 
 function assistant(id: string, ...texts: string[]): UIMessage {
   return {
@@ -150,6 +152,38 @@ describe("lastThinkPreview", () => {
         },
       ]),
     ).toBe("can you read this pdf");
+  });
+
+  it("skips a hidden office-review nudge and a Skip", () => {
+    expect(
+      lastThinkPreview([
+        assistant("a1", "Filed skills/weekly-update/SKILL.md"),
+        {
+          id: "u-review",
+          role: "user",
+          parts: [{ type: "text", text: "Office review." }],
+          metadata: { source: OFFICE_REVIEW_SOURCE },
+        },
+        assistant("a2", "Skip"),
+      ]),
+    ).toBe("Filed skills/weekly-update/SKILL.md");
+  });
+});
+
+describe("isVisibleChatMessage", () => {
+  it("hides the office-review trigger and Skip", () => {
+    expect(
+      isVisibleChatMessage({
+        id: "u",
+        role: "user",
+        parts: [{ type: "text", text: "Office review." }],
+        metadata: { custom: { source: OFFICE_REVIEW_SOURCE } },
+      }),
+    ).toBe(false);
+    expect(isVisibleChatMessage(assistant("a", "Skip"))).toBe(false);
+    expect(
+      isVisibleChatMessage(assistant("a", "Saved skills/weekly-update/SKILL.md")),
+    ).toBe(true);
   });
 });
 

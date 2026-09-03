@@ -106,7 +106,8 @@ export function parseKnowledgeSearchSnapshot(
 ): KnowledgeSearchSnapshot | null {
   try {
     const value = JSON.parse(raw) as Partial<KnowledgeSearchSnapshot>;
-    if (value.v !== 3 && value.v !== KNOWLEDGE_SEARCH_VERSION) return null;
+    const version = value.v as number | undefined;
+    if (version !== 3 && version !== KNOWLEDGE_SEARCH_VERSION) return null;
     const docs = parseKnowledgeSearchDocs(raw);
     if (!docs) return null;
     return {

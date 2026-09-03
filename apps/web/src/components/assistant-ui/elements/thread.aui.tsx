@@ -16,10 +16,12 @@ import {
 } from "@/components/assistant-ui/elements/tool-group.aui";
 import { TooltipIconButton } from "@/components/assistant-ui/elements/tooltip-icon-button";
 import { ThinkingStatus } from "@/components/assistant-ui/elements/spiral-loader";
+import { PersonAvatar } from "@/components/PersonAvatar";
 import { OfficeSkillSlash } from "@/components/OfficeSkillSlash";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { officeUserMessageSender } from "@/lib/office-sender";
+import { isVisibleChatMessage } from "@/lib/chat-messages";
 import { cn } from "@/lib/utils";
 import {
   ActionBarMorePrimitive,
@@ -84,6 +86,7 @@ export type ThreadProps = {
   placeholder?: string | undefined;
   hideComposer?: boolean | undefined;
   viewerUserId?: string | undefined;
+  viewerImage?: string | undefined;
   botName?: string | undefined;
 };
 
@@ -96,6 +99,7 @@ const ThreadChromeContext = createContext({
   hideComposer: false,
   placeholder: "Send a message...",
   viewerUserId: "",
+  viewerImage: "",
   botName: "",
 });
 
@@ -157,12 +161,13 @@ export const Thread: FC<ThreadProps> = ({
   placeholder = "Send a message...",
   hideComposer = false,
   viewerUserId = "",
+  viewerImage = "",
   botName = "",
 }) => {
   return (
     <ThreadComponentsContext.Provider value={components}>
       <ThreadChromeContext.Provider
-        value={{ hideComposer, placeholder, viewerUserId, botName }}
+        value={{ hideComposer, placeholder, viewerUserId, viewerImage, botName }}
       >
         <ThreadRoot autoFocus={autoFocus} />
       </ThreadChromeContext.Provider>
@@ -187,9 +192,9 @@ const ThreadRoot: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
       <ThreadPrimitive.Viewport
         turnAnchor="top"
         data-slot="aui_thread-viewport"
-        className="relative flex flex-1 flex-col overflow-x-auto overflow-y-scroll scroll-smooth"
+        className="relative flex flex-1 flex-col overflow-x-hidden overflow-y-auto scroll-smooth"
       >
-        <div className="mx-auto flex w-full max-w-(--thread-max-width) flex-1 flex-col px-7 pt-4">
+        <div className="mx-auto flex min-h-full w-full max-w-(--thread-max-width) flex-1 flex-col px-4 pt-3 min-[721px]:px-7 min-[721px]:pt-4">
           <AuiIf condition={isHistoryLoadingView}>
             <ThreadHistorySkeleton />
           </AuiIf>
@@ -209,7 +214,7 @@ const ThreadRoot: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
           </div>
 
           <ThreadPrimitive.ViewportFooter
-            className="aui-thread-viewport-footer bg-background sticky bottom-0 mt-auto flex flex-col gap-3 overflow-visible rounded-t-(--composer-radius) pb-4 md:pb-6"
+            className="aui-thread-viewport-footer bg-background sticky bottom-0 mt-auto flex flex-col gap-3 overflow-visible rounded-t-(--composer-radius) pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-6"
           >
             <ThreadScrollToBottom />
             <ThreadFollowupSuggestions />
@@ -227,9 +232,11 @@ const ThreadRoot: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 const ThreadMessage: FC = () => {
   const { AssistantMessage: AssistantMessageComponent = AssistantMessage } =
     useContext(ThreadComponentsContext);
+  const hidden = useAuiState((s) => !isVisibleChatMessage(s.message));
   const role = useAuiState((s) => s.message.role);
   const isEditing = useAuiState((s) => s.message.composer.isEditing);
 
+  if (hidden) return null;
   if (isEditing) return <EditComposer />;
   if (role === "user") return <UserMessage />;
   return <AssistantMessageComponent />;
@@ -317,7 +324,6 @@ const AssistantWorkingDots: FC = () => {
 };
 
 const AssistantMessage: FC = () => {
-  const { botName } = useContext(ThreadChromeContext);
   const {
     ToolFallback: ToolFallbackComponent = ToolFallback,
     ToolGroup,
@@ -337,14 +343,6 @@ const AssistantMessage: FC = () => {
         data-slot="aui_assistant-message-content"
         className="text-foreground flex flex-col items-start gap-2 px-2 leading-snug wrap-break-word"
       >
-        {botName ? (
-          <div
-            data-slot="aui_message-sender"
-            className="-mb-1 text-[11px] font-medium text-muted"
-          >
-            {botName}
-          </div>
-        ) : null}
         <AssistantWorkingDots />
         <MessagePrimitive.GroupedParts
           groupBy={groupPartByType({
@@ -376,7 +374,7 @@ const AssistantMessage: FC = () => {
                 return (
                   <div
                     data-slot="aui_assistant-message-bubble"
-                    className="aui-assistant-message-bubble w-fit max-w-[min(72%,36rem)] rounded-[18px] bg-card px-3.5 py-2.5 text-[15px] leading-snug wrap-break-word empty:hidden light:bg-card-2 [&_.aui-md-p]:my-1.5"
+                    className="aui-assistant-message-bubble w-fit max-w-[min(92%,36rem)] rounded-[18px] bg-card px-3.5 py-2.5 text-[15px] leading-snug wrap-break-word empty:hidden min-[721px]:max-w-[min(72%,36rem)] light:bg-card-2 [&_.aui-md-p]:my-1.5"
                   >
                     <MarkdownText />
                   </div>
@@ -448,15 +446,25 @@ const AssistantActionBar: FC = () => {
 };
 
 const UserMessage: FC = () => {
-  const { viewerUserId } = useContext(ThreadChromeContext);
+  const { viewerUserId, viewerImage } = useContext(ThreadChromeContext);
   const senderLabel = useAuiState((s) => {
     const sender = officeUserMessageSender(s.message.metadata, viewerUserId);
     return sender?.label ?? "";
+  });
+  const senderName = useAuiState((s) => {
+    const sender = officeUserMessageSender(s.message.metadata, viewerUserId);
+    return sender?.name ?? "";
+  });
+  const senderImage = useAuiState((s) => {
+    const sender = officeUserMessageSender(s.message.metadata, viewerUserId);
+    return sender?.image ?? "";
   });
   const mine = useAuiState((s) => {
     const sender = officeUserMessageSender(s.message.metadata, viewerUserId);
     return sender?.mine ?? true;
   });
+  const faceName = senderName || senderLabel || "You";
+  const faceImage = senderImage || (mine ? viewerImage : "");
   return (
     <MessagePrimitive.Root
       data-slot="aui_user-message-root"
@@ -467,16 +475,23 @@ const UserMessage: FC = () => {
         mine ? "items-end" : "items-start",
       )}
     >
-      <div className="aui-user-message-content-wrapper relative max-w-[min(72%,36rem)]">
+      <div className="aui-user-message-content-wrapper relative max-w-[min(92%,36rem)] min-[721px]:max-w-[min(72%,36rem)]">
         {senderLabel ? (
           <div
             data-slot="aui_message-sender"
             className={cn(
-              "mb-1 text-[11px] font-medium text-muted",
-              mine ? "text-right" : "text-left",
+              "mb-1.5 flex items-center gap-1.5",
+              mine ? "flex-row-reverse" : "flex-row",
             )}
           >
-            {senderLabel}
+            <PersonAvatar
+              name={faceName}
+              image={faceImage || undefined}
+              size="xs"
+            />
+            <span className="text-[12px] font-medium text-ink/80">
+              {senderLabel}
+            </span>
           </div>
         ) : null}
         <div className="aui-user-message-content peer rounded-[18px] bg-card-2 px-3.5 py-2.5 text-[15px] leading-snug text-foreground wrap-break-word empty:hidden light:border light:border-line light:bg-white">
@@ -526,7 +541,7 @@ const EditComposer: FC = () => {
       data-slot="aui_edit-composer-wrapper"
       className="flex flex-col px-2 [contain-intrinsic-size:auto_200px] [content-visibility:auto]"
     >
-      <ComposerPrimitive.Root className="aui-edit-composer-root border-border/60 dark:border-muted-foreground/15 ms-auto flex w-full max-w-[min(72%,36rem)] cursor-text flex-col rounded-(--composer-radius) border bg-(--composer-bg)">
+      <ComposerPrimitive.Root className="aui-edit-composer-root border-border/60 dark:border-muted-foreground/15 ms-auto flex w-full max-w-[min(92%,36rem)] cursor-text flex-col rounded-(--composer-radius) border bg-(--composer-bg) min-[721px]:max-w-[min(72%,36rem)]">
         <ComposerPrimitive.Input
           className="aui-edit-composer-input text-foreground min-h-14 w-full resize-none bg-transparent px-4 pt-3 pb-1 text-base outline-none"
           autoFocus

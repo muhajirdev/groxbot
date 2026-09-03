@@ -3,6 +3,7 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import {
   Think,
   skills,
+  type ChatResponseResult,
   type MessageConcurrency,
   type ToolCallResultContext,
   type TurnContext,
@@ -39,6 +40,7 @@ import {
   hostedChatMessages,
   resolveRunModel,
   rewriteThinkCapability,
+  withOfficeExecuteDescription,
   composeSoul,
   soulOverlayFromWrite,
   teammatePrompt,
@@ -48,6 +50,15 @@ import {
   ComputerPathError,
   ComputerWriteError,
   saveMcpConnection,
+  OFFICE_REVIEW_STORAGE,
+  applyOfficeReviewTurn,
+  assistantTurnSettled,
+  countUiToolParts,
+  emptyOfficeReviewCounters,
+  officeReviewDue,
+  officeReviewUserMessage,
+  parseOfficeReviewCounters,
+  shouldEnqueueOfficeReview,
 } from "@groxbot/core";
 import { bots } from "@groxbot/db";
 import { createNeonHttpDb } from "@groxbot/db/neon";
@@ -130,6 +141,10 @@ export class BotActor extends Think<WorkerEnv> {
   private botLoaded = false;
   private botLoading: Promise<void> | null = null;
   private officeId = "";
+  /** Claimed a due review; other waitUntil callbacks should not start another. */
+  private reviewQueued = false;
+  /** saveMessages review turn in flight. */
+  private reviewBusy = false;
 
   getModel() {
     const id = gatewayRequestModel(this.turnModel);
@@ -166,8 +181,9 @@ export class BotActor extends Think<WorkerEnv> {
     if (ctx.success && ctx.toolName === "set_context") this.memoryDirty = true;
   }
 
-  async onChatResponse(): Promise<void> {
+  async onChatResponse(result: ChatResponseResult): Promise<void> {
     await this.flushMemory();
+    this.enqueueOfficeReview(result);
   }
 
   async onStart(): Promise<void> {
@@ -238,14 +254,23 @@ export class BotActor extends Think<WorkerEnv> {
       workspace: this.workspace,
       convert: bindToMarkdown(this.env.AI),
     });
+    const execute = createExecuteTool(this, {
+      executor: createBundlingExecutor(this.env.LOADER, { timeout: 120_000 }),
+      session: { mode: "reuse", key: this.name },
+      tools: pageTools,
+      connectors: this.executeConnectors(),
+    });
+    const description =
+      typeof execute.description === "string" ? execute.description : "";
     return {
       ...pageTools,
-      execute: createExecuteTool(this, {
-        executor: createBundlingExecutor(this.env.LOADER, { timeout: 120_000 }),
-        session: { mode: "reuse", key: this.name },
-        tools: pageTools,
-        connectors: this.executeConnectors(),
-      }),
+      execute: {
+        ...execute,
+        description: withOfficeExecuteDescription(
+          description,
+          Boolean(this.env.KNOWLEDGE),
+        ),
+      },
     };
   }
 
@@ -442,6 +467,90 @@ export class BotActor extends Think<WorkerEnv> {
   private officeKnowledge() {
     if (!this.env.KNOWLEDGE || !this.officeId) return null;
     return r2KnowledgeDisk(this.env.KNOWLEDGE);
+  }
+
+  /**
+   * After enough tool work, same Think brain files a playbook if one belongs
+   * in the office. waitUntil + a 0-timer lets auto-continue admit first;
+   * saveMessages then queues behind that stretch. The trigger user is hidden;
+   * a real write shows one line with the path.
+   */
+  private enqueueOfficeReview(result: ChatResponseResult): void {
+    this.ctx.waitUntil(this.maybeRunOfficeReview(result));
+  }
+
+  private async maybeRunOfficeReview(
+    result: ChatResponseResult,
+  ): Promise<void> {
+    await this.bumpOfficeReviewTools(result);
+    if (result.status !== "completed") return;
+    if (!this.officeKnowledge()) return;
+    if (!assistantTurnSettled(result.message?.parts)) return;
+    const dueNow = parseOfficeReviewCounters(
+      await this.ctx.storage.get(OFFICE_REVIEW_STORAGE),
+    );
+    if (
+      !shouldEnqueueOfficeReview({
+        status: result.status,
+        reviewBusy: this.reviewBusy || this.reviewQueued,
+        hasOfficeKnowledge: true,
+        settled: true,
+        counters: dueNow,
+      })
+    ) {
+      return;
+    }
+    this.reviewQueued = true;
+    try {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      const counters = parseOfficeReviewCounters(
+        await this.ctx.storage.get(OFFICE_REVIEW_STORAGE),
+      );
+      if (
+        this.reviewBusy ||
+        !officeReviewDue(counters) ||
+        !this.officeKnowledge()
+      ) {
+        return;
+      }
+      this.reviewBusy = true;
+      try {
+        await this.ctx.storage.put(
+          OFFICE_REVIEW_STORAGE,
+          emptyOfficeReviewCounters(),
+        );
+        await this.saveMessages((messages) => [
+          ...messages,
+          officeReviewUserMessage(),
+        ]);
+      } catch (error) {
+        await this.ctx.storage.put(OFFICE_REVIEW_STORAGE, counters);
+        console.error("bot actor office review", this.name, error);
+      } finally {
+        this.reviewBusy = false;
+      }
+    } finally {
+      this.reviewQueued = false;
+    }
+  }
+
+  private async bumpOfficeReviewTools(
+    result: ChatResponseResult,
+  ): Promise<void> {
+    if (result.status !== "completed") return;
+    if (this.reviewBusy) return;
+    const tools = countUiToolParts(result.message?.parts);
+    const current = parseOfficeReviewCounters(
+      await this.ctx.storage.get(OFFICE_REVIEW_STORAGE),
+    );
+    const next = applyOfficeReviewTurn(current, tools, result.continuation);
+    if (
+      next.toolIters === current.toolIters &&
+      next.lastMessageTools === current.lastMessageTools
+    ) {
+      return;
+    }
+    await this.ctx.storage.put(OFFICE_REVIEW_STORAGE, next);
   }
 
   private executeConnectors() {

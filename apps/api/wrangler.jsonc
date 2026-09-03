@@ -1,70 +1,81 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "groxbot-api",
-  "main": "src/worker.ts",
-  "account_id": "67f961331110b81774851ee4f54349b9",
-  "compatibility_date": "2026-07-28",
-  "compatibility_flags": ["nodejs_compat"],
-  "workers_dev": true,
-  "routes": [{ "pattern": "api.groxbot.com", "custom_domain": true }],
-  "dev": {
-    "ip": "127.0.0.1",
-    "port": 3100,
-    "local_protocol": "http"
-  },
-  "observability": {
-    "enabled": true
-  },
-  "ai": {
-    "binding": "AI"
-  },
-  "browser": {
-    "binding": "BROWSER"
-  },
-  "send_email": [
-    {
-      "name": "EMAIL"
-    }
-  ],
-  "durable_objects": {
-    "bindings": [
-      {
-        "name": "BOT_ACTOR",
-        "class_name": "BotActor"
-      },
-      {
-        "name": "APP_RUNTIME",
-        "class_name": "AppRuntime"
-      }
-    ]
-  },
-  "worker_loaders": [
-    {
-      "binding": "LOADER"
-    }
-  ],
-  "migrations": [
-    {
-      "tag": "v1",
-      "new_sqlite_classes": ["BotActor"]
-    },
-    {
-      "tag": "v2",
-      "new_sqlite_classes": ["AppRuntime"]
-    }
-  ],
-  "r2_buckets": [
-    {
-      "binding": "KNOWLEDGE",
-      "bucket_name": "groxbot-knowledge"
-    }
-  ],
-  "vars": {
-    "NODE_ENV": "production",
-    "BETTER_AUTH_URL": "https://api.groxbot.com",
-    "API_URL": "https://api.groxbot.com",
-    "WEB_ORIGIN": "https://app.groxbot.com",
-    "CORS_ORIGINS": "https://app.groxbot.com,https://groxbot.com,https://www.groxbot.com",
-    "EMAIL_FROM": "Groxbot <noreply@groxbot.com>"
-  }
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "groxbot-api",
+	"main": "src/worker.ts",
+	"account_id": "67f961331110b81774851ee4f54349b9",
+	"compatibility_date": "2026-07-28",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"workers_dev": true,
+	"routes": [
+		{
+			"pattern": "api.groxbot.com",
+			"custom_domain": true
+		}
+	],
+	"dev": {
+		"ip": "127.0.0.1",
+		"port": 3100,
+		"local_protocol": "http"
+	},
+	"observability": {
+		"enabled": true
+	},
+	"ai": {
+		"binding": "AI"
+	},
+	"browser": {
+		"binding": "BROWSER"
+	},
+	"send_email": [
+		{
+			"name": "EMAIL"
+		}
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "BOT_ACTOR",
+				"class_name": "BotActor"
+			},
+			{
+				"name": "APP_RUNTIME",
+				"class_name": "AppRuntime"
+			}
+		]
+	},
+	"worker_loaders": [
+		{
+			"binding": "LOADER"
+		}
+	],
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": [
+				"BotActor"
+			]
+		},
+		{
+			"tag": "v2",
+			"new_sqlite_classes": [
+				"AppRuntime"
+			]
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "KNOWLEDGE",
+			"bucket_name": "groxbot-knowledge"
+		}
+	],
+	"vars": {
+		"NODE_ENV": "production",
+		"BETTER_AUTH_URL": "https://api.groxbot.com",
+		"API_URL": "https://api.groxbot.com",
+		"WEB_ORIGIN": "https://app.groxbot.com",
+		"CORS_ORIGINS": "https://app.groxbot.com,https://groxbot.com,https://www.groxbot.com",
+		"EMAIL_FROM": "Groxbot <noreply@mail.groxbot.com>"
+	}
 }

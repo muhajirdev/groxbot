@@ -1,4 +1,4 @@
-import { type Database, invitation, organization } from "@groxbot/db";
+import { type Database, invitation, member, organization, user } from "@groxbot/db";
 import { and, eq, gt, sql } from "drizzle-orm";
 
 const SLUG_NAME_MAX = 24;
@@ -60,12 +60,10 @@ export async function renameWorkspace(
     .update(organization)
     .set({ name: trimmed })
     .where(eq(organization.id, workspaceId))
-    .returning({
-      id: organization.id,
-      name: organization.name,
-      slug: organization.slug,
-    });
-  return row ?? null;
+    .returning();
+  return row
+    ? { id: row.id, name: row.name, slug: row.slug }
+    : null;
 }
 
 export function workspaceAuthMessage(raw: string, fallback: string): string {
@@ -154,4 +152,40 @@ export async function peekInvitation(db: Database, raw: string) {
     organizationName: row.organizationName,
     organizationId: row.organizationId,
   };
+}
+
+export async function listWorkspaceMembers(
+  db: Database,
+  workspaceId: string,
+  viewerUserId: string,
+) {
+  const rows = await db
+    .select({
+      userId: user.id,
+      name: user.name,
+      email: user.email,
+      image: user.image,
+      role: member.role,
+      updatedAt: user.updatedAt,
+    })
+    .from(member)
+    .innerJoin(user, eq(member.userId, user.id))
+    .where(eq(member.organizationId, workspaceId));
+  const rank = (role: string) =>
+    role === "owner" ? 0 : role === "admin" ? 1 : 2;
+  return rows
+    .map((row) => ({
+      userId: row.userId,
+      name: row.name,
+      email: row.email,
+      image: row.image,
+      role: row.role,
+      updatedAt: row.updatedAt,
+      mine: row.userId === viewerUserId,
+    }))
+    .sort((a, b) => {
+      const byRole = rank(a.role) - rank(b.role);
+      if (byRole !== 0) return byRole;
+      return a.name.localeCompare(b.name);
+    });
 }

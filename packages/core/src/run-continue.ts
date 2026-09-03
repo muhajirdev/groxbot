@@ -70,9 +70,9 @@ export function teammatePrompt(bot: {
     `You are ${who}, a Groxbot teammate in this office thread.`,
     bot.description.trim(),
     bot.instructions.trim(),
-    "This is office chat, not a document. Several humans may write here — user messages are tagged with the sender's name. Keep each reply short — a few sentences. Do the work with tools; don't narrate every step in the thread. Put long notes, tables, and drafts in a file on this computer, then send a short message with the path. Markdown is fine for a tight list or a snippet. Do not write an essay, a capability recap, or stacked headings unless they asked.",
+    "This is office chat, not a document. Several humans may write here — user messages are tagged with the sender's name. Keep each reply short — a few sentences. Do the work with tools; don't narrate every step in the thread. Put long notes, tables, and drafts in a file on this computer, then send a short message with the path. Same when you knowledge.write — one short line with the office path. Don't announce a save you didn't make. Markdown is fine for a tight list or a snippet. Do not write an essay, a capability recap, or stacked headings unless they asked.",
     "This thread is your desk — files and a shell live on this computer. Files the human attaches land in inbox/. Read them from there. You can import npm packages in execute. Read a public page with fetch_url. If the body is HTML, or a PDF/doc on this computer, convert it with to_markdown. Do not open a browser just to read a page. Do not unpack binary streams in the shell. Do not send, pay, merge, or delete unless the human clearly asked.",
-    "Learn as you go. Save durable facts with set_context on memory: people, prefs, decisions, dates, owners. Keep it dense. Who you are and how you sound lives in soul — grow it with set_context on soul as this desk teaches you (voice, taste, how you like to work). Keep your name. Longer private notes go in memory.md on this computer. Reusable how-to belongs in the office knowledge base — inside execute, knowledge.search then knowledge.read; knowledge.write at skills/<name>/SKILL.md (YAML name + description). Notes and files can live anywhere. Point at another office file with [constraints](how-we-work/constraints.md) — office-root path, not ../, not [[wikilinks]]. Search first so the path exists. Teammates will not see playbooks that only live on this computer. Do not copy the whole thread into memory or a skill.",
+    "Learn as you go. Save durable facts with set_context on memory: people, prefs, decisions, dates, owners. Keep it dense. Who you are and how you sound lives in soul — grow it with set_context on soul as this desk teaches you (voice, taste, how you like to work). Keep your name. Longer private notes go in memory.md on this computer. Reusable how-to belongs in the office knowledge base — inside execute, knowledge.search then knowledge.read; knowledge.write at skills/<name>/SKILL.md (YAML name + description). Patch an existing playbook before creating one. Notes and files can live anywhere. Point at another office file with [constraints](how-we-work/constraints.md) — office-root path, not ../, not [[wikilinks]]. Search first so the path exists. Teammates will not see playbooks that only live on this computer. Do not copy the whole thread into memory or a skill.",
     "Do not mention Think or how you are hosted. If asked what you are, you are this teammate.",
     model ? `If asked which model you use, say ${model}.` : "",
   ]
@@ -87,6 +87,30 @@ export const TEAMMATE_RUNTIME_LINE = "You are this Groxbot teammate.";
 export function rewriteThinkCapability(system: string): string {
   if (!system.includes(THINK_RUNTIME_LINE)) return system;
   return system.split(THINK_RUNTIME_LINE).join(TEAMMATE_RUNTIME_LINE);
+}
+
+/**
+ * Think only hints `state` / `cdp` / `tools` on `execute`. Extra connectors
+ * show up as a bare `- \`knowledge\``. Fill that in so the model does not
+ * have to `codemode.search` to learn the office library exists.
+ */
+export const KNOWLEDGE_EXECUTE_HINT =
+  "`knowledge` — shared office library, not this computer (`state.*`). `await knowledge.search({ query })` then `read` / `write`. Playbooks at `skills/<name>/SKILL.md`.";
+
+export function withOfficeExecuteDescription(
+  description: string,
+  hasKnowledge: boolean,
+): string {
+  if (!hasKnowledge) return description;
+  if (description.includes("await knowledge.search")) return description;
+  const hinted = `- ${KNOWLEDGE_EXECUTE_HINT}`;
+  if (/(?:^|\n)- `knowledge`$/m.test(description)) {
+    return description.replace(/(?:^|\n)- `knowledge`$/m, (row) =>
+      row.startsWith("\n") ? `\n${hinted}` : hinted,
+    );
+  }
+  if (!description.trim()) return hinted;
+  return `${description.trimEnd()}\n${hinted}`;
 }
 
 export async function startOfficeRun(opts: {

@@ -17,6 +17,16 @@ export interface WakeupJob {
   jobKey?: string;
 }
 
+/** Named delayed jobs on a bot actor. */
+export interface WakeupDriver {
+  enqueue(job: WakeupJob): Promise<void>;
+  start(
+    handlers?: Record<string, (payload: Record<string, unknown>) => Promise<void>>,
+  ): Promise<void>;
+  stop(): Promise<void>;
+}
+
+
 /** Send a job to the bot actor. The Worker implements this with a Durable Object stub. */
 export type EnqueueJob = (job: WakeupJob) => Promise<void>;
 

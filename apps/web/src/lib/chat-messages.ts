@@ -1,4 +1,5 @@
 import type { UIMessage } from "ai";
+import { isOfficeReviewSkip, isOfficeReviewUserMessage } from "@groxbot/contracts";
 import { isComputerFileNote } from "./computer-attachment";
 
 type TextPart = { type: "text"; text: string };
@@ -52,6 +53,7 @@ export function lastThinkPreview(messages: UIMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
     const row = messages[i];
     if (!row) continue;
+    if (!isVisibleChatMessage(row)) continue;
     const text = visibleTextFromMessage(row).replace(/\s+/g, " ").trim();
     if (text) return text.slice(0, 140);
   }
@@ -64,11 +66,24 @@ export function usedTools(message: UIMessage): boolean {
   );
 }
 
-export function isVisibleChatMessage(message: UIMessage): boolean {
-  if (message.role === "user") {
-    return visibleTextFromMessage(message).length > 0 || hasFilePart(message);
+export function isVisibleChatMessage(message: {
+  role?: string;
+  metadata?: unknown;
+  parts?: UIMessage["parts"];
+}): boolean {
+  if (isOfficeReviewUserMessage(message)) return false;
+  if (!message.parts) return true;
+  const asMessage = message as UIMessage;
+  if (
+    message.role === "assistant" &&
+    isOfficeReviewSkip(textFromMessage(asMessage))
+  ) {
+    return false;
   }
-  return textFromMessage(message).length > 0 || usedTools(message);
+  if (message.role === "user") {
+    return visibleTextFromMessage(asMessage).length > 0 || hasFilePart(asMessage);
+  }
+  return textFromMessage(asMessage).length > 0 || usedTools(asMessage);
 }
 
 /**

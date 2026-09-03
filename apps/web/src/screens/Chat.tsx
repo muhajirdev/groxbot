@@ -21,10 +21,12 @@ import { AppPane } from "../components/AppPane";
 import { AppSettings } from "../components/AppSettings";
 import { AvatarMark } from "../components/Avatar";
 import { BotSettingsPane } from "../components/BotSettingsPane";
+import { ComputerFileOpenProvider } from "../components/ChatFileLink";
 import { ComputerPane } from "../components/ComputerPane";
 import { CommandPalette, SearchTrigger } from "../components/CommandPalette";
 import {
   ChevronLeftIcon,
+  CloseIcon,
   FileIcon,
   GearIcon,
   MonitorIcon,
@@ -37,6 +39,7 @@ import {
 } from "../components/Icons";
 import { HireDialog } from "../components/HireDialog";
 import { KnowledgeModal } from "../components/KnowledgeModal";
+import { PersonAvatar } from "../components/PersonAvatar";
 import { PluginsModal } from "../components/PluginsModal";
 import { KeptThinkThread } from "../components/ThinkThread";
 import { ThreadList } from "../components/ThreadList";
@@ -124,13 +127,6 @@ function asMessage(payload: Record<string, unknown>): ThreadMessage | null {
   };
 }
 
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return (parts[0]?.slice(0, 2) ?? "?").toUpperCase();
-  return `${parts[0]?.[0] ?? ""}${parts[1]?.[0] ?? ""}`.toUpperCase();
-}
-
 const BotRow = memo(function BotRow(props: {
   item: Bot;
   selected: boolean;
@@ -138,6 +134,7 @@ const BotRow = memo(function BotRow(props: {
   muted?: boolean;
   desk: OfficeSearch;
   onMenu: (event: MouseEvent, bot: Bot) => void;
+  onPick?: () => void;
 }) {
   const item = props.item;
   const pinned = isPinnedBot(item);
@@ -155,6 +152,7 @@ const BotRow = memo(function BotRow(props: {
           props.muted && "opacity-70",
         )}
         aria-label={pinned ? `${item.name}, pinned` : item.name}
+        onClick={props.onPick}
         onContextMenu={(event) => {
           event.preventDefault();
           props.onMenu(event, item);
@@ -169,7 +167,7 @@ const BotRow = memo(function BotRow(props: {
           />
           {pinned ? (
             <span
-              className="chat-conv-pin pointer-events-none absolute -right-px -bottom-px hidden size-3.5 place-items-center rounded-full bg-bg-side text-muted max-[960px]:grid"
+              className="chat-conv-pin pointer-events-none absolute -right-px -bottom-px hidden size-3.5 place-items-center rounded-full bg-bg-side text-muted min-[721px]:max-[960px]:grid"
               title="Pinned"
             >
               <PinIcon className="size-2.5" weight="fill" />
@@ -273,6 +271,10 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
   const [pluginsOpen, setPluginsOpen] = useState(false);
   const [knowledgeOpen, setKnowledgeOpen] = useState(false);
   const [hireOpen, setHireOpen] = useState(false);
+  const [rosterOpen, setRosterOpen] = useState(false);
+  const [narrow, setNarrow] = useState(
+    () => window.matchMedia("(max-width: 720px)").matches,
+  );
   const lastApp = useRef<{
     id: string;
     title: string;
@@ -349,9 +351,12 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
       ? lastApp.current
       : null;
 
+  const closeRoster = useCallback(() => setRosterOpen(false), []);
   const goToBot = useCallback(
-    (botId: string, nextDesk: OfficeSearch = desk) =>
-      navigate({ to: "/$botId", params: { botId }, search: nextDesk }),
+    (botId: string, nextDesk: OfficeSearch = desk) => {
+      setRosterOpen(false);
+      return navigate({ to: "/$botId", params: { botId }, search: nextDesk });
+    },
     [desk, navigate],
   );
   const setDesk = useCallback(
@@ -362,6 +367,30 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
   useEffect(() => {
     if (bot?.archivedAt) setArchivedOpen(true);
   }, [bot?.archivedAt]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 720px)");
+    const onChange = () => {
+      setNarrow(mq.matches);
+      if (!mq.matches) setRosterOpen(false);
+    };
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    if (narrow && !activeId) setRosterOpen(true);
+  }, [activeId, narrow]);
+
+  useEffect(() => {
+    if (!rosterOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && bot) setRosterOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [bot, rosterOpen]);
 
   useEffect(() => {
     if (!activeId) return;
@@ -733,6 +762,21 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
     },
     [setDesk],
   );
+  const [computerFile, setComputerFile] = useState<{
+    botId: string;
+    path: string;
+  } | null>(null);
+  const openComputerFile = useCallback(
+    (path: string) => {
+      setComputerFile({ botId: props.botId, path });
+      setDesk(deskComputer());
+    },
+    [props.botId, setDesk],
+  );
+  const computerOpenPath =
+    computerFile && computerFile.botId === props.botId
+      ? computerFile.path
+      : null;
 
   const paneMode = desk.pane ?? null;
   const activePane =
@@ -747,14 +791,20 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
   const exitingApp = openApp ?? lastApp.current;
 
   return (
+    <ComputerFileOpenProvider onOpen={openComputerFile}>
     <div
       className={cn(
-        "chat-shell relative h-screen bg-bg",
+        "chat-shell relative bg-bg",
         paneMode === "app" && "is-app",
         paneMode && paneMode !== "app" && "is-pane",
+        rosterOpen && "is-roster",
       )}
     >
-      <aside className="flex min-h-0 flex-col border-r border-line bg-bg-side px-2.5 pb-2">
+      <aside
+        className="chat-side flex min-h-0 flex-col border-r border-line bg-bg-side px-2.5 pb-2"
+        aria-label="Teammates"
+        inert={narrow && !rosterOpen ? true : undefined}
+      >
         <div className="flex flex-col gap-2 px-0.5 pt-1.5 pb-2.5">
           <div className="side-chrome drag flex min-h-9 items-center gap-1">
             <div className="no-drag min-w-0 flex-1">
@@ -763,7 +813,18 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
                 workspaceId={me?.workspaceId}
               />
             </div>
-            <div className="no-drag relative shrink-0">
+            <div className="no-drag relative flex shrink-0 items-center gap-0.5">
+              {bot ? (
+                <Button
+                  className="hidden max-[720px]:grid"
+                  variant="icon"
+                  type="button"
+                  aria-label="Close teammates"
+                  onClick={closeRoster}
+                >
+                  <CloseIcon />
+                </Button>
+              ) : null}
               <Button
                 variant="icon"
                 type="button"
@@ -793,6 +854,7 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
               working={item.id === bot?.id && (hiringThis || Boolean(working))}
               desk={desk}
               onMenu={openBotMenu}
+              onPick={closeRoster}
             />
           ))}
           {liveBots.length === 0 && archivedBots.length === 0 ? (
@@ -807,6 +869,7 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
                   item={item}
                   selected={paneMode === "app" && openApp?.id === item.id}
                   onOpen={() => {
+                    closeRoster();
                     setPokeView(null);
                     openDocument({ appId: item.id });
                   }}
@@ -834,6 +897,7 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
                       muted
                       desk={desk}
                       onMenu={openBotMenu}
+                      onPick={closeRoster}
                     />
                   ))
                 : null}
@@ -865,55 +929,68 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
               setSettingsOpen(true);
             }}
           >
-            <span
-              className="avatar circle"
-              style={{ background: "#4d5568", width: 28, height: 28 }}
-            >
-              {initials(me?.name ?? "You")}
-            </span>
+            <PersonAvatar
+              name={me?.name || "You"}
+              image={me?.image}
+            />
             <span>{me?.name || "You"}</span>
           </button>
         </div>
       </aside>
-      <section className="flex min-h-0 flex-col bg-bg-thread">
+      <section
+        className="chat-thread flex min-h-0 min-w-0 flex-col bg-bg-thread"
+        inert={narrow && rosterOpen ? true : undefined}
+      >
         <div className="thread-head drag flex items-center justify-between gap-2 border-b border-line px-[18px] py-2.5">
           {pokeView ? (
             <button
-              className="no-drag flex items-center gap-2.5 border-0 bg-transparent p-0 text-inherit"
+              className="no-drag flex min-w-0 items-center gap-2.5 border-0 bg-transparent p-0 text-inherit"
               type="button"
               onClick={() => setPokeView(null)}
             >
               <ChevronLeftIcon />
-              <strong className="text-[15px] font-semibold tracking-tight">
+              <strong className="truncate text-[15px] font-semibold tracking-tight">
                 {bot?.name ?? "—"} · {pokeView.peerName}
               </strong>
             </button>
           ) : (
-            <button
-              className="no-drag flex items-center gap-2.5 border-0 bg-transparent p-0 text-inherit"
-              type="button"
-              onClick={() => {
-                setDesk(deskSettings());
-              }}
-            >
-              {bot ? (
-                <AvatarMark
-                  name={bot.name}
-                  color={bot.avatarColor}
-                  shape={bot.avatarShape}
-                  mood={
-                    hiringThis || working ? "working" : "idle"
-                  }
-                  size="sm"
-                  hero
-                />
-              ) : null}
-              <strong className="text-[15px] font-semibold tracking-tight">
-                {bot?.name ?? "—"}
-              </strong>
-            </button>
+            <div className="no-drag flex min-w-0 items-center gap-1">
+              <Button
+                className="chat-back hidden max-[720px]:grid"
+                variant="icon"
+                type="button"
+                aria-label="Teammates"
+                aria-expanded={rosterOpen}
+                onClick={() => setRosterOpen(true)}
+              >
+                <ChevronLeftIcon />
+              </Button>
+              <button
+                className="flex min-w-0 items-center gap-2.5 border-0 bg-transparent p-0 text-inherit"
+                type="button"
+                onClick={() => {
+                  setDesk(deskSettings());
+                }}
+              >
+                {bot ? (
+                  <AvatarMark
+                    name={bot.name}
+                    color={bot.avatarColor}
+                    shape={bot.avatarShape}
+                    mood={
+                      hiringThis || working ? "working" : "idle"
+                    }
+                    size="sm"
+                    hero
+                  />
+                ) : null}
+                <strong className="truncate text-[15px] font-semibold tracking-tight">
+                  {bot?.name ?? "—"}
+                </strong>
+              </button>
+            </div>
           )}
-          <div className="no-drag flex flex-wrap items-center gap-1.5">
+          <div className="no-drag flex shrink-0 items-center gap-1.5">
             {working && !pokeView ? (
               <Button
                 variant="mini"
@@ -932,6 +1009,7 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
                   title="Computer"
                   on={paneMode === "computer"}
                   onClick={() => {
+                    if (desk.pane === "computer") setComputerFile(null);
                     setDesk(toggleDesk(desk, "computer"));
                   }}
                 >
@@ -954,7 +1032,7 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
           </div>
         </div>
         {me?.needsModel || me?.modelWarning ? (
-          <div className="mx-5 mb-2 flex items-center justify-between gap-3 rounded-xl border border-line bg-card px-3 py-2.5 text-[13px]">
+          <div className="mx-5 mb-2 flex items-center justify-between gap-3 rounded-xl border border-line bg-card px-3 py-2.5 text-[13px] max-[720px]:mx-3">
             <span>
               {me?.needsModel
                 ? "Add a model key, or use Groxbot’s included gateway, to talk to teammates."
@@ -1015,6 +1093,7 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
                   needsModel={Boolean(me?.needsModel)}
                   userId={me?.userId}
                   userName={me?.name}
+                  userImage={me?.image ?? undefined}
                   opening={itemOpening}
                   placeholder={
                     me?.needsModel
@@ -1062,10 +1141,16 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
           <ComputerPane
             key={bot.id}
             bot={bot}
+            openPath={computerOpenPath}
+            onPreviewClose={() => setComputerFile(null)}
             onSettings={() => {
+              setComputerFile(null);
               setDesk(deskSettings());
             }}
-            onCollapse={() => setDesk(deskClosed())}
+            onCollapse={() => {
+              setComputerFile(null);
+              setDesk(deskClosed());
+            }}
           />
         ) : null}
       </div>
@@ -1205,5 +1290,6 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
         </>
       ) : null}
     </div>
+    </ComputerFileOpenProvider>
   );
 }

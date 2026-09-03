@@ -35,7 +35,8 @@ export class KnowledgeConnector extends CodemodeConnector {
   protected override instructions() {
     return [
       "Shared office knowledge — not this computer (state.*).",
-      "Search first, then read. Write playbooks at skills/<name>/SKILL.md (YAML name + description).",
+      "Search first, then read. Write playbooks at skills/<name>/SKILL.md (YAML name + description). Patch an existing playbook before creating one.",
+      "After a real write, mention that path in one short line in the thread. Don't announce a save you didn't make.",
       "Markdown links are office-root paths: [constraints](how-we-work/constraints.md). Not ../, not [[wikilinks]].",
     ].join(" ");
   }
@@ -126,7 +127,7 @@ export class KnowledgeConnector extends CodemodeConnector {
       },
       write: {
         description:
-          "Save a file to the office knowledge base so every teammate can use it. Not this computer. A folder with SKILL.md (YAML name + description) is a reusable playbook — prefer skills/<name>/. Link other office files with [label](path/from/office/root.md).",
+          "Save a file to the office knowledge base so every teammate can use it. Not this computer. A folder with SKILL.md (YAML name + description) is a reusable playbook — prefer skills/<name>/. After a successful write, mention that path in one short line in the thread. Link other office files with [label](path/from/office/root.md).",
         inputSchema: {
           type: "object",
           properties: {

@@ -303,6 +303,34 @@ export const InviteWorkspaceInput = z.object({
   email: z.string().email(),
 });
 
+export const WorkspaceMemberSchema = z.object({
+  userId: Id,
+  name: z.string(),
+  email: z.string().email(),
+  image: z.string().nullable(),
+  role: z.string(),
+  mine: z.boolean(),
+});
+export type WorkspaceMember = z.infer<typeof WorkspaceMemberSchema>;
+
+export const UpdateAccountInput = z.object({
+  name: z.string().min(1).max(80).optional(),
+  image: z
+    .object({
+      content: z.string().min(16).max(360_000),
+    })
+    .nullable()
+    .optional(),
+});
+
+export const AccountSchema = z.object({
+  userId: Id,
+  name: z.string(),
+  email: z.string().email(),
+  image: z.string().nullable(),
+});
+export type Account = z.infer<typeof AccountSchema>;
+
 export const WorkspaceInviteSchema = z.object({
   id: Id,
   email: z.string().email(),
@@ -394,6 +422,7 @@ export const MeSchema = z.object({
   userId: Id,
   email: z.string().email(),
   name: z.string(),
+  image: z.string().nullable(),
   workspaceId: Id.nullable(),
   workspaceName: z.string().nullable(),
   needsWorkspace: z.boolean(),
