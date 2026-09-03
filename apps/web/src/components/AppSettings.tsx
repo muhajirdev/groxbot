@@ -10,9 +10,10 @@ import {
   pickerCatalog,
 } from "@groxbot/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { userFacingError } from "../lib/errors";
 import { orpc } from "../lib/orpc";
+import { encodeProfileImage } from "../lib/profile-image";
 import {
   type LocalComputerPref,
   readAutoReview,
@@ -28,6 +29,7 @@ import { client } from "../lib/rpc";
 import type { Theme } from "../lib/theme";
 import { canSaveWorkspaceName } from "../lib/workspace-switcher";
 import { ModalShell } from "../ui";
+import { PersonAvatar } from "./PersonAvatar";
 import { ChevronDownIcon, CloseIcon } from "./Icons";
 
 type Tab = "general" | "models" | "billing" | "updates";
@@ -108,6 +110,11 @@ export function AppSettings(props: {
                 <section className="set-block">
                   <p className="group-label">Account</p>
                   <div className="account-row">
+                    <ProfilePhotoButton
+                      name={props.me?.name || "You"}
+                      image={props.me?.image}
+                      disabled={!props.me}
+                    />
                     <div>
                       <strong>{props.me?.name || "You"}</strong>
                       <p className="muted">{props.me?.email}</p>
@@ -127,6 +134,7 @@ export function AppSettings(props: {
                     key={props.me?.workspaceId ?? "none"}
                     name={props.me?.workspaceName}
                     enabled={Boolean(props.me && !props.me.needsWorkspace)}
+                    me={props.me}
                   />
                 </section>
                 <section className="set-block">
@@ -231,9 +239,75 @@ export function AppSettings(props: {
   );
 }
 
+async function saveAccount(input: {
+  name?: string;
+  image?: { content: string } | null;
+}) {
+  return client.account.update(input);
+}
+
+function ProfilePhotoButton(props: {
+  name: string;
+  image?: string | null;
+  disabled?: boolean;
+  onSaved?: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function onFile(file: File | undefined) {
+    if (!file || props.disabled) return;
+    setBusy(true);
+    setError("");
+    try {
+      const encoded = await encodeProfileImage(file);
+      const next = await saveAccount({ image: { content: encoded.content } });
+      queryClient.setQueryData(orpc.me.key(), (prev: Me | undefined) =>
+        prev ? { ...prev, name: next.name, image: next.image } : prev,
+      );
+      await queryClient.invalidateQueries({ queryKey: orpc.me.key() });
+      await queryClient.invalidateQueries({
+        queryKey: orpc.workspaces.members.key(),
+      });
+      props.onSaved?.();
+    } catch (caught) {
+      setError(userFacingError(caught, "Could not save that photo"));
+    } finally {
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  return (
+    <div className="member-photo">
+      <button
+        type="button"
+        className="member-photo-btn"
+        disabled={props.disabled || busy}
+        aria-label={busy ? "Saving photo" : "Change photo"}
+        title="Change photo"
+        onClick={() => inputRef.current?.click()}
+      >
+        <PersonAvatar name={props.name} image={props.image} size="md" />
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        hidden
+        onChange={(event) => void onFile(event.target.files?.[0])}
+      />
+      {error ? <p className="member-photo-error">{error}</p> : null}
+    </div>
+  );
+}
+
 function WorkspaceSettings(props: {
   name: string | null | undefined;
   enabled: boolean;
+  me: Me | undefined;
 }) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<string | null>(null);
@@ -245,6 +319,16 @@ function WorkspaceSettings(props: {
   const [sent, setSent] = useState<{ email: string; url: string } | null>(null);
   const name = draft ?? props.name ?? "";
   const dirty = canSaveWorkspaceName(props.name, name);
+  const membersQuery = useQuery({
+    ...orpc.workspaces.members.queryOptions(),
+    enabled: props.enabled,
+  });
+  const [memberName, setMemberName] = useState(props.me?.name ?? "");
+  const [savingMember, setSavingMember] = useState(false);
+
+  useEffect(() => {
+    setMemberName(props.me?.name ?? "");
+  }, [props.me?.name]);
 
   async function saveName() {
     const trimmed = name.trim();
@@ -258,6 +342,27 @@ function WorkspaceSettings(props: {
       setError(userFacingError(caught, "Could not update workspace name"));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveMemberName() {
+    const trimmed = memberName.trim();
+    if (!trimmed || trimmed === (props.me?.name ?? "").trim()) return;
+    setSavingMember(true);
+    setError("");
+    try {
+      const next = await saveAccount({ name: trimmed });
+      queryClient.setQueryData(orpc.me.key(), (prev: Me | undefined) =>
+        prev ? { ...prev, name: next.name, image: next.image } : prev,
+      );
+      await queryClient.invalidateQueries({ queryKey: orpc.me.key() });
+      await queryClient.invalidateQueries({
+        queryKey: orpc.workspaces.members.key(),
+      });
+    } catch (caught) {
+      setError(userFacingError(caught, "Could not update your name"));
+    } finally {
+      setSavingMember(false);
     }
   }
 
@@ -321,6 +426,63 @@ function WorkspaceSettings(props: {
       ) : (
         <p className="muted">{props.name || "This workspace"}</p>
       )}
+      {props.enabled ? (
+        <div className="member-list">
+          <span className="field-label">Members</span>
+          {membersQuery.isPending ? (
+            <p className="muted">Loading…</p>
+          ) : membersQuery.error ? (
+            <p className="muted">Could not load members.</p>
+          ) : (
+            (membersQuery.data ?? []).map((row) => (
+              <div key={row.userId} className="member-row">
+                {row.mine ? (
+                  <ProfilePhotoButton name={row.name} image={row.image} />
+                ) : (
+                  <PersonAvatar name={row.name} image={row.image} size="md" />
+                )}
+                <div className="member-meta">
+                  {row.mine ? (
+                    <form
+                      className="member-name"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void saveMemberName();
+                      }}
+                    >
+                      <input
+                        value={memberName}
+                        maxLength={80}
+                        aria-label="Your name"
+                        disabled={savingMember}
+                        onChange={(event) => setMemberName(event.target.value)}
+                      />
+                      <button
+                        className="mini"
+                        type="submit"
+                        disabled={
+                          savingMember ||
+                          !memberName.trim() ||
+                          memberName.trim() === (props.me?.name ?? "").trim()
+                        }
+                      >
+                        {savingMember ? "Saving…" : "Save"}
+                      </button>
+                    </form>
+                  ) : (
+                    <strong>{row.name}</strong>
+                  )}
+                  <p className="muted">
+                    {row.mine ? "You · " : ""}
+                    {row.email}
+                  </p>
+                </div>
+                <span className="member-role">{row.role}</span>
+              </div>
+            ))
+          )}
+        </div>
+      ) : null}
       {props.enabled ? (
         <>
           <form

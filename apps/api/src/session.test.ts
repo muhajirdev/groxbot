@@ -29,6 +29,7 @@ describe("requireUser", () => {
     expect(api.listOrganizations).not.toHaveBeenCalled();
     expect(api.setActiveOrganization).not.toHaveBeenCalled();
     expect(user.isDeploymentOwner).toBe(false);
+    expect(user.image).toBeNull();
   });
 
   it("lists orgs only when the session has no active workspace", async () => {

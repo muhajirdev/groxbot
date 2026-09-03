@@ -4,6 +4,7 @@ import {
   TEAMMATE_RUNTIME_LINE,
   rewriteThinkCapability,
   teammatePrompt,
+  withOfficeExecuteDescription,
 } from "./run-continue.js";
 import { assertTransition, canTransition } from "./run-state.js";
 
@@ -45,6 +46,8 @@ describe("teammatePrompt", () => {
     expect(prompt).toMatch(/memory\.md/);
     expect(prompt).toMatch(/knowledge\.search/);
     expect(prompt).toMatch(/knowledge\.write/);
+    expect(prompt).toMatch(/one short line with the office path/);
+    expect(prompt).toMatch(/Patch an existing playbook/);
     expect(prompt).toMatch(/skills\/<name>\/SKILL\.md/);
     expect(prompt).toMatch(/how-we-work\/constraints\.md/);
     expect(prompt).toMatch(/not \[\[wikilinks\]\]/);
@@ -65,5 +68,34 @@ describe("rewriteThinkCapability", () => {
 
   it("leaves other system prompts unchanged", () => {
     expect(rewriteThinkCapability("You are Reja.")).toBe("You are Reja.");
+  });
+});
+
+describe("withOfficeExecuteDescription", () => {
+  const generated = [
+    "Execute JavaScript in a sandbox with access to connector SDKs.",
+    "",
+    "## Available connectors",
+    "",
+    "- `state` — the workspace filesystem.",
+    "- `knowledge`",
+    "- `github`",
+  ].join("\n");
+
+  it("hints knowledge on Think's bare connector bullet", () => {
+    const next = withOfficeExecuteDescription(generated, true);
+    expect(next).toMatch(/- `knowledge` — shared office library/);
+    expect(next).toMatch(/knowledge\.search\(\{ query \}\)/);
+    expect(next).toContain("- `github`");
+    expect(next).not.toMatch(/^- `knowledge`$/m);
+  });
+
+  it("does not duplicate an existing hint", () => {
+    const once = withOfficeExecuteDescription(generated, true);
+    expect(withOfficeExecuteDescription(once, true)).toBe(once);
+  });
+
+  it("leaves the description alone without a knowledge connector", () => {
+    expect(withOfficeExecuteDescription(generated, false)).toBe(generated);
   });
 });

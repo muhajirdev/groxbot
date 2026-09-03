@@ -8,9 +8,11 @@ import {
   getPokeThread,
   listEventsAfter,
   listWorkspaceApps,
+  listWorkspaceMembers,
   loadModelSettings,
   ModelSettingsError,
   PokeError,
+  publishedProfileImage,
   saveModelSettings,
   sleep,
   toBotDto,
@@ -80,6 +82,7 @@ import {
   peekWorkspaceInvite,
   updateWorkspace,
 } from "./workspaces.js";
+import { updateAccount } from "./account.js";
 
 const os = implement(appContract).$context<RpcContext>();
 
@@ -96,6 +99,7 @@ export const appRouter = os.router({
         userId: user.userId,
         email: user.email,
         name: user.name,
+        image: user.image,
         workspaceId: null,
         workspaceName: null,
         needsWorkspace: true,
@@ -110,6 +114,7 @@ export const appRouter = os.router({
       userId: user.userId,
       email: user.email,
       name: user.name,
+      image: user.image,
       workspaceId: user.workspaceId,
       isDeploymentOwner,
     };
@@ -131,6 +136,7 @@ export const appRouter = os.router({
       userId: actor.userId,
       email: actor.email,
       name: actor.name,
+      image: actor.image,
       workspaceId: actor.workspaceId,
       workspaceName: await loadWorkspaceName(context, user),
       needsWorkspace: false,
@@ -163,6 +169,33 @@ export const appRouter = os.router({
     }),
     peek: os.workspaces.peek.handler(async ({ context, input }) => {
       return peekWorkspaceInvite(context, input.invitationId);
+    }),
+    members: os.workspaces.members.handler(async ({ context }) => {
+      const actor = await requireActor(context);
+      const rows = await listWorkspaceMembers(
+        context.db,
+        actor.workspaceId,
+        actor.userId,
+      );
+      const apiUrl = context.env.apiUrl ?? context.env.authUrl;
+      return rows.map((row) => ({
+        userId: row.userId,
+        name: row.name,
+        email: row.email,
+        image: publishedProfileImage(
+          row.image,
+          row.userId,
+          row.updatedAt?.getTime() ?? 0,
+          apiUrl,
+        ),
+        role: row.role,
+        mine: row.mine,
+      }));
+    }),
+  },
+  account: {
+    update: os.account.update.handler(async ({ context, input }) => {
+      return updateAccount(context, input);
     }),
   },
   models: {

@@ -268,11 +268,12 @@ function compactKnowledgeLinkSnapshot(
   const out: number[][] = [];
   for (let old = 0; old < snapshot.paths.length; old++) {
     const mapped = remap[old];
-    if (mapped < 0) continue;
+    if (mapped === undefined || mapped < 0) continue;
     const next: number[] = [];
     for (const dest of snapshot.out[old] ?? []) {
       const to = remap[dest];
-      if (to >= 0) next.push(to);
+      if (to === undefined || to < 0) continue;
+      next.push(to);
     }
     out[mapped] = next;
   }

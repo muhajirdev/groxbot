@@ -1,5 +1,6 @@
 export * from "./app-intent.js";
 export * from "./apps.js";
+export * from "./avatar.js";
 export * from "./computer.js";
 export * from "./execute-imports.js";
 export * from "./guest-http.js";
@@ -13,6 +14,7 @@ export * from "./knowledge-search.js";
 export * from "./markdown.js";
 export * from "./mcp-connections.js";
 export * from "./models.js";
+export * from "./office-review.js";
 export * from "./plugin-connections.js";
 export * from "./poke.js";
 export * from "./run-continue.js";

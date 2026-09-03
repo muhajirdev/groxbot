@@ -1,10 +1,11 @@
 import type { EnqueueJob, InitApp } from "@groxbot/adapter-kit";
 import { createAuth } from "@groxbot/auth";
 import { groxbotCookieDomain } from "@groxbot/contracts";
-import { GuestHub, handleGuestRequest } from "@groxbot/core";
+import { GuestHub, handleGuestRequest, readAvatar } from "@groxbot/core";
 import type { Database } from "@groxbot/db";
 import { ORPCError } from "@orpc/server";
 import { sql } from "drizzle-orm";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { RpcContext } from "./context.js";
@@ -38,6 +39,7 @@ export function createApp(
     ) => Promise<Response>;
     computer?: RpcContext["computer"];
     knowledge?: RpcContext["knowledge"];
+    avatars?: RpcContext["avatars"];
     mcp?: RpcContext["mcp"];
     forgetBot?: RpcContext["forgetBot"];
   },
@@ -78,6 +80,7 @@ export function createApp(
     env,
     computer: opts.computer,
     knowledge: opts.knowledge,
+    avatars: opts.avatars,
     mcp: opts.mcp,
     forgetBot: opts.forgetBot,
     close: async () => {
@@ -87,6 +90,24 @@ export function createApp(
   };
   mountRpc(app, handles);
   mountDiscovery(app, env.webOrigin);
+
+  app.get("/avatars/:userId", async (c) => {
+    const disk = handles.avatars;
+    if (!disk) return c.body(null, 404);
+    try {
+      const file = await readAvatar(disk, c.req.param("userId"));
+      if (!file) return c.body(null, 404);
+      return new Response(file.bytes, {
+        status: 200,
+        headers: {
+          "content-type": file.mediaType,
+          "cache-control": "public, max-age=86400",
+        },
+      });
+    } catch {
+      return c.body(null, 404);
+    }
+  });
 
   app.post("/api/invites/accept", async (c) => {
     let invitationId = "";
@@ -110,7 +131,14 @@ export function createApp(
       return response;
     } catch (caught) {
       if (caught instanceof ORPCError) {
-        return c.json({ message: caught.message }, caught.status);
+        const status =
+          typeof caught.status === "number" && caught.status >= 400 && caught.status < 600
+            ? caught.status
+            : 400;
+        return c.json(
+          { message: caught.message },
+          status as ContentfulStatusCode,
+        );
       }
       return c.json({ message: "Could not join workspace" }, 400);
     }

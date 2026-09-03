@@ -8,6 +8,7 @@ import {
   downloadComputerFile,
   writeInboxFile,
   type ComputerDisk,
+  type KnowledgeDisk,
 } from "@groxbot/core";
 import { createDb } from "@groxbot/db/node";
 import { createGroxbotClient } from "@groxbot/rpc";
@@ -33,6 +34,36 @@ try {
 }
 
 const origin = "http://127.0.0.1:5173";
+
+class MemoryAvatarDisk implements KnowledgeDisk {
+  private readonly files = new Map<string, Uint8Array>();
+
+  async list(prefix: string) {
+    return [...this.files.entries()]
+      .filter(([key]) => key.startsWith(prefix))
+      .map(([key, bytes]) => ({ key, size: bytes.byteLength }));
+  }
+
+  async getText(key: string) {
+    const bytes = this.files.get(key);
+    return bytes ? new TextDecoder().decode(bytes) : null;
+  }
+
+  async getBytes(key: string) {
+    return this.files.get(key) ?? null;
+  }
+
+  async put(key: string, content: string | Uint8Array) {
+    this.files.set(
+      key,
+      typeof content === "string" ? new TextEncoder().encode(content) : content,
+    );
+  }
+
+  async delete(key: string) {
+    this.files.delete(key);
+  }
+}
 
 const computerHomes = new Map<string, Map<string, string>>();
 
@@ -110,6 +141,7 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
     hostedAiBinding: true,
     production: false,
     wakeupKind: IN_PROCESS_WAKEUP,
+    apiUrl: origin,
   };
 
   let handles: AppHandles;
@@ -143,6 +175,7 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
         write: (botId, filename, content) =>
           writeInboxFile(diskFor(botId), filename, decodeComputerBytes(content)),
       },
+      avatars: new MemoryAvatarDisk(),
     });
     handlers = createWakeHandlers({
       db,
@@ -729,6 +762,25 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
       },
     });
     const office = await ownerRpc.workspaces.create({ name: "Shared office" });
+    const roster = await ownerRpc.workspaces.members();
+    expect(roster).toHaveLength(1);
+    expect(roster[0]?.mine).toBe(true);
+    expect(roster[0]?.role).toBe("owner");
+    expect(roster[0]?.email).toBe(ownerEmail);
+
+    const renamed = await ownerRpc.account.update({ name: "Office Owner" });
+    expect(renamed.name).toBe("Office Owner");
+    const png =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+    const photo = await ownerRpc.account.update({
+      image: { content: png },
+    });
+    expect(photo.image).toContain("/avatars/");
+    const served = await handles.app.request(
+      new URL(photo.image ?? "", origin).pathname,
+    );
+    expect(served.status).toBe(200);
+    expect(served.headers.get("content-type")).toBe("image/png");
     const invite = await ownerRpc.workspaces.invite({ email: memberEmail });
     expect(invite.email).toBe(memberEmail);
     expect(invite.url).toContain("invite=");
@@ -779,6 +831,12 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
     expect(joinedMe.needsWorkspace).toBe(false);
     expect(joinedMe.workspaceId).toBe(office.id);
     expect(joinedMe.email).toBe(memberEmail);
+
+    const together = await ownerRpc.workspaces.members();
+    expect(together.map((row) => row.email).sort()).toEqual(
+      [memberEmail, ownerEmail].sort(),
+    );
+    expect(together.filter((row) => row.mine)).toHaveLength(1);
   }, 15_000);
 
   it("lets one bot poke another and brings the reply back", async () => {

@@ -14,7 +14,7 @@ API_URL=http://127.0.0.1:3100
 WEB_ORIGIN=http://127.0.0.1:5173
 CORS_ORIGINS=http://127.0.0.1:5173,http://127.0.0.1:5174
 
-# EMAIL_FROM=Groxbot <noreply@groxbot.com>
+# EMAIL_FROM=Groxbot <noreply@mail.groxbot.com>
 # CLOUDFLARE_AI_GATEWAY_ID=default
 # Node self-host REST fallback only:
 # CLOUDFLARE_ACCOUNT_ID=
