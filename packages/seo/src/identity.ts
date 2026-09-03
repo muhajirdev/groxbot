@@ -90,7 +90,7 @@ export const GROXBOT_STACK = [
   "Marketing, office SPA, and API: Cloudflare Workers",
   "oRPC contract in @groxbot/contracts, client in @groxbot/rpc",
   "Postgres + Drizzle for team data (Neon on hosted Cloudflare)",
-  "Hosted brains: Think on BotActor (tests: ScriptedAgentRuntime)",
+  "Hosted brains: Think office + Pi owned turns on BotActor (tests: ScriptedAgentRuntime)",
   "One wakeup queue per bot — Durable Object BotActor (Think)",
   "Each bot’s computer is Think workspace on that actor — not a computers table",
   "Better Auth (magic-link email, Google, GitHub)",

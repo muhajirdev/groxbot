@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createHostedAgentRuntime,
-  GatewayAgentRuntime,
+  PiAgentRuntime,
   ScriptedAgentRuntime,
 } from "./runtime-core.js";
 
@@ -30,7 +30,7 @@ describe("createHostedAgentRuntime", () => {
         CLOUDFLARE_ACCOUNT_ID: "acct",
         CLOUDFLARE_AI_GATEWAY_TOKEN: "gw-token",
       }),
-    ).toBeInstanceOf(GatewayAgentRuntime);
+    ).toBeInstanceOf(PiAgentRuntime);
   });
 
   it("fails closed without an AI binding or gateway keys", () => {

@@ -12,4 +12,4 @@ pnpm check
 
 `pnpm dev` is API + worker + **web**. Landing: `pnpm dev:landing`. Desktop: `pnpm dev:desktop`. Mobile: `pnpm dev:mobile`.
 
-CI should run `pnpm test` and `pnpm check`. Default tests stay offline (`ScriptedAgentRuntime`). Product brain is the Worker `AI` binding.
+CI should run `pnpm test` and `pnpm check`. Default tests stay offline (`ScriptedAgentRuntime`). Product office brain is Think on `BotActor`; owned-message REST turns use Pi; hosted models still go through the Worker `AI` binding or gateway keys.

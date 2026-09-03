@@ -8,6 +8,14 @@ import {
 } from "./gateway.js";
 import { GatewayAgentRuntime } from "./runtime-core.js";
 
+export { PiAgentRuntime } from "./pi-runtime.js";
+export {
+  createGatewayStreamFn,
+  piCompletionsModel,
+  runOwnedPiTurn,
+  runPiTurn,
+  scriptedPiStreamFn,
+} from "./pi-turn.js";
 export {
   createHostedAgentRuntime,
   GatewayAgentRuntime,
@@ -34,7 +42,11 @@ export function agentRuntimeNeedsModel(
 ): boolean {
   const runtime = resolveAgentRuntimeKind(kind);
   if (hostedAiEnabled(source)) return false;
-  if (runtime === PRODUCT_RUNTIME || isGatewayProvider(runtime)) {
+  if (
+    runtime === PRODUCT_RUNTIME ||
+    runtime === "pi" ||
+    isGatewayProvider(runtime)
+  ) {
     return !gatewayConfigured(source);
   }
   return true;
@@ -46,7 +58,7 @@ export function createAgentRuntime(
   fetchImpl?: typeof fetch,
 ): AgentRuntime {
   const runtime = kind.trim() || PRODUCT_RUNTIME;
-  if (runtime === PRODUCT_RUNTIME) {
+  if (runtime === PRODUCT_RUNTIME || runtime === "pi") {
     return createHostedAgentRuntime(source, { fetch: fetchImpl });
   }
   if (isGatewayProvider(runtime)) {
@@ -55,6 +67,6 @@ export function createAgentRuntime(
     );
   }
   throw new Error(
-    `Unknown agent runtime "${kind}". Product brain is ${PRODUCT_RUNTIME}. Tests construct ScriptedAgentRuntime.`,
+    `Unknown agent runtime "${kind}". Product brain is ${PRODUCT_RUNTIME}. Owned-message turns use pi. Tests construct ScriptedAgentRuntime.`,
   );
 }

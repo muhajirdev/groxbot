@@ -1,6 +1,7 @@
 import type { AgentRuntime } from "@groxbot/adapter-kit";
 import { DEFAULT_AI_GATEWAY_ID } from "@groxbot/contracts";
 import type { GatewayEnv } from "./gateway.js";
+import { PiAgentRuntime } from "./pi-runtime.js";
 import {
   createHostedAgentRuntime,
   GatewayAgentRuntime,
@@ -15,6 +16,7 @@ export {
   createHostedAgentRuntime,
   GatewayAgentRuntime,
   parsePokePrompt,
+  PiAgentRuntime,
   resolveAgentRuntimeKind,
   ScriptedAgentRuntime,
   WorkersAiRuntime,

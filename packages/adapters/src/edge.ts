@@ -14,10 +14,18 @@ export {
   createHostedAgentRuntime,
   GatewayAgentRuntime,
   parsePokePrompt,
+  PiAgentRuntime,
   resolveAgentRuntimeKind,
   ScriptedAgentRuntime,
   WorkersAiRuntime,
 } from "./edge-runtime.js";
+export {
+  createGatewayStreamFn,
+  piCompletionsModel,
+  runOwnedPiTurn,
+  runPiTurn,
+  scriptedPiStreamFn,
+} from "./pi-turn.js";
 export {
   gatewayChatUrl,
   gatewayConfigured,

@@ -423,6 +423,12 @@ describe("createAgentRuntime", () => {
       }),
     ).toBe(false);
     expect(
+      agentRuntimeNeedsModel("pi", {
+        CLOUDFLARE_ACCOUNT_ID: "acct",
+        CLOUDFLARE_AI_GATEWAY_TOKEN: "gw-token",
+      }),
+    ).toBe(false);
+    expect(
       agentRuntimeNeedsModel(PRODUCT_RUNTIME, {
         [HOSTED_AI_ENV]: HOSTED_AI_FLAG,
       }),
@@ -492,7 +498,7 @@ describe("createAgentRuntime", () => {
   });
 
   it("rejects unknown runtimes", () => {
-    expect(() => createAgentRuntime("pi")).toThrow(/Unknown agent runtime/);
     expect(() => createAgentRuntime("flue")).toThrow(/Unknown agent runtime/);
+    expect(() => createAgentRuntime("mystery")).toThrow(/Unknown agent runtime/);
   });
 });

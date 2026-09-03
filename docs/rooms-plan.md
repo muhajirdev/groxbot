@@ -21,7 +21,11 @@ So: do not point group chat at Think. Do not name `BotActor` by `roomId`. Do not
 - One coding agent for the desk, Code Mode, sequential tools, 30-step cap. `AgentSpawner` still calls back into the same Overseer. Not a panel of named people with their own computers.
 - They migrated **off Vercel AI SDK** onto Pi. Think uses AI SDK. OS already had a custom `AiChatMessage` log and a frontend they refused to touch (`plans/pi-impl.md`: “frontend: zero changes”). Think would have been a second transcript.
 
-Think’s own docs say the design is **inspired by Pi**. Groxbot already has that: `BotActor extends Think`. OS uses Pi because Overseer *is* the session store. Groxbot should not put `pi-agent-core` on `BotActor` (Think already is the loop) and should not put Think/Pi on `RoomActor` (that would serialize the table and share one computer). The OS lesson for a panel is the Overseer shape: **place owns the log; the loop is a guest.**
+Think’s own docs say the design is **inspired by Pi**. Groxbot uses both, in different jobs:
+
+- **Think** stays the v1 office person object: `BotActor extends Think`, `this.workspace`, one Session, `useAgentChat({ name: botId })`.
+- **Pi** is the turn engine when you already own the array: `runAgentLoopContinue({ systemPrompt, messages })`. Soul is the stable system-prompt prefix (Steve and Hormozi must not share that prefix). The room/office log is the suffix. Hosted REST / poke / guest turns go through `PiAgentRuntime`.
+- Do **not** put Think or Pi on `RoomActor` (that would serialize the table and share one computer). Do **not** use Pi’s stateful `Agent` class as the room. The OS lesson for a panel is the Overseer shape: **place owns the log; the loop is a guest on the person.**
 
 ## Two durables
 
@@ -30,14 +34,14 @@ RoomActor [name = roomId]     not Think
   members, floor, ordered log, hibernated websockets
   wakes bots; never runs the model itself
 
-BotActor  [name = botId]      Think
+BotActor  [name = botId]      Think (office) + Pi (owned turns)
   computer, soul, queue, routines
   one turn when the room calls
 ```
 
-| Object | Durable? | Key | Think? |
+| Object | Durable? | Key | Model? |
 |---|---|---|---|
-| Bot (person) | yes — `BotActor` | `botId` | yes |
+| Bot (person) | yes — `BotActor` | `botId` | office Session; Pi for owned arrays |
 | Room (place) | yes — `RoomActor` | `roomId` | **no** |
 | Membership / listing | Postgres | workspace | no |
 | Computer | built into the bot | `botId` | `this.workspace` |
@@ -48,7 +52,7 @@ Postgres lists rooms and members (team data). The live transcript and “who has
 
 ## A turn
 
-You speak in the room. The room decides who wakes (`@Steve`, go-around, or fail closed if several members and no target). It enqueues **that** `BotActor`. Steve reads a slice of the room log, thinks on his computer, streams a reply **back to the room**. The product transcript is the room. Steve’s Think session is working memory for the turn, not the catalog.
+You speak in the room. The room decides who wakes (`@Steve`, go-around, or fail closed if several members and no target). It enqueues **that** `BotActor`. Steve reads a slice of the room log, runs an owned Pi turn with **his** soul as `systemPrompt`, streams a reply **back to the room**. The product transcript is the room. Steve’s Think session stays v1 office working memory, not the panel catalog.
 
 Steve and Hormozi can run at once (two actors). One bot in two rooms still queues on that bot. Nested poke-style waits must not re-enter the caller’s queue.
 

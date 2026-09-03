@@ -39,7 +39,7 @@ UI: copy Grok Bot simplicity — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). R
 
 - **Durable person = bot = Think.** `getAgentByName(env.BOT_ACTOR, botId)`. Never name this actor a `roomId`.
 - **Durable place = room (later), not Think.** `RoomActor` coordinates the log, members, floor, and websockets. See [docs/rooms-plan.md](./docs/rooms-plan.md).
-- **Think Session on the bot.** Default DO SQLite. v1 is **one** session (home office). A poke is still a Postgres thread that enqueues onto that bot. Do not use Session as the room catalog.
+- **Think Session on the bot.** Default DO SQLite. v1 is **one** session (home office). A poke is still a Postgres thread that enqueues onto that bot. Do not use Session as the room catalog. Pi is the **loop** for a message array you own (`runAgentLoopContinue`); it does not replace the person Durable Object or the later room Durable Object.
 - **Each app has its own Durable Object.** Talk → chat card → Open. Listing from cards, not a Postgres apps table.
 - **Computer is the bot.** Each teammate has a computer (Think workspace). Sell that. No `computers` table, no shared vs isolated hire, no takeover, no `computer.sleep`, no Computer DO.
 - **Postgres** is the team catalog (auth, bots, threads, messages, skills). Office UI is oRPC, not Think’s `useAgentChat`.
@@ -71,7 +71,7 @@ createWakeHandlers({ db, runtime, enqueue, bindRuntime, pluginTools })
 | Marketing | `apps/landing` |
 | Office SPA | `apps/web` |
 | API | `apps/api` + Neon HTTP. Local: `wrangler dev` |
-| Brain | Think on `BotActor` (tests: `ScriptedAgentRuntime`) |
+| Brain | Think `chat()` on `BotActor` for v1 office; Pi `runAgentLoopContinue` for owned arrays (poke / guest / REST). Tests: `ScriptedAgentRuntime` |
 | Apps | `AppRuntime` per `appId` |
 | Data | Neon Postgres |
 | Auth email | Worker `EMAIL` (`send_email`) |

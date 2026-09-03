@@ -4,7 +4,7 @@ import { bindEdgeAgentRuntime } from "./edge-runtime.js";
 import { CLOUDFLARE_DEEPSEEK_V4_FLASH } from "./gateway.js";
 import {
   createHostedAgentRuntime,
-  GatewayAgentRuntime,
+  PiAgentRuntime,
 } from "./runtime-core.js";
 import { WorkersAiRuntime } from "./workers-ai.js";
 
@@ -176,6 +176,6 @@ describe("bindEdgeAgentRuntime", () => {
         },
       },
     );
-    expect(runtime).toBeInstanceOf(GatewayAgentRuntime);
+    expect(runtime).toBeInstanceOf(PiAgentRuntime);
   });
 });
