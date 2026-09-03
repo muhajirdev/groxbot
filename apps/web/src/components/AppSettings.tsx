@@ -27,7 +27,10 @@ import {
 } from "../lib/prefs";
 import { client } from "../lib/rpc";
 import type { Theme } from "../lib/theme";
-import { canSaveWorkspaceName } from "../lib/workspace-switcher";
+import {
+  canSaveWorkspaceName,
+  writeCachedWorkspace,
+} from "../lib/workspace-switcher";
 import { ModalShell } from "../ui";
 import { PersonAvatar } from "./PersonAvatar";
 import { ChevronDownIcon, CloseIcon } from "./Icons";
@@ -337,6 +340,7 @@ function WorkspaceSettings(props: {
     setError("");
     try {
       await client.workspaces.update({ name: trimmed });
+      writeCachedWorkspace({ id: props.me?.workspaceId, name: trimmed });
       await queryClient.invalidateQueries({ queryKey: orpc.me.key() });
     } catch (caught) {
       setError(userFacingError(caught, "Could not update workspace name"));

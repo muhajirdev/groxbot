@@ -17,5 +17,5 @@
 - Auth email: Worker `EMAIL` binding (`send_email`). `EMAIL_FROM` is the from address.
 - Guest runtimes (Hermes/OpenClaw) are opt-in per bot, off by default.
 - v1 surface is **web** (Vite + TanStack Router). Desktop is Electron around web. Mobile is Expo later. All three call **oRPC** via `@groxbot/rpc`.
-- See `docs/grok-bot-ui.md`, `docs/computers.md`, and `docs/knowledge-search.md`.
+- See `docs/grok-bot-ui.md`, `docs/computers.md`, `docs/knowledge-search.md`, and `docs/caching.md`.
 - Self-host / Flue / Pi are not v1.

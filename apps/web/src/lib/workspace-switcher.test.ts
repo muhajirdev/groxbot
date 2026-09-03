@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   canSaveWorkspaceName,
   destinationAfterWorkspaceChange,
+  parseCachedWorkspace,
+  resolveWorkspace,
   workspaceDisplayName,
   workspaceMenuItems,
 } from "./workspace-switcher";
@@ -15,6 +17,51 @@ describe("workspaceDisplayName", () => {
   it("falls back when the name is missing", () => {
     expect(workspaceDisplayName(null)).toBe("Workspace");
     expect(workspaceDisplayName("")).toBe("Workspace");
+  });
+});
+
+describe("parseCachedWorkspace", () => {
+  it("reads a stored office", () => {
+    expect(
+      parseCachedWorkspace(JSON.stringify({ id: "ws-1", name: "Acme" })),
+    ).toEqual({ id: "ws-1", name: "Acme" });
+  });
+
+  it("ignores junk", () => {
+    expect(parseCachedWorkspace(null)).toBeNull();
+    expect(parseCachedWorkspace("{")).toBeNull();
+    expect(parseCachedWorkspace(JSON.stringify({ id: "ws-1" }))).toBeNull();
+    expect(
+      parseCachedWorkspace(JSON.stringify({ id: "  ", name: "Acme" })),
+    ).toBeNull();
+  });
+});
+
+describe("resolveWorkspace", () => {
+  const cached = { id: "ws-1", name: "Acme" };
+
+  it("uses the live office when it is already loaded", () => {
+    expect(
+      resolveWorkspace({
+        id: "ws-1",
+        name: "Acme HQ",
+        cached,
+      }),
+    ).toEqual({ id: "ws-1", name: "Acme HQ" });
+  });
+
+  it("keeps the cached name while me is still loading", () => {
+    expect(resolveWorkspace({ cached })).toEqual(cached);
+  });
+
+  it("does not show a stale name after the office id changes", () => {
+    expect(
+      resolveWorkspace({
+        id: "ws-2",
+        name: null,
+        cached,
+      }),
+    ).toEqual({ id: "ws-2", name: undefined });
   });
 });
 

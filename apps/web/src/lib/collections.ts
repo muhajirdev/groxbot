@@ -9,6 +9,7 @@ import { orpc, queryClient } from "./orpc";
 import { client } from "./rpc";
 import { THINK_MESSAGES_GC_TIME, clearThinkMessages } from "./think-messages";
 import { clearPersistedThinkCache } from "./think-persist";
+import { clearCachedWorkspace } from "./workspace-switcher";
 
 export type ThreadMeta = {
   botId: string;
@@ -123,6 +124,7 @@ export function patchBot(id: string, patch: Partial<Omit<Bot, "id">>): void {
 
 export function clearThreadStore(): void {
   clearThinkMessages();
+  clearCachedWorkspace();
   void clearPersistedThinkCache();
   const metaKeys = [...threadMetaCollection.keys()];
   if (metaKeys.length > 0) threadMetaCollection.delete(metaKeys);

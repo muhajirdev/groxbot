@@ -1,12 +1,15 @@
 import { Menu } from "@base-ui/react/menu";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useRouter } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { userFacingError } from "../lib/errors";
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
 import { enterActiveWorkspace } from "../lib/session";
 import {
+  readCachedWorkspace,
+  resolveWorkspace,
+  writeCachedWorkspace,
   type WorkspaceMenuItem,
   workspaceDisplayName,
   workspaceMenuItems,
@@ -26,13 +29,27 @@ export function WorkspaceSwitcher(props: {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [cached, setCached] = useState(readCachedWorkspace);
+  const remembered = resolveWorkspace({
+    id: props.workspaceId,
+    name: props.name,
+    cached,
+  });
+  const label = workspaceDisplayName(remembered.name);
   const listQuery = useQuery(orpc.workspaces.list.queryOptions());
-  const label = workspaceDisplayName(props.name);
   const items = workspaceMenuItems({
-    currentId: props.workspaceId,
-    currentName: props.name,
+    currentId: remembered.id,
+    currentName: remembered.name,
     others: listQuery.data,
   });
+
+  useEffect(() => {
+    const id = props.workspaceId?.trim();
+    const name = props.name?.trim();
+    if (!id || !name) return;
+    writeCachedWorkspace({ id, name });
+    setCached({ id, name });
+  }, [props.workspaceId, props.name]);
 
   async function enterOffice() {
     await enterActiveWorkspace({

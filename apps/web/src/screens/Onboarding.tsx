@@ -41,6 +41,7 @@ import { orpc } from "../lib/orpc";
 import { composioLogoUrl } from "../lib/plugins";
 import { client } from "../lib/rpc";
 import { cacheCreatedBot, firstLiveBot } from "../lib/session";
+import { writeCachedWorkspace } from "../lib/workspace-switcher";
 import { Button, Chip, Field, Input, Select, Textarea } from "../ui";
 
 const TOOLS = [
@@ -206,6 +207,11 @@ export function Onboarding(props: { invite?: string }) {
       await client.workspaces.create({ name });
       clearRememberedInvite();
       await queryClient.invalidateQueries({ queryKey: orpc.me.key() });
+      const me = queryClient.getQueryData(orpc.me.queryOptions().queryKey);
+      writeCachedWorkspace({
+        id: me?.workspaceId,
+        name: me?.workspaceName ?? name,
+      });
       setBusy(false);
       runGateTransition(() => {
         setPhase("tour");
@@ -229,6 +235,11 @@ export function Onboarding(props: { invite?: string }) {
       await client.workspaces.join({ invitationId: raw });
       clearRememberedInvite();
       await queryClient.invalidateQueries({ queryKey: orpc.me.key() });
+      const me = queryClient.getQueryData(orpc.me.queryOptions().queryKey);
+      writeCachedWorkspace({
+        id: me?.workspaceId,
+        name: me?.workspaceName,
+      });
       const bots = await client.bots.list();
       const first = firstLiveBot(bots);
       if (first) {

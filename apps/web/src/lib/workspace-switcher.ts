@@ -1,4 +1,11 @@
+export const WORKSPACE_CACHE_KEY = "groxbot.workspace";
+
 export type WorkspaceOption = {
+  id: string;
+  name: string;
+};
+
+export type CachedWorkspace = {
   id: string;
   name: string;
 };
@@ -14,6 +21,74 @@ export type WorkspaceDestination =
 export function workspaceDisplayName(name: string | null | undefined): string {
   const trimmed = name?.trim();
   return trimmed || "Workspace";
+}
+
+function workspaceStorage(): Storage | null {
+  try {
+    if (typeof localStorage === "undefined") return null;
+    return localStorage;
+  } catch {
+    return null;
+  }
+}
+
+export function parseCachedWorkspace(
+  raw: string | null | undefined,
+): CachedWorkspace | null {
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    const id =
+      "id" in parsed && typeof parsed.id === "string" ? parsed.id.trim() : "";
+    const name =
+      "name" in parsed && typeof parsed.name === "string"
+        ? parsed.name.trim()
+        : "";
+    if (!id || !name) return null;
+    return { id, name };
+  } catch {
+    return null;
+  }
+}
+
+export function readCachedWorkspace(): CachedWorkspace | null {
+  return parseCachedWorkspace(workspaceStorage()?.getItem(WORKSPACE_CACHE_KEY));
+}
+
+export function writeCachedWorkspace(input: {
+  id?: string | null;
+  name?: string | null;
+}): void {
+  const id = input.id?.trim();
+  const name = input.name?.trim();
+  if (!id || !name) return;
+  workspaceStorage()?.setItem(
+    WORKSPACE_CACHE_KEY,
+    JSON.stringify({ id, name } satisfies CachedWorkspace),
+  );
+}
+
+export function clearCachedWorkspace(): void {
+  workspaceStorage()?.removeItem(WORKSPACE_CACHE_KEY);
+}
+
+/** Live office wins; keep the last local name while `me` is still loading. */
+export function resolveWorkspace(opts: {
+  id?: string | null;
+  name?: string | null;
+  cached?: CachedWorkspace | null;
+}): { id?: string; name?: string } {
+  const id = opts.id?.trim() || undefined;
+  const name = opts.name?.trim() || undefined;
+  const cached = opts.cached;
+  if (id && cached && cached.id !== id) {
+    return { id, name };
+  }
+  return {
+    id: id ?? cached?.id,
+    name: name ?? cached?.name,
+  };
 }
 
 export function canSaveWorkspaceName(
