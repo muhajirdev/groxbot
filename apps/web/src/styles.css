@@ -2568,6 +2568,54 @@ html.electron .pane-head {
   flex: 1;
   min-height: 0;
   flex-direction: column;
+  gap: 8px;
+}
+
+.knowledge-graph-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: none;
+  min-height: 28px;
+}
+
+.knowledge-graph-status {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.knowledge-graph-tools {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+.knowledge-graph-tools .btn[aria-pressed="true"] {
+  background: var(--selected);
+}
+
+.knowledge-graph-canvas {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.knowledge-graph-canvas .knowledge-hint {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 24px;
+  pointer-events: none;
 }
 
 .knowledge-graph svg {
@@ -2580,7 +2628,7 @@ html.electron .pane-head {
   background:
     radial-gradient(
       ellipse at 50% 42%,
-      color-mix(in srgb, var(--card) 70%, transparent),
+      color-mix(in srgb, var(--card) 78%, transparent),
       var(--bg-pane) 72%
     );
 }
@@ -2589,19 +2637,28 @@ html.electron .pane-head {
   cursor: grabbing;
 }
 
-.knowledge-graph-edge {
+.knowledge-graph-edge path {
   fill: none;
-  stroke: color-mix(in srgb, var(--ink) 22%, transparent);
-  stroke-width: 0.9;
+  stroke: color-mix(in srgb, var(--ink) 26%, transparent);
+  stroke-width: 1.15;
+  stroke-linecap: round;
 }
 
-.knowledge-graph-edge.linked {
+.knowledge-graph-arrow {
+  fill: color-mix(in srgb, var(--ink) 34%, transparent);
+}
+
+.knowledge-graph-edge.linked path {
   stroke: color-mix(in srgb, var(--accent) 78%, var(--ink));
-  stroke-width: 1.35;
+  stroke-width: 1.7;
+}
+
+.knowledge-graph-edge.linked .knowledge-graph-arrow {
+  fill: color-mix(in srgb, var(--accent) 82%, var(--ink));
 }
 
 .knowledge-graph-edge.faded {
-  stroke-opacity: 0.14;
+  opacity: 0.12;
 }
 
 .knowledge-graph-node {
@@ -2610,15 +2667,17 @@ html.electron .pane-head {
 
 .knowledge-graph-node circle {
   fill: var(--muted);
-  stroke: none;
+  stroke: color-mix(in srgb, var(--bg-pane) 70%, var(--ink));
+  stroke-width: 1.2;
 }
 
 .knowledge-graph-node.linked circle {
-  fill: var(--ink);
+  stroke: color-mix(in srgb, var(--ink) 55%, transparent);
 }
 
 .knowledge-graph-node.selected circle {
   fill: var(--accent);
+  stroke: color-mix(in srgb, var(--accent) 40%, white);
 }
 
 .knowledge-graph-glow {
@@ -2626,19 +2685,21 @@ html.electron .pane-head {
 }
 
 .knowledge-graph-node.missing circle {
-  fill: var(--muted);
-  stroke: var(--muted);
-  stroke-width: 1;
-  stroke-dasharray: 2 2;
-  fill-opacity: 0.35;
+  stroke-dasharray: 2.4 2;
+  fill-opacity: 0.32;
+}
+
+.knowledge-graph-node.isolate circle {
+  fill-opacity: 0.7;
 }
 
 .knowledge-graph-node.faded {
-  opacity: 0.18;
+  opacity: 0.16;
 }
 
 .knowledge-graph-node text {
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 500;
   fill: var(--ink);
   pointer-events: none;
   paint-order: stroke;
@@ -2651,9 +2712,33 @@ html.electron .pane-head {
   fill: var(--muted);
 }
 
+.knowledge-graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  flex: none;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.knowledge-graph-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.knowledge-graph-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 99px;
+}
+
 .knowledge-graph-hint {
   flex: none;
-  margin: 8px 0 0;
+  margin: 0;
   color: var(--muted);
   font-size: 12px;
 }
@@ -3508,13 +3593,14 @@ html.electron .pane-head {
 }
 
 .design-graph {
-  height: 380px;
+  height: 460px;
   border-radius: 12px;
   overflow: hidden;
   background: var(--bg-pane);
 }
 
 .design-graph .knowledge-graph,
+.design-graph .knowledge-graph-canvas,
 .design-graph .knowledge-graph svg {
   height: 100%;
 }
