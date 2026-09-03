@@ -12,9 +12,13 @@ describe("ChatFileLink", () => {
       createElement(
         ComputerFileOpenProvider,
         { onOpen: () => undefined },
-        createElement(ChatFileLink, {
-          href: "expandra/playbook-v0.3.md",
-        }, "playbook"),
+        createElement(
+          ChatFileLink,
+          {
+            href: "expandra/playbook-v0.3.md",
+          },
+          "playbook",
+        ),
       ),
     );
     expect(html).toContain('href="#expandra/playbook-v0.3.md"');
@@ -24,7 +28,11 @@ describe("ChatFileLink", () => {
 
   it("opens http links in a new tab", () => {
     const html = renderToStaticMarkup(
-      createElement(ChatFileLink, { href: "https://expandra.ai/playbook" }, "site"),
+      createElement(
+        ChatFileLink,
+        { href: "https://expandra.ai/playbook" },
+        "site",
+      ),
     );
     expect(html).toContain('href="https://expandra.ai/playbook"');
     expect(html).toContain('target="_blank"');
@@ -32,9 +40,25 @@ describe("ChatFileLink", () => {
 
   it("does not navigate relative paths without a computer opener", () => {
     const html = renderToStaticMarkup(
-      createElement(ChatFileLink, { href: "expandra/playbook-v0.3.md" }, "playbook"),
+      createElement(
+        ChatFileLink,
+        { href: "expandra/playbook-v0.3.md" },
+        "playbook",
+      ),
     );
     expect(html).toContain("<span");
     expect(html).not.toContain("href=");
+  });
+
+  it("opens a backtick file name as a computer path", () => {
+    const html = renderToStaticMarkup(
+      createElement(
+        ComputerFileOpenProvider,
+        { onOpen: () => undefined },
+        createElement(ChatFileLink, { href: "essay-car.md" }, "essay-car.md"),
+      ),
+    );
+    expect(html).toContain('href="#essay-car.md"');
+    expect(html).toContain("essay-car.md");
   });
 });

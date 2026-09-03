@@ -1,4 +1,4 @@
-import { parseKnowledgeHref, type KnowledgeHref } from "./knowledge-link";
+import { type KnowledgeHref, parseKnowledgeHref } from "./knowledge-link";
 
 /**
  * Chat markdown hrefs: office-root / computer paths, or http(s)/mailto.
@@ -20,4 +20,27 @@ export function parseChatHref(raw: string, origin = ""): KnowledgeHref {
   } catch {
     return parsed;
   }
+}
+
+/** Backtick chips like `essay-car.md` — not `const x` or a folder name. */
+export function parseComputerFileHint(raw: string): string | null {
+  const text = raw.trim();
+  if (!text || /\s/.test(text)) return null;
+  const parsed = parseChatHref(text);
+  if (parsed.kind !== "path") return null;
+  const name = parsed.path.split("/").at(-1) ?? "";
+  if (!/\.[a-z0-9]{1,8}$/i.test(name) || name.startsWith(".")) return null;
+  return parsed.path;
+}
+
+export function inlineCodeText(children: unknown): string {
+  if (typeof children === "string") return children;
+  if (
+    Array.isArray(children) &&
+    children.length === 1 &&
+    typeof children[0] === "string"
+  ) {
+    return children[0];
+  }
+  return "";
 }
