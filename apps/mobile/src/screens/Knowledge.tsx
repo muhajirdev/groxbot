@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { Button } from "../components/Button";
 import { ChatMarkdown } from "../components/ChatMarkdown";
@@ -39,7 +39,9 @@ import { colors, radius } from "../theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Knowledge">;
 
-export function KnowledgeScreen({ navigation }: Props) {
+export function KnowledgeScreen({ navigation, route }: Props) {
+  const initialPath = route.params?.path;
+  const openedPath = useRef<string | null>(null);
   const queryClient = useQueryClient();
   const listQuery = useQuery(orpc.knowledge.list.queryOptions());
   const graphQuery = useQuery(orpc.knowledge.graph.queryOptions());
@@ -91,39 +93,50 @@ export function KnowledgeScreen({ navigation }: Props) {
     });
   }
 
-  async function openFile(nextPath: string) {
-    setSelected(nextPath);
-    setPath(nextPath);
-    setError("");
-    setNotice("");
-    setTab("library");
-    const entry = listQuery.data?.entries.find((row) => row.path === nextPath);
-    const kind = computerPreviewKind(nextPath, entry?.mediaType ?? "");
-    const source = computerPreviewSource(kind);
-    try {
-      if (source === "download" || kind === "image") {
-        const file = await client.knowledge.download({ path: nextPath });
-        if (kind === "image") {
-          setPreviewKind("image");
-          setImageUri(downloadDataUri(file));
+  const openFile = useCallback(
+    async (nextPath: string) => {
+      setSelected(nextPath);
+      setPath(nextPath);
+      setError("");
+      setNotice("");
+      setTab("library");
+      const entry = listQuery.data?.entries.find(
+        (row) => row.path === nextPath,
+      );
+      const kind = computerPreviewKind(nextPath, entry?.mediaType ?? "");
+      const source = computerPreviewSource(kind);
+      try {
+        if (source === "download" || kind === "image") {
+          const file = await client.knowledge.download({ path: nextPath });
+          if (kind === "image") {
+            setPreviewKind("image");
+            setImageUri(downloadDataUri(file));
+            setDraft("");
+            return;
+          }
+          setPreviewKind("binary");
           setDraft("");
+          setImageUri("");
           return;
         }
-        setPreviewKind("binary");
-        setDraft("");
+        const file = await client.knowledge.read({ path: nextPath });
+        const text = file.encoding === "text" ? file.content : "";
+        setDraft(text);
+        setPreviewKind(text ? "text" : "binary");
         setImageUri("");
-        return;
+      } catch (caught) {
+        setError(userFacingError(caught, "Could not read that file."));
+        setPreviewKind("empty");
       }
-      const file = await client.knowledge.read({ path: nextPath });
-      const text = file.encoding === "text" ? file.content : "";
-      setDraft(text);
-      setPreviewKind(text ? "text" : "binary");
-      setImageUri("");
-    } catch (caught) {
-      setError(userFacingError(caught, "Could not read that file."));
-      setPreviewKind("empty");
-    }
-  }
+    },
+    [listQuery.data?.entries],
+  );
+
+  useEffect(() => {
+    if (!initialPath || openedPath.current === initialPath) return;
+    openedPath.current = initialPath;
+    void openFile(initialPath);
+  }, [initialPath, openFile]);
 
   async function save() {
     if (!path.trim()) return;

@@ -14,6 +14,7 @@ export {
   presentPreviewFromParts,
   presentTreeFromToolPart,
   runPresent,
+  safePresentFilePath,
   safePresentImageSrc,
   sanitizePresentTree,
 } from "@groxbot/contracts";

@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { Button } from "../components/Button";
 import { Field } from "../components/Field";
@@ -32,7 +32,8 @@ const CRONS = [
 type Props = NativeStackScreenProps<RootStackParamList, "Computer">;
 
 export function ComputerScreen({ navigation, route }: Props) {
-  const { botId } = route.params;
+  const { botId, path: initialPath } = route.params;
+  const openedPath = useRef<string | null>(null);
   const queryClient = useQueryClient();
   const botQuery = useQuery(orpc.bots.get.queryOptions({ input: { botId } }));
   const filesQuery = useQuery({
@@ -64,38 +65,47 @@ export function ComputerScreen({ navigation, route }: Props) {
     );
   }, [filesQuery.data, query]);
 
-  async function openFile(path: string) {
-    setPreviewPath(path);
-    setError("");
-    setPreview("Loading…");
-    setImageUri("");
-    const previewKind = computerPreviewKind(path);
-    const source = computerPreviewSource(previewKind);
-    try {
-      if (source === "download") {
-        const file = await client.computer.download({ botId, path });
-        if (previewKind === "image") {
-          setKind("image");
-          setImageUri(downloadDataUri(file));
-          setPreview("");
+  const openFile = useCallback(
+    async (path: string) => {
+      setPreviewPath(path);
+      setError("");
+      setPreview("Loading…");
+      setImageUri("");
+      const previewKind = computerPreviewKind(path);
+      const source = computerPreviewSource(previewKind);
+      try {
+        if (source === "download") {
+          const file = await client.computer.download({ botId, path });
+          if (previewKind === "image") {
+            setKind("image");
+            setImageUri(downloadDataUri(file));
+            setPreview("");
+            return;
+          }
+          setKind("binary");
+          setPreview("Binary file — download to open.");
           return;
         }
-        setKind("binary");
-        setPreview("Binary file — download to open.");
-        return;
+        const file = await client.computer.read({ botId, path });
+        setKind("text");
+        setPreview(
+          file.encoding === "text" && file.content
+            ? file.content
+            : "(binary file)",
+        );
+      } catch (caught) {
+        setKind("empty");
+        setPreview(userFacingError(caught, "Could not read that file."));
       }
-      const file = await client.computer.read({ botId, path });
-      setKind("text");
-      setPreview(
-        file.encoding === "text" && file.content
-          ? file.content
-          : "(binary file)",
-      );
-    } catch (caught) {
-      setKind("empty");
-      setPreview(userFacingError(caught, "Could not read that file."));
-    }
-  }
+    },
+    [botId],
+  );
+
+  useEffect(() => {
+    if (!initialPath || openedPath.current === initialPath) return;
+    openedPath.current = initialPath;
+    void openFile(initialPath);
+  }, [initialPath, openFile]);
 
   async function downloadFile(path: string) {
     setBusy(true);

@@ -2079,6 +2079,35 @@ html.electron .pane-head {
   border-radius: 10px;
 }
 
+[data-aui="file"] {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: inherit;
+  padding: 10px 12px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+[data-aui="file"]:disabled {
+  cursor: default;
+}
+
+[data-aui="file-name"] {
+  font-size: 14px;
+}
+
+[data-aui="file-place"] {
+  font-size: 12px;
+  color: var(--muted);
+}
+
 [data-aui="carousel"] {
   display: grid;
   grid-auto-flow: column;

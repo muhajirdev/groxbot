@@ -1,15 +1,17 @@
 import {
   createContext,
-  useContext,
   type MouseEvent,
   type PropsWithChildren,
   type ReactNode,
+  useContext,
 } from "react";
 import { parseChatHref } from "../lib/chat-link";
 
 export type OpenComputerFile = (path: string) => void;
+export type OpenKnowledgeFile = (path: string) => void;
 
 const ComputerFileOpenContext = createContext<OpenComputerFile | null>(null);
+const KnowledgeFileOpenContext = createContext<OpenKnowledgeFile | null>(null);
 
 export function ComputerFileOpenProvider(
   props: PropsWithChildren<{ onOpen: OpenComputerFile }>,
@@ -19,6 +21,24 @@ export function ComputerFileOpenProvider(
       {props.children}
     </ComputerFileOpenContext.Provider>
   );
+}
+
+export function KnowledgeFileOpenProvider(
+  props: PropsWithChildren<{ onOpen: OpenKnowledgeFile }>,
+) {
+  return (
+    <KnowledgeFileOpenContext.Provider value={props.onOpen}>
+      {props.children}
+    </KnowledgeFileOpenContext.Provider>
+  );
+}
+
+export function useOpenComputerFile() {
+  return useContext(ComputerFileOpenContext);
+}
+
+export function useOpenKnowledgeFile() {
+  return useContext(KnowledgeFileOpenContext);
 }
 
 export function ChatFileLink(props: {

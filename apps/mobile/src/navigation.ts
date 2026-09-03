@@ -5,10 +5,10 @@ export type RootStackParamList = {
   Onboarding: { invite?: string } | undefined;
   Roster: undefined;
   Thread: { botId: string };
-  Computer: { botId: string };
+  Computer: { botId: string; path?: string };
   BotSettings: { botId: string };
   Hire: undefined;
-  Knowledge: undefined;
+  Knowledge: { path?: string } | undefined;
   Plugins: { botId?: string } | undefined;
   You: undefined;
   Apps: { botId: string };

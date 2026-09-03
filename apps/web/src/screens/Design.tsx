@@ -316,6 +316,53 @@ export function Design() {
                 }}
               />
             </Specimen>
+            <Specimen label="File">
+              <PresentSurface
+                tree={{
+                  $type: "File",
+                  path: "notes/q3.md",
+                  place: "computer",
+                }}
+              />
+            </Specimen>
+            <Specimen label="Image">
+              <PresentSurface
+                tree={{
+                  $type: "Image",
+                  src: "https://example.com/chart.png",
+                  alt: "Chart",
+                }}
+              />
+            </Specimen>
+            <Specimen label="Badge + alert">
+              <PresentSurface
+                tree={{
+                  $type: "Card",
+                  title: "Status",
+                  children: [
+                    { $type: "Badge", value: "On track" },
+                    {
+                      $type: "Alert",
+                      title: "Board review Friday",
+                      description: "Send the deck by Thursday.",
+                    },
+                  ],
+                }}
+              />
+            </Specimen>
+            <Specimen label="Chart">
+              <PresentSurface
+                tree={{
+                  $type: "Chart",
+                  variant: "bar",
+                  data: [
+                    { label: "Q1", value: 8 },
+                    { label: "Q2", value: 14 },
+                    { label: "Q3", value: 11 },
+                  ],
+                }}
+              />
+            </Specimen>
           </Section>
 
           <Section
