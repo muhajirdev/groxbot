@@ -250,7 +250,6 @@ html.electron .screen::before {
 
 .gate {
   --sans: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
-  --serif: "Source Serif 4", "Iowan Old Style", "Palatino Linotype", serif;
   font-family: var(--sans);
   text-align: left;
 }
@@ -292,10 +291,8 @@ html.electron .screen::before {
 }
 
 .thesis {
-  font-family: var(--serif);
-  font-style: italic;
-  font-weight: 480;
-  font-optical-sizing: auto;
+  font-family: var(--sans);
+  font-weight: 400;
   font-size: clamp(17px, 2.4vw, 21px);
   line-height: 1.45;
   color: color-mix(in srgb, var(--ink) 82%, var(--muted));

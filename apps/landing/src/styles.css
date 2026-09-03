@@ -21,7 +21,6 @@
   --radius-pill: var(--pill);
   --shadow-modal: var(--shadow);
   --font-sans: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
-  --font-serif: "Source Serif 4", "Iowan Old Style", "Palatino Linotype", serif;
 }
 
 :root {
@@ -48,7 +47,6 @@
   --radius: 16px;
   --pill: 999px;
   --sans: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
-  --serif: "Source Serif 4", "Iowan Old Style", "Palatino Linotype", serif;
   font-family: var(--sans);
 }
 
@@ -290,10 +288,8 @@ h3 {
 }
 
 .thesis {
-  font-family: var(--serif);
-  font-style: italic;
-  font-weight: 480;
-  font-optical-sizing: auto;
+  font-family: var(--sans);
+  font-weight: 400;
   font-size: clamp(18px, 2.4vw, 22px);
   line-height: 1.45;
   color: color-mix(in srgb, var(--ink) 82%, var(--muted));
