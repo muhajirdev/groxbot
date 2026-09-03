@@ -1,6 +1,13 @@
 import type { KnowledgeList } from "@groxbot/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { bytesToBase64 } from "../lib/computer-attachment";
 import { saveComputerDownload } from "../lib/computer-download";
 import { computerFileKind } from "../lib/computer-preview";
@@ -29,7 +36,7 @@ import {
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
 import { THINK_MESSAGES_GC_TIME } from "../lib/think-messages";
-import { Button, cn, Field, Input, ModalShell, Textarea } from "../ui";
+import { Button, cn, Field, Input, Textarea } from "../ui";
 import {
   ChevronDownIcon,
   CloseIcon,
@@ -51,19 +58,246 @@ type Draft = { path: string; content: string };
 
 const ROOT_COLLAPSED = new Set<string>();
 
-export function KnowledgeModal(props: {
-  open: boolean;
-  initialPath?: string | null;
+export function KnowledgeLibrary(props: {
+  path?: string | null;
+  onPath: (path: string | null) => void;
   onClose: () => void;
 }) {
+  const workspace = useKnowledgeWorkspace(props.path ?? null);
+  const selected = workspace.selected;
+
+  useEffect(() => {
+    workspace.syncPath(props.path ?? null);
+  }, [props.path, workspace.syncPath]);
+
+  return (
+    <div className="knowledge-place">
+      <div className="flex items-center justify-between border-b border-line px-[18px] py-3.5">
+        <h2 className="m-0 flex items-center gap-2 text-lg">
+          <KnowledgeIcon />
+          Knowledge
+        </h2>
+        <button
+          className="btn ghost tight"
+          type="button"
+          onClick={props.onClose}
+        >
+          Back
+        </button>
+      </div>
+      <div className="knowledge-split">
+        <KnowledgeNav
+          query={workspace.query}
+          onQuery={workspace.setQuery}
+          onNew={workspace.startDraft}
+          onUpload={() => workspace.fileRef.current?.click()}
+          onImport={workspace.startImport}
+          mapOpen={workspace.mapOpen}
+          onMap={workspace.toggleMap}
+          fileRef={workspace.fileRef}
+          onFile={workspace.uploadFile}
+        >
+          <KnowledgeTree
+            pending={
+              workspace.listQuery.isPending && workspace.entries.length === 0
+            }
+            error={workspace.listQuery.error}
+            empty={workspace.empty}
+            truncated={workspace.listQuery.data?.truncated}
+            tree={workspace.tree}
+            selected={selected}
+            collapsed={
+              workspace.searching ? ROOT_COLLAPSED : workspace.collapsed
+            }
+            onSelect={(path) => {
+              workspace.pick(path);
+              props.onPath(path);
+            }}
+            onToggle={workspace.toggleCollapsed}
+          />
+        </KnowledgeNav>
+        <section className="knowledge-preview">
+          {workspace.error ? <p className="error">{workspace.error}</p> : null}
+          {workspace.draft ? (
+            <DraftForm
+              draft={workspace.draft}
+              busy={workspace.busy}
+              onChange={workspace.setDraft}
+              onSave={() => void workspace.saveDraft(props.onPath)}
+              onCancel={() => {
+                workspace.setDraft(null);
+                workspace.syncPath(props.path ?? null);
+              }}
+            />
+          ) : workspace.importing ? (
+            <ImportForm
+              busy={workspace.busy}
+              onImport={(source) =>
+                void workspace.importSkill(source, props.onPath)
+              }
+              onCancel={() => {
+                workspace.setImporting(false);
+                workspace.syncPath(props.path ?? null);
+              }}
+            />
+          ) : workspace.mapOpen ? (
+            <KnowledgeMapPane
+              pending={
+                workspace.graphQuery.isPending && !workspace.graphQuery.data
+              }
+              error={workspace.graphQuery.error}
+              paths={workspace.graphQuery.data?.paths ?? []}
+              out={workspace.graphQuery.data?.out ?? []}
+              selected={selected}
+              files={workspace.files}
+              onSelect={(path) => {
+                workspace.pick(path);
+                props.onPath(path);
+              }}
+              onOpen={(path) => {
+                workspace.openPath(path);
+                props.onPath(path);
+              }}
+            />
+          ) : workspace.canPreview && selected ? (
+            <PreviewPane
+              path={selected}
+              title={workspace.selectedEntry?.title ?? selected}
+              description={workspace.selectedEntry?.description ?? ""}
+              mediaType={workspace.selectedEntry?.mediaType}
+              localFile={workspace.localFile}
+              files={workspace.files}
+              backlinks={knowledgeGraphBacklinks(
+                workspace.graphIndex,
+                selected,
+              )}
+              onOpen={(path) => {
+                workspace.openPath(path);
+                props.onPath(path);
+              }}
+              busy={workspace.busy}
+              downloading={workspace.downloading}
+              onUse={
+                isOfficeSkillPath(selected)
+                  ? () => {
+                      insertComposerText(
+                        `/${workspace.selectedEntry?.title || selected} `,
+                      );
+                      props.onClose();
+                    }
+                  : undefined
+              }
+              onDownload={workspace.downloadSelected}
+              onRemove={() => void workspace.removeSelected(props.onPath)}
+            />
+          ) : (
+            <p className="explorer-empty knowledge-hint">
+              {selected && !workspace.files.has(selected)
+                ? "A folder. New file or upload lands here."
+                : "Playbooks, notes, and files for the office. Pick one on the left."}
+            </p>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+export function KnowledgePeek(props: {
+  path: string;
+  onPath: (path: string) => void;
+  onOpenLibrary: (path: string) => void;
+  onClose: () => void;
+}) {
+  const workspace = useKnowledgeWorkspace(props.path);
+  const selected = props.path;
+  const entry = workspace.entries.find((row) => row.path === selected) ?? null;
+  const canPreview = workspace.files.has(selected);
+
+  useEffect(() => {
+    workspace.syncPath(props.path);
+  }, [props.path, workspace.syncPath]);
+
+  function openInside(path: string) {
+    if (workspace.files.has(path)) {
+      workspace.openPath(path);
+      props.onPath(path);
+      return;
+    }
+    props.onOpenLibrary(path);
+  }
+
+  return (
+    <aside className="pane knowledge-peek">
+      <div className="pane-head">
+        <span className="pane-title">Knowledge</span>
+        <div className="row tight">
+          <Button
+            type="button"
+            variant="mini"
+            onClick={() => props.onOpenLibrary(selected)}
+          >
+            Open library
+          </Button>
+          <button
+            className="icon-btn"
+            type="button"
+            aria-label="Close"
+            title="Close"
+            onClick={props.onClose}
+          >
+            <CloseIcon />
+          </button>
+        </div>
+      </div>
+      <div className="knowledge-peek-body">
+        {workspace.error ? <p className="error">{workspace.error}</p> : null}
+        {workspace.listQuery.isPending && workspace.entries.length === 0 ? (
+          <p className="explorer-empty knowledge-hint">Opening…</p>
+        ) : canPreview ? (
+          <PreviewPane
+            path={selected}
+            title={entry?.title ?? selected}
+            description={entry?.description ?? ""}
+            mediaType={entry?.mediaType}
+            localFile={workspace.localFiles[selected] ?? null}
+            files={workspace.files}
+            backlinks={knowledgeGraphBacklinks(workspace.graphIndex, selected)}
+            onOpen={openInside}
+            busy={workspace.busy}
+            downloading={workspace.downloading}
+            onUse={
+              isOfficeSkillPath(selected)
+                ? () => {
+                    insertComposerText(`/${entry?.title || selected} `);
+                    props.onClose();
+                  }
+                : undefined
+            }
+            onDownload={workspace.downloadSelected}
+            onRemove={() =>
+              void workspace.removeSelected(() => props.onClose())
+            }
+          />
+        ) : (
+          <p className="explorer-empty knowledge-hint">
+            {selected
+              ? "A folder. Open the library to browse it."
+              : "Pick a note in chat, or open the library."}
+          </p>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+function useKnowledgeWorkspace(initialPath: string | null) {
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const listKey = orpc.knowledge.list.queryOptions().queryKey;
   const graphKey = orpc.knowledge.graph.queryOptions().queryKey;
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<string | null>(
-    props.initialPath ?? null,
-  );
+  const [selected, setSelected] = useState<string | null>(initialPath);
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const [draft, setDraft] = useState<Draft | null>(null);
   const [importing, setImporting] = useState(false);
@@ -74,12 +308,10 @@ export function KnowledgeModal(props: {
   const [localFiles, setLocalFiles] = useState<Record<string, File>>({});
   const listQuery = useQuery({
     ...orpc.knowledge.list.queryOptions(),
-    enabled: props.open,
     gcTime: THINK_MESSAGES_GC_TIME,
   });
   const graphQuery = useQuery({
     ...orpc.knowledge.graph.queryOptions(),
-    enabled: props.open,
     gcTime: THINK_MESSAGES_GC_TIME,
   });
   const graphIndex = useMemo(
@@ -105,11 +337,18 @@ export function KnowledgeModal(props: {
   }, [entries, query]);
   const searching = query.trim().length > 0;
   const localFile = selected ? (localFiles[selected] ?? null) : null;
+  const empty = !listQuery.isPending && entries.length === 0 && !query.trim();
 
-  function openPath(path: string) {
-    setDraft(null);
-    setQuery("");
-    setSelected(path);
+  const syncPath = useMemo(() => {
+    return (path: string | null) => {
+      setSelected(path);
+      setDraft(null);
+      setImporting(false);
+      setError("");
+    };
+  }, []);
+
+  function expandTo(path: string) {
     setCollapsed((current) => {
       const next = new Set(current);
       const parts = path.split("/").filter(Boolean);
@@ -120,15 +359,21 @@ export function KnowledgeModal(props: {
     });
   }
 
-  useEffect(() => {
-    if (!props.open) return;
+  function openPath(path: string) {
+    setDraft(null);
     setQuery("");
+    setMapOpen(false);
+    setImporting(false);
+    setSelected(path);
+    expandTo(path);
+  }
+
+  function pick(path: string) {
     setDraft(null);
     setImporting(false);
     setMapOpen(false);
-    setError("");
-    setSelected(props.initialPath ?? null);
-  }, [props.open, props.initialPath]);
+    setSelected(path);
+  }
 
   async function refresh(path?: string) {
     await queryClient.invalidateQueries({ queryKey: listKey });
@@ -146,7 +391,7 @@ export function KnowledgeModal(props: {
     }
   }
 
-  async function saveDraft() {
+  async function saveDraft(onPath: (path: string | null) => void) {
     if (!draft) return;
     setBusy(true);
     setError("");
@@ -157,6 +402,7 @@ export function KnowledgeModal(props: {
       });
       setDraft(null);
       await refresh(saved.path);
+      onPath(saved.path);
     } catch (caught: unknown) {
       setError(userFacingError(caught, "Could not save that"));
     } finally {
@@ -164,7 +410,10 @@ export function KnowledgeModal(props: {
     }
   }
 
-  async function importSkill(source: string) {
+  async function importSkill(
+    source: string,
+    onPath: (path: string | null) => void,
+  ) {
     setBusy(true);
     setError("");
     try {
@@ -177,7 +426,9 @@ export function KnowledgeModal(props: {
         return;
       }
       setImporting(false);
-      await refresh(result.imported[0]?.path);
+      const path = result.imported[0]?.path;
+      await refresh(path);
+      if (path) onPath(path);
     } catch (caught: unknown) {
       setError(userFacingError(caught, "Could not import that skill"));
     } finally {
@@ -185,7 +436,7 @@ export function KnowledgeModal(props: {
     }
   }
 
-  async function removeSelected() {
+  async function removeSelected(onGone: (path: string | null) => void) {
     if (!selected) return;
     setBusy(true);
     setError("");
@@ -198,6 +449,7 @@ export function KnowledgeModal(props: {
       });
       setSelected(null);
       await refresh();
+      onGone(null);
     } catch (caught: unknown) {
       setError(userFacingError(caught, "Could not remove that"));
     } finally {
@@ -283,223 +535,216 @@ export function KnowledgeModal(props: {
       .finally(() => setDownloading(false));
   }
 
-  const empty = !listQuery.isPending && entries.length === 0 && !query.trim();
+  return {
+    fileRef,
+    query,
+    setQuery,
+    selected,
+    collapsed,
+    draft,
+    setDraft,
+    importing,
+    setImporting,
+    mapOpen,
+    busy,
+    downloading,
+    error,
+    localFiles,
+    listQuery,
+    graphQuery,
+    graphIndex,
+    entries,
+    files,
+    selectedEntry,
+    canPreview,
+    tree,
+    searching,
+    localFile,
+    empty,
+    syncPath,
+    openPath,
+    pick,
+    saveDraft,
+    importSkill,
+    removeSelected,
+    uploadFile,
+    downloadSelected,
+    startDraft: () => {
+      const folder =
+        selected && !files.has(selected) ? selected : parentOf(selected);
+      setImporting(false);
+      setMapOpen(false);
+      setDraft({
+        path: folder ? `${folder}/` : "skills/",
+        content: "",
+      });
+      setSelected(null);
+    },
+    startImport: () => {
+      setDraft(null);
+      setError("");
+      setMapOpen(false);
+      setImporting(true);
+    },
+    toggleMap: () => {
+      setDraft(null);
+      setImporting(false);
+      setError("");
+      setMapOpen((open) => !open);
+    },
+    toggleCollapsed: (path: string) => {
+      setCollapsed((current) => {
+        const next = new Set(current);
+        if (next.has(path)) next.delete(path);
+        else next.add(path);
+        return next;
+      });
+    },
+  };
+}
 
+function KnowledgeNav(props: {
+  query: string;
+  onQuery: (query: string) => void;
+  onNew: () => void;
+  onUpload: () => void;
+  onImport: () => void;
+  mapOpen: boolean;
+  onMap: () => void;
+  fileRef: RefObject<HTMLInputElement | null>;
+  onFile: (file: File) => void;
+  children: ReactNode;
+}) {
   return (
-    <ModalShell
-      open={props.open}
-      wide
-      onClose={props.onClose}
-      className="knowledge-modal"
-    >
-      <div className="flex items-center justify-between border-b border-line px-[18px] py-3.5">
-        <h2 className="m-0 flex items-center gap-2 text-lg">
-          <KnowledgeIcon />
-          Knowledge
-        </h2>
-        <button
-          className="icon-btn"
-          type="button"
-          aria-label="Close"
-          onClick={props.onClose}
-        >
-          <CloseIcon />
+    <aside className="knowledge-nav">
+      <label className="search-field explorer-search">
+        <SearchIcon />
+        <input
+          value={props.query}
+          onChange={(event) => props.onQuery(event.target.value)}
+          placeholder="Search the office…"
+          aria-label="Search knowledge"
+        />
+      </label>
+      <div className="knowledge-adds">
+        <button className="btn ghost tight" type="button" onClick={props.onNew}>
+          <PlusIcon /> New
         </button>
+        <button
+          className="btn ghost tight"
+          type="button"
+          onClick={props.onUpload}
+        >
+          <PlusIcon /> Upload
+        </button>
+        <button
+          className="btn ghost tight"
+          type="button"
+          onClick={props.onImport}
+        >
+          <GitHubIcon /> Import
+        </button>
+        <button
+          className="btn ghost tight"
+          type="button"
+          aria-pressed={props.mapOpen}
+          onClick={props.onMap}
+        >
+          <GraphIcon /> Map
+        </button>
+        <input
+          ref={props.fileRef}
+          className="hidden"
+          type="file"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (file) props.onFile(file);
+          }}
+        />
       </div>
-      <div className="knowledge-split">
-        <aside className="knowledge-nav">
-          <label className="search-field explorer-search">
-            <SearchIcon />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search the office…"
-              aria-label="Search knowledge"
-            />
-          </label>
-          <div className="knowledge-adds">
-            <button
-              className="btn ghost tight"
-              type="button"
-              onClick={() => {
-                const folder =
-                  selected && !files.has(selected)
-                    ? selected
-                    : parentOf(selected);
-                setImporting(false);
-                setMapOpen(false);
-                setDraft({
-                  path: folder ? `${folder}/` : "skills/",
-                  content: "",
-                });
-                setSelected(null);
-              }}
-            >
-              <PlusIcon /> New
-            </button>
-            <button
-              className="btn ghost tight"
-              type="button"
-              onClick={() => fileRef.current?.click()}
-            >
-              <PlusIcon /> Upload
-            </button>
-            <button
-              className="btn ghost tight"
-              type="button"
-              onClick={() => {
-                setDraft(null);
-                setError("");
-                setMapOpen(false);
-                setImporting(true);
-              }}
-            >
-              <GitHubIcon /> Import
-            </button>
-            <button
-              className="btn ghost tight"
-              type="button"
-              aria-pressed={mapOpen}
-              onClick={() => {
-                setDraft(null);
-                setImporting(false);
-                setError("");
-                setMapOpen((open) => !open);
-              }}
-            >
-              <GraphIcon /> Map
-            </button>
-            <input
-              ref={fileRef}
-              className="hidden"
-              type="file"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                event.target.value = "";
-                if (file) uploadFile(file);
-              }}
-            />
-          </div>
-          <div className="explorer knowledge-tree">
-            {listQuery.isPending && entries.length === 0 ? (
-              <p className="explorer-empty">Opening…</p>
-            ) : listQuery.error ? (
-              <p className="explorer-empty">
-                {userFacingError(listQuery.error, "Could not read knowledge")}
-              </p>
-            ) : empty ? (
-              <p className="explorer-empty">
-                Empty office. New file, upload, or import a playbook.
-              </p>
-            ) : (
-              <>
-                <ul className="explorer-tree">
-                  {tree.map((node) => (
-                    <TreeRows
-                      key={node.path}
-                      node={node}
-                      depth={0}
-                      selected={selected}
-                      collapsed={searching ? ROOT_COLLAPSED : collapsed}
-                      onSelect={(path) => {
-                        setDraft(null);
-                        setImporting(false);
-                        setMapOpen(false);
-                        setSelected(path);
-                      }}
-                      onToggle={(path) => {
-                        setCollapsed((current) => {
-                          const next = new Set(current);
-                          if (next.has(path)) next.delete(path);
-                          else next.add(path);
-                          return next;
-                        });
-                      }}
-                    />
-                  ))}
-                </ul>
-                {listQuery.data?.truncated ? (
-                  <p className="explorer-empty">Showing the first 800 files.</p>
-                ) : null}
-              </>
-            )}
-          </div>
-        </aside>
-        <section className="knowledge-preview">
-          {error ? <p className="error">{error}</p> : null}
-          {draft ? (
-            <DraftForm
-              draft={draft}
-              busy={busy}
-              onChange={setDraft}
-              onSave={() => void saveDraft()}
-              onCancel={() => setDraft(null)}
-            />
-          ) : importing ? (
-            <ImportForm
-              busy={busy}
-              onImport={(source) => void importSkill(source)}
-              onCancel={() => setImporting(false)}
-            />
-          ) : mapOpen ? (
-            graphQuery.isPending && !graphQuery.data ? (
-              <p className="explorer-empty knowledge-hint">Opening map…</p>
-            ) : graphQuery.error ? (
-              <p className="explorer-empty">
-                {userFacingError(graphQuery.error, "Could not load the map")}
-              </p>
-            ) : (
-              <KnowledgeGraphMap
-                paths={graphQuery.data?.paths ?? []}
-                out={graphQuery.data?.out ?? []}
-                selected={selected}
-                files={files}
-                onSelect={(path) => {
-                  setDraft(null);
-                  setImporting(false);
-                  setSelected(path);
-                }}
-                onOpen={(path) => {
-                  setMapOpen(false);
-                  openPath(path);
-                }}
-              />
-            )
-          ) : canPreview && selected ? (
-            <PreviewPane
-              path={selected}
-              title={selectedEntry?.title ?? selected}
-              description={selectedEntry?.description ?? ""}
-              mediaType={selectedEntry?.mediaType}
-              localFile={localFile}
-              files={files}
-              backlinks={knowledgeGraphBacklinks(graphIndex, selected)}
-              onOpen={openPath}
-              busy={busy}
-              downloading={downloading}
-              onUse={
-                isOfficeSkillPath(selected)
-                  ? () => {
-                      insertComposerText(
-                        `/${selectedEntry?.title || selected} `,
-                      );
-                      props.onClose();
-                    }
-                  : undefined
-              }
-              onDownload={downloadSelected}
-              onRemove={() => void removeSelected()}
-            />
-          ) : (
-            <p className="explorer-empty knowledge-hint">
-              {selected && !files.has(selected)
-                ? "A folder. New file or upload lands here."
-                : "Playbooks, notes, and files for the office. Pick one on the left."}
-            </p>
-          )}
-        </section>
-      </div>
-    </ModalShell>
+      <div className="explorer knowledge-tree">{props.children}</div>
+    </aside>
+  );
+}
+
+function KnowledgeTree(props: {
+  pending: boolean;
+  error: Error | null;
+  empty: boolean;
+  truncated?: boolean;
+  tree: KnowledgeTreeNode[];
+  selected: string | null;
+  collapsed: Set<string>;
+  onSelect: (path: string) => void;
+  onToggle: (path: string) => void;
+}) {
+  if (props.pending) return <p className="explorer-empty">Opening…</p>;
+  if (props.error) {
+    return (
+      <p className="explorer-empty">
+        {userFacingError(props.error, "Could not read knowledge")}
+      </p>
+    );
+  }
+  if (props.empty) {
+    return (
+      <p className="explorer-empty">
+        Empty office. New file, upload, or import a playbook.
+      </p>
+    );
+  }
+  return (
+    <>
+      <ul className="explorer-tree">
+        {props.tree.map((node) => (
+          <TreeRows
+            key={node.path}
+            node={node}
+            depth={0}
+            selected={props.selected}
+            collapsed={props.collapsed}
+            onSelect={props.onSelect}
+            onToggle={props.onToggle}
+          />
+        ))}
+      </ul>
+      {props.truncated ? (
+        <p className="explorer-empty">Showing the first 800 files.</p>
+      ) : null}
+    </>
+  );
+}
+
+function KnowledgeMapPane(props: {
+  pending: boolean;
+  error: Error | null;
+  paths: string[];
+  out: number[][];
+  selected: string | null;
+  files: ReadonlySet<string>;
+  onSelect: (path: string) => void;
+  onOpen: (path: string) => void;
+}) {
+  if (props.pending) {
+    return <p className="explorer-empty knowledge-hint">Opening map…</p>;
+  }
+  if (props.error) {
+    return (
+      <p className="explorer-empty">
+        {userFacingError(props.error, "Could not load the map")}
+      </p>
+    );
+  }
+  return (
+    <KnowledgeGraphMap
+      paths={props.paths}
+      out={props.out}
+      selected={props.selected}
+      files={props.files}
+      onSelect={props.onSelect}
+      onOpen={props.onOpen}
+    />
   );
 }
 

@@ -2911,9 +2911,48 @@ html.electron .pane-head {
     scale var(--dur-dialog) var(--ease-dialog);
 }
 
-.knowledge-modal.modal-popup {
-  width: min(1120px, calc(100% - 24px));
-  height: min(88vh, 860px);
+.knowledge-place {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-card);
+}
+
+.chat-shell.is-library {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.chat-shell.is-library .chat-side,
+.chat-shell.is-library .chat-stage {
+  display: none;
+}
+
+.chat-shell.is-pane.is-knowledge .chat-stage {
+  grid-template-columns: minmax(0, 1fr) minmax(400px, 46vw);
+}
+
+.knowledge-peek {
+  display: flex;
+  flex-direction: column;
+  min-width: 400px;
+  min-height: 0;
+}
+
+.knowledge-peek-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 12px 16px 16px;
+}
+
+.knowledge-peek-body .knowledge-preview-body {
+  flex: 1;
 }
 
 .knowledge-split {
@@ -3396,6 +3435,9 @@ html.electron .pane-head {
   .chat-shell.is-app .chat-pane-slot:not(:empty) {
     width: min(720px, 100%);
   }
+  .chat-shell.is-knowledge .chat-pane-slot:not(:empty) {
+    width: min(520px, 100%);
+  }
   .chat-pane-slot > .pane,
   .chat-pane-slot > .pane.app-pane {
     min-width: 100%;
@@ -3525,9 +3567,8 @@ html.electron .pane-head {
     max-height: min(92dvh, 900px);
   }
 
-  .knowledge-modal.modal-popup {
-    width: calc(100% - 12px);
-    height: min(92dvh, 720px);
+  .knowledge-place {
+    border-radius: 0;
   }
 
   .settings-shell {
