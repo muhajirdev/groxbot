@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseChatHref } from "./chat-link";
+import { parseChatHref, parseComputerFileHint } from "./chat-link";
 
 const ORIGIN = "http://127.0.0.1:5173";
 
@@ -49,5 +49,18 @@ describe("parseChatHref", () => {
   it("rejects javascript and parent paths", () => {
     expect(parseChatHref("javascript:alert(1)")).toEqual({ kind: "invalid" });
     expect(parseChatHref("../secret.md")).toEqual({ kind: "invalid" });
+  });
+});
+
+describe("parseComputerFileHint", () => {
+  it("opens backtick file paths", () => {
+    expect(parseComputerFileHint("essay-car.md")).toBe("essay-car.md");
+    expect(parseComputerFileHint("inbox/notes.txt")).toBe("inbox/notes.txt");
+  });
+
+  it("ignores code that is not a file path", () => {
+    expect(parseComputerFileHint("const x = 1")).toBeNull();
+    expect(parseComputerFileHint("inbox")).toBeNull();
+    expect(parseComputerFileHint(".gitignore")).toBeNull();
   });
 });

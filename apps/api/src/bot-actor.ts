@@ -38,6 +38,7 @@ import {
   emptyOfficeReviewCounters,
   encryptionSecret,
   formatRoutinePrompt,
+  healThinkWorkspaceFileRows,
   hostedChatMessages,
   isoUnixSeconds,
   listComputerEntries,
@@ -48,6 +49,7 @@ import {
   officeSkillSlashTurn,
   officeThinkSkillSources,
   parseOfficeReviewCounters,
+  patchComputerWorkspace,
   prepareRoutineCreate,
   RoutineError,
   RoutineNotFoundError,
@@ -306,6 +308,8 @@ export class BotActor extends Think<WorkerEnv> {
     }
     this.ensureMcpOAuthCallback();
     this.sql`DROP TABLE IF EXISTS groxbot_routines`;
+    patchComputerWorkspace(this.workspace);
+    healThinkWorkspaceFileRows(this.ctx.storage.sql);
     console.log(`[bot ${this.name}] onStart after think hydrate`);
   }
 
@@ -528,11 +532,17 @@ export class BotActor extends Think<WorkerEnv> {
     });
   }
 
+  private healComputerFiles() {
+    patchComputerWorkspace(this.workspace);
+    healThinkWorkspaceFileRows(this.ctx.storage.sql);
+  }
+
   private async handleWorkspaceList(request: Request): Promise<Response> {
     const body = (await request.json().catch(() => ({}))) as { path?: unknown };
     const path = typeof body.path === "string" ? body.path : "";
     const t0 = Date.now();
     try {
+      this.healComputerFiles();
       const listed = await listComputerEntries(this.workspace, path);
       console.log(
         `[bot ${this.name}] workspace list ${listed.entries.length} +${Date.now() - t0}ms`,
@@ -551,6 +561,7 @@ export class BotActor extends Think<WorkerEnv> {
     const body = (await request.json().catch(() => ({}))) as { path?: unknown };
     const path = typeof body.path === "string" ? body.path : "";
     try {
+      this.healComputerFiles();
       return Response.json(await readComputerFile(this.workspace, path));
     } catch (error) {
       return workspaceError(error);
@@ -561,6 +572,7 @@ export class BotActor extends Think<WorkerEnv> {
     const body = (await request.json().catch(() => ({}))) as { path?: unknown };
     const path = typeof body.path === "string" ? body.path : "";
     try {
+      this.healComputerFiles();
       return Response.json(await downloadComputerFile(this.workspace, path));
     } catch (error) {
       return workspaceError(error);

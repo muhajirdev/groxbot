@@ -3097,6 +3097,17 @@ html.electron .pane-head {
   font-size: 0.88em;
 }
 
+.chat-file-chip {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.chat-file-chip:hover,
+.chat-file-chip:focus-visible {
+  outline: 1px solid color-mix(in srgb, #6b93ee 70%, transparent);
+  outline-offset: 0;
+}
+
 .chat-md a {
   color: inherit;
   text-decoration: underline;

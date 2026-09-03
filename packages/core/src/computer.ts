@@ -2,12 +2,12 @@
 
 import {
   COMPUTER_INBOX_DIR,
-  MAX_COMPUTER_WRITE_BYTES,
-  parseOfficeUserMeta,
   type ComputerDownload,
   type ComputerEntry,
   type ComputerFile,
   type ComputerList,
+  MAX_COMPUTER_WRITE_BYTES,
+  parseOfficeUserMeta,
 } from "@groxbot/contracts";
 
 export {
@@ -68,12 +68,14 @@ export type ComputerDisk = {
   readFileBytes?(path: string): Promise<Uint8Array | null>;
   glob?(pattern: string): Promise<unknown>;
   readDir?(path: string, opts?: { limit?: number }): Promise<unknown>;
-  stat?(
-    path: string,
-  ): Promise<{ type?: string; size?: number } | null>;
+  stat?(path: string): Promise<{ type?: string; size?: number } | null>;
   writeFile?(path: string, content: string): Promise<void>;
   writeFileBytes?(path: string, content: Uint8Array): Promise<void>;
   mkdir?(path: string, opts?: { recursive?: boolean }): Promise<void>;
+  rm?(
+    path: string,
+    opts?: { recursive?: boolean; force?: boolean },
+  ): Promise<void>;
 };
 
 export function sanitizeComputerPath(raw: string | undefined): string {
@@ -432,12 +434,17 @@ function asEntry(item: unknown, parent: string): ComputerEntry | null {
       : typeof row.kind === "string"
         ? row.kind
         : "file";
+  const size = typeof row.size === "number" ? row.size : undefined;
+  // Think's write tool mkdir()s a relative file path, then writeFile() stores
+  // bytes without flipping type — so a "directory" can hold file content.
   const kind: ComputerEntry["kind"] =
-    type === "directory" || type === "dir" ? "dir" : "file";
+    (type === "directory" || type === "dir") && !(size && size > 0)
+      ? "dir"
+      : "file";
   return {
     path,
     kind,
-    size: typeof row.size === "number" ? row.size : undefined,
+    size,
   };
 }
 
@@ -487,6 +494,89 @@ const MEDIA_TYPES: Record<string, string> = {
   ".yaml": "text/yaml",
   ".yml": "text/yaml",
 };
+
+const patchedWorkspaces = new WeakSet<object>();
+
+/** Last path segment looks like a file Think's write tool should not mkdir. */
+export function computerPathLooksLikeFile(path: string): boolean {
+  const file =
+    path.replace(/^\/+/u, "").split("/").filter(Boolean).at(-1) ?? "";
+  const index = file.lastIndexOf(".");
+  if (index <= 0) return false;
+  const ext = file.slice(index).toLowerCase();
+  return TEXT_EXTENSIONS.has(ext) || Boolean(MEDIA_TYPES[ext]);
+}
+
+/**
+ * Think's write tool does `path.replace(/\/[^/]+$/, "")` for the parent.
+ * On `essay-car.md` that is the file itself, so it mkdir()s a directory,
+ * then writeFile() stores bytes without flipping `type` to file.
+ */
+export function patchComputerWorkspace<T extends ComputerDisk>(disk: T): T {
+  if (patchedWorkspaces.has(disk)) return disk;
+  patchedWorkspaces.add(disk);
+  const origMkdir = disk.mkdir?.bind(disk);
+  const origWriteFile = disk.writeFile?.bind(disk);
+  const origWriteFileBytes = disk.writeFileBytes?.bind(disk);
+  const origRm = disk.rm?.bind(disk);
+  const origStat = disk.stat?.bind(disk);
+
+  if (origMkdir) {
+    disk.mkdir = async (path, opts) => {
+      if (computerPathLooksLikeFile(path)) return;
+      await origMkdir(path, opts);
+    };
+  }
+
+  if (origWriteFile) {
+    disk.writeFile = async (path, content) => {
+      await replaceDirectoryAt(path, origStat, origRm);
+      await origWriteFile(path, content);
+    };
+  }
+
+  if (origWriteFileBytes) {
+    disk.writeFileBytes = async (path, content) => {
+      await replaceDirectoryAt(path, origStat, origRm);
+      await origWriteFileBytes(path, content);
+    };
+  }
+
+  return disk;
+}
+
+/** Think Workspace SQLite table (default namespace). */
+export const THINK_WORKSPACE_TABLE = "cf_workspace_default";
+
+/** Directory rows that already hold file bytes become files so list/read work. */
+export function healThinkWorkspaceFileRows(sql: {
+  exec(query: string): unknown;
+}): void {
+  try {
+    sql.exec(
+      `UPDATE ${THINK_WORKSPACE_TABLE} SET type = 'file' WHERE type = 'directory' AND size > 0`,
+    );
+  } catch {
+    // Fresh actor — table does not exist yet.
+  }
+}
+
+async function replaceDirectoryAt(
+  path: string,
+  origStat: ComputerDisk["stat"] | undefined,
+  origRm: ComputerDisk["rm"] | undefined,
+): Promise<void> {
+  if (!origStat || !origRm) return;
+  let info: { type?: string; size?: number } | null = null;
+  try {
+    info = await origStat(path);
+  } catch {
+    return;
+  }
+  const type = info?.type;
+  if (type !== "directory" && type !== "dir") return;
+  await origRm(path, { recursive: true, force: true });
+}
 
 type HostedChatMessage = {
   role: string;

@@ -1,20 +1,23 @@
 import { describe, expect, it } from "vitest";
 import {
+  type ComputerDisk,
   ComputerPathError,
-  MAX_COMPUTER_ENTRIES,
-  MAX_COMPUTER_READ_CHARS,
-  MAX_COMPUTER_WRITE_BYTES,
+  computerPathLooksLikeFile,
   decodeComputerBytes,
   downloadComputerFile,
   encodeComputerBytes,
+  healThinkWorkspaceFileRows,
+  hostedChatMessages,
   listComputerEntries,
+  MAX_COMPUTER_ENTRIES,
+  MAX_COMPUTER_READ_CHARS,
+  MAX_COMPUTER_WRITE_BYTES,
   mediaTypeForComputerPath,
+  patchComputerWorkspace,
   readComputerFile,
   sanitizeAttachmentName,
   sanitizeComputerPath,
-  hostedChatMessages,
   writeInboxFile,
-  type ComputerDisk,
 } from "./computer.js";
 
 class MemoryDisk implements ComputerDisk {
@@ -81,7 +84,9 @@ describe("sanitizeComputerPath", () => {
   });
 
   it("rejects escapes", () => {
-    expect(() => sanitizeComputerPath("../etc/passwd")).toThrow(ComputerPathError);
+    expect(() => sanitizeComputerPath("../etc/passwd")).toThrow(
+      ComputerPathError,
+    );
     expect(() => sanitizeComputerPath("skills/../../secret")).toThrow(
       ComputerPathError,
     );
@@ -150,6 +155,24 @@ describe("listComputerEntries", () => {
     const listed = await listComputerEntries(disk);
     expect(listed.truncated).toBe(true);
     expect(listed.entries.length).toBeLessThanOrEqual(MAX_COMPUTER_ENTRIES);
+  });
+
+  it("lists a directory row with file bytes as a file", async () => {
+    const disk: ComputerDisk = {
+      readFile: async () => null,
+      readDir: async (path) => {
+        if (path && path !== ".") return [];
+        return [
+          { path: "essay-car.md", type: "directory", size: 1200 },
+          { path: "inbox", type: "directory", size: 0 },
+        ];
+      },
+    };
+    const listed = await listComputerEntries(disk);
+    expect(listed.entries.map((row) => `${row.kind}:${row.path}`)).toEqual([
+      "file:essay-car.md",
+      "dir:inbox",
+    ]);
   });
 });
 
@@ -349,5 +372,125 @@ describe("hostedChatMessages", () => {
         parts: [{ type: "text", text: "Alex: ship the brief" }],
       },
     ]);
+  });
+});
+
+/** Mimics Cloudflare Workspace: writeFile updates content but not directory type. */
+class ThinkWriteBugDisk implements ComputerDisk {
+  readonly rows = new Map<
+    string,
+    { type: "file" | "directory"; content: string }
+  >();
+
+  async readFile(path: string): Promise<string | null> {
+    const row = this.rows.get(norm(path));
+    if (!row) return null;
+    if (row.type === "directory") {
+      throw new Error(`EISDIR: ${path} is a directory`);
+    }
+    return row.content;
+  }
+
+  async stat(path: string) {
+    const row = this.rows.get(norm(path));
+    if (!row) return null;
+    return { type: row.type, size: row.content.length };
+  }
+
+  async readDir() {
+    return [...this.rows.entries()].map(([path, row]) => ({
+      path,
+      type: row.type,
+      size: row.content.length,
+    }));
+  }
+
+  async mkdir(path: string) {
+    this.rows.set(norm(path), { type: "directory", content: "" });
+  }
+
+  async writeFile(path: string, content: string) {
+    const key = norm(path);
+    const existing = this.rows.get(key);
+    if (existing) {
+      existing.content = content;
+      return;
+    }
+    this.rows.set(key, { type: "file", content });
+  }
+
+  async rm(path: string) {
+    this.rows.delete(norm(path));
+  }
+}
+
+describe("computerPathLooksLikeFile", () => {
+  it("recognizes markdown and nested files", () => {
+    expect(computerPathLooksLikeFile("essay-car.md")).toBe(true);
+    expect(computerPathLooksLikeFile("/inbox/notes.txt")).toBe(true);
+    expect(computerPathLooksLikeFile("inbox")).toBe(false);
+    expect(computerPathLooksLikeFile("skills")).toBe(false);
+  });
+});
+
+describe("patchComputerWorkspace", () => {
+  it("does not mkdir a relative file path, then writes a real file", async () => {
+    const disk = new ThinkWriteBugDisk();
+    patchComputerWorkspace(disk);
+    await disk.mkdir?.("essay-car.md", { recursive: true });
+    await disk.writeFile?.("essay-car.md", "# Cars");
+    expect(disk.rows.get("essay-car.md")).toEqual({
+      type: "file",
+      content: "# Cars",
+    });
+    await expect(readComputerFile(disk, "essay-car.md")).resolves.toMatchObject(
+      {
+        content: "# Cars",
+        encoding: "text",
+      },
+    );
+    const listed = await listComputerEntries(disk);
+    expect(listed.entries).toEqual([
+      { path: "essay-car.md", kind: "file", size: 6 },
+    ]);
+  });
+
+  it("replaces a leftover directory so writeFile is readable", async () => {
+    const disk = new ThinkWriteBugDisk();
+    await disk.mkdir("essay-car.md");
+    await disk.writeFile("essay-car.md", "# Cars");
+    await expect(readComputerFile(disk, "essay-car.md")).rejects.toThrow(
+      "File not found.",
+    );
+    patchComputerWorkspace(disk);
+    await disk.writeFile?.("essay-car.md", "# Cars");
+    await expect(readComputerFile(disk, "essay-car.md")).resolves.toMatchObject(
+      {
+        content: "# Cars",
+      },
+    );
+  });
+});
+
+describe("healThinkWorkspaceFileRows", () => {
+  it("updates directory rows that already hold bytes", () => {
+    const ran: string[] = [];
+    healThinkWorkspaceFileRows({
+      exec(query) {
+        ran.push(query);
+      },
+    });
+    expect(ran[0]).toMatch(/SET type = 'file'/);
+    expect(ran[0]).toMatch(/type = 'directory' AND size > 0/);
+  });
+
+  it("swallows a missing table", () => {
+    expect(() =>
+      healThinkWorkspaceFileRows({
+        exec() {
+          throw new Error("no such table: cf_workspace_default");
+        },
+      }),
+    ).not.toThrow();
   });
 });

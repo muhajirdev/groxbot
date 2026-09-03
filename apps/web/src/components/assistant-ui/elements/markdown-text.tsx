@@ -2,20 +2,21 @@
 
 import "@assistant-ui/react-markdown/styles/dot.css";
 
+import type { TextMessagePartProps } from "@assistant-ui/react";
 import {
   type CodeHeaderProps,
   MarkdownTextPrimitive,
   unstable_memoizeMarkdownComponents as memoizeMarkdownComponents,
   useIsMarkdownCodeBlock,
 } from "@assistant-ui/react-markdown";
-import remarkGfm from "remark-gfm";
-import { type FC, memo, useMemo, useRef } from "react";
-import type { TextMessagePartProps } from "@assistant-ui/react";
 import { CheckIcon, CopyIcon } from "@phosphor-icons/react";
+import { type FC, memo, useMemo, useRef } from "react";
+import remarkGfm from "remark-gfm";
 
 import { TooltipIconButton } from "@/components/assistant-ui/elements/tooltip-icon-button";
 import { ChatFileLink } from "@/components/ChatFileLink";
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
+import { inlineCodeText, parseComputerFileHint } from "@/lib/chat-link";
 import { cn } from "@/lib/utils";
 
 type MarkdownTextProps = Partial<TextMessagePartProps> & {
@@ -252,8 +253,24 @@ const defaultComponents = memoizeMarkdownComponents({
       {...props}
     />
   ),
-  code: function Code({ className, ...props }) {
+  code: function Code({ className, children, ...props }) {
     const isCodeBlock = useIsMarkdownCodeBlock();
+    const hint = isCodeBlock
+      ? null
+      : parseComputerFileHint(inlineCodeText(children));
+    if (hint) {
+      return (
+        <ChatFileLink
+          href={hint}
+          className={cn(
+            "aui-md-inline-code chat-file-chip bg-muted rounded-md px-1.5 py-0.5 font-mono text-[0.85em] no-underline",
+            className,
+          )}
+        >
+          {children}
+        </ChatFileLink>
+      );
+    }
     return (
       <code
         className={cn(
@@ -262,7 +279,9 @@ const defaultComponents = memoizeMarkdownComponents({
           className,
         )}
         {...props}
-      />
+      >
+        {children}
+      </code>
     );
   },
   CodeHeader,
