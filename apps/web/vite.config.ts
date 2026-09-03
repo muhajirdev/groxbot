@@ -4,12 +4,16 @@ import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { gitRevision } from "./vite-revision";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 
 const api = "http://127.0.0.1:3100";
 
 export default defineConfig({
+  define: {
+    "import.meta.env.VITE_GIT_SHA": JSON.stringify(gitRevision()),
+  },
   plugins: [
     tanstackRouter({
       target: "react",
