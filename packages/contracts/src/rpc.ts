@@ -19,8 +19,11 @@ import {
   PokeThreadSchema,
   RoutineSchema,
   ToolkitSlug,
+  UpdateAccountInput,
+  AccountSchema,
   UpdateBotInput,
   WorkspaceAppSchema,
+  WorkspaceMemberSchema,
   WorkspaceInvitationSchema,
   WorkspaceInvitePeekSchema,
   WorkspaceInviteSchema,
@@ -68,6 +71,10 @@ export const appContract = oc.router({
     invite: oc.input(InviteWorkspaceInput).output(WorkspaceInviteSchema),
     invitations: oc.output(z.array(WorkspaceInvitationSchema)),
     peek: oc.input(JoinWorkspaceInput).output(WorkspaceInvitePeekSchema),
+    members: oc.output(z.array(WorkspaceMemberSchema)),
+  },
+  account: {
+    update: oc.input(UpdateAccountInput).output(AccountSchema),
   },
   models: {
     get: oc.output(ModelSettingsSchema),

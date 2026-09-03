@@ -77,6 +77,7 @@ export default {
             createSkillImportHttp(),
           )
         : undefined,
+      avatars: env.KNOWLEDGE ? r2KnowledgeDisk(env.KNOWLEDGE) : undefined,
       mcp: {
         add: (botId, input) => addBotMcp(env.BOT_ACTOR, botId, input),
         remove: (botId, serverId) => removeBotMcp(env.BOT_ACTOR, botId, serverId),

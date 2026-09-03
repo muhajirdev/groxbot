@@ -192,7 +192,9 @@ h2 {
   position: relative;
   isolation: isolate;
   min-height: 100vh;
+  min-height: 100dvh;
   max-height: 100vh;
+  max-height: 100dvh;
   overflow-y: auto;
   display: grid;
   place-items: center;
@@ -2089,6 +2091,7 @@ html.electron .pane-head {
 
 .account-row > div {
   min-width: 0;
+  flex: 1;
 }
 
 .account-row strong {
@@ -2104,6 +2107,99 @@ html.electron .pane-head {
 
 .account-row .mini {
   flex: none;
+}
+
+.member-photo {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.member-photo-btn {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 99px;
+}
+
+.member-photo-btn:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.member-photo-btn:hover:not(:disabled) {
+  outline: 2px solid var(--line);
+  outline-offset: 2px;
+}
+
+.member-photo-error {
+  margin: 0;
+  max-width: 9rem;
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--muted);
+  white-space: normal;
+}
+
+.member-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 0 16px;
+}
+
+.member-list .field-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.member-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.member-meta {
+  min-width: 0;
+  flex: 1;
+}
+
+.member-meta strong {
+  display: block;
+}
+
+.member-meta .muted {
+  margin: 4px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-name {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.member-name input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 13px;
+}
+
+.member-role {
+  flex: none;
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: capitalize;
 }
 
 .menu {
@@ -2186,8 +2282,12 @@ html.electron .pane-head {
 .chat-shell {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr) 0px;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
   transition: grid-template-columns var(--dur-pane) var(--ease-soft);
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .chat-shell.is-pane {
@@ -2591,11 +2691,6 @@ html.electron .pane-head {
 }
 
 @media (max-width: 960px) {
-  .chat-shell,
-  .chat-shell.is-pane,
-  .chat-shell.is-app {
-    grid-template-columns: 72px minmax(0, 1fr) !important;
-  }
   .chat-pane-slot:not(:empty) {
     position: absolute;
     top: 0;
@@ -2617,6 +2712,14 @@ html.electron .pane-head {
   .chat-pane-slot.is-leaving > .pane {
     animation: pane-overlay-out var(--dur-pane) var(--ease-soft) both;
   }
+}
+
+@media (max-width: 960px) and (min-width: 721px) {
+  .chat-shell,
+  .chat-shell.is-pane,
+  .chat-shell.is-app {
+    grid-template-columns: 72px minmax(0, 1fr) !important;
+  }
   .chat-conv-copy,
   .chat-conv-more,
   .chat-foot span,
@@ -2632,6 +2735,114 @@ html.electron .pane-head {
   }
 }
 
+@media (max-width: 720px) {
+  .screen {
+    padding: 20px 16px;
+  }
+
+  .chat-shell,
+  .chat-shell.is-pane,
+  .chat-shell.is-app {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .chat-side {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    width: 100%;
+    border-right: 0;
+    padding-top: max(6px, env(safe-area-inset-top));
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    padding-left: max(10px, env(safe-area-inset-left));
+    padding-right: max(10px, env(safe-area-inset-right));
+    transform: translateX(-100%);
+    transition: transform var(--dur-pane) var(--ease-soft);
+    pointer-events: none;
+  }
+
+  .chat-shell.is-roster .chat-side {
+    transform: none;
+    pointer-events: auto;
+  }
+
+  .chat-thread {
+    min-width: 0;
+  }
+
+  .thread-head {
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-right: 10px;
+    padding-left: 8px;
+  }
+
+  .chat-conv-more {
+    opacity: 1;
+  }
+
+  .chat-foot span {
+    display: inline;
+  }
+
+  .chat-foot > button {
+    min-height: 44px;
+  }
+
+  .search-field .hotkey-kbd {
+    display: none;
+  }
+
+  html.electron .side-chrome {
+    padding-left: max(10px, env(safe-area-inset-left));
+  }
+
+  .chat-pane-slot:not(:empty),
+  .chat-shell.is-app .chat-pane-slot:not(:empty) {
+    left: 0;
+    z-index: 24;
+    width: 100%;
+  }
+
+  .chat-pane-slot > .pane,
+  .chat-pane-slot > .pane.app-pane {
+    border-left: 0;
+    min-width: 0;
+  }
+
+  .chat-pane-slot > .pane .pane-head {
+    padding-top: max(12px, env(safe-area-inset-top));
+  }
+
+  .modal-popup {
+    width: calc(100% - 16px);
+    max-height: min(92dvh, 900px);
+  }
+
+  .knowledge-modal.modal-popup {
+    width: calc(100% - 12px);
+    height: min(92dvh, 720px);
+  }
+
+  .settings-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .settings-nav {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 10px 12px;
+  }
+
+  .settings-nav .nav-item {
+    flex: none;
+    white-space: nowrap;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .gate-hero > *,
   .gate-auth > *,
@@ -2644,8 +2855,10 @@ html.electron .pane-head {
   .gate-handoff .phone-typing i,
   .typing-dots i,
   .pane,
-  .chat-pane-slot.is-leaving > .pane {
+  .chat-pane-slot.is-leaving > .pane,
+  .chat-side {
     animation: none;
+    transition: none;
   }
 
   .chat-shell {
@@ -2682,6 +2895,10 @@ html.electron .pane-head {
   --color-accent: var(--hover);
   --color-primary: var(--ink);
   --color-primary-foreground: var(--bg);
+}
+
+[data-slot="aui_thread-viewport"] > div {
+  min-height: 100%;
 }
 
 /* Native button appearance draws a light OS outline; keep reasoning as text. */

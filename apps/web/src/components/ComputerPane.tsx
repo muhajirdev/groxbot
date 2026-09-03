@@ -1,6 +1,6 @@
 import type { Bot, Routine } from "@groxbot/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { saveComputerDownload } from "../lib/computer-download";
 import { computerFileKind } from "../lib/computer-preview";
 import {
@@ -36,6 +36,8 @@ export function ComputerPane(props: {
   bot: Bot;
   onSettings: () => void;
   onCollapse: () => void;
+  openPath?: string | null;
+  onPreviewClose?: () => void;
 }) {
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
@@ -45,12 +47,23 @@ export function ComputerPane(props: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<string | null>(null);
-  const [previewPath, setPreviewPath] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(
+    () => props.openPath ?? null,
+  );
+  const [previewPath, setPreviewPath] = useState<string | null>(
+    () => props.openPath ?? null,
+  );
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const [downloading, setDownloading] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState("");
   const botId = props.bot.id;
+  const openPath = props.openPath ?? null;
+  useEffect(() => {
+    if (!openPath) return;
+    setQuery("");
+    setSelected(openPath);
+    setPreviewPath(openPath);
+  }, [openPath]);
   const filesQuery = useQuery({
     ...orpc.computer.list.queryOptions({ input: { botId } }),
     gcTime: THINK_MESSAGES_GC_TIME,
@@ -196,7 +209,10 @@ export function ComputerPane(props: {
         botId={botId}
         path={previewPath}
         downloading={Boolean(downloading)}
-        onClose={() => setPreviewPath(null)}
+        onClose={() => {
+          setPreviewPath(null);
+          props.onPreviewClose?.();
+        }}
         onDownload={downloadFile}
       />
       <ModalShell open={creating} onClose={() => setCreating(false)}>

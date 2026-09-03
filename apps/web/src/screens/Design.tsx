@@ -21,6 +21,7 @@ import {
 } from "../components/assistant-ui/elements/spiral-loader";
 import { TooltipIconButton } from "../components/assistant-ui/elements/tooltip-icon-button";
 import { AvatarMark } from "../components/Avatar";
+import { PersonAvatar } from "../components/PersonAvatar";
 import { AppCard } from "../components/AppCard";
 import { ChatMarkdown } from "../components/ChatMarkdown";
 import { KnowledgeGraphMap } from "../components/KnowledgeGraph";
@@ -269,8 +270,16 @@ export function Design() {
                 <div className="my-2.5 mb-1 text-center text-xs text-muted">
                   Today
                 </div>
-                <div className="ml-auto max-w-[72%] rounded-[18px] border border-[#2a2a2a] bg-[#1a1a1a] px-3.5 py-2.5 text-[15px] leading-snug light:border-line light:bg-white">
-                  <ChatMarkdown text="Source a shortlist from the brief. Don’t email anyone." />
+                <div className="ml-auto max-w-[72%]">
+                  <div className="mb-1.5 flex flex-row-reverse items-center gap-1.5">
+                    <PersonAvatar name="Alex" size="xs" />
+                    <span className="text-[12px] font-medium text-ink/80">
+                      You
+                    </span>
+                  </div>
+                  <div className="rounded-[18px] border border-[#2a2a2a] bg-[#1a1a1a] px-3.5 py-2.5 text-[15px] leading-snug light:border-line light:bg-white">
+                    <ChatMarkdown text="Source a shortlist from the brief. Don’t email anyone." />
+                  </div>
                 </div>
                 <div className="mr-auto max-w-[72%] rounded-[18px] bg-[#141414] px-3.5 py-2.5 text-[15px] leading-snug light:bg-[#ececec]">
                   <ChatMarkdown text="I’ll stay in the notes and stop with names plus why." />

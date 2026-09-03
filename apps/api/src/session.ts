@@ -1,4 +1,5 @@
-import { deploymentSettings } from "@groxbot/db";
+import { publishedProfileImage } from "@groxbot/core";
+import { deploymentSettings, user } from "@groxbot/db";
 import { ORPCError } from "@orpc/server";
 import { eq } from "drizzle-orm";
 import type { RpcContext } from "./context.js";
@@ -7,6 +8,7 @@ export interface Actor {
   userId: string;
   email: string;
   name: string;
+  image: string | null;
   workspaceId: string;
   isDeploymentOwner: boolean;
 }
@@ -15,6 +17,7 @@ export interface SessionUser {
   userId: string;
   email: string;
   name: string;
+  image: string | null;
   workspaceId: string | null;
   workspaceName: string | null;
   headers: Headers;
@@ -46,10 +49,34 @@ export async function requireUser(context: RpcContext): Promise<SessionUser> {
     }
   }
 
+  let name = session.user.name;
+  let image: string | null = session.user.image ?? null;
+  try {
+    const [profile] = await context.db
+      .select({
+        name: user.name,
+        image: user.image,
+        updatedAt: user.updatedAt,
+      })
+      .from(user)
+      .where(eq(user.id, session.user.id))
+      .limit(1);
+    name = profile?.name || name;
+    image = publishedProfileImage(
+      profile?.image ?? session.user.image,
+      session.user.id,
+      profile?.updatedAt?.getTime() ?? 0,
+      context.env?.apiUrl ?? context.env?.authUrl ?? "",
+    );
+  } catch {
+    // Session-only contexts (unit tests) skip the profile join.
+  }
+
   return {
     userId: session.user.id,
     email: session.user.email,
-    name: session.user.name,
+    name,
+    image,
     workspaceId,
     workspaceName,
     headers,
@@ -68,6 +95,7 @@ export async function requireActor(context: RpcContext): Promise<Actor> {
     userId: user.userId,
     email: user.email,
     name: user.name,
+    image: user.image,
     workspaceId: user.workspaceId,
     isDeploymentOwner: user.isDeploymentOwner,
   };

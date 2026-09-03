@@ -29,6 +29,7 @@ export default defineConfig({
     proxy: {
       "/api": api,
       "/health": api,
+      "/avatars": api,
       "/agents": {
         target: api,
         ws: true,

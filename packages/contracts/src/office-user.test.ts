@@ -11,12 +11,34 @@ import {
   withOfficeUserMetadata,
   withOfficeUserRequest,
 } from "./office-user.js";
+import { OFFICE_REVIEW_SOURCE } from "./office-review.js";
 
 const alex = { userId: "usr_1", name: "Alex" };
 
 describe("parseOfficeUser", () => {
   it("reads a flat identity", () => {
     expect(parseOfficeUser(alex)).toEqual(alex);
+  });
+
+  it("keeps an https profile photo", () => {
+    const withPhoto = {
+      ...alex,
+      image: "https://lh3.googleusercontent.com/a/photo",
+    };
+    expect(parseOfficeUser(withPhoto)).toEqual(withPhoto);
+    expect(
+      officeUserFromActor({
+        userId: alex.userId,
+        name: alex.name,
+        image: withPhoto.image,
+      }),
+    ).toEqual(withPhoto);
+  });
+
+  it("drops a non-http profile photo", () => {
+    expect(
+      parseOfficeUser({ ...alex, image: "javascript:alert(1)" }),
+    ).toEqual(alex);
   });
 
   it("reads metadata.user", () => {
@@ -57,6 +79,18 @@ describe("stampOfficeUser", () => {
     });
   });
 
+  it("stamps a profile photo", () => {
+    const withPhoto = {
+      ...alex,
+      image: "https://avatars.githubusercontent.com/u/1",
+    };
+    const next = stampOfficeUser(
+      { role: "user" as const, metadata: { user: alex } },
+      withPhoto,
+    );
+    expect(parseOfficeUserMeta(next.metadata)).toEqual(withPhoto);
+  });
+
   it("does not stamp assistant rows", () => {
     const row = { role: "assistant" as const, metadata: {} };
     expect(stampOfficeUser(row, alex)).toBe(row);
@@ -68,11 +102,8 @@ describe("stampOfficeUser", () => {
       alex,
     );
     expect(parseOfficeUserMeta(next.metadata)).toEqual(alex);
-    expect(
-      parseOfficeUserMeta({
-        custom: (next.metadata as { custom: unknown }).custom,
-      }),
-    ).toEqual(alex);
+    const stamped = next.metadata as Record<string, unknown>;
+    expect(parseOfficeUserMeta({ custom: stamped.custom })).toEqual(alex);
   });
 
   it("overwrites a client-supplied sender", () => {
@@ -109,6 +140,14 @@ describe("stampIncomingOfficeUser", () => {
     const row = { role: "user" as const, metadata: {} };
     expect(stampIncomingOfficeUser(row, alex, { metadata: {} })).toBe(row);
   });
+
+  it("does not stamp an office-review trigger as the connected human", () => {
+    const row = {
+      role: "user" as const,
+      metadata: { source: OFFICE_REVIEW_SOURCE },
+    };
+    expect(stampIncomingOfficeUser(row, alex, null)).toBe(row);
+  });
 });
 
 describe("withOfficeUserMetadata", () => {
@@ -134,6 +173,19 @@ describe("office user headers", () => {
     expect(officeUserFromHeaders(request.headers)).toEqual({
       userId: "usr_1",
       name: "José",
+    });
+  });
+
+  it("round-trips a profile photo", () => {
+    const photo = "https://avatars.githubusercontent.com/u/1";
+    const request = withOfficeUserRequest(
+      new Request("https://api.example/agents/BotActor/bot_1"),
+      { userId: "usr_1", name: "Alex", image: photo },
+    );
+    expect(officeUserFromHeaders(request.headers)).toEqual({
+      userId: "usr_1",
+      name: "Alex",
+      image: photo,
     });
   });
 });

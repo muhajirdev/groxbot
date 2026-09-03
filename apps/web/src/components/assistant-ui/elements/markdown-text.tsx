@@ -14,6 +14,7 @@ import type { TextMessagePartProps } from "@assistant-ui/react";
 import { CheckIcon, CopyIcon } from "@phosphor-icons/react";
 
 import { TooltipIconButton } from "@/components/assistant-ui/elements/tooltip-icon-button";
+import { ChatFileLink } from "@/components/ChatFileLink";
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
 import { cn } from "@/lib/utils";
 
@@ -147,14 +148,16 @@ const defaultComponents = memoizeMarkdownComponents({
       {...props}
     />
   ),
-  a: ({ className, ...props }) => (
-    <a
+  a: ({ className, href, children }) => (
+    <ChatFileLink
       className={cn(
         "aui-md-a text-primary hover:text-primary/80 underline underline-offset-2",
         className,
       )}
-      {...props}
-    />
+      href={typeof href === "string" ? href : undefined}
+    >
+      {children}
+    </ChatFileLink>
   ),
   blockquote: ({ className, ...props }) => (
     <blockquote
