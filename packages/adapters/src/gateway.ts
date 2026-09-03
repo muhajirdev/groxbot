@@ -18,7 +18,7 @@ export type GatewayProvider = (typeof GATEWAY_PROVIDERS)[number];
 export const CLOUDFLARE_DEEPSEEK_V4_FLASH =
   "@cf/deepseek-ai/deepseek-v4-flash-0731";
 
-/** Same DeepSeek V4 Flash release on OpenRouter (Pi catalog id). */
+/** Same DeepSeek V4 Flash release on OpenRouter. */
 export const OPENROUTER_DEEPSEEK_V4_FLASH = "deepseek/deepseek-v4-flash";
 
 export const OPENROUTER_CHAT_URL =

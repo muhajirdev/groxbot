@@ -391,7 +391,7 @@ Use 127.0.0.1, not localhost, for OAuth callbacks. Neon DATABASE_URL is required
 - POST ${abs(api, "/rpc")} — signed-in product API (oRPC)
 - POST ${abs(api, "/api/auth/*")} — Better Auth
 
-Do not import fs, dockerode, or Cloudflare bindings from the Pi/executor. The API Worker uses @groxbot/adapters/edge (Workers AI binding / REST gateway).
+Do not import fs, dockerode, or Cloudflare bindings from kernel packages. The API Worker uses @groxbot/adapters/edge (Workers AI binding / REST gateway).
 
 ## Tests
 

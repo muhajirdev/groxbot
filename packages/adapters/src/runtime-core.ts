@@ -216,7 +216,7 @@ function isAbortError(error: unknown): boolean {
   );
 }
 
-/** `poke Lookout: do the thing` — test/offline only. Live Flue uses poke_teammate. */
+/** `poke Lookout: do the thing` — test/offline only. */
 export function parsePokePrompt(
   prompt: string,
 ): { name: string; message: string } | null {
@@ -225,17 +225,9 @@ export function parsePokePrompt(
   return { name: match[1], message: match[2].trim() };
 }
 
-export const FLUE_RUNTIME = "flue" as const;
-export const FLUE_ECHO_RUNTIME = "flue-echo" as const;
-
 export function resolveAgentRuntimeKind(kind?: string | null): string {
   const runtime = kind?.trim();
   return runtime || PRODUCT_RUNTIME;
-}
-
-/** Flue echo harness only. Tests construct `ScriptedAgentRuntime` in code. */
-export function isOfflineAgentRuntime(kind: string): boolean {
-  return kind === FLUE_ECHO_RUNTIME;
 }
 
 /**

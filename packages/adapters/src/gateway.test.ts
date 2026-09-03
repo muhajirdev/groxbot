@@ -25,8 +25,6 @@ import {
 import {
   agentRuntimeNeedsModel,
   createAgentRuntime,
-  FLUE_ECHO_RUNTIME,
-  FLUE_RUNTIME,
   GatewayAgentRuntime,
   parsePokePrompt,
   resolveAgentRuntimeKind,
@@ -416,14 +414,7 @@ describe("createAgentRuntime", () => {
     expect(() => createAgentRuntime(PRODUCT_RUNTIME, {})).toThrow(/AI binding/);
   });
 
-  it("needs a model id for live flue, not for the echo harness", () => {
-    expect(agentRuntimeNeedsModel(FLUE_ECHO_RUNTIME, {})).toBe(false);
-    expect(agentRuntimeNeedsModel(FLUE_RUNTIME, {})).toBe(true);
-    expect(
-      agentRuntimeNeedsModel(FLUE_RUNTIME, {
-        GROXBOT_MODEL: "openai/gpt-4o-mini",
-      }),
-    ).toBe(false);
+  it("needs gateway keys unless hosted AI is on", () => {
     expect(agentRuntimeNeedsModel(PRODUCT_RUNTIME, {})).toBe(true);
     expect(
       agentRuntimeNeedsModel(PRODUCT_RUNTIME, {
@@ -502,5 +493,6 @@ describe("createAgentRuntime", () => {
 
   it("rejects unknown runtimes", () => {
     expect(() => createAgentRuntime("pi")).toThrow(/Unknown agent runtime/);
+    expect(() => createAgentRuntime("flue")).toThrow(/Unknown agent runtime/);
   });
 });
