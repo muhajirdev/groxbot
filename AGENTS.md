@@ -19,3 +19,13 @@
 - v1 surface is **web** (Vite + TanStack Router). Desktop is Electron around web. Mobile is Expo later. All three call **oRPC** via `@groxbot/rpc`.
 - See `docs/grok-bot-ui.md`, `docs/computers.md`, `docs/knowledge-search.md`, and `docs/caching.md`.
 - Self-host / Flue / Pi are not v1.
+
+## Cursor Cloud specific instructions
+
+Desktop / `computerUse` / screen recordings are slow. Treat them as opt-in, not the default demo.
+
+- Prove work with automated tests and logs: `pnpm test`, `pnpm check`, targeted `vitest run`, curl against local services. Put that evidence in `/opt/cursor/artifacts` (test output, logs, one screenshot if it actually helps).
+- Do **not** start `computerUse`, the desktop, or `RecordScreen` unless the user explicitly asks for a visual walkthrough or a click-through of the running UI.
+- Do **not** record walkthrough videos by default. Skip the video-artifact flow. A single screenshot is enough when a UI pixel must be shown; tests/logs are enough otherwise.
+- UI, layout, routing, and client-state changes still need verification — use vitest, existing web tests, and curl. Not a headed desktop session.
+- If computer use is skipped or unavailable, that is not a blocker. Ship with test/log evidence.
