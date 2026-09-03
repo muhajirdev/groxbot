@@ -118,7 +118,9 @@ export function KnowledgeGraphMap(props: {
         : new Set<number>(),
     [index, props.selected],
   );
-  const focusing = Boolean(props.selected && byId.size > 0 && linked.size > 0);
+  const focusing = Boolean(
+    props.selected && visible.length > 18 && linked.size > 0,
+  );
   const isolateCount = layout.nodes.filter((node) => node.isolate).length;
   const folders = useMemo(() => {
     const seen = new Map<string, number>();

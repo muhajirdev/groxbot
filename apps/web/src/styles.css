@@ -2659,7 +2659,7 @@ html.electron .pane-head {
 }
 
 .knowledge-graph-edge.faded {
-  opacity: 0.12;
+  opacity: 0.22;
 }
 
 .knowledge-graph-node {
@@ -2696,7 +2696,7 @@ html.electron .pane-head {
 }
 
 .knowledge-graph-node.faded {
-  opacity: 0.16;
+  opacity: 0.4;
 }
 
 .knowledge-graph-node text {
