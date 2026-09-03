@@ -49,6 +49,21 @@ export function invitationUrl(webOrigin: string, invitationId: string): string {
   return `${origin}/onboarding?invite=${encodeURIComponent(invitationId)}`;
 }
 
+export async function isWorkspaceMember(
+  db: Database,
+  userId: string,
+  workspaceId: string,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: member.id })
+    .from(member)
+    .where(
+      and(eq(member.userId, userId), eq(member.organizationId, workspaceId)),
+    )
+    .limit(1);
+  return Boolean(row);
+}
+
 export async function renameWorkspace(
   db: Database,
   workspaceId: string,

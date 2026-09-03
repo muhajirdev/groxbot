@@ -1,5 +1,5 @@
 import { ScriptedAgentRuntime } from "@groxbot/adapters/edge";
-import { IN_PROCESS_WAKEUP } from "@groxbot/contracts";
+import { IN_PROCESS_WAKEUP, WORKSPACE_ID_HEADER } from "@groxbot/contracts";
 import {
   type ComputerDisk,
   createWakeHandlers,
@@ -211,10 +211,14 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
     await handles.close();
   });
 
-  function client() {
+  function client(workspaceId?: string) {
     return createGroxbotClient({
       baseUrl: origin,
-      headers: () => ({ cookie, origin }),
+      headers: () => ({
+        cookie,
+        origin,
+        ...(workspaceId ? { [WORKSPACE_ID_HEADER]: workspaceId } : {}),
+      }),
       fetch: async (input, init) => {
         const request =
           input instanceof Request ? input : new Request(String(input), init);
@@ -410,6 +414,11 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
     const inSecond = await rpc.me();
     expect(inSecond.workspaceId).toBe(second.id);
     expect(inSecond.workspaceName).toBe("Second office");
+    expect(inSecond.workspaceSlug).toBe(second.slug);
+    expect(await rpc.bots.list()).toEqual([]);
+    expect(
+      (await client(first.id).bots.list()).some((bot) => bot.id === piper.id),
+    ).toBe(true);
     expect(await rpc.bots.list()).toEqual([]);
     expect((await rpc.workspaces.list()).map((item) => item.id).sort()).toEqual(
       [first.id, second.id].sort(),

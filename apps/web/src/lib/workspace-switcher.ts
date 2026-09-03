@@ -3,15 +3,23 @@ export const WORKSPACE_CACHE_KEY = "groxbot.workspace";
 export type WorkspaceOption = {
   id: string;
   name: string;
+  slug: string;
 };
 
 export type CachedWorkspace = {
   id: string;
   name: string;
+  slug?: string;
 };
 
 export type WorkspaceMenuItem =
-  | { kind: "workspace"; id: string; name: string; current: boolean }
+  | {
+      kind: "workspace";
+      id: string;
+      name: string;
+      slug: string;
+      current: boolean;
+    }
   | { kind: "create" };
 
 export type WorkspaceDestination =
@@ -45,8 +53,12 @@ export function parseCachedWorkspace(
       "name" in parsed && typeof parsed.name === "string"
         ? parsed.name.trim()
         : "";
+    const slug =
+      "slug" in parsed && typeof parsed.slug === "string"
+        ? parsed.slug.trim()
+        : "";
     if (!id || !name) return null;
-    return { id, name };
+    return slug ? { id, name, slug } : { id, name };
   } catch {
     return null;
   }
@@ -59,13 +71,17 @@ export function readCachedWorkspace(): CachedWorkspace | null {
 export function writeCachedWorkspace(input: {
   id?: string | null;
   name?: string | null;
+  slug?: string | null;
 }): void {
   const id = input.id?.trim();
   const name = input.name?.trim();
+  const slug = input.slug?.trim();
   if (!id || !name) return;
   workspaceStorage()?.setItem(
     WORKSPACE_CACHE_KEY,
-    JSON.stringify({ id, name } satisfies CachedWorkspace),
+    JSON.stringify(
+      (slug ? { id, name, slug } : { id, name }) satisfies CachedWorkspace,
+    ),
   );
 }
 
@@ -102,6 +118,7 @@ export function canSaveWorkspaceName(
 export function workspaceMenuItems(opts: {
   currentId?: string | null;
   currentName?: string | null;
+  currentSlug?: string | null;
   others?: WorkspaceOption[];
 }): WorkspaceMenuItem[] {
   const current = opts.currentId
@@ -110,6 +127,7 @@ export function workspaceMenuItems(opts: {
           kind: "workspace",
           id: opts.currentId,
           name: workspaceDisplayName(opts.currentName),
+          slug: opts.currentSlug?.trim() || opts.currentId,
           current: true,
         },
       ] satisfies WorkspaceMenuItem[])
@@ -121,6 +139,7 @@ export function workspaceMenuItems(opts: {
         kind: "workspace",
         id: item.id,
         name: workspaceDisplayName(item.name),
+        slug: item.slug || item.id,
         current: false,
       }),
     );

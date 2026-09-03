@@ -8,6 +8,7 @@ import {
   peekBots,
   upsertBot,
 } from "./collections";
+import { OFFICE_TO, officeParams } from "./office-route";
 import { orpc, queryClient } from "./orpc";
 import { destinationAfterWorkspaceChange } from "./workspace-switcher";
 
@@ -67,7 +68,11 @@ export async function redirectAuthedHome(): Promise<never> {
   const bots = await loadBotsForRoute();
   const first = firstLiveBot(bots);
   if (!first) throw redirect({ to: "/onboarding", search: {} });
-  throw redirect({ to: "/bot/$botId", params: { botId: first.id } });
+  if (!me.workspaceSlug) throw redirect({ to: "/onboarding", search: {} });
+  throw redirect({
+    to: OFFICE_TO,
+    params: officeParams(me.workspaceSlug, first.id),
+  });
 }
 
 /** Drop the current office cache and open the active workspace. */

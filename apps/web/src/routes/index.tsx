@@ -1,4 +1,6 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { OFFICE_TO, officeParams } from "../lib/office-route";
+import { orpc } from "../lib/orpc";
 import { redirectAuthedHome } from "../lib/session";
 import { Welcome } from "../screens/Welcome";
 
@@ -9,7 +11,15 @@ export const Route = createFileRoute("/")({
         ? ""
         : window.location.hash.replace(/^#/, "");
     if (hash && context.session) {
-      throw redirect({ to: "/bot/$botId", params: { botId: hash } });
+      const me = await context.queryClient.ensureQueryData(
+        orpc.me.queryOptions(),
+      );
+      if (me.workspaceSlug) {
+        throw redirect({
+          to: OFFICE_TO,
+          params: officeParams(me.workspaceSlug, hash),
+        });
+      }
     }
     if (context.session) await redirectAuthedHome();
   },

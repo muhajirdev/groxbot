@@ -422,12 +422,16 @@ export const McpConnectResultSchema = z.object({
 });
 export type McpConnectResult = z.infer<typeof McpConnectResultSchema>;
 
+/** Explicit tenant on product RPC. Last-used org stays on the Better Auth session. */
+export const WORKSPACE_ID_HEADER = "x-workspace-id";
+
 export const MeSchema = z.object({
   userId: Id,
   email: z.string().email(),
   name: z.string(),
   image: z.string().nullable(),
   workspaceId: Id.nullable(),
+  workspaceSlug: z.string().nullable(),
   workspaceName: z.string().nullable(),
   needsWorkspace: z.boolean(),
   isDeploymentOwner: z.boolean(),

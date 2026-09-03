@@ -15,6 +15,8 @@ import { Route as DesignRouteImport } from "./routes/design"
 import { Route as LoginRouteImport } from "./routes/login"
 import { Route as AuthedOnboardingRouteImport } from "./routes/_authed/onboarding"
 import { Route as AuthedBotBotIdRouteImport } from "./routes/_authed/bot/$botId"
+import { Route as AuthedWorkspaceSlugRouteImport } from "./routes/_authed/$workspaceSlug/route"
+import { Route as AuthedWorkspaceSlugBotBotIdRouteImport } from "./routes/_authed/$workspaceSlug/bot/$botId"
 
 const IndexRoute = IndexRouteImport.update({
   id: "/",
@@ -45,6 +47,17 @@ const AuthedBotBotIdRoute = AuthedBotBotIdRouteImport.update({
   path: "/bot/$botId",
   getParentRoute: () => AuthedRouteRoute,
 } as any)
+const AuthedWorkspaceSlugRoute = AuthedWorkspaceSlugRouteImport.update({
+  id: "/$workspaceSlug",
+  path: "/$workspaceSlug",
+  getParentRoute: () => AuthedRouteRoute,
+} as any)
+const AuthedWorkspaceSlugBotBotIdRoute =
+  AuthedWorkspaceSlugBotBotIdRouteImport.update({
+    id: "/bot/$botId",
+    path: "/bot/$botId",
+    getParentRoute: () => AuthedWorkspaceSlugRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute
@@ -52,6 +65,8 @@ export interface FileRoutesByFullPath {
   "/login": typeof LoginRoute
   "/onboarding": typeof AuthedOnboardingRoute
   "/bot/$botId": typeof AuthedBotBotIdRoute
+  "/$workspaceSlug": typeof AuthedWorkspaceSlugRouteWithChildren
+  "/$workspaceSlug/bot/$botId": typeof AuthedWorkspaceSlugBotBotIdRoute
 }
 export interface FileRoutesByTo {
   "/": typeof IndexRoute
@@ -59,6 +74,8 @@ export interface FileRoutesByTo {
   "/login": typeof LoginRoute
   "/onboarding": typeof AuthedOnboardingRoute
   "/bot/$botId": typeof AuthedBotBotIdRoute
+  "/$workspaceSlug": typeof AuthedWorkspaceSlugRouteWithChildren
+  "/$workspaceSlug/bot/$botId": typeof AuthedWorkspaceSlugBotBotIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -68,12 +85,28 @@ export interface FileRoutesById {
   "/login": typeof LoginRoute
   "/_authed/onboarding": typeof AuthedOnboardingRoute
   "/_authed/bot/$botId": typeof AuthedBotBotIdRoute
+  "/_authed/$workspaceSlug": typeof AuthedWorkspaceSlugRouteWithChildren
+  "/_authed/$workspaceSlug/bot/$botId": typeof AuthedWorkspaceSlugBotBotIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: "/" | "/design" | "/login" | "/onboarding" | "/bot/$botId"
+  fullPaths:
+    | "/"
+    | "/design"
+    | "/login"
+    | "/onboarding"
+    | "/bot/$botId"
+    | "/$workspaceSlug"
+    | "/$workspaceSlug/bot/$botId"
   fileRoutesByTo: FileRoutesByTo
-  to: "/" | "/design" | "/login" | "/onboarding" | "/bot/$botId"
+  to:
+    | "/"
+    | "/design"
+    | "/login"
+    | "/onboarding"
+    | "/bot/$botId"
+    | "/$workspaceSlug"
+    | "/$workspaceSlug/bot/$botId"
   id:
     | "__root__"
     | "/"
@@ -82,6 +115,8 @@ export interface FileRouteTypes {
     | "/login"
     | "/_authed/onboarding"
     | "/_authed/bot/$botId"
+    | "/_authed/$workspaceSlug"
+    | "/_authed/$workspaceSlug/bot/$botId"
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -135,17 +170,44 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AuthedBotBotIdRouteImport
       parentRoute: typeof AuthedRouteRoute
     }
+    "/_authed/$workspaceSlug": {
+      id: "/_authed/$workspaceSlug"
+      path: "/$workspaceSlug"
+      fullPath: "/$workspaceSlug"
+      preLoaderRoute: typeof AuthedWorkspaceSlugRouteImport
+      parentRoute: typeof AuthedRouteRoute
+    }
+    "/_authed/$workspaceSlug/bot/$botId": {
+      id: "/_authed/$workspaceSlug/bot/$botId"
+      path: "/bot/$botId"
+      fullPath: "/$workspaceSlug/bot/$botId"
+      preLoaderRoute: typeof AuthedWorkspaceSlugBotBotIdRouteImport
+      parentRoute: typeof AuthedWorkspaceSlugRoute
+    }
   }
 }
+
+interface AuthedWorkspaceSlugRouteChildren {
+  AuthedWorkspaceSlugBotBotIdRoute: typeof AuthedWorkspaceSlugBotBotIdRoute
+}
+
+const AuthedWorkspaceSlugRouteChildren: AuthedWorkspaceSlugRouteChildren = {
+  AuthedWorkspaceSlugBotBotIdRoute: AuthedWorkspaceSlugBotBotIdRoute,
+}
+
+const AuthedWorkspaceSlugRouteWithChildren =
+  AuthedWorkspaceSlugRoute._addFileChildren(AuthedWorkspaceSlugRouteChildren)
 
 interface AuthedRouteRouteChildren {
   AuthedOnboardingRoute: typeof AuthedOnboardingRoute
   AuthedBotBotIdRoute: typeof AuthedBotBotIdRoute
+  AuthedWorkspaceSlugRoute: typeof AuthedWorkspaceSlugRouteWithChildren
 }
 
 const AuthedRouteRouteChildren: AuthedRouteRouteChildren = {
   AuthedOnboardingRoute: AuthedOnboardingRoute,
   AuthedBotBotIdRoute: AuthedBotBotIdRoute,
+  AuthedWorkspaceSlugRoute: AuthedWorkspaceSlugRouteWithChildren,
 }
 
 const AuthedRouteRouteWithChildren = AuthedRouteRoute._addFileChildren(

@@ -1,31 +1,19 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { botsCollection, peekBots } from "../../../lib/collections";
-import { officeSearch } from "../../../lib/office-search";
-import { firstLiveBot, loadBotsForRoute } from "../../../lib/session";
-import { Chat } from "../../../screens/Chat";
+import { OFFICE_TO, officeParams } from "../../../lib/office-route";
+import { orpc } from "../../../lib/orpc";
 
+/** Old `/bot/$botId` bookmarks follow the last-used office slug. */
 export const Route = createFileRoute("/_authed/bot/$botId")({
-  pendingMs: 1000,
-  preloadStaleTime: 30_000,
-  validateSearch: officeSearch,
-  loader: ({ params }) => {
-    if (botsCollection.has(params.botId)) {
-      return peekBots();
+  beforeLoad: async ({ context, params }) => {
+    const me = await context.queryClient.ensureQueryData(
+      orpc.me.queryOptions(),
+    );
+    if (me.needsWorkspace || !me.workspaceSlug) {
+      throw redirect({ to: "/onboarding", search: {} });
     }
-    return loadBotsForRoute(params.botId).then((bots) => {
-      const first = firstLiveBot(bots);
-      if (!first) throw redirect({ to: "/onboarding", search: {} });
-      if (!bots.some((bot) => bot.id === params.botId)) {
-        throw redirect({ to: "/bot/$botId", params: { botId: first.id } });
-      }
-      return bots;
+    throw redirect({
+      to: OFFICE_TO,
+      params: officeParams(me.workspaceSlug, params.botId),
     });
   },
-  component: ChatPage,
 });
-
-function ChatPage() {
-  const { botId } = Route.useParams();
-  const desk = Route.useSearch();
-  return <Chat botId={botId} desk={desk} />;
-}

@@ -1,4 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { OFFICE_TO, officeParams } from "../../lib/office-route";
 import { orpc } from "../../lib/orpc";
 import { firstLiveBot, loadBotsForRoute } from "../../lib/session";
 import { Onboarding } from "../../screens/Onboarding";
@@ -21,8 +22,11 @@ export const Route = createFileRoute("/_authed/onboarding")({
     if (me.needsWorkspace || search?.invite) return;
     const bots = await loadBotsForRoute();
     const first = firstLiveBot(bots);
-    if (first) {
-      throw redirect({ to: "/bot/$botId", params: { botId: first.id } });
+    if (first && me.workspaceSlug) {
+      throw redirect({
+        to: OFFICE_TO,
+        params: officeParams(me.workspaceSlug, first.id),
+      });
     }
   },
   component: OnboardingPage,
