@@ -9,6 +9,7 @@
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1 --port 5174",
     "deploy": "vite build && wrangler deploy",
+    "upload": "vite build && wrangler versions upload",
     "cf-typegen": "wrangler types",
     "sync:composio": "tsx scripts/sync-composio-toolkits.ts",
     "check": "tsc --noEmit -p tsconfig.json"
