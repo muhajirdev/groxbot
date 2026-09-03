@@ -6,7 +6,6 @@ import {
   graphFolderHue,
   graphNodeLabel,
   indexKnowledgeGraph,
-  KNOWLEDGE_GRAPH_REST,
   knowledgeGraphBacklinks,
   knowledgeGraphLinkedIds,
   layoutKnowledgeGraph,
@@ -121,8 +120,8 @@ describe("layoutKnowledgeGraph", () => {
     expect(a && b).toBeTruthy();
     if (a && b) {
       const dist = Math.hypot(a.x - b.x, a.y - b.y);
-      expect(dist).toBeGreaterThan(KNOWLEDGE_GRAPH_REST * 0.35);
-      expect(dist).toBeLessThan(KNOWLEDGE_GRAPH_REST * 4.5);
+      expect(dist).toBeGreaterThan(40);
+      expect(dist).toBeLessThan(900);
     }
   });
 
@@ -140,6 +139,28 @@ describe("layoutKnowledgeGraph", () => {
       const straightish = graphEdgeGeom(from, to, false);
       expect(bent.d).not.toBe(straightish.d);
     }
+  });
+
+  it("spreads a small office graph instead of leaving a pile", () => {
+    const layout = layoutKnowledgeGraph({
+      paths: [
+        "playbooks/handoff.md",
+        "playbooks/SKILL.md",
+        "notes/clients.md",
+        "company/README.md",
+        "sources/brief.md",
+        "scratch/todo.md",
+      ],
+      out: [[1, 2, 3], [0], [0, 4], [0], [2], []],
+    });
+    const linked = layout.nodes.filter((node) => !node.isolate);
+    const xs = linked.map((node) => node.x);
+    const ys = linked.map((node) => node.y);
+    const span = Math.hypot(
+      Math.max(...xs) - Math.min(...xs),
+      Math.max(...ys) - Math.min(...ys),
+    );
+    expect(span).toBeGreaterThan(400);
   });
 
   it("is empty when the snapshot is empty", () => {

@@ -75,12 +75,13 @@ export function KnowledgeGraphMap(props: {
     svgRef.current = node;
     if (!node) return;
     const measure = () => {
-      const rect = node.getBoundingClientRect();
-      if (rect.width < 8 || rect.height < 8) return;
+      const width = Math.round(node.clientWidth);
+      const height = Math.round(node.clientHeight);
+      if (width < 8 || height < 8) return;
       setViewport((current) =>
-        current.width === rect.width && current.height === rect.height
+        current.width === width && current.height === height
           ? current
-          : { width: rect.width, height: rect.height },
+          : { width, height },
       );
     };
     measure();
@@ -133,12 +134,11 @@ export function KnowledgeGraphMap(props: {
     return ids;
   }, [hover, index, props.selected]);
   const labeled = useMemo(() => {
-    const candidates =
-      focusing && camera.k < 0.85
-        ? visible.filter(
-            (node) => linked.has(node.id) || alwaysLabels.has(node.id),
-          )
-        : visible;
+    const candidates = focusing
+      ? visible.filter(
+          (node) => linked.has(node.id) || alwaysLabels.has(node.id),
+        )
+      : visible;
     if (camera.k < 0.48) return alwaysLabels;
     return pickGraphLabels(candidates, alwaysLabels);
   }, [alwaysLabels, camera.k, focusing, linked, visible]);

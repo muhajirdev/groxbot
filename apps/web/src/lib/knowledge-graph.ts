@@ -157,7 +157,7 @@ export function panGraphCamera(
 export function fitGraphCamera(
   nodes: { x: number; y: number; r: number }[],
   viewport: { width: number; height: number },
-  padding = 64,
+  padding = 48,
 ): GraphCamera {
   if (nodes.length === 0 || viewport.width < 8 || viewport.height < 8) {
     return { x: 0, y: 0, k: 1 };
@@ -174,9 +174,7 @@ export function fitGraphCamera(
   }
   const w = Math.max(1, maxX - minX + padding * 2);
   const h = Math.max(1, maxY - minY + padding * 2);
-  const k = clampGraphZoom(
-    Math.min(viewport.width / w, viewport.height / h, 2.35),
-  );
+  const k = clampGraphZoom(Math.min(viewport.width / w, viewport.height / h));
   const cx = (minX + maxX) / 2;
   const cy = (minY + maxY) / 2;
   return {
@@ -397,19 +395,45 @@ export function layoutKnowledgeGraph(
     }
   }
 
+  const nodes = placed.filter(Boolean);
+  expandConnectedNodes(nodes);
+
   let width = EMPTY_SIZE.width;
   let height = EMPTY_SIZE.height;
-  for (const node of placed) {
-    if (!node) continue;
+  for (const node of nodes) {
     width = Math.max(width, node.x + 80);
     height = Math.max(height, node.y + 56);
   }
   return {
-    nodes: placed.filter(Boolean),
+    nodes,
     edges,
     width,
     height,
   };
+}
+
+function expandConnectedNodes(nodes: KnowledgeGraphNode[], minSpan = 560) {
+  const linked = nodes.filter((node) => !node.isolate);
+  if (linked.length < 2) return;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const node of linked) {
+    minX = Math.min(minX, node.x);
+    minY = Math.min(minY, node.y);
+    maxX = Math.max(maxX, node.x);
+    maxY = Math.max(maxY, node.y);
+  }
+  const span = Math.max(maxX - minX, maxY - minY, 1);
+  if (span >= minSpan) return;
+  const scale = minSpan / span;
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  for (const node of linked) {
+    node.x = cx + (node.x - cx) * scale;
+    node.y = cy + (node.y - cy) * scale;
+  }
 }
 
 function makeNode(
