@@ -181,7 +181,7 @@ const ThreadRoot: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 
   return (
     <ThreadPrimitive.Root
-      className="aui-root aui-thread-root bg-background @container flex h-full flex-col"
+      className="aui-root aui-thread-root bg-bg-thread @container flex h-full flex-col"
       style={{
         ["--thread-max-width" as string]: "100%",
         ["--composer-bg" as string]: "var(--color-card)",
@@ -214,7 +214,7 @@ const ThreadRoot: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
           </div>
 
           <ThreadPrimitive.ViewportFooter
-            className="aui-thread-viewport-footer bg-background sticky bottom-0 mt-auto flex flex-col gap-3 overflow-visible rounded-t-(--composer-radius) pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-6"
+            className="aui-thread-viewport-footer bg-bg-thread sticky bottom-0 mt-auto flex flex-col gap-3 overflow-visible rounded-t-(--composer-radius) pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-6"
           >
             <ThreadScrollToBottom />
             <ThreadFollowupSuggestions />
