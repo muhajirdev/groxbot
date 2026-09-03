@@ -20,6 +20,7 @@ import {
   PlusIcon as PhosphorPlus,
   BooksIcon as PhosphorBooks,
   PushPinIcon,
+  SignOutIcon as PhosphorSignOut,
   TrashSimpleIcon,
   XIcon as PhosphorX,
 } from "@phosphor-icons/react";
@@ -112,6 +113,10 @@ export function DoubleChevronIcon(props: IconProps) {
 
 export function CheckIcon(props: IconProps) {
   return <PhosphorCheck className={props.className} />;
+}
+
+export function SignOutIcon(props: IconProps) {
+  return <PhosphorSignOut className={props.className} />;
 }
 
 export function GitHubIcon(props: IconProps) {

@@ -2,11 +2,78 @@ import type { AvatarShape } from "@groxbot/contracts";
 import type { MascotMood } from "@groxbot/mascot";
 import type { ReactNode } from "react";
 import { AvatarMark } from "./Avatar";
+import { SignOutIcon } from "./Icons";
+
+const WELCOME_LEDE = "Like Grok Bot, for the whole team.";
+const WELCOME_NOTE =
+  "Each Bot already has a computer. You can ignore it until you need the screen.";
 
 export function GateShell(props: { children: ReactNode }) {
   return (
     <div className="screen">
       <div className="stack gate">{props.children}</div>
+    </div>
+  );
+}
+
+export function GateSplit(props: {
+  children: ReactNode;
+  proof: ReactNode;
+  quote?: string;
+  onSignOut?: () => void;
+}) {
+  return (
+    <div className="screen gate-split-screen">
+      {props.onSignOut ? (
+        <button
+          type="button"
+          className="gate-signout"
+          onClick={props.onSignOut}
+        >
+          <SignOutIcon />
+          Sign out
+        </button>
+      ) : null}
+      <div className="gate gate-split">
+        <div className="gate-split-copy">{props.children}</div>
+        <aside className="gate-split-proof" aria-hidden>
+          {props.quote ? (
+            <p className="thesis">{props.quote}</p>
+          ) : null}
+          {props.proof}
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+export function GateWelcome(props: {
+  lede?: string;
+  note?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="gate-stage gate-welcome">
+      <p className="kicker">Welcome to Groxbot</p>
+      <h1 className="hero-title">
+        <span>Meet</span>
+        <AvatarMark
+          name="Groxbot"
+          color="#e45c9a"
+          shape="circle"
+          size="md"
+          mood="happy"
+          hero
+        />
+        <span>Groxbot</span>
+      </h1>
+      <p className="lede">{props.lede ?? WELCOME_LEDE}</p>
+      <p className="thesis">
+        Give work the way you would a coworker. They pick it up and comment when
+        done.
+      </p>
+      <p className="gate-note">{props.note ?? WELCOME_NOTE}</p>
+      <div className="gate-welcome-actions">{props.children}</div>
     </div>
   );
 }
