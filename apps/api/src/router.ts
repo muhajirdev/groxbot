@@ -75,11 +75,13 @@ import {
   requireUser,
 } from "./session.js";
 import {
+  activateWorkspace,
   createWorkspace,
   inviteToWorkspace,
   joinWorkspace,
-  pendingInvitations,
+  listWorkspaces,
   peekWorkspaceInvite,
+  pendingInvitations,
   updateWorkspace,
 } from "./workspaces.js";
 import { updateAccount } from "./account.js";
@@ -152,6 +154,14 @@ export const appRouter = os.router({
     create: os.workspaces.create.handler(async ({ context, input }) => {
       const user = await requireUser(context);
       return createWorkspace(context, user, input.name);
+    }),
+    list: os.workspaces.list.handler(async ({ context }) => {
+      const user = await requireUser(context);
+      return listWorkspaces(context, user);
+    }),
+    activate: os.workspaces.activate.handler(async ({ context, input }) => {
+      const user = await requireUser(context);
+      return activateWorkspace(context, user, input.workspaceId);
     }),
     update: os.workspaces.update.handler(async ({ context, input }) => {
       return updateWorkspace(context, input.name);

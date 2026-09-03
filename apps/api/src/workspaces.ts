@@ -11,6 +11,10 @@ import { ORPCError } from "@orpc/server";
 import type { RpcContext } from "./context.js";
 import { requireActor, type SessionUser } from "./session.js";
 
+function toWorkspace(org: { id: string; name: string; slug?: string | null }) {
+  return { id: org.id, name: org.name, slug: org.slug || org.id };
+}
+
 export async function createWorkspace(
   context: RpcContext,
   user: SessionUser,
@@ -21,6 +25,7 @@ export async function createWorkspace(
   }
   const trimmed = name.trim();
   const slug = slugForWorkspace(trimmed, user.userId);
+  let created: { id: string; name: string; slug?: string | null } | null = null;
   for (let attempt = 0; attempt < 4; attempt += 1) {
     try {
       const org = await context.auth.api.createOrganization({
@@ -35,7 +40,8 @@ export async function createWorkspace(
           message: "Could not create workspace",
         });
       }
-      return { id: org.id, name: org.name, slug: org.slug };
+      created = org;
+      break;
     } catch (caught) {
       const message = authMessage(caught);
       if (attempt < 3 && /already exists|slug already taken/i.test(message)) {
@@ -44,9 +50,55 @@ export async function createWorkspace(
       throwWorkspaceError(caught, "Could not create workspace");
     }
   }
-  throw new ORPCError("BAD_REQUEST", {
-    message: "Pick another workspace name.",
+  if (!created) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: "Pick another workspace name.",
+    });
+  }
+  try {
+    await context.auth.api.setActiveOrganization({
+      body: { organizationId: created.id },
+      headers: user.headers,
+    });
+  } catch (caught) {
+    throwWorkspaceError(caught, "Could not create workspace");
+  }
+  return toWorkspace(created);
+}
+
+export async function listWorkspaces(context: RpcContext, user: SessionUser) {
+  if (!context.auth) {
+    throw new ORPCError("UNAUTHORIZED", { message: "Sign in" });
+  }
+  const orgs = await context.auth.api.listOrganizations({
+    headers: user.headers,
   });
+  return (orgs ?? []).map((org) => toWorkspace(org));
+}
+
+export async function activateWorkspace(
+  context: RpcContext,
+  user: SessionUser,
+  workspaceId: string,
+) {
+  if (!context.auth) {
+    throw new ORPCError("UNAUTHORIZED", { message: "Sign in" });
+  }
+  try {
+    const org = await context.auth.api.setActiveOrganization({
+      body: { organizationId: workspaceId },
+      headers: user.headers,
+    });
+    if (!org?.id) {
+      throw new ORPCError("BAD_REQUEST", {
+        message: "That workspace is missing.",
+      });
+    }
+    return toWorkspace(org);
+  } catch (caught) {
+    if (caught instanceof ORPCError) throw caught;
+    throwWorkspaceError(caught, "Could not switch workspace");
+  }
 }
 
 export async function updateWorkspace(context: RpcContext, name: string) {

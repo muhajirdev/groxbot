@@ -3,6 +3,7 @@ import * as z from "zod";
 import {
   BotSchema,
   CreateBotInput,
+  ActivateWorkspaceInput,
   CreateWorkspaceInput,
   UpdateWorkspaceInput,
   GuestConnectSchema,
@@ -66,6 +67,8 @@ export const appContract = oc.router({
   me: oc.output(MeSchema),
   workspaces: {
     create: oc.input(CreateWorkspaceInput).output(WorkspaceSchema),
+    list: oc.output(z.array(WorkspaceSchema)),
+    activate: oc.input(ActivateWorkspaceInput).output(WorkspaceSchema),
     update: oc.input(UpdateWorkspaceInput).output(WorkspaceSchema),
     join: oc.input(JoinWorkspaceInput).output(WorkspaceSchema),
     invite: oc.input(InviteWorkspaceInput).output(WorkspaceInviteSchema),

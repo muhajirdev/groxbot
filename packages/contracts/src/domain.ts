@@ -286,6 +286,10 @@ export const UpdateWorkspaceInput = z.object({
   name: z.string().min(1).max(80),
 });
 
+export const ActivateWorkspaceInput = z.object({
+  workspaceId: Id,
+});
+
 export const JoinWorkspaceInput = z.object({
   invitationId: z.string().min(1).max(400),
 });

@@ -129,6 +129,27 @@ describe("oRPC", () => {
     });
   });
 
+  it("requires a session to list or switch workspaces", async () => {
+    const app = new Hono();
+    mountRpc(app, { env } as unknown as RpcContext);
+    const client = createGroxbotClient({
+      baseUrl: "http://groxbot.test",
+      fetch: async (input, init) => {
+        const request =
+          input instanceof Request ? input : new Request(String(input), init);
+        return app.request(request);
+      },
+    });
+    await expect(client.workspaces.list()).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+    await expect(
+      client.workspaces.activate({ workspaceId: "ws_1" }),
+    ).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+  });
+
   it("requires a session to update a workspace", async () => {
     const app = new Hono();
     mountRpc(app, { env } as unknown as RpcContext);
