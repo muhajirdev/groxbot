@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   catalogToCards,
-  logoNeedsLightPlate,
+  composioLogoUrl,
   parseComposioCatalog,
-  sampleLuminance,
 } from "./plugins";
 
 describe("plugin catalog", () => {
@@ -16,7 +15,7 @@ describe("plugin catalog", () => {
           name: "Gmail",
           description: "Mail",
           category: "email",
-          logo: "https://logos.composio.dev/api/gmail",
+          logo: composioLogoUrl("gmail"),
         },
       ]),
     );
@@ -24,10 +23,11 @@ describe("plugin catalog", () => {
     expect(cards[0]?.category).toBe("Email");
   });
 
-  it("puts dark logos on a light plate", () => {
-    expect(logoNeedsLightPlate(40)).toBe(true);
-    expect(logoNeedsLightPlate(200)).toBe(false);
-    const pixels = new Uint8ClampedArray([0, 0, 0, 255, 0, 0, 0, 255]);
-    expect(sampleLuminance(pixels, 4)).toBe(0);
+  it("hotlinks Composio logos for <img>, including granola_mcp", () => {
+    const [row] = parseComposioCatalog([
+      { slug: "granola_mcp", name: "Granola" },
+    ]);
+    expect(row?.logo).toBe("https://logos.composio.dev/api/granola_mcp");
+    expect(composioLogoUrl("granola_mcp")).toBe(row?.logo);
   });
 });

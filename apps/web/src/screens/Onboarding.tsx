@@ -38,19 +38,20 @@ import {
   SUGGESTED_JOBS,
 } from "../lib/jobs";
 import { orpc } from "../lib/orpc";
+import { composioLogoUrl } from "../lib/plugins";
 import { client } from "../lib/rpc";
 import { cacheCreatedBot, firstLiveBot } from "../lib/session";
 import { Button, Chip, Field, Input, Select, Textarea } from "../ui";
 
 const TOOLS = [
-  { name: "Gmail", logo: "https://logos.composio.dev/api/gmail" },
-  { name: "Slack", logo: "https://logos.composio.dev/api/slack" },
-  { name: "GitHub", logo: "https://logos.composio.dev/api/github" },
-  { name: "LinkedIn", logo: "https://logos.composio.dev/api/linkedin" },
-  { name: "Notion", logo: "https://logos.composio.dev/api/notion" },
-  { name: "Drive", logo: "https://logos.composio.dev/api/googledrive" },
-  { name: "Calendar", logo: "https://logos.composio.dev/api/googlecalendar" },
-  { name: "Linear", logo: "https://logos.composio.dev/api/linear" },
+  { name: "Gmail", logo: composioLogoUrl("gmail") },
+  { name: "Slack", logo: composioLogoUrl("slack") },
+  { name: "GitHub", logo: composioLogoUrl("github") },
+  { name: "LinkedIn", logo: composioLogoUrl("linkedin") },
+  { name: "Notion", logo: composioLogoUrl("notion") },
+  { name: "Drive", logo: composioLogoUrl("googledrive") },
+  { name: "Calendar", logo: composioLogoUrl("googlecalendar") },
+  { name: "Linear", logo: composioLogoUrl("linear") },
 ] as const;
 
 const MODEL_MARKS = [

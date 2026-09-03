@@ -4,10 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { mcpCollection, pluginsCollection } from "../lib/collections";
 import { userFacingError } from "../lib/errors";
 import {
+  composioLogoUrl,
   loadPluginCatalog,
-  logoNeedsLightPlate,
   type PluginCard,
-  sampleLuminance,
 } from "../lib/plugins";
 import { client } from "../lib/rpc";
 import { cn, Field, Input, ModalShell } from "../ui";
@@ -463,39 +462,11 @@ export function PluginsModal(props: {
 }
 
 function PluginLogo(props: { slug: string; name: string; src?: string }) {
-  const [plate, setPlate] = useState(false);
-  const src = props.src || `https://logos.composio.dev/api/${props.slug}`;
+  // logos.composio.dev has no CORS; never set crossOrigin.
+  const src = props.src || composioLogoUrl(props.slug);
   return (
-    <span
-      className={cn(
-        "grid size-9 shrink-0 place-items-center rounded-lg",
-        plate ? "bg-white" : "bg-card",
-      )}
-    >
-      <img
-        alt=""
-        src={src}
-        className="size-6 object-contain"
-        crossOrigin="anonymous"
-        onLoad={(event) => {
-          try {
-            const img = event.currentTarget;
-            const canvas = document.createElement("canvas");
-            canvas.width = img.naturalWidth;
-            canvas.height = img.naturalHeight;
-            const ctx = canvas.getContext("2d");
-            if (!ctx) return;
-            ctx.drawImage(img, 0, 0);
-            const luminance = sampleLuminance(
-              ctx.getImageData(0, 0, canvas.width, canvas.height).data,
-            );
-            if (luminance !== undefined)
-              setPlate(logoNeedsLightPlate(luminance));
-          } catch {
-            setPlate(true);
-          }
-        }}
-      />
+    <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white">
+      <img alt="" src={src} className="size-6 object-contain" />
     </span>
   );
 }

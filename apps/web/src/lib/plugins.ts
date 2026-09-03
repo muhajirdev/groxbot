@@ -37,6 +37,11 @@ export type CatalogToolkit = {
   logo: string;
 };
 
+/** Display-only hotlink. logos.composio.dev omits CORS headers. */
+export function composioLogoUrl(slug: string): string {
+  return `https://logos.composio.dev/api/${slug}`;
+}
+
 export function parseComposioCatalog(raw: unknown): CatalogToolkit[] {
   if (!Array.isArray(raw)) return [];
   const out: CatalogToolkit[] = [];
@@ -53,9 +58,7 @@ export function parseComposioCatalog(raw: unknown): CatalogToolkit[] {
       name,
       description: String(row.description ?? "").trim(),
       category: String(row.category ?? "other").trim() || "other",
-      logo:
-        String(row.logo ?? "").trim() ||
-        `https://logos.composio.dev/api/${slug}`,
+      logo: String(row.logo ?? "").trim() || composioLogoUrl(slug),
     });
   }
   return out;
@@ -103,7 +106,7 @@ async function fetchCatalog(): Promise<PluginCard[]> {
         blurb: "Read and draft mail when a Bot hits a wall.",
         category: "Featured",
         kind: "connector",
-        logo: "https://logos.composio.dev/api/gmail",
+        logo: composioLogoUrl("gmail"),
       },
       {
         id: "github",
@@ -111,32 +114,9 @@ async function fetchCatalog(): Promise<PluginCard[]> {
         blurb: "Find PRs. Never merge on its own.",
         category: "Featured",
         kind: "connector",
-        logo: "https://logos.composio.dev/api/github",
+        logo: composioLogoUrl("github"),
       },
       ...PLUGIN_SKILLS,
     ];
   }
-}
-
-export function logoNeedsLightPlate(luminance: number): boolean {
-  return luminance < 90;
-}
-
-export function sampleLuminance(
-  data: Uint8ClampedArray,
-  step = 16,
-): number | undefined {
-  let sum = 0;
-  let count = 0;
-  for (let i = 0; i < data.length; i += step) {
-    const alpha = data[i + 3] ?? 0;
-    if (alpha < 32) continue;
-    const r = data[i] ?? 0;
-    const g = data[i + 1] ?? 0;
-    const b = data[i + 2] ?? 0;
-    sum += 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    count += 1;
-  }
-  if (count === 0) return undefined;
-  return sum / count;
 }
