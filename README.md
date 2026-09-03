@@ -105,7 +105,7 @@ Mobile (Expo):
 pnpm dev:mobile
 ```
 
-The phone is the same office: roster, Think thread (assistant-ui React Native + `useAgent` / `useAgentChat` / `useAISDKRuntime`), this bot’s computer, knowledge, plugins, and settings. Live docs / slides / sheets still open in the web office.
+The phone is the same office: roster, Think thread (assistant-ui React Native primitives — markdown, copy/edit/retry, branches, attachments, follow-ups — on the same `useAgent` / `useAgentChat` / `useAISDKRuntime` stack as web), this bot’s computer, knowledge (library + graph), plugins, and settings. Live docs / slides / sheets still open in the web office.
 
 On a device, set `EXPO_PUBLIC_API_URL` to this machine’s LAN address (`http://192.168.x.x:3100`) and `EXPO_PUBLIC_WEB_URL` to the office (`http://192.168.x.x:5173`). Magic-link and Google callbacks use the `groxbot://` scheme. Live docs / slides / sheets still open in the web office.
 

@@ -1,11 +1,14 @@
 import { useAISDKRuntime } from "@assistant-ui/ai-sdk";
 import {
+  ActionBarPrimitive,
   AssistantRuntimeProvider,
   AttachmentPrimitive,
   AuiIf,
+  BranchPickerPrimitive,
   ComposerPrimitive,
   ErrorPrimitive,
   MessagePrimitive,
+  QueueItemPrimitive,
   type TextMessagePartComponent,
   ThreadPrimitive,
   useAui,
@@ -17,11 +20,13 @@ import {
   withOfficeUserMetadata,
 } from "@groxbot/contracts";
 import { useAgent } from "agents/react";
+import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -41,7 +46,13 @@ import { client } from "../lib/rpc";
 import { colors, radius } from "../theme";
 import { useSetWorking } from "../working";
 import { AppCard } from "./AppCard";
+import { ChatMarkdown } from "./ChatMarkdown";
 import { OfficeSkillSlash } from "./OfficeSkillSlash";
+
+async function copyToClipboard(text: string) {
+  const didCopy = await Clipboard.setStringAsync(text);
+  if (!didCopy) throw new Error("Clipboard write failed");
+}
 
 export function ThinkThread(props: {
   botId: string;
@@ -250,17 +261,27 @@ function OfficeThread(props: {
           </AuiIf>
         }
         ListFooterComponent={
-          <AuiIf condition={(s) => s.thread.isRunning}>
-            <View style={styles.workingRow}>
-              <ActivityIndicator color={colors.accent} />
-              <Text style={styles.muted}>{props.botName} is working…</Text>
-            </View>
-          </AuiIf>
+          <>
+            <AuiIf
+              condition={(s) =>
+                s.thread.isRunning &&
+                (s.thread.messages.at(-1)?.role !== "assistant" ||
+                  !s.thread.messages.length)
+              }
+            >
+              <View style={styles.workingRow}>
+                <ActivityIndicator color={colors.accent} />
+                <Text style={styles.muted}>{props.botName} is working…</Text>
+              </View>
+            </AuiIf>
+            <Followups />
+          </>
         }
       >
         {() => (
           <ThreadMessage
             botId={props.botId}
+            botName={props.botName}
             viewerUserId={props.viewerUserId}
           />
         )}
@@ -270,46 +291,131 @@ function OfficeThread(props: {
   );
 }
 
-function ThreadMessage(props: { botId: string; viewerUserId?: string }) {
+function Followups() {
+  const suggestions = useAuiState((s) => s.thread.suggestions);
+  const empty = useAuiState((s) => s.thread.isEmpty);
+  const running = useAuiState((s) => s.thread.isRunning);
+  if (empty || running || suggestions.length === 0) return null;
+  return (
+    <View style={styles.followups}>
+      {suggestions.map((suggestion) => (
+        <ThreadPrimitive.Suggestion
+          key={suggestion.prompt}
+          prompt={suggestion.prompt}
+          send
+          style={styles.followup}
+        >
+          <Text style={styles.followupLabel}>
+            {suggestion.title || suggestion.prompt}
+          </Text>
+        </ThreadPrimitive.Suggestion>
+      ))}
+    </View>
+  );
+}
+
+function ThreadMessage(props: {
+  botId: string;
+  botName: string;
+  viewerUserId?: string;
+}) {
   const role = useAuiState((s) => s.message.role);
+  const editing = useAuiState((s) => s.message.composer.isEditing);
+  if (editing) return <EditComposer />;
+  if (role === "user") {
+    return <UserMessage viewerUserId={props.viewerUserId} />;
+  }
+  return <AssistantMessage botId={props.botId} botName={props.botName} />;
+}
+
+function UserMessage(props: { viewerUserId?: string }) {
   const metadata = useAuiState((s) => s.message.metadata);
   const sender = officeUserMessageSender(metadata, props.viewerUserId);
-  if (role === "user") {
-    return (
-      <MessagePrimitive.Root style={styles.userWrap}>
-        {sender ? <Text style={styles.who}>{sender.label}</Text> : null}
-        <View style={styles.userBubble}>
-          <MessagePrimitive.Parts components={{ Text: UserText }} />
-        </View>
-        <MessagePrimitive.Attachments>
-          {() => <AttachmentChip />}
-        </MessagePrimitive.Attachments>
-      </MessagePrimitive.Root>
+  return (
+    <MessagePrimitive.Root style={styles.userWrap}>
+      {sender ? <Text style={styles.who}>{sender.label}</Text> : null}
+      <View style={styles.userBubble}>
+        <MessagePrimitive.Parts components={{ Text: UserText }} />
+      </View>
+      <MessagePrimitive.Attachments>
+        {() => <AttachmentChip />}
+      </MessagePrimitive.Attachments>
+      <View style={styles.userBar}>
+        <BranchPicker />
+        <ActionBarPrimitive.Edit style={styles.barBtn}>
+          <Text style={styles.barLabel}>Edit</Text>
+        </ActionBarPrimitive.Edit>
+      </View>
+    </MessagePrimitive.Root>
+  );
+}
+
+function AssistantMessage(props: { botId: string; botName: string }) {
+  const runningEmpty = useAuiState((s) => {
+    if (s.message.status?.type !== "running") return false;
+    return !s.message.parts?.some(
+      (part) => part.type === "text" && Boolean(part.text?.trim()),
     );
-  }
+  });
   return (
     <MessagePrimitive.Root style={styles.assistantWrap}>
-      <MessagePrimitive.Parts
-        components={{
-          Text: AssistantText,
-          tools: { Fallback: ToolFallback },
-        }}
+      <Text style={styles.who}>{props.botName}</Text>
+      {runningEmpty ? (
+        <View style={styles.workingRow}>
+          <ActivityIndicator color={colors.accent} />
+          <Text style={styles.muted}>{props.botName} is working…</Text>
+        </View>
+      ) : null}
+      <MessagePrimitive.Content
+        renderText={({ part }) => <ChatMarkdown text={part.text} />}
+        renderToolCall={({ part }) => (
+          <ToolFallback
+            toolName={part.toolName}
+            argsText={
+              part.argsText ||
+              (part.args ? JSON.stringify(part.args, null, 2) : "")
+            }
+          />
+        )}
+        renderImage={({ part }) => <PartImage image={part.image} />}
+        renderFile={({ part }) => (
+          <PartFile name={part.filename} mimeType={part.mimeType} />
+        )}
+        renderReasoning={({ part }) => <Reasoning text={part.text} />}
       />
       <ThinkAppCards botId={props.botId} />
       <ErrorPrimitive.Root style={styles.errorBox}>
         <ErrorPrimitive.Message style={styles.errorText} />
       </ErrorPrimitive.Root>
+      <View style={styles.assistantBar}>
+        <BranchPicker />
+        <ActionBarPrimitive.Copy copyToClipboard={copyToClipboard}>
+          {({ isCopied }) => (
+            <Text style={styles.barLabel}>{isCopied ? "Copied" : "Copy"}</Text>
+          )}
+        </ActionBarPrimitive.Copy>
+        <ActionBarPrimitive.Reload style={styles.barBtn}>
+          <Text style={styles.barLabel}>Retry</Text>
+        </ActionBarPrimitive.Reload>
+      </View>
     </MessagePrimitive.Root>
   );
 }
 
 const UserText: TextMessagePartComponent = ({ text }) => (
-  <Text style={styles.userText}>{text}</Text>
+  <ChatMarkdown text={text} />
 );
 
-const AssistantText: TextMessagePartComponent = ({ text }) => (
-  <Text style={styles.assistantText}>{text}</Text>
-);
+function Reasoning(props: { text: string }) {
+  const [open, setOpen] = useState(false);
+  if (!props.text.trim()) return null;
+  return (
+    <Pressable onPress={() => setOpen((value) => !value)} style={styles.tool}>
+      <Text style={styles.toolName}>{open ? "Hide thinking" : "Thinking"}</Text>
+      {open ? <ChatMarkdown text={props.text} /> : null}
+    </Pressable>
+  );
+}
 
 function ToolFallback(props: { toolName?: string; argsText?: string }) {
   const [open, setOpen] = useState(false);
@@ -321,6 +427,28 @@ function ToolFallback(props: { toolName?: string; argsText?: string }) {
         <Text style={styles.toolArgs}>{props.argsText}</Text>
       ) : null}
     </Pressable>
+  );
+}
+
+function PartImage(props: { image: string }) {
+  if (!props.image) return null;
+  return (
+    <Image
+      source={{ uri: props.image }}
+      style={styles.partImage}
+      resizeMode="cover"
+      accessibilityLabel="Image"
+    />
+  );
+}
+
+function PartFile(props: { name?: string; mimeType?: string }) {
+  return (
+    <View style={styles.attachChip}>
+      <Text style={styles.muted} numberOfLines={1}>
+        {props.name || props.mimeType || "file"}
+      </Text>
+    </View>
   );
 }
 
@@ -348,11 +476,63 @@ function ThinkAppCards(props: { botId: string }) {
   );
 }
 
+function BranchPicker() {
+  const count = useAuiState((s) => s.message.branchCount);
+  if (count <= 1) return null;
+  return (
+    <View style={styles.branch}>
+      <BranchPickerPrimitive.Previous style={styles.barBtn}>
+        <Text style={styles.barLabel}>‹</Text>
+      </BranchPickerPrimitive.Previous>
+      <Text style={styles.muted}>
+        <BranchPickerPrimitive.Number /> / <BranchPickerPrimitive.Count />
+      </Text>
+      <BranchPickerPrimitive.Next style={styles.barBtn}>
+        <Text style={styles.barLabel}>›</Text>
+      </BranchPickerPrimitive.Next>
+    </View>
+  );
+}
+
+function EditComposer() {
+  return (
+    <MessagePrimitive.Root style={styles.userWrap}>
+      <ComposerPrimitive.Root style={styles.editBox}>
+        <ComposerPrimitive.Input
+          multiline
+          style={styles.input}
+          accessibilityLabel="Edit message"
+        />
+        <View style={styles.actions}>
+          <ComposerPrimitive.Cancel style={styles.stop}>
+            <Text style={styles.stopLabel}>Cancel</Text>
+          </ComposerPrimitive.Cancel>
+          <ComposerPrimitive.Send style={styles.send}>
+            <Text style={styles.sendLabel}>Update</Text>
+          </ComposerPrimitive.Send>
+        </View>
+      </ComposerPrimitive.Root>
+    </MessagePrimitive.Root>
+  );
+}
+
 function AttachmentChip() {
   const name = useAuiState((s) => s.attachment?.name);
+  const type = useAuiState((s) => s.attachment?.type);
+  const file = useAuiState((s) => s.attachment?.file) as
+    | { previewUri?: string }
+    | undefined;
+  if (type === "image" && file?.previewUri) {
+    return (
+      <AttachmentPrimitive.Root style={styles.thumbWrap}>
+        <Image source={{ uri: file.previewUri }} style={styles.thumb} />
+      </AttachmentPrimitive.Root>
+    );
+  }
   if (!name) return null;
   return (
     <AttachmentPrimitive.Root style={styles.attachChip}>
+      <AttachmentPrimitive.Thumb style={styles.muted} />
       <Text style={styles.muted}>{name}</Text>
     </AttachmentPrimitive.Root>
   );
@@ -363,6 +543,7 @@ function Composer(props: { placeholder: string }) {
     <ComposerPrimitive.Root style={styles.composer}>
       <OfficeSkillSlash />
       <ComposerAttachments />
+      <ComposerQueue />
       <ComposerPrimitive.Input
         placeholder={props.placeholder}
         placeholderTextColor={colors.faint}
@@ -389,6 +570,24 @@ function Composer(props: { placeholder: string }) {
   );
 }
 
+function ComposerQueue() {
+  return (
+    <ComposerPrimitive.Queue>
+      {() => (
+        <View style={styles.queueItem}>
+          <QueueItemPrimitive.Text style={styles.muted} />
+          <QueueItemPrimitive.Steer style={styles.barBtn}>
+            <Text style={styles.barLabel}>Now</Text>
+          </QueueItemPrimitive.Steer>
+          <QueueItemPrimitive.Remove style={styles.remove}>
+            <Text style={styles.removeLabel}>×</Text>
+          </QueueItemPrimitive.Remove>
+        </View>
+      )}
+    </ComposerPrimitive.Queue>
+  );
+}
+
 function ComposerAttachments() {
   const count = useAuiState((s) => s.composer.attachments.length);
   if (count === 0) return null;
@@ -403,8 +602,17 @@ function ComposerAttachments() {
 
 function ComposerAttachment() {
   const name = useAuiState((s) => s.attachment?.name);
+  const type = useAuiState((s) => s.attachment?.type);
+  const file = useAuiState((s) => s.attachment?.file) as
+    | { previewUri?: string }
+    | undefined;
   return (
     <AttachmentPrimitive.Root style={styles.attachChip}>
+      {type === "image" && file?.previewUri ? (
+        <Image source={{ uri: file.previewUri }} style={styles.thumb} />
+      ) : (
+        <AttachmentPrimitive.Thumb style={styles.muted} />
+      )}
       <Text style={styles.muted} numberOfLines={1}>
         {name}
       </Text>
@@ -476,7 +684,7 @@ const styles = StyleSheet.create({
   },
   userWrap: { alignItems: "flex-end", gap: 4 },
   assistantWrap: { alignItems: "flex-start", gap: 6 },
-  who: { color: colors.faint, fontSize: 11 },
+  who: { color: colors.faint, fontSize: 11, fontWeight: "600" },
   userBubble: {
     maxWidth: "85%",
     backgroundColor: colors.surface2,
@@ -484,8 +692,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  userText: { color: colors.text, fontSize: 16, lineHeight: 22 },
-  assistantText: { color: colors.text, fontSize: 16, lineHeight: 24 },
   cards: { gap: 8, marginTop: 4 },
   tool: {
     borderWidth: StyleSheet.hairlineWidth,
@@ -511,6 +717,15 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: colors.bg,
   },
+  editBox: {
+    width: "85%",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.line,
+    borderRadius: 16,
+    padding: 10,
+    backgroundColor: colors.surface,
+    gap: 8,
+  },
   input: {
     minHeight: 40,
     maxHeight: 120,
@@ -534,6 +749,14 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 6,
+  },
+  thumbWrap: { borderRadius: 10, overflow: "hidden" },
+  thumb: { width: 48, height: 48, borderRadius: 8 },
+  partImage: {
+    width: 220,
+    height: 160,
+    borderRadius: 12,
+    backgroundColor: colors.surface2,
   },
   iconBtn: {
     paddingHorizontal: 10,
@@ -571,4 +794,25 @@ const styles = StyleSheet.create({
   archivedCopy: { color: colors.text },
   link: { color: colors.accent, fontWeight: "700" },
   muted: { color: colors.muted, fontSize: 13 },
+  assistantBar: { flexDirection: "row", alignItems: "center", gap: 8 },
+  userBar: { flexDirection: "row", alignItems: "center", gap: 8 },
+  barBtn: { paddingHorizontal: 6, paddingVertical: 4 },
+  barLabel: { color: colors.muted, fontSize: 12, fontWeight: "700" },
+  branch: { flexDirection: "row", alignItems: "center", gap: 4 },
+  followups: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingTop: 8 },
+  followup: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.line,
+    borderRadius: radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: colors.surface,
+  },
+  followupLabel: { color: colors.text, fontSize: 13 },
+  queueItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 4,
+  },
 });

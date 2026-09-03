@@ -1,14 +1,17 @@
 import type { ModelProvider } from "@groxbot/contracts";
 import {
   CLOUDFLARE_PROVIDER,
+  CUSTOM_MODEL_SENTINEL,
+  catalogGroupLabel,
   DEFAULT_AI_GATEWAY_ID,
   PROVIDER_META,
   PROVIDER_ORDER,
+  pickerCatalog,
 } from "@groxbot/contracts";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Button } from "../components/Button";
 import { Field } from "../components/Field";
 import { Header } from "../components/Header";
@@ -35,6 +38,8 @@ export function YouScreen({ navigation }: Props) {
   const [cloudflareToken, setCloudflareToken] = useState("");
   const [cfAccount, setCfAccount] = useState("");
   const [cfGateway, setCfGateway] = useState<string>(DEFAULT_AI_GATEWAY_ID);
+  const [defaultModel, setDefaultModel] = useState("");
+  const [customModel, setCustomModel] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -43,6 +48,27 @@ export function YouScreen({ navigation }: Props) {
       setWorkspaceName(meQuery.data.workspaceName);
     }
   }, [meQuery.data?.workspaceName]);
+
+  useEffect(() => {
+    const settings = modelsQuery.data;
+    if (!settings) return;
+    const listed = settings.catalog.some(
+      (item) => item.id === settings.defaultModelId,
+    );
+    setDefaultModel(
+      listed || !settings.defaultModelId
+        ? settings.defaultModelId
+        : CUSTOM_MODEL_SENTINEL,
+    );
+    setCustomModel(listed ? "" : settings.defaultModelId);
+    if (settings.keys.find((item) => item.provider === CLOUDFLARE_PROVIDER)) {
+      const cf = settings.keys.find(
+        (item) => item.provider === CLOUDFLARE_PROVIDER,
+      );
+      if (cf?.accountId) setCfAccount(cf.accountId);
+      if (cf?.gatewayId) setCfGateway(cf.gatewayId);
+    }
+  }, [modelsQuery.data]);
 
   async function saveWorkspace() {
     const name = workspaceName.trim();
@@ -88,8 +114,16 @@ export function YouScreen({ navigation }: Props) {
           gatewayId: cfGateway.trim() || DEFAULT_AI_GATEWAY_ID,
         });
       }
+      const nextModel =
+        defaultModel === CUSTOM_MODEL_SENTINEL
+          ? customModel.trim()
+          : defaultModel || settings.defaultModelId;
       const next = await client.models.save({
-        defaultModel: settings.defaultModelId,
+        defaultModel: nextModel,
+        customModel:
+          defaultModel === CUSTOM_MODEL_SENTINEL
+            ? customModel.trim()
+            : undefined,
         keys: keys.length > 0 ? keys : [{ provider: "openrouter" }],
       });
       queryClient.setQueryData(orpc.models.get.queryOptions().queryKey, next);
@@ -126,14 +160,56 @@ export function YouScreen({ navigation }: Props) {
         onPress={() => void saveWorkspace()}
         busy={busy}
       />
-      <Text style={styles.section}>Models</Text>
+      <Text style={styles.section}>Default model</Text>
       <Text style={styles.body}>
-        Default:{" "}
-        {meQuery.data?.defaultModelLabel ||
-          modelsQuery.data?.defaultModel ||
-          "not set"}
-        {meQuery.data?.needsModel ? " — add a key to talk" : ""}
+        {meQuery.data?.needsModel ? "Add a key to talk. " : ""}
+        Workspace default is used unless a teammate overrides it.
       </Text>
+      {PROVIDER_ORDER.map((provider) => {
+        const options = pickerCatalog(
+          modelsQuery.data?.catalog ?? [],
+          defaultModel || modelsQuery.data?.defaultModelId || "",
+        ).filter((item) => item.provider === provider);
+        if (options.length === 0) return null;
+        return (
+          <View key={provider}>
+            <Text style={styles.meta}>{catalogGroupLabel(provider)}</Text>
+            {options.map((item) => (
+              <Pressable
+                key={item.id}
+                onPress={() => setDefaultModel(item.id)}
+                style={styles.option}
+              >
+                <Text
+                  style={defaultModel === item.id ? styles.on : styles.body}
+                >
+                  {item.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        );
+      })}
+      <Pressable
+        onPress={() => setDefaultModel(CUSTOM_MODEL_SENTINEL)}
+        style={styles.option}
+      >
+        <Text
+          style={
+            defaultModel === CUSTOM_MODEL_SENTINEL ? styles.on : styles.body
+          }
+        >
+          Custom model id
+        </Text>
+      </Pressable>
+      {defaultModel === CUSTOM_MODEL_SENTINEL ? (
+        <Field
+          label="Model id"
+          value={customModel}
+          onChangeText={setCustomModel}
+        />
+      ) : null}
+      <Text style={styles.section}>Keys</Text>
       {PROVIDER_ORDER.map((provider) => {
         const status = modelsQuery.data?.keys.find(
           (item) => item.provider === provider,
@@ -183,6 +259,10 @@ export function YouScreen({ navigation }: Props) {
             {modelsQuery.data.usage.totalTokens} tokens ·{" "}
             {modelsQuery.data.usage.requests} requests
           </Text>
+          <Text style={styles.meta}>
+            {modelsQuery.data.usage.promptTokens} prompt ·{" "}
+            {modelsQuery.data.usage.completionTokens} completion
+          </Text>
         </View>
       ) : null}
       <Button label="Sign out" tone="ghost" onPress={() => void signOut()} />
@@ -195,4 +275,6 @@ const styles = StyleSheet.create({
   error: { color: colors.danger },
   section: { color: colors.text, fontWeight: "700", marginTop: 12 },
   meta: { color: colors.muted },
+  option: { paddingVertical: 8 },
+  on: { color: colors.accent, fontWeight: "700" },
 });

@@ -27,6 +27,7 @@ async function fileFromUri(input: {
     name: input.name || "attachment",
     type: input.type || "application/octet-stream",
     bytes,
+    previewUri: input.type.startsWith("image/") ? input.uri : undefined,
   });
 }
 
@@ -79,8 +80,9 @@ export async function pickOfficePhotos(
       files.push(
         new OfficeBlobFile({
           name: asset.fileName || "photo.jpg",
-          type: "image/jpeg",
+          type: asset.mimeType || "image/jpeg",
           bytes,
+          previewUri: asset.uri,
         }),
       );
       continue;

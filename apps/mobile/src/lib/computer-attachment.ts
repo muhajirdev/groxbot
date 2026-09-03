@@ -76,12 +76,19 @@ export class OfficeBlobFile {
   readonly name: string;
   readonly type: string;
   readonly size: number;
+  readonly previewUri?: string;
   private readonly bytes: Uint8Array;
 
-  constructor(input: { name: string; type: string; bytes: Uint8Array }) {
+  constructor(input: {
+    name: string;
+    type: string;
+    bytes: Uint8Array;
+    previewUri?: string;
+  }) {
     this.name = input.name;
     this.type = input.type;
     this.size = input.bytes.byteLength;
+    this.previewUri = input.previewUri;
     this.bytes = input.bytes;
   }
 

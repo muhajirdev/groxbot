@@ -23,7 +23,8 @@
         {
           "photosPermission": "Attach a photo to this teammate’s computer."
         }
-      ]
+      ],
+      "expo-sharing"
     ]
   }
 }

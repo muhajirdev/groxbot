@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   compareSidebarBots,
+  filterRoster,
   firstLiveBot,
   isArchivedBot,
   isPinnedBot,
@@ -54,5 +55,17 @@ describe("sortRoster", () => {
     if (!first) return;
     expect(isPinnedBot(first)).toBe(true);
     expect(ranked.every((bot) => !isArchivedBot(bot))).toBe(true);
+  });
+});
+
+describe("filterRoster", () => {
+  it("matches name, job, or last preview", () => {
+    const bots = [
+      { name: "Reja", title: "Chief of Staff", lastPreview: "done" },
+      { name: "Piper", title: "Talent Scout", lastPreview: "shortlist" },
+    ];
+    expect(filterRoster(bots, "reja")).toEqual([bots[0]]);
+    expect(filterRoster(bots, "scout")).toEqual([bots[1]]);
+    expect(filterRoster(bots, "DONE")).toEqual([bots[0]]);
   });
 });

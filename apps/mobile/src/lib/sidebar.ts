@@ -31,3 +31,20 @@ export function sortRoster<
     .filter((bot) => !isArchivedBot(bot))
     .sort(compareSidebarBots);
 }
+
+export function sortArchived<
+  T extends Pick<Bot, "pinnedAt" | "lastAt" | "archivedAt">,
+>(bots: T[]): T[] {
+  return [...bots].filter(isArchivedBot).sort(compareSidebarBots);
+}
+
+export function filterRoster<
+  T extends Pick<Bot, "name" | "title" | "lastPreview">,
+>(bots: T[], query: string): T[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return bots;
+  return bots.filter((bot) => {
+    const hay = `${bot.name} ${bot.title} ${bot.lastPreview}`.toLowerCase();
+    return hay.includes(needle);
+  });
+}

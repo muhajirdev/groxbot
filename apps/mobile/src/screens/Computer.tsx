@@ -1,11 +1,16 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { Button } from "../components/Button";
 import { Field } from "../components/Field";
 import { Header } from "../components/Header";
 import { Screen } from "../components/Screen";
+import { downloadDataUri } from "../lib/computer-download";
+import {
+  computerPreviewKind,
+  computerPreviewSource,
+} from "../lib/computer-preview";
 import {
   type ComputerTreeNode,
   filterComputerTree,
@@ -14,6 +19,7 @@ import {
 import { userFacingError } from "../lib/errors";
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
+import { shareComputerDownload } from "../lib/share-file";
 import type { RootStackParamList } from "../navigation";
 import { colors, radius } from "../theme";
 
@@ -40,6 +46,11 @@ export function ComputerScreen({ navigation, route }: Props) {
   const [query, setQuery] = useState("");
   const [previewPath, setPreviewPath] = useState<string | null>(null);
   const [preview, setPreview] = useState("");
+  const [imageUri, setImageUri] = useState("");
+  const [kind, setKind] = useState<"text" | "image" | "binary" | "empty">(
+    "empty",
+  );
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
@@ -55,16 +66,47 @@ export function ComputerScreen({ navigation, route }: Props) {
 
   async function openFile(path: string) {
     setPreviewPath(path);
+    setError("");
     setPreview("Loading…");
+    setImageUri("");
+    const previewKind = computerPreviewKind(path);
+    const source = computerPreviewSource(previewKind);
     try {
+      if (source === "download") {
+        const file = await client.computer.download({ botId, path });
+        if (previewKind === "image") {
+          setKind("image");
+          setImageUri(downloadDataUri(file));
+          setPreview("");
+          return;
+        }
+        setKind("binary");
+        setPreview("Binary file — download to open.");
+        return;
+      }
       const file = await client.computer.read({ botId, path });
+      setKind("text");
       setPreview(
         file.encoding === "text" && file.content
           ? file.content
           : "(binary file)",
       );
     } catch (caught) {
+      setKind("empty");
       setPreview(userFacingError(caught, "Could not read that file."));
+    }
+  }
+
+  async function downloadFile(path: string) {
+    setBusy(true);
+    setError("");
+    try {
+      const file = await client.computer.download({ botId, path });
+      await shareComputerDownload(file);
+    } catch (caught) {
+      setError(userFacingError(caught, "Could not download that file"));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -90,6 +132,15 @@ export function ComputerScreen({ navigation, route }: Props) {
     }
   }
 
+  function toggleDir(dirPath: string) {
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (next.has(dirPath)) next.delete(dirPath);
+      else next.add(dirPath);
+      return next;
+    });
+  }
+
   return (
     <Screen scroll>
       <Header
@@ -104,13 +155,34 @@ export function ComputerScreen({ navigation, route }: Props) {
         }
       />
       <Field placeholder="Search files" value={query} onChangeText={setQuery} />
-      <Tree nodes={tree} onOpen={openFile} />
+      <Tree
+        nodes={tree}
+        onOpen={(path) => void openFile(path)}
+        onToggle={toggleDir}
+        collapsed={collapsed}
+        searching={query.trim().length > 0}
+      />
       {previewPath ? (
         <View style={styles.preview}>
           <Text style={styles.path}>{previewPath}</Text>
-          <Text style={styles.body}>{preview}</Text>
+          {kind === "image" && imageUri ? (
+            <Image
+              source={{ uri: imageUri }}
+              style={styles.image}
+              accessibilityLabel={previewPath}
+            />
+          ) : (
+            <Text style={styles.body}>{preview}</Text>
+          )}
+          <Button
+            label="Download"
+            tone="ghost"
+            onPress={() => void downloadFile(previewPath)}
+            busy={busy}
+          />
         </View>
       ) : null}
+      {error ? <Text style={styles.error}>{error}</Text> : null}
       <Text style={styles.section}>Routines</Text>
       {(routinesQuery.data ?? []).map((row) => (
         <View key={row.id} style={styles.card}>
@@ -120,7 +192,6 @@ export function ComputerScreen({ navigation, route }: Props) {
       ))}
       {creating ? (
         <View style={styles.card}>
-          {error ? <Text style={styles.error}>{error}</Text> : null}
           <Field label="Name" value={name} onChangeText={setName} />
           <Field
             label="Prompt"
@@ -155,32 +226,49 @@ export function ComputerScreen({ navigation, route }: Props) {
 function Tree({
   nodes,
   onOpen,
+  onToggle,
+  collapsed,
+  searching,
   depth = 0,
 }: {
   nodes: ComputerTreeNode[];
   onOpen: (path: string) => void;
+  onToggle: (path: string) => void;
+  collapsed: Set<string>;
+  searching: boolean;
   depth?: number;
 }) {
   return (
     <View>
-      {nodes.map((node) => (
-        <View key={node.path}>
-          <Pressable
-            onPress={() => {
-              if (node.kind === "file") onOpen(node.path);
-            }}
-            style={[styles.file, { paddingLeft: 12 + depth * 14 }]}
-          >
-            <Text style={styles.fileName}>
-              {node.kind === "dir" ? "▸ " : ""}
-              {node.name}
-            </Text>
-          </Pressable>
-          {node.children.length > 0 ? (
-            <Tree nodes={node.children} onOpen={onOpen} depth={depth + 1} />
-          ) : null}
-        </View>
-      ))}
+      {nodes.map((node) => {
+        const open = searching || !collapsed.has(node.path);
+        return (
+          <View key={node.path}>
+            <Pressable
+              onPress={() => {
+                if (node.kind === "file") onOpen(node.path);
+                else onToggle(node.path);
+              }}
+              style={[styles.file, { paddingLeft: 12 + depth * 14 }]}
+            >
+              <Text style={styles.fileName}>
+                {node.kind === "dir" ? (open ? "▾ " : "▸ ") : ""}
+                {node.name}
+              </Text>
+            </Pressable>
+            {node.children.length > 0 && open ? (
+              <Tree
+                nodes={node.children}
+                onOpen={onOpen}
+                onToggle={onToggle}
+                collapsed={collapsed}
+                searching={searching}
+                depth={depth + 1}
+              />
+            ) : null}
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -205,6 +293,7 @@ const styles = StyleSheet.create({
   },
   path: { color: colors.muted, fontSize: 12 },
   body: { color: colors.text, fontFamily: "monospace", fontSize: 13 },
+  image: { width: "100%", height: 220, borderRadius: 10 },
   card: {
     borderWidth: 1,
     borderColor: colors.line,
