@@ -12,6 +12,17 @@ Think is the **person**. A panel is a **place**. Those must not share one Durabl
 
 So: do not point group chat at Think. Do not name `BotActor` by `roomId`. Do not use Cloudflare Session as the room catalog. Do not add D1.
 
+## Cloudflare OS uses Pi. That does not make Pi the room.
+
+[Cloudflare OS](https://github.com/cloudflare/cloudflare-os) credits [`pi-agent-core`](https://pi.dev/) for “every LLM provider with one API.” The source is more specific than the README:
+
+- The durable is `OverseerDurableObject` — **the workspace (place)**. Chats are `chatId` rows on that DO. Gadgets are other DOs. Users are other DOs.
+- Pi is not a Durable Object. Each turn rebuilds an in-memory `AgentContext` from the Overseer chat log, then calls `runAgentLoopContinue`. They **rejected** Pi’s stateful `Agent` class. Resume replays the log; the API token is re-fetched from the user DO (not stored on the turn record).
+- One coding agent for the desk, Code Mode, sequential tools, 30-step cap. `AgentSpawner` still calls back into the same Overseer. Not a panel of named people with their own computers.
+- They migrated **off Vercel AI SDK** onto Pi. Think uses AI SDK. OS already had a custom `AiChatMessage` log and a frontend they refused to touch (`plans/pi-impl.md`: “frontend: zero changes”). Think would have been a second transcript.
+
+Think’s own docs say the design is **inspired by Pi**. Groxbot already has that: `BotActor extends Think`. OS uses Pi because Overseer *is* the session store. Groxbot should not put `pi-agent-core` on `BotActor` (Think already is the loop) and should not put Think/Pi on `RoomActor` (that would serialize the table and share one computer). The OS lesson for a panel is the Overseer shape: **place owns the log; the loop is a guest.**
+
 ## Two durables
 
 ```
