@@ -244,3 +244,77 @@ export function thinkMcpServerId(input: string): string {
   }
   return id;
 }
+
+/** Think MCP states that can expose tools inside execute. */
+export const MCP_EXECUTE_STATES = new Set([
+  "ready",
+  "connected",
+  "discovering",
+]);
+
+/** Wait for OAuth connect+discover before the callback response returns. */
+export const MCP_OAUTH_SETTLE_MS = 30_000;
+
+export type McpExecuteServer = {
+  id: string;
+  name: string;
+};
+
+export type McpLiveConnection = {
+  connectionState?: string;
+  name?: string;
+};
+
+export type McpThinkServer = {
+  name?: string;
+  state?: string;
+};
+
+export function mcpConnectionIsExecutable(state: string | undefined): boolean {
+  return Boolean(state && MCP_EXECUTE_STATES.has(state));
+}
+
+/**
+ * Pick live Think MCP sessions for Code Mode. Catalog `connected` is OAuth
+ * only — execute needs an in-memory client that is past authenticating.
+ */
+export function mcpServersForExecute(
+  servers: Record<string, McpThinkServer>,
+  connections: Record<string, McpLiveConnection | undefined>,
+): McpExecuteServer[] {
+  const used = new Set<string>();
+  const out: McpExecuteServer[] = [];
+  const ids = new Set([...Object.keys(servers), ...Object.keys(connections)]);
+  for (const id of ids) {
+    const connection = connections[id];
+    if (!connection) continue;
+    const server = servers[id];
+    const state = connection.connectionState ?? server?.state;
+    if (!mcpConnectionIsExecutable(state)) continue;
+    let name = (server?.name ?? connection.name ?? "").trim() || "mcp";
+    if (used.has(name)) name = `${name}-${id.slice(0, 8)}`;
+    used.add(name);
+    out.push({ id, name });
+  }
+  return out;
+}
+
+/** Map Think’s live MCP state onto the workspace catalog badge. */
+export function mcpCatalogStatusFromThink(
+  connectionState: string | undefined,
+  authSuccess: boolean,
+): { status: PluginStatus; lastError: string | null } {
+  if (!authSuccess) {
+    return { status: "error", lastError: "Authentication failed" };
+  }
+  if (mcpConnectionIsExecutable(connectionState)) {
+    return { status: "connected", lastError: null };
+  }
+  if (connectionState === "failed") {
+    return {
+      status: "error",
+      lastError: "MCP connection failed after OAuth.",
+    };
+  }
+  return { status: "connecting", lastError: null };
+}

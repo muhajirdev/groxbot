@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  mcpExecuteHint,
   rewriteThinkCapability,
   TEAMMATE_RUNTIME_LINE,
   THINK_RUNTIME_LINE,
@@ -111,5 +112,14 @@ describe("withOfficeExecuteDescription", () => {
 
   it("leaves the description alone without a knowledge connector", () => {
     expect(withOfficeExecuteDescription(generated, false)).toBe(generated);
+  });
+
+  it("hints named office MCP connectors so search is not required to notice them", () => {
+    const next = withOfficeExecuteDescription(generated, false, {
+      mcp: ["mimpimu"],
+    });
+    expect(next).toContain(mcpExecuteHint("mimpimu"));
+    expect(next).toMatch(/codemode\.search\("mimpimu"\)/);
+    expect(next).not.toMatch(/^- `mimpimu`$/m);
   });
 });
