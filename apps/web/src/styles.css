@@ -2269,8 +2269,8 @@ html.electron .pane-head {
 }
 
 .knowledge-modal.modal-popup {
-  width: min(1040px, calc(100% - 32px));
-  height: min(80vh, 720px);
+  width: min(1120px, calc(100% - 24px));
+  height: min(88vh, 860px);
 }
 
 .knowledge-split {
@@ -2284,7 +2284,8 @@ html.electron .pane-head {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: 12px 14px 16px;
+  padding: 12px 12px 14px;
+  background: color-mix(in srgb, var(--bg) 55%, var(--bg-pane));
   border-right: 1px solid var(--line);
 }
 
@@ -2312,43 +2313,104 @@ html.electron .pane-head {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  padding: 16px 18px 18px;
+  padding: 12px 16px 16px;
   overflow: hidden;
 }
 
 .knowledge-preview-head {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 12px;
   flex: none;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
 }
 
 .knowledge-preview-head h3 {
   margin: 0;
   font-size: 16px;
+  letter-spacing: -0.02em;
+}
+
+.knowledge-preview-desc {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .knowledge-kicker {
-  margin: 0 0 4px;
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
   color: var(--muted);
+}
+
+.knowledge-path-sep {
+  margin: 0 0.35em;
+  color: color-mix(in srgb, var(--muted) 70%, transparent);
+}
+
+.knowledge-path-seg {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.knowledge-path-seg:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .knowledge-preview-body {
   position: relative;
   flex: 1;
   min-height: 0;
-  background: var(--bg-pane);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg);
 }
 
 .knowledge-preview-md {
   position: absolute;
   inset: 0;
   overflow: auto;
-  padding: 4px 8px 20px;
+  padding: 28px 32px 48px;
+}
+
+.knowledge-doc {
+  max-width: 42rem;
+}
+
+.knowledge-doc-title {
+  margin: 0 0 0.4em;
+  font-size: 1.75rem;
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  line-height: 1.2;
+}
+
+.knowledge-doc-meta {
+  margin: 0 0 1.4em;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.knowledge-doc-meta a {
+  color: #8cb4ff;
+  text-decoration: none;
+}
+
+.knowledge-doc-meta a:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .knowledge-link {
@@ -2383,7 +2445,8 @@ html.electron .pane-head {
 }
 
 .knowledge-hint {
-  padding-top: 28px;
+  padding: 36px 18px 0;
+  text-align: center;
 }
 
 .knowledge-graph {
@@ -2739,7 +2802,15 @@ html.electron .pane-head {
 .chat-md ul,
 .chat-md ol {
   margin: 0.35em 0;
-  padding-left: 1.25em;
+  padding-left: 1.35em;
+}
+
+.chat-md ul {
+  list-style: disc;
+}
+
+.chat-md ol {
+  list-style: decimal;
 }
 
 .chat-md li {
@@ -2819,6 +2890,188 @@ html.electron .pane-head {
 :root[data-theme="light"] .chat-md pre,
 :root[data-theme="light"] .chat-md :not(pre) > code {
   background: rgba(0, 0, 0, 0.05);
+}
+
+.knowledge-md {
+  overflow-wrap: anywhere;
+  font-size: 15px;
+  line-height: 1.7;
+  color: color-mix(in srgb, var(--ink) 92%, var(--muted));
+}
+
+.knowledge-md > :first-child {
+  margin-top: 0;
+}
+
+.knowledge-md > :last-child {
+  margin-bottom: 0;
+}
+
+.knowledge-md p {
+  margin: 0 0 0.95em;
+}
+
+.knowledge-md p:last-child {
+  margin-bottom: 0;
+}
+
+.knowledge-md ul,
+.knowledge-md ol {
+  margin: 0.2em 0 1em;
+  padding-left: 1.45em;
+}
+
+.knowledge-md ul {
+  list-style: disc;
+}
+
+.knowledge-md ol {
+  list-style: decimal;
+}
+
+.knowledge-md ul ul {
+  list-style: circle;
+  margin: 0.2em 0;
+}
+
+.knowledge-md ol ol {
+  list-style: lower-alpha;
+  margin: 0.2em 0;
+}
+
+.knowledge-md li {
+  margin: 0.28em 0;
+  padding-left: 0.15em;
+}
+
+.knowledge-md li > p {
+  margin: 0;
+}
+
+.knowledge-md li > p + p {
+  margin-top: 0.45em;
+}
+
+.knowledge-md h1,
+.knowledge-md h2,
+.knowledge-md h3,
+.knowledge-md h4,
+.knowledge-md h5,
+.knowledge-md h6 {
+  color: var(--ink);
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1.25;
+}
+
+.knowledge-md h1 {
+  margin: 1.35em 0 0.55em;
+  font-size: 1.75rem;
+}
+
+.knowledge-md h2 {
+  margin: 1.5em 0 0.45em;
+  font-size: 1.28rem;
+}
+
+.knowledge-md h3 {
+  margin: 1.3em 0 0.4em;
+  font-size: 1.08rem;
+}
+
+.knowledge-md h4,
+.knowledge-md h5,
+.knowledge-md h6 {
+  margin: 1.15em 0 0.35em;
+  font-size: 0.98rem;
+}
+
+.knowledge-md h1:first-child,
+.knowledge-md h2:first-child,
+.knowledge-md h3:first-child {
+  margin-top: 0;
+}
+
+.knowledge-md blockquote {
+  margin: 1em 0;
+  padding: 0.15em 0 0.15em 0.95em;
+  border-left: 3px solid color-mix(in srgb, var(--accent) 55%, var(--line));
+  color: var(--muted);
+}
+
+.knowledge-md hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 1.6em 0;
+}
+
+.knowledge-md pre {
+  margin: 1em 0;
+  padding: 0.85em 1em;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.knowledge-md :not(pre) > code {
+  padding: 0.12em 0.38em;
+  border-radius: 6px;
+  background: var(--card-2);
+  font-size: 0.86em;
+}
+
+.knowledge-md a,
+.knowledge-md .knowledge-link {
+  color: #8cb4ff;
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, #8cb4ff 42%, transparent);
+}
+
+.knowledge-md a:hover,
+.knowledge-md .knowledge-link:hover {
+  color: #b7d0ff;
+  border-bottom-color: color-mix(in srgb, #b7d0ff 70%, transparent);
+}
+
+.knowledge-md .knowledge-link.missing {
+  color: var(--muted);
+  border-bottom-style: dotted;
+}
+
+.knowledge-md table {
+  width: 100%;
+  margin: 1em 0;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.knowledge-md th,
+.knowledge-md td {
+  padding: 0.45em 0.7em 0.45em 0;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+}
+
+.knowledge-md th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+:root[data-theme="light"] .knowledge-md a,
+:root[data-theme="light"] .knowledge-md .knowledge-link,
+:root[data-theme="light"] .knowledge-doc-meta a {
+  color: #2563eb;
+  border-bottom-color: color-mix(in srgb, #2563eb 35%, transparent);
+}
+
+:root[data-theme="light"] .knowledge-md a:hover,
+:root[data-theme="light"] .knowledge-md .knowledge-link:hover {
+  color: #1d4ed8;
 }
 
 .design-page {

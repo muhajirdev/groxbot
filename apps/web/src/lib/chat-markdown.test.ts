@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
 import { ChatMarkdown } from "../components/ChatMarkdown";
 import { safeMarkdownUrl } from "./chat-markdown";
 import { knowledgeMarkdownUrl } from "./knowledge-link";
@@ -40,7 +40,7 @@ describe("ChatMarkdown", () => {
         text: "See [voice](how-we-work/voice.md) and [[voice]]",
       }),
     );
-    expect(html).not.toContain("href=\"how-we-work/voice.md\"");
+    expect(html).not.toContain('href="how-we-work/voice.md"');
     expect(html).toContain("[[voice]]");
   });
 
@@ -53,5 +53,18 @@ describe("ChatMarkdown", () => {
       }),
     );
     expect(html).toContain("/how-we-work/voice.md");
+  });
+
+  it("marks document markdown for the knowledge reader", () => {
+    const html = renderToStaticMarkup(
+      createElement(ChatMarkdown, {
+        text: "# Resources\n\n- one",
+        variant: "document",
+      }),
+    );
+    expect(html).toContain("knowledge-md");
+    expect(html).not.toContain("chat-md");
+    expect(html).toContain("<h1>Resources</h1>");
+    expect(html).toContain("<ul");
   });
 });

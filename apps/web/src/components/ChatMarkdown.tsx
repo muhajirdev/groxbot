@@ -1,12 +1,12 @@
 import {
-  createElement,
-  memo,
-  useMemo,
   type ComponentProps,
+  createElement,
   type JSX,
+  memo,
   type ReactNode,
+  useMemo,
 } from "react";
-import { Streamdown, defaultRehypePlugins } from "streamdown";
+import { defaultRehypePlugins, Streamdown } from "streamdown";
 import "streamdown/styles.css";
 import { safeMarkdownUrl } from "../lib/chat-markdown";
 import { rewriteKnowledgeHrefs } from "../lib/knowledge-link";
@@ -86,6 +86,7 @@ const COMPONENTS = {
 export const ChatMarkdown = memo(function ChatMarkdown(props: {
   text: string;
   live?: boolean;
+  variant?: "chat" | "document";
   officePaths?: boolean;
   urlTransform?: (url: string) => string | null;
   renderLink?: (props: { href: string; children: ReactNode }) => ReactNode;
@@ -93,6 +94,7 @@ export const ChatMarkdown = memo(function ChatMarkdown(props: {
   const text = props.text.trim();
   const transform = props.urlTransform ?? safeMarkdownUrl;
   const renderLink = props.renderLink;
+  const isDocument = props.variant === "document";
   const components = useMemo(() => {
     if (!renderLink) return COMPONENTS;
     return {
@@ -105,7 +107,7 @@ export const ChatMarkdown = memo(function ChatMarkdown(props: {
   const live = Boolean(props.live);
   return (
     <Streamdown
-      className="chat-md space-y-0"
+      className={isDocument ? "knowledge-md" : "chat-md space-y-0"}
       skipHtml
       unwrapDisallowed
       disallowedElements={["img"]}
