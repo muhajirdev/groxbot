@@ -1,8 +1,15 @@
-import type { PluginConnection } from "@groxbot/contracts";
+import type { McpConnection, PluginConnection } from "@groxbot/contracts";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useEffect, useMemo, useState } from "react";
 import { mcpCollection, pluginsCollection } from "../lib/collections";
 import { userFacingError } from "../lib/errors";
+import {
+  groupVisiblePlugins,
+  matchesMcpQuery,
+  mcpHostLabel,
+  type PluginTab,
+  visiblePluginCards,
+} from "../lib/plugin-modal";
 import {
   composioLogoUrl,
   loadPluginCatalog,
@@ -10,7 +17,7 @@ import {
 } from "../lib/plugins";
 import { client } from "../lib/rpc";
 import { cn, Field, Input, ModalShell } from "../ui";
-import { CheckIcon, CloseIcon, FilterIcon, SearchIcon } from "./Icons";
+import { CheckIcon, CloseIcon, PlugIcon, SearchIcon, TrashIcon } from "./Icons";
 
 const PLUGIN_MESSAGE = "groxbot:plugin";
 const MCP_MESSAGE = "groxbot:mcp";
@@ -20,13 +27,14 @@ export function PluginsModal(props: {
   botId?: string;
   onClose: () => void;
 }) {
-  const [tab, setTab] = useState<"market" | "yours">("market");
+  const [tab, setTab] = useState<PluginTab>("search");
   const [query, setQuery] = useState("");
   const [catalog, setCatalog] = useState<PluginCard[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [mcpName, setMcpName] = useState("");
   const [mcpUrl, setMcpUrl] = useState("");
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const connectionsQuery = useLiveQuery((q) =>
     q.from({ plugin: pluginsCollection }),
   );
@@ -67,46 +75,18 @@ export function PluginsModal(props: {
     };
   }, []);
 
-  const q = query.trim().toLowerCase();
   const visible = useMemo(
-    () =>
-      catalog.filter((item) => {
-        if (q && !item.name.toLowerCase().includes(q) && !item.id.includes(q)) {
-          return false;
-        }
-        if (tab === "yours") return byToolkit.has(item.id);
-        return true;
-      }),
-    [byToolkit, catalog, q, tab],
+    () => visiblePluginCards(catalog, query, tab, new Set(byToolkit.keys())),
+    [byToolkit, catalog, query, tab],
   );
-  const groups = useMemo(() => {
-    const map = new Map<string, PluginCard[]>();
-    for (const item of visible) {
-      const list = map.get(item.category) ?? [];
-      list.push(item);
-      map.set(item.category, list);
-    }
-    if (tab === "yours") {
-      const installed = visible.filter((item) => item.kind === "connector");
-      const skills = visible.filter((item) => item.kind === "skill");
-      const next = new Map<string, PluginCard[]>();
-      if (installed.length) next.set("Installed", installed);
-      if (skills.length) next.set("Skills", skills);
-      if (!installed.length && !skills.length) next.set("Private", []);
-      return next;
-    }
-    return map;
-  }, [tab, visible]);
-
-  const mcpVisible = useMemo(() => {
-    const needle = q;
-    return mcpServers.filter((row) => {
-      if (!needle) return true;
-      return (
-        row.name.includes(needle) || row.url.toLowerCase().includes(needle)
-      );
-    });
-  }, [mcpServers, q]);
+  const mcpVisible = useMemo(
+    () => mcpServers.filter((row) => matchesMcpQuery(row.name, row.url, query)),
+    [mcpServers, query],
+  );
+  const groups = useMemo(
+    () => groupVisiblePlugins(tab, visible, mcpVisible.length),
+    [mcpVisible.length, tab, visible],
+  );
 
   async function addOrRemove(item: PluginCard) {
     if (item.kind !== "connector") return;
@@ -167,6 +147,7 @@ export function PluginsModal(props: {
       mcpCollection.utils.writeUpsert(result.connection);
       setMcpName("");
       setMcpUrl("");
+      setAdvancedOpen(false);
       if (result.redirectUrl) {
         window.open(
           result.redirectUrl,
@@ -218,8 +199,11 @@ export function PluginsModal(props: {
     }
   }
 
+  const q = query.trim();
   const emptySearch =
-    q.length > 0 && visible.length === 0 && mcpVisible.length === 0;
+    q.length > 0 &&
+    visible.length === 0 &&
+    (tab === "search" || mcpVisible.length === 0);
 
   return (
     <ModalShell open={props.open} wide onClose={props.onClose}>
@@ -236,21 +220,20 @@ export function PluginsModal(props: {
       </div>
       <div className="flex items-center gap-2 border-b border-line px-[18px]">
         <button
-          className={cn("tab", tab === "market" && "on")}
+          className={cn("tab", tab === "search" && "on")}
           type="button"
-          onClick={() => setTab("market")}
+          onClick={() => setTab("search")}
         >
-          Marketplace
+          Search
         </button>
         <button
-          className={cn("tab", tab === "yours" && "on")}
+          className={cn("tab", tab === "installed" && "on")}
           type="button"
-          onClick={() => setTab("yours")}
+          onClick={() => setTab("installed")}
         >
-          Yours
+          Installed
         </button>
         <div className="ml-auto flex items-center gap-2 text-muted">
-          <FilterIcon />
           <label className="search-field compact">
             <SearchIcon />
             <input
@@ -265,200 +248,251 @@ export function PluginsModal(props: {
         <p className="px-[18px] pt-3 text-[13px] text-danger">{error}</p>
       ) : null}
       <div className="min-h-[280px] max-h-[min(70vh,640px)] overflow-auto px-[18px] py-4">
-        <section className="mb-[18px]">
-          <p className="group-label">Remote MCP</p>
-          <form
-            className="mb-3 grid gap-2 rounded-[14px] bg-card-2 p-3"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void addRemoteMcp();
-            }}
-          >
-            <p className="muted m-0 text-xs">
-              Streamable HTTP URL. OAuth2 opens a popup. The open teammate uses
-              it from execute.
-            </p>
-            <div className="grid gap-2 sm:grid-cols-[minmax(0,140px)_minmax(0,1fr)_auto]">
-              <Field label="Name" className="mb-0">
-                <Input
-                  value={mcpName}
-                  placeholder="linear"
-                  maxLength={80}
-                  autoComplete="off"
-                  onValueChange={setMcpName}
-                />
-              </Field>
-              <Field label="URL" className="mb-0">
-                <Input
-                  value={mcpUrl}
-                  placeholder="https://mcp.example.com/mcp"
-                  maxLength={500}
-                  autoComplete="off"
-                  onValueChange={setMcpUrl}
-                />
-              </Field>
-              <div className="flex items-end">
-                <button
-                  className="mini disabled:cursor-not-allowed disabled:opacity-50"
-                  type="submit"
-                  disabled={
-                    busy === "mcp-add" || !mcpName.trim() || !mcpUrl.trim()
-                  }
-                >
-                  {busy === "mcp-add" ? "Connecting…" : "Connect"}
-                </button>
-              </div>
-            </div>
-            {!props.botId ? (
-              <p className="muted m-0 text-xs">
-                Open a teammate to finish connecting.
-              </p>
-            ) : null}
-          </form>
-          {mcpVisible.length === 0 ? (
-            tab === "yours" ? (
-              <p className="muted">No remote MCP servers yet.</p>
-            ) : null
-          ) : (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2.5">
-              {mcpVisible.map((row) => {
-                const live = row.status === "connected";
-                return (
-                  <article
-                    key={row.id}
-                    className="flex items-start justify-between gap-2.5 rounded-[14px] bg-card-2 p-3"
-                  >
-                    <div className="min-w-0">
-                      <strong className="mb-1 block">{row.name}</strong>
-                      <p className="muted m-0 truncate text-xs" title={row.url}>
-                        {row.url}
-                        {row.status === "error" && row.lastError
-                          ? ` · ${row.lastError}`
-                          : ""}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                      {live ? (
-                        <span className="ok">Connected</span>
-                      ) : (
-                        <button
-                          className="mini"
-                          type="button"
-                          disabled={busy === row.id}
-                          onClick={() => void connectRemoteMcp(row.id)}
-                        >
-                          {row.status === "connecting" ? "Continue" : "Connect"}
-                        </button>
-                      )}
-                      <button
-                        className="mini"
-                        type="button"
-                        disabled={busy === row.id}
-                        onClick={() => void removeRemoteMcp(row.id)}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
         {emptySearch ? (
-          <p className="muted py-10 text-center">
-            No plugins match “{query.trim()}”.
-          </p>
+          <p className="muted py-10 text-center">No plugins match “{q}”.</p>
         ) : (
-          [...groups.entries()].map(([category, items]) => (
-            <section key={category} className="mb-[18px]">
-              <p className="group-label">{category}</p>
-              {items.length === 0 ? (
-                <p className="muted">
-                  Nothing here yet. Add a plugin from the marketplace, then
-                  authenticate.
-                </p>
-              ) : (
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2.5">
-                  {items.map((item) => {
-                    const row = byToolkit.get(item.id);
-                    const on = Boolean(row);
-                    const live = row?.status === "connected";
-                    return (
-                      <article
-                        key={item.id}
-                        className="flex items-start justify-between gap-2.5 rounded-[14px] bg-card-2 p-3"
-                      >
-                        <div className="flex min-w-0 gap-2.5">
-                          {item.kind === "connector" ? (
-                            <PluginLogo
-                              slug={item.id}
-                              name={item.name}
-                              src={item.logo}
-                            />
-                          ) : null}
-                          <div className="min-w-0">
-                            <strong className="mb-1 block">{item.name}</strong>
-                            {tab === "yours" ? (
-                              <p className="muted m-0 text-xs">
-                                1{" "}
-                                {item.kind === "skill" ? "skill" : "connector"}
-                                {row?.status === "error" && row.lastError
-                                  ? ` · ${row.lastError}`
-                                  : ""}
-                              </p>
-                            ) : (
-                              <p className="muted m-0 text-xs">{item.blurb}</p>
-                            )}
+          <>
+            {[...groups.entries()].map(([category, items]) => (
+              <section key={category} className="mb-[18px]">
+                <p className="group-label">{category}</p>
+                {items.length === 0 ? (
+                  <p className="muted">
+                    Nothing here yet. Add a plugin from Search, then
+                    authenticate.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2.5">
+                    {items.map((item) => {
+                      const row = byToolkit.get(item.id);
+                      const on = Boolean(row);
+                      const live = row?.status === "connected";
+                      return (
+                        <article
+                          key={item.id}
+                          className="flex items-start justify-between gap-2.5 rounded-[14px] bg-card-2 p-3"
+                        >
+                          <div className="flex min-w-0 gap-2.5">
+                            {item.kind === "connector" ? (
+                              <PluginLogo
+                                slug={item.id}
+                                name={item.name}
+                                src={item.logo}
+                              />
+                            ) : null}
+                            <div className="min-w-0">
+                              <strong className="mb-1 block">
+                                {item.name}
+                              </strong>
+                              {tab === "installed" ? (
+                                <p className="muted m-0 text-xs">
+                                  1{" "}
+                                  {item.kind === "skill"
+                                    ? "skill"
+                                    : "connector"}
+                                  {row?.status === "error" && row.lastError
+                                    ? ` · ${row.lastError}`
+                                    : ""}
+                                </p>
+                              ) : (
+                                <p className="muted m-0 text-xs">
+                                  {item.blurb}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        {tab === "market" ? (
-                          <button
-                            className={cn("mini", on && "on")}
-                            type="button"
-                            disabled={
-                              busy === item.id || item.kind !== "connector"
-                            }
-                            onClick={() => void addOrRemove(item)}
-                          >
-                            {on ? (
-                              <>
-                                <CheckIcon /> Added
-                              </>
-                            ) : item.kind === "skill" ? (
-                              "Soon"
-                            ) : (
-                              "Add"
-                            )}
-                          </button>
-                        ) : item.kind === "connector" ? (
-                          live ? (
-                            <span className="ok">Connected</span>
-                          ) : (
+                          {tab === "search" ? (
                             <button
-                              className="mini"
+                              className={cn("mini", on && "on")}
                               type="button"
-                              disabled={busy === item.id}
-                              onClick={() => void authenticate(item)}
+                              disabled={
+                                busy === item.id || item.kind !== "connector"
+                              }
+                              onClick={() => void addOrRemove(item)}
                             >
-                              {row?.status === "connecting"
-                                ? "Continue"
-                                : "Authenticate"}
+                              {on ? (
+                                <>
+                                  <CheckIcon /> Added
+                                </>
+                              ) : item.kind === "skill" ? (
+                                "Soon"
+                              ) : (
+                                "Add"
+                              )}
                             </button>
-                          )
-                        ) : (
-                          <span className="muted">1 skill</span>
-                        )}
-                      </article>
-                    );
-                  })}
+                          ) : item.kind === "connector" ? (
+                            live ? (
+                              <span className="ok">Connected</span>
+                            ) : (
+                              <button
+                                className="mini"
+                                type="button"
+                                disabled={busy === item.id}
+                                onClick={() => void authenticate(item)}
+                              >
+                                {row?.status === "connecting"
+                                  ? "Continue"
+                                  : "Authenticate"}
+                              </button>
+                            )
+                          ) : (
+                            <span className="muted">1 skill</span>
+                          )}
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            ))}
+            {tab === "installed" && mcpVisible.length > 0 ? (
+              <section className="mb-[18px]">
+                <p className="group-label">Custom MCP</p>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2.5">
+                  {mcpVisible.map((row) => (
+                    <McpServerCard
+                      key={row.id}
+                      row={row}
+                      busy={busy === row.id}
+                      onConnect={() => void connectRemoteMcp(row.id)}
+                      onRemove={() => void removeRemoteMcp(row.id)}
+                    />
+                  ))}
                 </div>
-              )}
-            </section>
-          ))
+              </section>
+            ) : null}
+            {tab === "installed" && q.length === 0 ? (
+              <AdvancedMcpForm
+                open={advancedOpen}
+                name={mcpName}
+                url={mcpUrl}
+                busy={busy === "mcp-add"}
+                botId={props.botId}
+                onToggle={() => setAdvancedOpen((open) => !open)}
+                onName={setMcpName}
+                onUrl={setMcpUrl}
+                onSubmit={() => void addRemoteMcp()}
+              />
+            ) : null}
+          </>
         )}
       </div>
     </ModalShell>
+  );
+}
+
+function McpServerCard(props: {
+  row: McpConnection;
+  busy: boolean;
+  onConnect: () => void;
+  onRemove: () => void;
+}) {
+  const live = props.row.status === "connected";
+  const host = mcpHostLabel(props.row.url);
+  const detail =
+    props.row.status === "error" && props.row.lastError
+      ? props.row.lastError
+      : host;
+  return (
+    <article className="flex items-center justify-between gap-2.5 rounded-[14px] bg-card-2 p-3">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-hover text-ink">
+          <PlugIcon className="size-5" />
+        </span>
+        <div className="min-w-0">
+          <strong className="mb-0.5 block truncate">{props.row.name}</strong>
+          <p className="muted m-0 truncate text-xs" title={props.row.url}>
+            {detail}
+          </p>
+        </div>
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        {live ? (
+          <span className="ok">Connected</span>
+        ) : (
+          <button
+            className="mini"
+            type="button"
+            disabled={props.busy}
+            onClick={props.onConnect}
+          >
+            {props.row.status === "connecting" ? "Continue" : "Connect"}
+          </button>
+        )}
+        <button
+          className="icon-btn"
+          type="button"
+          aria-label={`Remove ${props.row.name}`}
+          disabled={props.busy}
+          onClick={props.onRemove}
+        >
+          <TrashIcon />
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function AdvancedMcpForm(props: {
+  open: boolean;
+  name: string;
+  url: string;
+  busy: boolean;
+  botId?: string;
+  onToggle: () => void;
+  onName: (value: string) => void;
+  onUrl: (value: string) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <section>
+      <button className="text-btn" type="button" onClick={props.onToggle}>
+        {props.open ? "Hide advanced" : "Advanced"}
+      </button>
+      {props.open ? (
+        <form
+          className="mt-2 grid gap-2 rounded-[14px] bg-card-2 p-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            props.onSubmit();
+          }}
+        >
+          <div className="grid gap-2 sm:grid-cols-[minmax(0,140px)_minmax(0,1fr)_auto]">
+            <Field label="Name" className="mb-0">
+              <Input
+                value={props.name}
+                placeholder="linear"
+                maxLength={80}
+                autoComplete="off"
+                onValueChange={props.onName}
+              />
+            </Field>
+            <Field label="URL" className="mb-0">
+              <Input
+                value={props.url}
+                placeholder="https://mcp.example.com/mcp"
+                maxLength={500}
+                autoComplete="off"
+                onValueChange={props.onUrl}
+              />
+            </Field>
+            <div className="flex items-end">
+              <button
+                className="mini disabled:cursor-not-allowed disabled:opacity-50"
+                type="submit"
+                disabled={props.busy || !props.name.trim() || !props.url.trim()}
+              >
+                {props.busy ? "Connecting…" : "Connect"}
+              </button>
+            </div>
+          </div>
+          {!props.botId ? (
+            <p className="muted m-0 text-xs">
+              Open a teammate to finish connecting.
+            </p>
+          ) : null}
+        </form>
+      ) : null}
+    </section>
   );
 }
 

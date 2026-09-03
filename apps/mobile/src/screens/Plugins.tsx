@@ -16,6 +16,15 @@ import type { RootStackParamList } from "../navigation";
 import { colors, radius } from "../theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Plugins">;
+type Tab = "search" | "installed";
+
+function mcpHostLabel(url: string): string {
+  try {
+    return new URL(url).host || url;
+  } catch {
+    return url;
+  }
+}
 
 export function PluginsScreen({ navigation, route }: Props) {
   const botId = route.params?.botId;
@@ -24,9 +33,10 @@ export function PluginsScreen({ navigation, route }: Props) {
   const mcpQuery = useQuery(orpc.mcp.list.queryOptions());
   const [catalog, setCatalog] = useState<PluginCard[]>([]);
   const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<"market" | "yours">("market");
+  const [tab, setTab] = useState<Tab>("search");
   const [mcpName, setMcpName] = useState("");
   const [mcpUrl, setMcpUrl] = useState("");
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -45,8 +55,16 @@ export function PluginsScreen({ navigation, route }: Props) {
     if (q && !item.name.toLowerCase().includes(q) && !item.id.includes(q)) {
       return false;
     }
-    if (tab === "yours") return byToolkit.has(item.id);
+    if (tab === "installed") return byToolkit.has(item.id);
     return true;
+  });
+
+  const mcpRows = (mcpQuery.data ?? []).filter((row) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      row.name.toLowerCase().includes(q) || row.url.toLowerCase().includes(q)
+    );
   });
 
   async function addOrRemove(item: PluginCard) {
@@ -110,6 +128,7 @@ export function PluginsScreen({ navigation, route }: Props) {
       const result = await client.mcp.add({ botId, name, url });
       setMcpName("");
       setMcpUrl("");
+      setAdvancedOpen(false);
       await queryClient.invalidateQueries({ queryKey: orpc.mcp.list.key() });
       if (result.redirectUrl) {
         await WebBrowser.openBrowserAsync(result.redirectUrl);
@@ -126,11 +145,13 @@ export function PluginsScreen({ navigation, route }: Props) {
       <Header title="Plugins" onBack={() => navigation.goBack()} />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <View style={styles.tabs}>
-        <Pressable onPress={() => setTab("market")}>
-          <Text style={tab === "market" ? styles.on : styles.meta}>Market</Text>
+        <Pressable onPress={() => setTab("search")}>
+          <Text style={tab === "search" ? styles.on : styles.meta}>Search</Text>
         </Pressable>
-        <Pressable onPress={() => setTab("yours")}>
-          <Text style={tab === "yours" ? styles.on : styles.meta}>Yours</Text>
+        <Pressable onPress={() => setTab("installed")}>
+          <Text style={tab === "installed" ? styles.on : styles.meta}>
+            Installed
+          </Text>
         </Pressable>
       </View>
       <Field placeholder="Search" value={query} onChangeText={setQuery} />
@@ -139,7 +160,7 @@ export function PluginsScreen({ navigation, route }: Props) {
         return (
           <View key={item.id} style={styles.card}>
             <Text style={styles.name}>{item.name}</Text>
-            {item.blurb ? (
+            {tab === "search" && item.blurb ? (
               <Text style={styles.body} numberOfLines={2}>
                 {item.blurb}
               </Text>
@@ -162,36 +183,53 @@ export function PluginsScreen({ navigation, route }: Props) {
           </View>
         );
       })}
-      <Text style={styles.section}>Remote MCP</Text>
-      <Field label="Name" value={mcpName} onChangeText={setMcpName} />
-      <Field
-        label="URL"
-        value={mcpUrl}
-        onChangeText={setMcpUrl}
-        keyboardType="url"
-      />
-      <Button
-        label="Add MCP"
-        onPress={() => void addRemoteMcp()}
-        busy={busy === "mcp-add"}
-      />
-      {(mcpQuery.data ?? []).map((row) => (
-        <View key={row.id} style={styles.card}>
-          <Text style={styles.name}>{row.name}</Text>
-          <Text style={styles.meta}>{row.url}</Text>
-          <Button
-            label="Remove"
-            tone="danger"
-            onPress={() => {
-              void client.mcp.remove({ id: row.id }).then(() =>
-                queryClient.invalidateQueries({
-                  queryKey: orpc.mcp.list.key(),
-                }),
-              );
-            }}
-          />
-        </View>
-      ))}
+      {tab === "installed"
+        ? mcpRows.map((row) => (
+            <View key={row.id} style={styles.card}>
+              <Text style={styles.name}>{row.name}</Text>
+              <Text style={styles.meta}>
+                {mcpHostLabel(row.url)}
+                {row.status === "connected" ? " · Connected" : ""}
+              </Text>
+              <Button
+                label="Remove"
+                tone="danger"
+                onPress={() => {
+                  void client.mcp.remove({ id: row.id }).then(() =>
+                    queryClient.invalidateQueries({
+                      queryKey: orpc.mcp.list.key(),
+                    }),
+                  );
+                }}
+              />
+            </View>
+          ))
+        : null}
+      {tab === "installed" && query.trim().length === 0 ? (
+        <>
+          <Pressable onPress={() => setAdvancedOpen((open) => !open)}>
+            <Text style={styles.meta}>
+              {advancedOpen ? "Hide advanced" : "Advanced"}
+            </Text>
+          </Pressable>
+          {advancedOpen ? (
+            <>
+              <Field label="Name" value={mcpName} onChangeText={setMcpName} />
+              <Field
+                label="URL"
+                value={mcpUrl}
+                onChangeText={setMcpUrl}
+                keyboardType="url"
+              />
+              <Button
+                label="Connect"
+                onPress={() => void addRemoteMcp()}
+                busy={busy === "mcp-add"}
+              />
+            </>
+          ) : null}
+        </>
+      ) : null}
     </Screen>
   );
 }
@@ -212,5 +250,4 @@ const styles = StyleSheet.create({
   name: { color: colors.text, fontWeight: "700" },
   body: { color: colors.muted, fontSize: 13 },
   row: { flexDirection: "row", gap: 8 },
-  section: { color: colors.text, fontWeight: "700", marginTop: 12 },
 });
