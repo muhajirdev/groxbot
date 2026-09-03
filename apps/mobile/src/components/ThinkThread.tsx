@@ -372,7 +372,7 @@ function AssistantMessage(props: { botId: string; botName: string }) {
         renderText={({ part }) => <ChatMarkdown text={part.text} />}
         renderToolCall={({ part }) =>
           part.toolName === PRESENT_TOOL_NAME ? (
-            <PresentCard tree={part.args} />
+            <PresentCard tree={part.args} botId={props.botId} />
           ) : (
             <ToolFallback
               toolName={part.toolName}
