@@ -15,8 +15,10 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import { Thread } from "@/components/assistant-ui/elements/thread.aui";
+import { waitForAgentReady } from "../lib/agent-ready";
 import { lastThinkPreview } from "../lib/chat-messages";
 import { patchBot } from "../lib/collections";
 import { createWorkspaceAttachmentAdapter } from "../lib/computer-attachment";
@@ -24,6 +26,10 @@ import { composerBannerError } from "../lib/errors";
 import { agentSocketHost } from "../lib/host";
 import { FIRST_TASK } from "../lib/jobs";
 import { orpc, queryClient } from "../lib/orpc";
+import {
+  seedOutgoingUserMessage,
+  textFromOutgoingPayload,
+} from "../lib/outgoing-user-message";
 import { client } from "../lib/rpc";
 import { peekThinkMessages, setThinkMessages } from "../lib/think-messages";
 import { patchThreadMeta, THINK_WORKING } from "../lib/thread-cache";
@@ -239,6 +245,7 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
     stop,
     error,
     sendMessage,
+    setMessages,
     isStreaming,
     connectionError,
   } = chat;
@@ -246,11 +253,14 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
   messagesRef.current = messages;
   const busy = status === "submitted" || status === "streaming" || isStreaming;
   const wasBusy = useRef(false);
+  const [pending, setPending] = useState(false);
+  const agentRef = useRef(agent);
+  agentRef.current = agent;
+  const abortSendRef = useRef<AbortController | null>(null);
+  const inFlight = busy || pending;
 
-  const ready = agent.ready;
   const send = useCallback(
     async (...args: Parameters<typeof sendMessage>) => {
-      await ready;
       if (archivedRef.current) {
         return Promise.reject(new Error("Archived"));
       }
@@ -262,25 +272,73 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
         return Promise.reject(new Error("Model required"));
       }
       const [payload, ...rest] = args;
-      const text =
-        payload &&
-        typeof payload === "object" &&
-        "text" in payload &&
-        typeof payload.text === "string"
-          ? payload.text.trim()
-          : "";
-      if (text) {
-        patchBot(botIdRef.current, { lastPreview: text.slice(0, 140) });
+      const labeled = withOfficeUserMetadata(
+        payload,
+        senderRef.current,
+      ) as typeof payload;
+      const preview = textFromOutgoingPayload(labeled);
+      if (preview) {
+        patchBot(botIdRef.current, { lastPreview: preview.slice(0, 140) });
       }
-      return sendMessage(
-        withOfficeUserMetadata(payload, senderRef.current) as typeof payload,
-        ...rest,
-      );
+
+      const abort = new AbortController();
+      abortSendRef.current = abort;
+      setPending(true);
+      patchThreadMeta(botIdRef.current, { working: THINK_WORKING });
+
+      const seededId = crypto.randomUUID();
+      const seeded = seedOutgoingUserMessage(labeled, seededId);
+      if (seeded) {
+        setMessages((current) =>
+          current.some((message) => message.id === seededId)
+            ? current
+            : [...current, seeded],
+        );
+      }
+
+      let handedOff = false;
+      try {
+        await waitForAgentReady(() => agentRef.current, {
+          signal: abort.signal,
+        });
+        if (archivedRef.current) {
+          throw new Error("Archived");
+        }
+        handedOff = true;
+        setPending(false);
+        return await sendMessage(
+          seeded
+            ? ({
+                ...labeled,
+                messageId: seededId,
+              } as typeof payload)
+            : labeled,
+          ...rest,
+        );
+      } catch (caught) {
+        if (!handedOff && seeded) {
+          setMessages((current) =>
+            current.filter((message) => message.id !== seededId),
+          );
+        }
+        throw caught;
+      } finally {
+        if (abortSendRef.current === abort) abortSendRef.current = null;
+        setPending(false);
+      }
     },
-    [ready, sendMessage],
+    [sendMessage, setMessages],
   );
 
-  const helpers = useMemo(() => ({ ...chat, sendMessage: send }), [chat, send]);
+  const halt = useCallback(() => {
+    abortSendRef.current?.abort();
+    return stop();
+  }, [stop]);
+
+  const helpers = useMemo(
+    () => ({ ...chat, sendMessage: send, stop: halt }),
+    [chat, send, halt],
+  );
   const attachments = useMemo(
     () =>
       createWorkspaceAttachmentAdapter({
@@ -302,20 +360,20 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
   );
 
   useEffect(() => {
-    props.stopHolder.current = stop;
+    props.stopHolder.current = halt;
     return () => {
-      if (props.stopHolder.current === stop) props.stopHolder.current = null;
+      if (props.stopHolder.current === halt) props.stopHolder.current = null;
     };
-  }, [props.stopHolder, stop]);
+  }, [props.stopHolder, halt]);
 
   useEffect(() => {
     patchThreadMeta(props.botId, {
-      working: busy ? THINK_WORKING : "",
+      working: inFlight ? THINK_WORKING : "",
     });
     return () => {
       patchThreadMeta(props.botId, { working: "" });
     };
-  }, [busy, props.botId]);
+  }, [inFlight, props.botId]);
 
   useEffect(() => {
     if (wasBusy.current && !busy) {
@@ -331,7 +389,7 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
   }, [props.botId]);
 
   const banner = composerBannerError({
-    inFlight: busy,
+    inFlight,
     agentError: error?.message || "",
     connectionError: opening ? "" : connectionError?.message || "",
     persisted: props.error,
@@ -353,6 +411,7 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
             viewerUserId={props.userId}
             viewerImage={props.userImage}
             botName={props.botName}
+            pending={pending}
             components={THREAD_COMPONENTS}
           />
         </div>
