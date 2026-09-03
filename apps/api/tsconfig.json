@@ -16,6 +16,7 @@
     "src/bot-routines-connector.ts",
     "src/bot-execute.ts",
     "src/bot-markdown.ts",
+    "src/bot-present.ts",
     "src/bot-knowledge.ts",
     "src/index.ts",
     "src/app-runtime-do.ts",

@@ -35,10 +35,13 @@ describe("teammatePrompt", () => {
     expect(prompt).toMatch(/import npm packages/);
     expect(prompt).toMatch(/fetch_url/);
     expect(prompt).toMatch(/to_markdown/);
+    expect(prompt).toMatch(/Show facts or a short table with present/);
     expect(prompt).toMatch(/Keep each reply short/);
     expect(prompt).toMatch(/sender's name/);
     expect(prompt).toMatch(/Do the work with tools/);
     expect(prompt).toMatch(/Markdown is fine/);
+    expect(prompt).toMatch(/call present/);
+    expect(prompt).toMatch(/\$type/);
     expect(prompt).toMatch(/Learn as you go/);
     expect(prompt).toMatch(/set_context on memory/);
     expect(prompt).toMatch(/set_context on soul/);

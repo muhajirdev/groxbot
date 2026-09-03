@@ -81,6 +81,7 @@ import { createBundlingExecutor } from "./bot-execute.js";
 import { KnowledgeConnector } from "./bot-knowledge.js";
 import { bindToMarkdown, createPageTools } from "./bot-markdown.js";
 import { WorkspaceMcpConnector } from "./bot-mcp-connector.js";
+import { createPresentTool } from "./bot-present.js";
 import { RoutinesConnector } from "./bot-routines-connector.js";
 import { agentRuntimeSource, productEnv, type RuntimeSource } from "./env.js";
 import { r2KnowledgeDisk } from "./knowledge-r2.js";
@@ -387,6 +388,7 @@ export class BotActor extends Think<WorkerEnv> {
       .map((row) => row.name());
     return {
       ...pageTools,
+      present: createPresentTool(),
       execute: {
         ...execute,
         description: withOfficeExecuteDescription(

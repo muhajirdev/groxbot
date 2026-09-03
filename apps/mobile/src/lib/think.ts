@@ -1,4 +1,7 @@
-import { withOfficeUserMetadata } from "@groxbot/contracts";
+import {
+  presentPreviewFromParts,
+  withOfficeUserMetadata,
+} from "@groxbot/contracts";
 import { officeUserMessageSender } from "./office-sender";
 
 export type ThinkRole = "user" | "assistant" | "system";
@@ -63,6 +66,8 @@ export function lastThinkPreview(messages: ThinkMessage[]): string {
     if (!row) continue;
     const text = visibleTextFromThinkMessage(row).replace(/\s+/g, " ").trim();
     if (text) return text.slice(0, 140);
+    const presented = presentPreviewFromParts(row.parts);
+    if (presented) return presented;
   }
   return "";
 }

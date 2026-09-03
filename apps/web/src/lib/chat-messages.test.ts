@@ -1,15 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { OFFICE_REVIEW_SOURCE } from "@groxbot/contracts";
 import type { UIMessage } from "ai";
+import { describe, expect, it } from "vitest";
 import {
   coalesceAssistantMessages,
   collapseTextParts,
+  isVisibleChatMessage,
   lastThinkPreview,
   splitQueuedFollowUps,
   textFromMessage,
   usedTools,
-  isVisibleChatMessage,
 } from "./chat-messages";
-import { OFFICE_REVIEW_SOURCE } from "@groxbot/contracts";
 
 function assistant(id: string, ...texts: string[]): UIMessage {
   return {
@@ -154,6 +154,26 @@ describe("lastThinkPreview", () => {
     ).toBe("can you read this pdf");
   });
 
+  it("uses a present card title when the assistant has no text", () => {
+    expect(
+      lastThinkPreview([
+        {
+          id: "a1",
+          role: "assistant",
+          parts: [
+            {
+              type: "tool-present",
+              toolCallId: "1",
+              state: "output-available",
+              input: { $type: "Card", title: "Hiring shortlist" },
+              output: { ok: true },
+            },
+          ],
+        },
+      ]),
+    ).toBe("Hiring shortlist");
+  });
+
   it("skips a hidden office-review nudge and a Skip", () => {
     expect(
       lastThinkPreview([
@@ -182,7 +202,9 @@ describe("isVisibleChatMessage", () => {
     ).toBe(false);
     expect(isVisibleChatMessage(assistant("a", "Skip"))).toBe(false);
     expect(
-      isVisibleChatMessage(assistant("a", "Saved skills/weekly-update/SKILL.md")),
+      isVisibleChatMessage(
+        assistant("a", "Saved skills/weekly-update/SKILL.md"),
+      ),
     ).toBe(true);
   });
 });

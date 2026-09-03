@@ -17,6 +17,7 @@ import {
 import { useAgentChat } from "@cloudflare/ai-chat/react";
 import {
   officeUserFromActor,
+  PRESENT_TOOL_NAME,
   withOfficeUserMetadata,
 } from "@groxbot/contracts";
 import { useAgent } from "agents/react";
@@ -48,6 +49,7 @@ import { useSetWorking } from "../working";
 import { AppCard } from "./AppCard";
 import { ChatMarkdown } from "./ChatMarkdown";
 import { OfficeSkillSlash } from "./OfficeSkillSlash";
+import { PresentCard } from "./PresentCard";
 
 async function copyToClipboard(text: string) {
   const didCopy = await Clipboard.setStringAsync(text);
@@ -368,15 +370,19 @@ function AssistantMessage(props: { botId: string; botName: string }) {
       ) : null}
       <MessagePrimitive.Content
         renderText={({ part }) => <ChatMarkdown text={part.text} />}
-        renderToolCall={({ part }) => (
-          <ToolFallback
-            toolName={part.toolName}
-            argsText={
-              part.argsText ||
-              (part.args ? JSON.stringify(part.args, null, 2) : "")
-            }
-          />
-        )}
+        renderToolCall={({ part }) =>
+          part.toolName === PRESENT_TOOL_NAME ? (
+            <PresentCard tree={part.args} />
+          ) : (
+            <ToolFallback
+              toolName={part.toolName}
+              argsText={
+                part.argsText ||
+                (part.args ? JSON.stringify(part.args, null, 2) : "")
+              }
+            />
+          )
+        }
         renderImage={({ part }) => <PartImage image={part.image} />}
         renderFile={({ part }) => (
           <PartFile name={part.filename} mimeType={part.mimeType} />

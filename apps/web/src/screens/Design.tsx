@@ -12,11 +12,6 @@ import { type ReactNode, useState } from "react";
 import { AppCard } from "../components/AppCard";
 import { AvatarMark } from "../components/Avatar";
 import {
-  GateSplit,
-  GateWelcome,
-} from "../components/Gate";
-import { OfficeFeed } from "../components/OfficeFeed";
-import {
   ReasoningContent,
   ReasoningRoot,
   ReasoningText,
@@ -27,10 +22,13 @@ import {
   ThinkingStatus,
 } from "../components/assistant-ui/elements/spiral-loader";
 import { TooltipIconButton } from "../components/assistant-ui/elements/tooltip-icon-button";
-import { PersonAvatar } from "../components/PersonAvatar";
 import { ChatMarkdown } from "../components/ChatMarkdown";
+import { GateSplit, GateWelcome } from "../components/Gate";
 import { KnowledgeMarkdown } from "../components/KnowledgeFilePreview";
 import { KnowledgeGraphMap } from "../components/KnowledgeGraph";
+import { OfficeFeed } from "../components/OfficeFeed";
+import { PersonAvatar } from "../components/PersonAvatar";
+import { PresentSurface } from "../components/PresentToolUI";
 import { TypingDots } from "../components/TypingDots";
 import { Skeleton } from "../components/ui/skeleton";
 import { AVATAR_COLORS, AVATAR_SHAPES, SUGGESTED_JOBS } from "../lib/jobs";
@@ -42,6 +40,7 @@ const SECTIONS = [
   { id: "thinking", label: "Thinking" },
   { id: "reasoning", label: "Reasoning" },
   { id: "tools", label: "Tools" },
+  { id: "present", label: "Present" },
   { id: "mascot", label: "Mascot" },
   { id: "thread", label: "Thread" },
   { id: "composer", label: "Composer" },
@@ -279,6 +278,43 @@ export function Design() {
             <Specimen label="Group" hint="3 tool calls">
               <ToolGroupRow count={3} active />
               <ToolGroupRow count={3} />
+            </Specimen>
+          </Section>
+
+          <Section
+            id="present"
+            title="Present"
+            lede="The model composes a JSON tree. assistant-ui renders it from the office vocabulary."
+          >
+            <Specimen label="Card + facts">
+              <PresentSurface
+                tree={{
+                  $type: "Card",
+                  title: "Q3",
+                  children: [
+                    { $type: "Fact", label: "Bookings", value: "$1.2M" },
+                    { $type: "Fact", label: "Growth", value: "+18%" },
+                  ],
+                }}
+              />
+            </Specimen>
+            <Specimen label="Table">
+              <PresentSurface
+                tree={{
+                  $type: "Card",
+                  title: "Shortlist",
+                  children: [
+                    {
+                      $type: "Table",
+                      columns: [{ label: "Name" }, { label: "Role" }],
+                      rows: [
+                        ["Piper", "Product"],
+                        ["Reja", "Chief of Staff"],
+                      ],
+                    },
+                  ],
+                }}
+              />
             </Specimen>
           </Section>
 
