@@ -40,7 +40,6 @@ export function createWakeHandlers(opts: {
         pluginTools: opts.pluginTools,
       });
     },
-    "routine.wakeup": async (_payload: Record<string, unknown>) => {},
     "run.abort": async (payload: Record<string, unknown>) => {
       const botId = String(payload.botId ?? "");
       const runId = payload.runId ? String(payload.runId) : undefined;

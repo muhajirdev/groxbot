@@ -4,9 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { saveComputerDownload } from "../lib/computer-download";
 import { computerFileKind } from "../lib/computer-preview";
 import {
+  type ComputerTreeNode,
   filterComputerTree,
   nestComputerEntries,
-  type ComputerTreeNode,
 } from "../lib/computer-tree";
 import { userFacingError } from "../lib/errors";
 import { orpc } from "../lib/orpc";
@@ -27,9 +27,10 @@ import {
 
 const NONE_COLLAPSED = new Set<string>();
 const CRONS = [
-  { label: "Every day at 9:00", value: "0 9 * * *" },
-  { label: "Every night at 22:00", value: "0 22 * * *" },
-  { label: "Weekdays at 9:00", value: "0 9 * * 1-5" },
+  { label: "Every day at 9:00", value: "every day at 09:00" },
+  { label: "Every night at 22:00", value: "every day at 22:00" },
+  { label: "Weekdays at 9:00", value: "every weekday at 09:00" },
+  { label: "Every 30 minutes", value: "every 30 minutes" },
 ] as const;
 
 export function ComputerPane(props: {
@@ -44,7 +45,8 @@ export function ComputerPane(props: {
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
   const [cron, setCron] = useState<string>(CRONS[0].value);
-  const [busy, setBusy] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [creatingBusy, setCreatingBusy] = useState(false);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string | null>(
@@ -57,6 +59,7 @@ export function ComputerPane(props: {
   const [downloading, setDownloading] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState("");
   const botId = props.bot.id;
+  const archived = Boolean(props.bot.archivedAt);
   const openPath = props.openPath ?? null;
   useEffect(() => {
     if (!openPath) return;
@@ -67,8 +70,7 @@ export function ComputerPane(props: {
   const filesQuery = useQuery({
     ...orpc.computer.list.queryOptions({ input: { botId } }),
     gcTime: THINK_MESSAGES_GC_TIME,
-    refetchInterval: (queryState) =>
-      queryState.state.data ? 15_000 : false,
+    refetchInterval: (queryState) => (queryState.state.data ? 15_000 : false),
   });
   const routinesQuery = useQuery({
     queryKey: ["routines", botId],
@@ -91,7 +93,9 @@ export function ComputerPane(props: {
         saveComputerDownload(file);
       })
       .catch((caught: unknown) => {
-        setDownloadError(userFacingError(caught, "Could not download that file"));
+        setDownloadError(
+          userFacingError(caught, "Could not download that file"),
+        );
       })
       .finally(() => setDownloading(null));
   };
@@ -178,31 +182,118 @@ export function ComputerPane(props: {
         </div>
         <section className="routines">
           <p className="muted">
-            Routines are recurring tasks this Bot runs on a schedule.
+            Recurring jobs this teammate runs on a schedule, even when you are
+            away.
           </p>
+          {routinesQuery.isError ? (
+            <p className="error">
+              {userFacingError(routinesQuery.error, "Could not load routines.")}
+            </p>
+          ) : null}
+          {error && !creating ? <p className="error">{error}</p> : null}
           {routines.length > 0 ? (
             <ul className="routine-list">
               {routines.map((item) => (
                 <li key={item.id}>
-                  <strong>{item.name}</strong>
-                  <span className="muted">{item.cron}</span>
+                  <div>
+                    <strong>{item.name}</strong>
+                    <span className="muted">
+                      {item.cron}
+                      {item.active
+                        ? item.nextRunAt
+                          ? ` · next ${formatNextRun(item.nextRunAt)}`
+                          : ""
+                        : " · paused"}
+                    </span>
+                  </div>
+                  <div className="routine-actions">
+                    <button
+                      className="text-btn"
+                      type="button"
+                      disabled={
+                        busyId === item.id || (!item.active && archived)
+                      }
+                      onClick={() => {
+                        setBusyId(item.id);
+                        setError("");
+                        void (
+                          item.active
+                            ? client.routines.pause({
+                                botId,
+                                id: item.id,
+                              })
+                            : client.routines.resume({
+                                botId,
+                                id: item.id,
+                              })
+                        )
+                          .then(async () => {
+                            await queryClient.invalidateQueries({
+                              queryKey: ["routines", botId],
+                            });
+                          })
+                          .catch((caught: unknown) =>
+                            setError(
+                              userFacingError(
+                                caught,
+                                "Could not update that routine.",
+                              ),
+                            ),
+                          )
+                          .finally(() => setBusyId(null));
+                      }}
+                    >
+                      {item.active ? "Pause" : "Resume"}
+                    </button>
+                    <button
+                      className="text-btn danger"
+                      type="button"
+                      disabled={busyId === item.id}
+                      onClick={() => {
+                        setBusyId(item.id);
+                        setError("");
+                        void client.routines
+                          .remove({ botId, id: item.id })
+                          .then(async () => {
+                            await queryClient.invalidateQueries({
+                              queryKey: ["routines", botId],
+                            });
+                          })
+                          .catch((caught: unknown) =>
+                            setError(
+                              userFacingError(
+                                caught,
+                                "Could not remove that routine.",
+                              ),
+                            ),
+                          )
+                          .finally(() => setBusyId(null));
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
           ) : null}
-          <button
-            className="create-routine"
-            type="button"
-            onClick={() => {
-              setName("");
-              setPrompt("");
-              setCron(CRONS[0].value);
-              setError("");
-              setCreating(true);
-            }}
-          >
-            Create Routine
-          </button>
+          {archived ? (
+            <p className="muted">Archived teammates do not run routines.</p>
+          ) : (
+            <button
+              className="create-routine"
+              type="button"
+              onClick={() => {
+                setName("");
+                setPrompt("");
+                setCron(CRONS[0].value);
+                setError("");
+                setCreating(true);
+              }}
+            >
+              Create Routine
+            </button>
+          )}
         </section>
       </div>
       <ComputerFilePreview
@@ -248,9 +339,9 @@ export function ComputerPane(props: {
           <button
             className="btn"
             type="button"
-            disabled={busy || !name.trim() || !prompt.trim()}
+            disabled={creatingBusy || !name.trim() || !prompt.trim()}
             onClick={() => {
-              setBusy(true);
+              setCreatingBusy(true);
               setError("");
               void client.routines
                 .create({
@@ -267,12 +358,10 @@ export function ComputerPane(props: {
                 })
                 .catch((caught: unknown) =>
                   setError(
-                    caught instanceof Error
-                      ? caught.message
-                      : "Could not create",
+                    userFacingError(caught, "Could not create that routine."),
                   ),
                 )
-                .finally(() => setBusy(false));
+                .finally(() => setCreatingBusy(false));
             }}
           >
             Create
@@ -288,6 +377,17 @@ export function ComputerPane(props: {
       </ModalShell>
     </aside>
   );
+}
+
+function formatNextRun(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function TreeRows(props: {
@@ -316,7 +416,9 @@ function TreeRows(props: {
             <button
               className={`explorer-chevron${open ? "" : " closed"}`}
               type="button"
-              aria-label={open ? `Collapse ${node.name}` : `Expand ${node.name}`}
+              aria-label={
+                open ? `Collapse ${node.name}` : `Expand ${node.name}`
+              }
               onClick={() => props.onToggle(node.path)}
             >
               <ChevronDownIcon />

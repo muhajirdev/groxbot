@@ -1,35 +1,16 @@
-import type {
-  Bot,
-  MessageBlock,
-  ProductEvent,
-  Routine,
-} from "@groxbot/contracts";
+import type { Bot, MessageBlock, ProductEvent } from "@groxbot/contracts";
 import { AvatarShape, GuestKind } from "@groxbot/contracts";
 import {
   type bots,
   type Database,
   events,
   messages,
-  type routines,
   threads,
 } from "@groxbot/db";
 import { and, asc, desc, eq, gt } from "drizzle-orm";
 
 export function iso(value: Date | null | undefined): string | null {
   return value ? value.toISOString() : null;
-}
-
-export function toRoutineDto(row: typeof routines.$inferSelect): Routine {
-  return {
-    id: row.id,
-    botId: row.botId,
-    name: row.name,
-    prompt: row.prompt,
-    cron: row.cron,
-    timezone: row.timezone,
-    active: row.active,
-    nextRunAt: iso(row.nextRunAt),
-  };
 }
 
 export function previewFromBlocks(blocks: unknown): string {

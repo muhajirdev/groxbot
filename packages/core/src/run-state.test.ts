@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  THINK_RUNTIME_LINE,
-  TEAMMATE_RUNTIME_LINE,
   rewriteThinkCapability,
+  TEAMMATE_RUNTIME_LINE,
+  THINK_RUNTIME_LINE,
   teammatePrompt,
   withOfficeExecuteDescription,
 } from "./run-continue.js";
@@ -46,6 +46,8 @@ describe("teammatePrompt", () => {
     expect(prompt).toMatch(/memory\.md/);
     expect(prompt).toMatch(/knowledge\.search/);
     expect(prompt).toMatch(/knowledge\.write/);
+    expect(prompt).toMatch(/routines\.list/);
+    expect(prompt).toMatch(/every weekday at 09:00/);
     expect(prompt).toMatch(/one short line with the office path/);
     expect(prompt).toMatch(/Patch an existing playbook/);
     expect(prompt).toMatch(/skills\/<name>\/SKILL\.md/);
@@ -79,6 +81,7 @@ describe("withOfficeExecuteDescription", () => {
     "",
     "- `state` — the workspace filesystem.",
     "- `knowledge`",
+    "- `routines`",
     "- `github`",
   ].join("\n");
 
@@ -87,7 +90,18 @@ describe("withOfficeExecuteDescription", () => {
     expect(next).toMatch(/- `knowledge` — shared office library/);
     expect(next).toMatch(/knowledge\.search\(\{ query \}\)/);
     expect(next).toContain("- `github`");
+    expect(next).toContain("- `routines`");
     expect(next).not.toMatch(/^- `knowledge`$/m);
+  });
+
+  it("hints routines so the bot can schedule work", () => {
+    const next = withOfficeExecuteDescription(generated, false, {
+      routines: true,
+    });
+    expect(next).toMatch(/- `routines` — this bot’s recurring jobs/);
+    expect(next).toMatch(/routines\.list\(\)/);
+    expect(next).toContain("- `knowledge`");
+    expect(next).not.toMatch(/^- `routines`$/m);
   });
 
   it("does not duplicate an existing hint", () => {

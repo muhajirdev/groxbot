@@ -45,9 +45,9 @@ UI: copy Grok Bot simplicity — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). R
 ## Wake a bot
 
 - `run.continue` — user messaged (that bot’s queue)
-- `routine.wakeup` — cron metadata in Postgres; enqueue onto that actor
+- Routines — Think `getScheduledTasks()` on `BotActor`. The office UI and Code Mode `routines` connector write DO SQLite; Think fires `submitMessages` on the schedule.
 
-Do not run the brain from Worker Cron Triggers.
+Do not run the brain from Worker Cron Triggers. Do not store routine clocks in Postgres.
 
 ## Composition
 

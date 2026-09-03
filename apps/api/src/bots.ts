@@ -1,4 +1,4 @@
-import { type Bot, type Routine, validateModelId } from "@groxbot/contracts";
+import { type Bot, validateModelId } from "@groxbot/contracts";
 import {
   appendEvent,
   encryptionSecret,
@@ -9,14 +9,12 @@ import {
   previewFromBlocks,
   resolveRunModel,
   toBotDto,
-  toRoutineDto,
 } from "@groxbot/core";
 import {
   bots,
   guestConnectors,
   memoryDocuments,
   messages,
-  routines,
   runs,
   tasks,
   threadMembers,
@@ -250,6 +248,11 @@ export async function archiveBot(
   const { bot, thread } = await getBotThread(context, actor, botId);
   if (bot.archivedAt) return toBotDto(bot, thread.id);
   await stopBotRuns(context, actor, botId);
+  try {
+    await context.routines?.suspend?.(botId, true);
+  } catch (error) {
+    console.error("bot actor suspend routines", botId, error);
+  }
   const now = new Date();
   const [updated] = await context.db
     .update(bots)
@@ -267,6 +270,11 @@ export async function unarchiveBot(
 ): Promise<Bot> {
   const { bot, thread } = await getBotThread(context, actor, botId);
   if (!bot.archivedAt) return toBotDto(bot, thread.id);
+  try {
+    await context.routines?.suspend?.(botId, false);
+  } catch (error) {
+    console.error("bot actor resume routines", botId, error);
+  }
   const now = new Date();
   const [updated] = await context.db
     .update(bots)
@@ -488,60 +496,4 @@ export async function stopBotRuns(
       runIds: [...active, ...queued].map((run) => run.id),
     },
   });
-}
-
-export async function listRoutines(
-  context: RpcContext,
-  actor: Actor,
-  botId: string,
-): Promise<Routine[]> {
-  await getBotThread(context, actor, botId);
-  const rows = await context.db
-    .select()
-    .from(routines)
-    .where(
-      and(
-        eq(routines.botId, botId),
-        eq(routines.workspaceId, actor.workspaceId),
-      ),
-    )
-    .orderBy(desc(routines.createdAt));
-  return rows.map(toRoutineDto);
-}
-
-export async function createRoutine(
-  context: RpcContext,
-  actor: Actor,
-  input: {
-    botId: string;
-    name: string;
-    prompt: string;
-    cron: string;
-    timezone?: string;
-  },
-): Promise<Routine> {
-  const { bot } = await getBotThread(context, actor, input.botId);
-  assertBotActive(bot);
-  const now = new Date();
-  const [row] = await context.db
-    .insert(routines)
-    .values({
-      id: newId(),
-      workspaceId: actor.workspaceId,
-      botId: input.botId,
-      userId: actor.userId,
-      name: input.name.trim(),
-      prompt: input.prompt.trim(),
-      cron: input.cron.trim(),
-      timezone: input.timezone?.trim() || "UTC",
-      active: true,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .returning();
-  if (!row)
-    throw new ORPCError("INTERNAL_SERVER_ERROR", {
-      message: "Routine create failed",
-    });
-  return toRoutineDto(row);
 }

@@ -5,6 +5,7 @@ import {
   skills,
   type ChatResponseResult,
   type MessageConcurrency,
+  type ThinkScheduledTasks,
   type ToolCallResultContext,
   type TurnContext,
 } from "@cloudflare/think";
@@ -13,6 +14,7 @@ import type { ToolSet } from "ai";
 import { createBundlingExecutor } from "./bot-execute.js";
 import { KnowledgeConnector } from "./bot-knowledge.js";
 import { WorkspaceMcpConnector } from "./bot-mcp-connector.js";
+import { RoutinesConnector } from "./bot-routines-connector.js";
 import { bindToMarkdown, createPageTools } from "./bot-markdown.js";
 import type { WorkersAiBinding } from "@groxbot/adapters/edge";
 import {
@@ -27,6 +29,7 @@ import {
   officeUserFromHeaders,
   parseOfficeUser,
   stampIncomingOfficeUser,
+  type Routine,
 } from "@groxbot/contracts";
 import { getCurrentAgent } from "agents";
 import { AgentContextProvider } from "agents/experimental/memory/session";
@@ -49,6 +52,14 @@ import {
   ComputerFileError,
   ComputerPathError,
   ComputerWriteError,
+  DEFAULT_ROUTINE_TIMEZONE,
+  RoutineError,
+  RoutineNotFoundError,
+  RoutineScheduleError,
+  createStoredRoutine,
+  thinkScheduledTasks,
+  toRoutineDto,
+  type StoredRoutine,
   saveMcpConnection,
   OFFICE_REVIEW_STORAGE,
   applyOfficeReviewTurn,
@@ -63,11 +74,7 @@ import {
 import { bots } from "@groxbot/db";
 import { createNeonHttpDb } from "@groxbot/db/neon";
 import { eq } from "drizzle-orm";
-import {
-  agentRuntimeSource,
-  productEnv,
-  type RuntimeSource,
-} from "./env.js";
+import { agentRuntimeSource, productEnv, type RuntimeSource } from "./env.js";
 import { mcpCallbackPage } from "./mcp-callback-page.js";
 import type { SendEmailBinding } from "./mail.js";
 import { r2KnowledgeDisk } from "./knowledge-r2.js";
@@ -117,14 +124,34 @@ type StoredJob = {
 };
 
 function workspaceError(error: unknown): Response {
-  if (error instanceof ComputerPathError || error instanceof ComputerWriteError) {
+  if (
+    error instanceof ComputerPathError ||
+    error instanceof ComputerWriteError
+  ) {
     return Response.json({ error: error.message }, { status: 400 });
   }
   if (error instanceof ComputerFileError) {
     return Response.json({ error: error.message }, { status: 404 });
   }
   console.error("bot actor workspace", error);
-  return Response.json({ error: "Could not read this computer." }, { status: 500 });
+  return Response.json(
+    { error: "Could not read this computer." },
+    { status: 500 },
+  );
+}
+
+function routineHttpError(error: unknown): Response {
+  if (error instanceof RoutineNotFoundError) {
+    return Response.json({ error: error.message }, { status: 404 });
+  }
+  if (error instanceof RoutineScheduleError || error instanceof RoutineError) {
+    return Response.json({ error: error.message }, { status: 400 });
+  }
+  console.error("bot actor routine", error);
+  return Response.json(
+    { error: "Could not save that routine." },
+    { status: 500 },
+  );
 }
 
 export class BotActor extends Think<WorkerEnv> {
@@ -192,6 +219,7 @@ export class BotActor extends Think<WorkerEnv> {
       this.officeId = stored;
     }
     this.ensureMcpOAuthCallback();
+    this.ensureRoutinesTable();
     console.log(`[bot ${this.name}] onStart after think hydrate`);
   }
 
@@ -235,9 +263,7 @@ export class BotActor extends Think<WorkerEnv> {
             return composeSoul(actor.soulPrompt, (await evolved.get()) ?? "");
           },
           set: async (content: string) => {
-            await evolved.set(
-              soulOverlayFromWrite(actor.soulPrompt, content),
-            );
+            await evolved.set(soulOverlayFromWrite(actor.soulPrompt, content));
           },
         },
       })
@@ -269,6 +295,7 @@ export class BotActor extends Think<WorkerEnv> {
         description: withOfficeExecuteDescription(
           description,
           Boolean(this.env.KNOWLEDGE),
+          { routines: true },
         ),
       },
     };
@@ -277,9 +304,7 @@ export class BotActor extends Think<WorkerEnv> {
   getSkills() {
     // Office skills first. Computer skills stay as private drafts.
     const office = this.officeKnowledge();
-    const sources = office
-      ? [officeSkillSource(office, this.officeId)]
-      : [];
+    const sources = office ? [officeSkillSource(office, this.officeId)] : [];
     sources.push(workspaceSkillSource(this.workspace));
     return sources;
   }
@@ -313,6 +338,24 @@ export class BotActor extends Think<WorkerEnv> {
     }
     if (request.method === "POST" && url.pathname === "/mcp/remove") {
       return this.handleMcpRemove(request);
+    }
+    if (request.method === "POST" && url.pathname === "/routines/list") {
+      return this.handleRoutinesList();
+    }
+    if (request.method === "POST" && url.pathname === "/routines/create") {
+      return this.handleRoutinesCreate(request);
+    }
+    if (request.method === "POST" && url.pathname === "/routines/pause") {
+      return this.handleRoutinesSetActive(request, false);
+    }
+    if (request.method === "POST" && url.pathname === "/routines/resume") {
+      return this.handleRoutinesSetActive(request, true);
+    }
+    if (request.method === "POST" && url.pathname === "/routines/remove") {
+      return this.handleRoutinesRemove(request);
+    }
+    if (request.method === "POST" && url.pathname === "/routines/suspend") {
+      return this.handleRoutinesSuspend(request);
     }
     if (request.method === "POST" && url.pathname === "/destroy") {
       return this.handleDestroy();
@@ -398,7 +441,10 @@ export class BotActor extends Think<WorkerEnv> {
       );
       return Response.json(listed);
     } catch (error) {
-      console.error(`[bot ${this.name}] workspace list +${Date.now() - t0}ms`, error);
+      console.error(
+        `[bot ${this.name}] workspace list +${Date.now() - t0}ms`,
+        error,
+      );
       return workspaceError(error);
     }
   }
@@ -432,7 +478,9 @@ export class BotActor extends Think<WorkerEnv> {
     const content = typeof body.content === "string" ? body.content : "";
     try {
       const bytes = decodeComputerBytes(content);
-      return Response.json(await writeInboxFile(this.workspace, filename, bytes));
+      return Response.json(
+        await writeInboxFile(this.workspace, filename, bytes),
+      );
     } catch (error) {
       return workspaceError(error);
     }
@@ -553,8 +601,227 @@ export class BotActor extends Think<WorkerEnv> {
     await this.ctx.storage.put(OFFICE_REVIEW_STORAGE, next);
   }
 
+  getDefaultTimezone() {
+    return DEFAULT_ROUTINE_TIMEZONE;
+  }
+
+  async getScheduledTasks(): Promise<ThinkScheduledTasks> {
+    if (await this.routinesSuspended()) return {};
+    return thinkScheduledTasks(this.storedRoutines()) as ThinkScheduledTasks;
+  }
+
+  async listRoutines(): Promise<Routine[]> {
+    return this.listRoutineDtos();
+  }
+
+  async createRoutine(input: {
+    name: string;
+    prompt: string;
+    cron: string;
+    timezone?: string;
+  }): Promise<Routine> {
+    const row = createStoredRoutine(input);
+    this.ensureRoutinesTable();
+    this.sql`
+      INSERT INTO groxbot_routines (
+        id, name, prompt, schedule, timezone, active, created_at, updated_at
+      ) VALUES (
+        ${row.id}, ${row.name}, ${row.prompt}, ${row.schedule}, ${row.timezone},
+        ${row.active ? 1 : 0}, ${row.createdAt}, ${row.updatedAt}
+      )
+    `;
+    await this.internal_reconcileScheduledTasks();
+    return this.routineDto(row);
+  }
+
+  async pauseRoutine(id: string): Promise<Routine> {
+    return this.setRoutineActive(id, false);
+  }
+
+  async resumeRoutine(id: string): Promise<Routine> {
+    return this.setRoutineActive(id, true);
+  }
+
+  async removeRoutine(id: string): Promise<void> {
+    this.requireStoredRoutine(id);
+    this.sql`DELETE FROM groxbot_routines WHERE id = ${id}`;
+    await this.internal_reconcileScheduledTasks();
+  }
+
+  async setRoutinesSuspended(suspended: boolean): Promise<void> {
+    await this.ctx.storage.put("routinesSuspended", suspended);
+    await this.internal_reconcileScheduledTasks();
+  }
+
+  private ensureRoutinesTable(): void {
+    this.sql`
+      CREATE TABLE IF NOT EXISTS groxbot_routines (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        prompt TEXT NOT NULL,
+        schedule TEXT NOT NULL,
+        timezone TEXT NOT NULL,
+        active INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    `;
+  }
+
+  private storedRoutines(): StoredRoutine[] {
+    this.ensureRoutinesTable();
+    return this.sql<{
+      id: string;
+      name: string;
+      prompt: string;
+      schedule: string;
+      timezone: string;
+      active: number;
+      created_at: number;
+      updated_at: number;
+    }>`
+      SELECT id, name, prompt, schedule, timezone, active, created_at, updated_at
+      FROM groxbot_routines
+      ORDER BY created_at DESC
+    `.map((row) => ({
+      id: row.id,
+      name: row.name,
+      prompt: row.prompt,
+      schedule: row.schedule,
+      timezone: row.timezone,
+      active: row.active === 1,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  }
+
+  private requireStoredRoutine(id: string): StoredRoutine {
+    const row = this.storedRoutines().find((item) => item.id === id);
+    if (!row) throw new RoutineNotFoundError();
+    return row;
+  }
+
+  private async setRoutineActive(
+    id: string,
+    active: boolean,
+  ): Promise<Routine> {
+    this.requireStoredRoutine(id);
+    const updatedAt = Date.now();
+    this.sql`
+      UPDATE groxbot_routines
+      SET active = ${active ? 1 : 0}, updated_at = ${updatedAt}
+      WHERE id = ${id}
+    `;
+    await this.internal_reconcileScheduledTasks();
+    return this.routineDto({
+      ...this.requireStoredRoutine(id),
+      active,
+      updatedAt,
+    });
+  }
+
+  private listRoutineDtos(): Routine[] {
+    const next = this.routineNextRuns();
+    return this.storedRoutines().map((row) =>
+      toRoutineDto(this.name, row, next.get(row.id) ?? null),
+    );
+  }
+
+  private routineDto(row: StoredRoutine): Routine {
+    return toRoutineDto(
+      this.name,
+      row,
+      this.routineNextRuns().get(row.id) ?? null,
+    );
+  }
+
+  private routineNextRuns(): Map<string, number> {
+    try {
+      const rows = this.sql<{ task_id: string; next_run_at: number | null }>`
+        SELECT task_id, next_run_at FROM cf_think_scheduled_tasks
+      `;
+      return new Map(
+        rows
+          .filter((row) => row.next_run_at != null)
+          .map((row) => [row.task_id, Number(row.next_run_at)]),
+      );
+    } catch {
+      return new Map();
+    }
+  }
+
+  private handleRoutinesList(): Response {
+    return Response.json({ routines: this.listRoutineDtos() });
+  }
+
+  private async handleRoutinesCreate(request: Request): Promise<Response> {
+    const body = (await request.json().catch(() => ({}))) as {
+      name?: unknown;
+      prompt?: unknown;
+      cron?: unknown;
+      timezone?: unknown;
+    };
+    try {
+      return Response.json(
+        await this.createRoutine({
+          name: typeof body.name === "string" ? body.name : "",
+          prompt: typeof body.prompt === "string" ? body.prompt : "",
+          cron: typeof body.cron === "string" ? body.cron : "",
+          timezone:
+            typeof body.timezone === "string" ? body.timezone : undefined,
+        }),
+      );
+    } catch (error) {
+      return routineHttpError(error);
+    }
+  }
+
+  private async handleRoutinesSetActive(
+    request: Request,
+    active: boolean,
+  ): Promise<Response> {
+    const body = (await request.json().catch(() => ({}))) as { id?: unknown };
+    const id = typeof body.id === "string" ? body.id : "";
+    try {
+      return Response.json(
+        active ? await this.resumeRoutine(id) : await this.pauseRoutine(id),
+      );
+    } catch (error) {
+      return routineHttpError(error);
+    }
+  }
+
+  private async handleRoutinesRemove(request: Request): Promise<Response> {
+    const body = (await request.json().catch(() => ({}))) as { id?: unknown };
+    const id = typeof body.id === "string" ? body.id : "";
+    try {
+      await this.removeRoutine(id);
+      return Response.json({ ok: true });
+    } catch (error) {
+      return routineHttpError(error);
+    }
+  }
+
+  private async handleRoutinesSuspend(request: Request): Promise<Response> {
+    const body = (await request.json().catch(() => ({}))) as {
+      suspended?: unknown;
+    };
+    try {
+      await this.setRoutinesSuspended(body.suspended === true);
+      return Response.json({ ok: true });
+    } catch (error) {
+      return routineHttpError(error);
+    }
+  }
+
+  private async routinesSuspended(): Promise<boolean> {
+    return (await this.ctx.storage.get<boolean>("routinesSuspended")) === true;
+  }
+
   private executeConnectors() {
-    const connectors: Array<KnowledgeConnector | WorkspaceMcpConnector> = [];
+    const connectors: Array<
+      KnowledgeConnector | WorkspaceMcpConnector | RoutinesConnector
+    > = [new RoutinesConnector(this.ctx, this.env, () => this)];
     if (this.env.KNOWLEDGE) {
       connectors.push(
         new KnowledgeConnector(
@@ -601,7 +868,10 @@ export class BotActor extends Think<WorkerEnv> {
     const callbackHost =
       typeof body.callbackHost === "string" ? body.callbackHost : "";
     if (!serverId || !name || !url || !callbackHost) {
-      return Response.json({ error: "MCP server is missing fields." }, { status: 400 });
+      return Response.json(
+        { error: "MCP server is missing fields." },
+        { status: 400 },
+      );
     }
     try {
       const result = await this.addMcpServer(name, url, {

@@ -5,16 +5,16 @@ import { GuestHub, handleGuestRequest, readAvatar } from "@groxbot/core";
 import type { Database } from "@groxbot/db";
 import { ORPCError } from "@orpc/server";
 import { sql } from "drizzle-orm";
-import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { RpcContext } from "./context.js";
 import { mountDiscovery } from "./discovery.js";
 import { DURABLE_OBJECT_WAKEUP, type Env, oauthCredentials } from "./env.js";
 import { healthPayload } from "./health.js";
 import { createMailer, type SendEmailBinding } from "./mail.js";
-import { completePluginCallback, pluginCallbackPage } from "./plugins.js";
 import { completeMcpOAuth } from "./mcp.js";
+import { completePluginCallback, pluginCallbackPage } from "./plugins.js";
 import { mountRpc } from "./rpc.js";
 import { requireActor } from "./session.js";
 import { acceptInviteFromLink } from "./workspaces.js";
@@ -40,6 +40,7 @@ export function createApp(
     computer?: RpcContext["computer"];
     knowledge?: RpcContext["knowledge"];
     avatars?: RpcContext["avatars"];
+    routines?: RpcContext["routines"];
     mcp?: RpcContext["mcp"];
     forgetBot?: RpcContext["forgetBot"];
   },
@@ -81,6 +82,7 @@ export function createApp(
     computer: opts.computer,
     knowledge: opts.knowledge,
     avatars: opts.avatars,
+    routines: opts.routines,
     mcp: opts.mcp,
     forgetBot: opts.forgetBot,
     close: async () => {
@@ -132,7 +134,9 @@ export function createApp(
     } catch (caught) {
       if (caught instanceof ORPCError) {
         const status =
-          typeof caught.status === "number" && caught.status >= 400 && caught.status < 600
+          typeof caught.status === "number" &&
+          caught.status >= 400 &&
+          caught.status < 600
             ? caught.status
             : 400;
         return c.json(

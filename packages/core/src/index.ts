@@ -17,6 +17,7 @@ export * from "./models.js";
 export * from "./office-review.js";
 export * from "./plugin-connections.js";
 export * from "./poke.js";
+export * from "./routines.js";
 export * from "./run-continue.js";
 export * from "./run-state.js";
 export * from "./secret-box.js";
