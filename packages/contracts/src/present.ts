@@ -40,7 +40,7 @@ export const PRESENT_MAX_DEPTH = 8;
 export const PRESENT_MAX_NODES = 80;
 
 export const PRESENT_TOOL_DESCRIPTION = [
-  "Show a glanceable UI in this thread. Args are one JSON tree: `$type` names a component, other keys are props, `children` nests.",
+  "Show a glanceable UI in this thread. Args are one JSON tree: `$type` names a component, other keys are props, `children` is an array of objects — never a stringified JSON array.",
   `Allowed $type: ${PRESENT_TYPES.join(", ")}.`,
   'Example: { "$type": "Card", "title": "Q3", "children": [{ "$type": "Fact", "label": "Bookings", "value": "$1.2M" }] }.',
   "Use this for facts, a short table, a chart, or a choice. Put long notes and drafts in a file on this computer. Keep the chat reply to one short line.",
@@ -132,13 +132,46 @@ export function presentPreviewFromParts(parts: unknown): string {
   return "";
 }
 
+/** Models often pass `children` as a JSON string. Turn that back into a tree. */
+export function coercePresentInput(input: unknown): unknown {
+  if (typeof input === "string") {
+    const parsed = tryParsePresentJson(input);
+    return parsed === undefined ? input : coercePresentInput(parsed);
+  }
+  if (Array.isArray(input)) {
+    const out: unknown[] = [];
+    for (const item of input) {
+      if (typeof item === "string") {
+        const parsed = tryParsePresentJson(item);
+        if (parsed === undefined) {
+          out.push(item);
+          continue;
+        }
+        const next = coercePresentInput(parsed);
+        if (Array.isArray(parsed)) {
+          out.push(...(Array.isArray(next) ? next : [next]));
+        } else {
+          out.push(next);
+        }
+        continue;
+      }
+      out.push(coercePresentInput(item));
+    }
+    return out;
+  }
+  if (isRecord(input) && "children" in input) {
+    return { ...input, children: coercePresentInput(input.children) };
+  }
+  return input;
+}
+
 export function sanitizePresentTree(
   input: unknown,
   depth = 0,
   tally = { n: 0 },
 ): PresentNode | null {
   if (depth > PRESENT_MAX_DEPTH) return null;
-  const node = asNode(input);
+  const node = asNode(depth === 0 ? coercePresentInput(input) : input);
   if (!node || !TYPE_SET.has(node.$type)) return null;
   if (tally.n >= PRESENT_MAX_NODES) return null;
   tally.n += 1;
@@ -154,6 +187,8 @@ export function sanitizePresentTree(
       if (typeof child === "string") {
         const text = child.trim();
         if (!text || tally.n >= PRESENT_MAX_NODES) return null;
+        // Incomplete or leftover stringified JSON — do not paint it as a caption.
+        if (text.startsWith("{") || text.startsWith("[")) return null;
         tally.n += 1;
         return { $type: "Text", value: clip(text, 4000) } satisfies PresentNode;
       }
@@ -162,6 +197,16 @@ export function sanitizePresentTree(
     .filter((row): row is PresentNode => row !== null);
 
   const next: PresentNode = { ...node };
+  if (
+    (node.$type === "Badge" ||
+      node.$type === "Text" ||
+      node.$type === "Caption" ||
+      node.$type === "Markdown") &&
+    !str(node.value) &&
+    str(node.text)
+  ) {
+    next.value = str(node.text);
+  }
   if (kids.length > 0) next.children = kids;
   else delete next.children;
   return next;
@@ -208,4 +253,14 @@ function str(value: unknown): string {
 function clip(value: string, max = 140): string {
   const text = value.replace(/\s+/g, " ").trim();
   return text.length > max ? text.slice(0, max).trim() : text;
+}
+
+function tryParsePresentJson(raw: string): unknown | undefined {
+  const text = raw.trim();
+  if (!text.startsWith("{") && !text.startsWith("[")) return undefined;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return undefined;
+  }
 }

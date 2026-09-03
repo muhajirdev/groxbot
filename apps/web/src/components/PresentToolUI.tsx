@@ -4,6 +4,7 @@ import {
   renderGenerativeUI,
 } from "@assistant-ui/react-generative-ui";
 import {
+  coercePresentInput,
   PRESENT_TOOL_NAME,
   safePresentImageSrc,
   sanitizePresentTree,
@@ -35,7 +36,8 @@ export function PresentSurface(props: {
   tree: unknown;
   streaming?: boolean;
 }): ReactNode {
-  const tree = props.streaming ? props.tree : sanitizePresentTree(props.tree);
+  const coerced = coercePresentInput(props.tree);
+  const tree = props.streaming ? coerced : sanitizePresentTree(coerced);
   if (!tree || typeof tree !== "object") return null;
   return (
     <div data-aui="root" data-slot="office-present">
