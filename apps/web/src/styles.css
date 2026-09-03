@@ -2642,6 +2642,7 @@ html.electron .pane-head {
   stroke: color-mix(in srgb, var(--ink) 22%, transparent);
   stroke-width: 1.05;
   stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
 }
 
 .knowledge-graph-arrow {
@@ -2669,6 +2670,7 @@ html.electron .pane-head {
   fill: var(--muted);
   stroke: color-mix(in srgb, var(--bg-pane) 70%, var(--ink));
   stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
 }
 
 .knowledge-graph-node.linked circle {
