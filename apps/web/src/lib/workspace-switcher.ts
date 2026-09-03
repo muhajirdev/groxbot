@@ -16,7 +16,7 @@ export type WorkspaceMenuItem =
 
 export type WorkspaceDestination =
   | { to: "/onboarding" }
-  | { to: "/$botId"; botId: string };
+  | { to: "/bot/$botId"; botId: string };
 
 export function workspaceDisplayName(name: string | null | undefined): string {
   const trimmed = name?.trim();
@@ -133,5 +133,5 @@ export function destinationAfterWorkspaceChange(
 ): WorkspaceDestination {
   const live = bots.find((bot) => !bot.archivedAt) ?? bots[0];
   if (!live) return { to: "/onboarding" };
-  return { to: "/$botId", botId: live.id };
+  return { to: "/bot/$botId", botId: live.id };
 }

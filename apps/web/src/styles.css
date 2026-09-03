@@ -52,7 +52,7 @@
   color-scheme: dark;
   --bg: #000000;
   --bg-side: #0c0c0c;
-  --bg-thread: #000000;
+  --bg-thread: #0c0c0c;
   --bg-pane: #0e0e0e;
   --ink: #f4f4f4;
   --muted: #8a8a8a;
@@ -80,7 +80,7 @@
   color-scheme: light;
   --bg: #f6f6f6;
   --bg-side: #efefef;
-  --bg-thread: #f7f7f7;
+  --bg-thread: #ffffff;
   --bg-pane: #f0f0f0;
   --ink: #111111;
   --muted: #6b6b6b;
@@ -1536,6 +1536,10 @@ html.electron .side-chrome {
   padding-left: 72px;
 }
 
+html.electron .chat-shell {
+  padding-top: 0;
+}
+
 html.electron .thread-head,
 html.electron .pane-head {
   min-height: 52px;
@@ -2294,21 +2298,36 @@ html.electron .pane-head {
 
 .chat-shell {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 0px;
+  grid-template-columns: 264px minmax(0, 1fr);
+  column-gap: 8px;
   height: 100vh;
   height: 100dvh;
   max-height: 100dvh;
+  padding: 8px 8px 8px 0;
   transition: grid-template-columns var(--dur-pane) var(--ease-soft);
   overflow: hidden;
   overscroll-behavior: none;
 }
 
-.chat-shell.is-pane {
-  grid-template-columns: 280px minmax(0, 1fr) 320px;
+.chat-stage {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 0px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-thread);
+  transition: grid-template-columns var(--dur-pane) var(--ease-soft);
 }
 
-.chat-shell.is-app {
-  grid-template-columns: 280px minmax(260px, 0.9fr) minmax(420px, 1.2fr);
+.chat-shell.is-pane .chat-stage {
+  grid-template-columns: minmax(0, 1fr) 320px;
+}
+
+.chat-shell.is-app .chat-stage {
+  grid-template-columns: minmax(260px, 0.9fr) minmax(420px, 1.2fr);
 }
 
 .chat-pane-slot {
@@ -2860,11 +2879,11 @@ html.electron .pane-head {
     right: 0;
     bottom: 0;
     z-index: 8;
-    width: min(320px, calc(100% - 72px));
+    width: min(320px, 100%);
     overflow: visible;
   }
   .chat-shell.is-app .chat-pane-slot:not(:empty) {
-    width: min(720px, calc(100% - 72px));
+    width: min(720px, 100%);
   }
   .chat-pane-slot > .pane,
   .chat-pane-slot > .pane.app-pane {
@@ -2882,6 +2901,10 @@ html.electron .pane-head {
   .chat-shell.is-pane,
   .chat-shell.is-app {
     grid-template-columns: 72px minmax(0, 1fr) !important;
+  }
+  .chat-shell.is-pane .chat-stage,
+  .chat-shell.is-app .chat-stage {
+    grid-template-columns: minmax(0, 1fr) 0px;
   }
   .chat-conv-copy,
   .chat-conv-more,
@@ -2907,6 +2930,16 @@ html.electron .pane-head {
   .chat-shell.is-pane,
   .chat-shell.is-app {
     grid-template-columns: minmax(0, 1fr) !important;
+    column-gap: 0;
+    padding: 0;
+  }
+
+  .chat-stage,
+  .chat-shell.is-pane .chat-stage,
+  .chat-shell.is-app .chat-stage {
+    grid-template-columns: minmax(0, 1fr) 0px;
+    border: 0;
+    border-radius: 0;
   }
 
   .chat-side {

@@ -9,7 +9,7 @@ export const Route = createFileRoute("/")({
         ? ""
         : window.location.hash.replace(/^#/, "");
     if (hash && context.session) {
-      throw redirect({ to: "/$botId", params: { botId: hash } });
+      throw redirect({ to: "/bot/$botId", params: { botId: hash } });
     }
     if (context.session) await redirectAuthedHome();
   },

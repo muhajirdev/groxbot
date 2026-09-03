@@ -22,7 +22,7 @@ export const Route = createFileRoute("/_authed/onboarding")({
     const bots = await loadBotsForRoute();
     const first = firstLiveBot(bots);
     if (first) {
-      throw redirect({ to: "/$botId", params: { botId: first.id } });
+      throw redirect({ to: "/bot/$botId", params: { botId: first.id } });
     }
   },
   component: OnboardingPage,

@@ -120,6 +120,6 @@ describe("destinationAfterWorkspaceChange", () => {
         { id: "bot-archived", archivedAt: "2026-01-01T00:00:00.000Z" },
         { id: "bot-live", archivedAt: null },
       ]),
-    ).toEqual({ to: "/$botId", botId: "bot-live" });
+    ).toEqual({ to: "/bot/$botId", botId: "bot-live" });
   });
 });
