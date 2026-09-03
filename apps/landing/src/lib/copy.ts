@@ -107,6 +107,7 @@ export const DEMOS = [
   },
 ] as const;
 
+/** Display-only hotlink. logos.composio.dev omits CORS headers. */
 function composioLogo(slug: string): string {
   return `https://logos.composio.dev/api/${slug}`;
 }
