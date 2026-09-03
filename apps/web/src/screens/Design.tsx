@@ -1,3 +1,4 @@
+import { MASCOT_MOODS, type MascotMood } from "@groxbot/mascot";
 import {
   ArrowUpIcon,
   CaretDownIcon,
@@ -6,9 +7,10 @@ import {
   WarningCircleIcon,
   XCircleIcon,
 } from "@phosphor-icons/react";
-import { MASCOT_MOODS, type MascotMood } from "@groxbot/mascot";
-import { useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
+import { type ReactNode, useState } from "react";
+import { AppCard } from "../components/AppCard";
+import { AvatarMark } from "../components/Avatar";
 import {
   ReasoningContent,
   ReasoningRoot,
@@ -20,9 +22,8 @@ import {
   ThinkingStatus,
 } from "../components/assistant-ui/elements/spiral-loader";
 import { TooltipIconButton } from "../components/assistant-ui/elements/tooltip-icon-button";
-import { AvatarMark } from "../components/Avatar";
-import { AppCard } from "../components/AppCard";
 import { ChatMarkdown } from "../components/ChatMarkdown";
+import { KnowledgeMarkdown } from "../components/KnowledgeFilePreview";
 import { KnowledgeGraphMap } from "../components/KnowledgeGraph";
 import { TypingDots } from "../components/TypingDots";
 import { Skeleton } from "../components/ui/skeleton";
@@ -72,6 +73,35 @@ const GRAPH_FILES = new Set(
   GRAPH_PATHS.filter((path) => path !== "notes/ghost.md"),
 );
 
+const KNOWLEDGE_NOTE = `---
+title: Resources for agents
+updated: 2026-09-02
+source: https://expandra.ai/developers
+---
+
+# Resources for agents
+
+Agents should fetch Markdown, not the HTML marketing site.
+
+## Reading expandra.ai
+
+Send \`Accept: text/markdown\`.
+
+- handbook
+- playbook
+- agreements
+
+If a page 404s, retry with \`charset=utf-8\`.
+
+## Use Expandra for
+
+- public docs you already link from the office
+- playbooks that should stay in git
+- anything a bot should cite by path
+
+See [company/README.md](company/README.md) and https://expandra.ai/playbook.
+`;
+
 const THOUGHT =
   "The brief asks for a shortlist, not outreach. I’ll stay in the office notes, skip email, and stop with names plus why.";
 
@@ -102,7 +132,11 @@ export function Design() {
                   applyTheme(value);
                 }}
               >
-                {value === "system" ? "System" : value === "dark" ? "Dark" : "Light"}
+                {value === "system"
+                  ? "System"
+                  : value === "dark"
+                    ? "Dark"
+                    : "Light"}
               </Chip>
             ))}
           </div>
@@ -326,17 +360,19 @@ export function Design() {
             </Specimen>
             <Specimen label="Follow-ups">
               <div className="flex flex-wrap gap-2">
-                {["Draft the shortlist", "Stay in notes", "Ask before email"].map(
-                  (prompt) => (
-                    <button
-                      key={prompt}
-                      type="button"
-                      className="rounded-full border border-line bg-background px-3 py-1 text-sm"
-                    >
-                      {prompt}
-                    </button>
-                  ),
-                )}
+                {[
+                  "Draft the shortlist",
+                  "Stay in notes",
+                  "Ask before email",
+                ].map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    className="rounded-full border border-line bg-background px-3 py-1 text-sm"
+                  >
+                    {prompt}
+                  </button>
+                ))}
               </div>
             </Specimen>
           </Section>
@@ -405,7 +441,10 @@ export function Design() {
                 <Input defaultValue="Chief" />
               </Field>
               <Field label="Handoff" hint="Outcome, sources, when to stop.">
-                <Textarea defaultValue={SUGGESTED_JOBS[0]?.description} rows={3} />
+                <Textarea
+                  defaultValue={SUGGESTED_JOBS[0]?.description}
+                  rows={3}
+                />
               </Field>
             </Specimen>
           </Section>
@@ -426,8 +465,25 @@ export function Design() {
           <Section
             id="knowledge"
             title="Knowledge"
-            lede="One GET, inverted in the client. Missing files stay as hollow nodes."
+            lede="Library modal: tree plus a document reader. Frontmatter stays off the page."
           >
+            <Specimen label="Note">
+              <div className="design-knowledge-read">
+                <p className="knowledge-kicker">
+                  company
+                  <span className="knowledge-path-sep" aria-hidden>
+                    /
+                  </span>
+                  resources.md
+                </p>
+                <p className="knowledge-backlinks">
+                  Linked from company/README.md
+                </p>
+                <div className="design-knowledge-page">
+                  <KnowledgeMarkdown text={KNOWLEDGE_NOTE} />
+                </div>
+              </div>
+            </Specimen>
             <Specimen label="Graph" hint="click a node">
               <div className="design-graph">
                 <KnowledgeGraphMap
@@ -497,7 +553,12 @@ function ThreadHistorySkeleton() {
 
 function ToolRow(props: {
   toolName: string;
-  status: "running" | "complete" | "incomplete" | "requires-action" | "cancelled";
+  status:
+    | "running"
+    | "complete"
+    | "incomplete"
+    | "requires-action"
+    | "cancelled";
 }) {
   const running = props.status === "running";
   const cancelled = props.status === "cancelled";

@@ -225,12 +225,6 @@ function TextPreview(props: {
   const markdown =
     computerFileKind(props.path) === "md" ||
     props.file.mediaType === "text/markdown";
-  const links = props.links;
-  const split = markdown ? splitKnowledgeMarkdown(props.file.content) : null;
-  const body = split?.body ?? props.file.content;
-  const showTitle = Boolean(
-    split?.meta.title && !knowledgeMarkdownHasHeading(body),
-  );
   return (
     <div
       className={markdown ? "knowledge-preview-md" : "computer-preview-text"}
@@ -241,38 +235,53 @@ function TextPreview(props: {
         </p>
       ) : null}
       {markdown ? (
-        <article className="knowledge-doc">
-          {showTitle ? (
-            <h1 className="knowledge-doc-title">{split?.meta.title}</h1>
-          ) : null}
-          <KnowledgeDocMeta
-            updated={split?.meta.updated ?? ""}
-            source={split?.meta.source ?? ""}
-          />
-          {links ? (
-            <ChatMarkdown
-              text={body}
-              variant="document"
-              officePaths
-              urlTransform={knowledgeMarkdownUrl}
-              renderLink={({ href, children }) => (
-                <OfficeMarkdownLink
-                  href={href}
-                  files={links.files}
-                  onOpen={links.onOpen}
-                >
-                  {children}
-                </OfficeMarkdownLink>
-              )}
-            />
-          ) : (
-            <ChatMarkdown text={body} variant="document" />
-          )}
-        </article>
+        <KnowledgeMarkdown text={props.file.content} links={props.links} />
       ) : (
         <pre>{props.file.content}</pre>
       )}
     </div>
+  );
+}
+
+export function KnowledgeMarkdown(props: {
+  text: string;
+  links?: OfficeLinks;
+}) {
+  const split = splitKnowledgeMarkdown(props.text);
+  const body = split.body;
+  const showTitle = Boolean(
+    split.meta.title && !knowledgeMarkdownHasHeading(body),
+  );
+  const links = props.links;
+  return (
+    <article className="knowledge-doc">
+      {showTitle ? (
+        <h1 className="knowledge-doc-title">{split.meta.title}</h1>
+      ) : null}
+      <KnowledgeDocMeta
+        updated={split.meta.updated}
+        source={split.meta.source}
+      />
+      {links ? (
+        <ChatMarkdown
+          text={body}
+          variant="document"
+          officePaths
+          urlTransform={knowledgeMarkdownUrl}
+          renderLink={({ href, children }) => (
+            <OfficeMarkdownLink
+              href={href}
+              files={links.files}
+              onOpen={links.onOpen}
+            >
+              {children}
+            </OfficeMarkdownLink>
+          )}
+        />
+      ) : (
+        <ChatMarkdown text={body} variant="document" />
+      )}
+    </article>
   );
 }
 

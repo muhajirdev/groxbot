@@ -3261,6 +3261,22 @@ html.electron .pane-head {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+.design-knowledge-read {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: min(100%, 36rem);
+}
+
+.design-knowledge-page {
+  max-height: 460px;
+  overflow: auto;
+  padding: 24px 28px 36px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg);
+}
+
 .design-graph {
   height: 380px;
   border-radius: 12px;
