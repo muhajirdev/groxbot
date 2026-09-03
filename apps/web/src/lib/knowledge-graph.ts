@@ -37,7 +37,8 @@ export type KnowledgeGraphLayout = {
 export type GraphCamera = {
   x: number;
   y: number;
-  k: number;
+  w: number;
+  h: number;
 };
 
 export type GraphLabelBox = {
@@ -125,42 +126,69 @@ export function clampGraphZoom(k: number): number {
   return Math.min(GRAPH_ZOOM_MAX, Math.max(GRAPH_ZOOM_MIN, k));
 }
 
+export function graphCameraScale(
+  camera: GraphCamera,
+  viewport: { width: number; height: number },
+): number {
+  if (camera.w <= 0) return 1;
+  return viewport.width / camera.w;
+}
+
 export function worldFromScreen(
   camera: GraphCamera,
   screen: { x: number; y: number },
+  viewport: { width: number; height: number },
 ): { x: number; y: number } {
   return {
-    x: (screen.x - camera.x) / camera.k,
-    y: (screen.y - camera.y) / camera.k,
+    x: camera.x + (screen.x / Math.max(1, viewport.width)) * camera.w,
+    y: camera.y + (screen.y / Math.max(1, viewport.height)) * camera.h,
   };
 }
 
 export function zoomGraphCamera(
   camera: GraphCamera,
   world: { x: number; y: number },
-  nextK: number,
+  factor: number,
+  viewport: { width: number; height: number },
 ): GraphCamera {
-  const k = clampGraphZoom(nextK);
-  const sx = world.x * camera.k + camera.x;
-  const sy = world.y * camera.k + camera.y;
-  return { k, x: sx - world.x * k, y: sy - world.y * k };
+  const k = clampGraphZoom(graphCameraScale(camera, viewport) * factor);
+  const w = viewport.width / k;
+  const h = viewport.height / k;
+  const fx = camera.w <= 0 ? 0.5 : (world.x - camera.x) / camera.w;
+  const fy = camera.h <= 0 ? 0.5 : (world.y - camera.y) / camera.h;
+  return {
+    w,
+    h,
+    x: world.x - fx * w,
+    y: world.y - fy * h,
+  };
 }
 
 export function panGraphCamera(
   camera: GraphCamera,
   dx: number,
   dy: number,
+  viewport: { width: number; height: number },
 ): GraphCamera {
-  return { ...camera, x: camera.x + dx, y: camera.y + dy };
+  return {
+    ...camera,
+    x: camera.x - (dx / Math.max(1, viewport.width)) * camera.w,
+    y: camera.y - (dy / Math.max(1, viewport.height)) * camera.h,
+  };
 }
 
 export function fitGraphCamera(
   nodes: { x: number; y: number; r: number }[],
   viewport: { width: number; height: number },
-  padding = 48,
+  padding = 36,
 ): GraphCamera {
   if (nodes.length === 0 || viewport.width < 8 || viewport.height < 8) {
-    return { x: 0, y: 0, k: 1 };
+    return {
+      x: 0,
+      y: 0,
+      w: viewport.width || 720,
+      h: viewport.height || 480,
+    };
   }
   let minX = Infinity;
   let minY = Infinity;
@@ -170,17 +198,20 @@ export function fitGraphCamera(
     minX = Math.min(minX, node.x - node.r);
     minY = Math.min(minY, node.y - node.r);
     maxX = Math.max(maxX, node.x + node.r);
-    maxY = Math.max(maxY, node.y + node.r + 16);
+    maxY = Math.max(maxY, node.y + node.r + 18);
   }
-  const w = Math.max(1, maxX - minX + padding * 2);
-  const h = Math.max(1, maxY - minY + padding * 2);
-  const k = clampGraphZoom(Math.min(viewport.width / w, viewport.height / h));
+  let w = Math.max(1, maxX - minX + padding * 2);
+  let h = Math.max(1, maxY - minY + padding * 2);
+  const aspect = viewport.width / viewport.height;
+  if (w / h < aspect) w = h * aspect;
+  else h = w / aspect;
   const cx = (minX + maxX) / 2;
   const cy = (minY + maxY) / 2;
   return {
-    k,
-    x: viewport.width / 2 - cx * k,
-    y: viewport.height / 2 - cy * k,
+    x: cx - w / 2,
+    y: cy - h / 2,
+    w,
+    h,
   };
 }
 

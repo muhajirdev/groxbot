@@ -9,6 +9,7 @@ import {
 import {
   fitGraphCamera,
   type GraphCamera,
+  graphCameraScale,
   graphEdgeGeom,
   indexKnowledgeGraph,
   type KnowledgeGraphNode,
@@ -44,15 +45,19 @@ export function KnowledgeGraphMap(props: {
   const [hover, setHover] = useState<string | null>(null);
   const [panning, setPanning] = useState(false);
   const [viewport, setViewport] = useState(EMPTY_VIEW);
-  const [camera, setCamera] = useState<GraphCamera>({ x: 0, y: 0, k: 1 });
+  const [camera, setCamera] = useState<GraphCamera>({
+    x: 0,
+    y: 0,
+    w: EMPTY_VIEW.width,
+    h: EMPTY_VIEW.height,
+  });
   const svgRef = useRef<SVGSVGElement>(null);
   const sizeObserver = useRef<ResizeObserver | null>(null);
   const canvasDrag = useRef<{
     pointer: number;
     x: number;
     y: number;
-    panX: number;
-    panY: number;
+    origin: GraphCamera;
     moved: boolean;
   } | null>(null);
   const nodeDrag = useRef<{
@@ -139,9 +144,9 @@ export function KnowledgeGraphMap(props: {
           (node) => linked.has(node.id) || alwaysLabels.has(node.id),
         )
       : visible;
-    if (camera.k < 0.48) return alwaysLabels;
+    if (graphCameraScale(camera, viewport) < 0.48) return alwaysLabels;
     return pickGraphLabels(candidates, alwaysLabels);
-  }, [alwaysLabels, camera.k, focusing, linked, visible]);
+  }, [alwaysLabels, camera, focusing, linked, viewport, visible]);
   const status =
     hover ||
     props.selected ||
@@ -161,13 +166,13 @@ export function KnowledgeGraphMap(props: {
         x: event.clientX - rect.left,
         y: event.clientY - rect.top,
       };
-      const world = worldFromScreen(camera, screen);
-      const next = camera.k * (event.deltaY > 0 ? 0.9 : 1.11);
-      setCamera(zoomGraphCamera(camera, world, next));
+      const world = worldFromScreen(camera, screen, viewport);
+      const factor = event.deltaY > 0 ? 0.9 : 1.11;
+      setCamera(zoomGraphCamera(camera, world, factor, viewport));
     };
     svg.addEventListener("wheel", onWheel, { passive: false });
     return () => svg.removeEventListener("wheel", onWheel);
-  }, [camera]);
+  }, [camera, viewport]);
 
   if (
     layout.nodes.length === 0 ||
@@ -215,8 +220,8 @@ export function KnowledgeGraphMap(props: {
         <svg
           ref={attachSvg}
           className={panning ? "panning" : undefined}
-          viewBox={`0 0 ${viewport.width} ${viewport.height}`}
-          preserveAspectRatio="xMidYMid meet"
+          viewBox={`${camera.x} ${camera.y} ${camera.w} ${camera.h}`}
+          preserveAspectRatio="none"
           aria-label="Office knowledge links"
           onPointerDown={(event) => {
             if (event.button !== 0 || nodeDrag.current) return;
@@ -224,8 +229,7 @@ export function KnowledgeGraphMap(props: {
               pointer: event.pointerId,
               x: event.clientX,
               y: event.clientY,
-              panX: camera.x,
-              panY: camera.y,
+              origin: camera,
               moved: false,
             };
             event.currentTarget.setPointerCapture(event.pointerId);
@@ -233,8 +237,12 @@ export function KnowledgeGraphMap(props: {
           onPointerMove={(event) => {
             const pin = nodeDrag.current;
             if (pin && pin.pointer === event.pointerId) {
-              const dx = (event.clientX - pin.x) / camera.k;
-              const dy = (event.clientY - pin.y) / camera.k;
+              const dx =
+                ((event.clientX - pin.x) * camera.w) /
+                Math.max(1, viewport.width);
+              const dy =
+                ((event.clientY - pin.y) * camera.h) /
+                Math.max(1, viewport.height);
               if (Math.abs(dx) + Math.abs(dy) > 2) pin.moved = true;
               setNodes((current) =>
                 current.map((node) =>
@@ -254,13 +262,7 @@ export function KnowledgeGraphMap(props: {
               setPanning(true);
             }
             if (start.moved) {
-              setCamera(
-                panGraphCamera(
-                  { ...camera, x: start.panX, y: start.panY },
-                  dx,
-                  dy,
-                ),
-              );
+              setCamera(panGraphCamera(start.origin, dx, dy, viewport));
             }
           }}
           onPointerUp={(event) => {
@@ -273,68 +275,64 @@ export function KnowledgeGraphMap(props: {
             }
           }}
         >
-          <g
-            transform={`translate(${camera.x} ${camera.y}) scale(${camera.k})`}
-          >
-            {layout.edges.map((edge) => {
-              const from = byId.get(edge.from);
-              const to = byId.get(edge.to);
-              if (!from || !to) return null;
-              const hot = linked.has(edge.from) && linked.has(edge.to);
-              const faded = focusing && !hot;
-              const geom = graphEdgeGeom(from, to, edge.reciprocal);
-              return (
-                <g
-                  key={`${edge.from}-${edge.to}`}
-                  className={cn(
-                    "knowledge-graph-edge",
-                    hot && "linked",
-                    faded && "faded",
-                  )}
-                >
-                  <path d={geom.d} />
-                  <polygon
-                    className="knowledge-graph-arrow"
-                    transform={`translate(${geom.ax} ${geom.ay}) rotate(${geom.angle})`}
-                    points="0,-3.1 8,0 0,3.1"
-                  />
-                </g>
-              );
-            })}
-            {visible.map((node) => (
-              <GraphNode
-                key={node.path}
-                node={node}
-                selected={node.path === props.selected}
-                linked={linked.has(node.id)}
-                faded={focusing && !linked.has(node.id)}
-                labeled={labeled.has(node.id)}
-                missing={!props.files.has(node.path)}
-                onHover={setHover}
-                onPointerDown={(event) => {
-                  event.stopPropagation();
-                  nodeDrag.current = {
-                    pointer: event.pointerId,
-                    id: node.id,
-                    x: event.clientX,
-                    y: event.clientY,
-                    origX: node.x,
-                    origY: node.y,
-                    moved: false,
-                  };
-                }}
-                onSelect={() => {
-                  if (nodeDrag.current?.moved || canvasDrag.current?.moved)
-                    return;
-                  props.onSelect(node.path);
-                }}
-                onOpen={() => {
-                  if (nodeDrag.current?.moved) return;
-                  props.onOpen(node.path);
-                }}
-              />
-            ))}
-          </g>
+          {layout.edges.map((edge) => {
+            const from = byId.get(edge.from);
+            const to = byId.get(edge.to);
+            if (!from || !to) return null;
+            const hot = linked.has(edge.from) && linked.has(edge.to);
+            const faded = focusing && !hot;
+            const geom = graphEdgeGeom(from, to, edge.reciprocal);
+            return (
+              <g
+                key={`${edge.from}-${edge.to}`}
+                className={cn(
+                  "knowledge-graph-edge",
+                  hot && "linked",
+                  faded && "faded",
+                )}
+              >
+                <path d={geom.d} />
+                <polygon
+                  className="knowledge-graph-arrow"
+                  transform={`translate(${geom.ax} ${geom.ay}) rotate(${geom.angle})`}
+                  points="0,-3.1 8,0 0,3.1"
+                />
+              </g>
+            );
+          })}
+          {visible.map((node) => (
+            <GraphNode
+              key={node.path}
+              node={node}
+              selected={node.path === props.selected}
+              linked={linked.has(node.id)}
+              faded={focusing && !linked.has(node.id)}
+              labeled={labeled.has(node.id)}
+              missing={!props.files.has(node.path)}
+              onHover={setHover}
+              onPointerDown={(event) => {
+                event.stopPropagation();
+                nodeDrag.current = {
+                  pointer: event.pointerId,
+                  id: node.id,
+                  x: event.clientX,
+                  y: event.clientY,
+                  origX: node.x,
+                  origY: node.y,
+                  moved: false,
+                };
+              }}
+              onSelect={() => {
+                if (nodeDrag.current?.moved || canvasDrag.current?.moved)
+                  return;
+                props.onSelect(node.path);
+              }}
+              onOpen={() => {
+                if (nodeDrag.current?.moved) return;
+                props.onOpen(node.path);
+              }}
+            />
+          ))}
         </svg>
       </div>
       {folders.length > 1 ? (

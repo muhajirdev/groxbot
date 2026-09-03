@@ -70,30 +70,35 @@ describe("graph labels", () => {
 
 describe("graph camera", () => {
   it("fits nodes inside the viewport", () => {
+    const viewport = { width: 400, height: 300 };
     const camera = fitGraphCamera(
       [
         { x: 0, y: 0, r: 8 },
         { x: 200, y: 80, r: 8 },
       ],
-      { width: 400, height: 300 },
+      viewport,
     );
-    const left = worldFromScreen(camera, { x: 0, y: 0 });
-    const right = worldFromScreen(camera, { x: 400, y: 300 });
+    const left = worldFromScreen(camera, { x: 0, y: 0 }, viewport);
+    const right = worldFromScreen(camera, { x: 400, y: 300 }, viewport);
     expect(left.x).toBeLessThan(0);
     expect(left.y).toBeLessThan(0);
     expect(right.x).toBeGreaterThan(200);
     expect(right.y).toBeGreaterThan(80);
+    expect(camera.w / camera.h).toBeCloseTo(400 / 300, 5);
   });
 
   it("zooms around the cursor without moving that world point", () => {
-    const camera = { x: 12, y: 8, k: 1 };
+    const viewport = { width: 400, height: 300 };
+    const camera = { x: 0, y: 0, w: 400, h: 300 };
     const world = { x: 40, y: 30 };
     const screen = {
-      x: world.x * camera.k + camera.x,
-      y: world.y * camera.k + camera.y,
+      x: ((world.x - camera.x) / camera.w) * viewport.width,
+      y: ((world.y - camera.y) / camera.h) * viewport.height,
     };
-    const next = zoomGraphCamera(camera, world, 2);
-    expect(worldFromScreen(next, screen)).toEqual(world);
+    const next = zoomGraphCamera(camera, world, 2, viewport);
+    const back = worldFromScreen(next, screen, viewport);
+    expect(back.x).toBeCloseTo(world.x, 5);
+    expect(back.y).toBeCloseTo(world.y, 5);
   });
 });
 
