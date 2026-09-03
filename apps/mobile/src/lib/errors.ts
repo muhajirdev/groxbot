@@ -38,6 +38,9 @@ export function humanizeRunError(raw: string): string {
   if (/^error code:\s*\d+/i.test(text)) {
     return "Could not reach this teammate. Try sending again.";
   }
+  if (/failed to fetch|network request failed/i.test(text)) {
+    return "Could not reach the office API.";
+  }
   return text;
 }
 

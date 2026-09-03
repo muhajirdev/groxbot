@@ -7,6 +7,12 @@ describe("humanizeRunError", () => {
       "Could not reach this teammate. Try sending again.",
     );
   });
+
+  it("rewrites a dead API fetch", () => {
+    expect(humanizeRunError("Failed to fetch")).toBe(
+      "Could not reach the office API.",
+    );
+  });
 });
 
 describe("userFacingError", () => {

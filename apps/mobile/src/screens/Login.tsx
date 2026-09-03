@@ -52,14 +52,19 @@ export function LoginScreen({
       return;
     }
     rememberInvite(inviteId);
-    const result = await authClient.signIn.social({
-      provider: "google",
-      callbackURL,
-      errorCallbackURL: callbackURL,
-    });
-    setBusy(false);
-    if (result.error) setError(result.error.message ?? "Could not continue");
-    else onAuthed();
+    try {
+      const result = await authClient.signIn.social({
+        provider: "google",
+        callbackURL,
+        errorCallbackURL: callbackURL,
+      });
+      setBusy(false);
+      if (result.error) setError(result.error.message ?? "Could not continue");
+      else onAuthed();
+    } catch (caught) {
+      setBusy(false);
+      setError(userFacingError(caught, "Could not continue"));
+    }
   }
 
   async function continueWithEmail() {
@@ -71,17 +76,22 @@ export function LoginScreen({
     setBusy(true);
     setError("");
     rememberInvite(inviteId);
-    const result = await authClient.signIn.magicLink({
-      email: address,
-      callbackURL,
-      errorCallbackURL: callbackURL,
-    });
-    setBusy(false);
-    if (result.error) {
-      setError(result.error.message ?? "Could not send a sign-in link");
-      return;
+    try {
+      const result = await authClient.signIn.magicLink({
+        email: address,
+        callbackURL,
+        errorCallbackURL: callbackURL,
+      });
+      setBusy(false);
+      if (result.error) {
+        setError(result.error.message ?? "Could not send a sign-in link");
+        return;
+      }
+      setSentTo(address);
+    } catch (caught) {
+      setBusy(false);
+      setError(userFacingError(caught, "Could not send a sign-in link"));
     }
-    setSentTo(address);
   }
 
   async function joinInvite() {
