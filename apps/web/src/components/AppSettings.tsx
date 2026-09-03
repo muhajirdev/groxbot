@@ -12,6 +12,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { userFacingError } from "../lib/errors";
+import { BUILD_REVISION, shortRevision } from "../lib/build";
 import { orpc } from "../lib/orpc";
 import { encodeProfileImage } from "../lib/profile-image";
 import {
@@ -228,17 +229,45 @@ export function AppSettings(props: {
                     />
                   </label>
                 </section>
+                <section className="set-block">
+                  <p className="group-label">Build</p>
+                  <BuildStamp />
+                </section>
               </>
             ) : null}
             {tab === "models" ? <ModelsTab /> : null}
             {tab === "billing" ? <BillingTab /> : null}
             {tab === "updates" ? (
-              <p className="muted">You're on the local build of Groxbot.</p>
+              <section className="set-block">
+                <p className="muted">Git revision of this office.</p>
+                <BuildStamp />
+              </section>
             ) : null}
           </div>
         </div>
       </div>
     </ModalShell>
+  );
+}
+
+function BuildStamp() {
+  const short = shortRevision(BUILD_REVISION);
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      className="text-btn"
+      type="button"
+      title={BUILD_REVISION}
+      onClick={() => {
+        if (!navigator.clipboard) return;
+        void navigator.clipboard.writeText(BUILD_REVISION).then(() => {
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1500);
+        });
+      }}
+    >
+      {copied ? "Copied" : short}
+    </button>
   );
 }
 
