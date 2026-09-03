@@ -33,8 +33,11 @@ describe("office chrome", () => {
   });
 
   it("lifts the thread stage off that chrome", () => {
-    expect(token(dark, "--bg-thread")).toBe("#161616");
+    expect(token(dark, "--bg-thread")).toBe("#222222");
     expect(token(dark, "--bg-thread")).not.toBe(token(dark, "--bg"));
+    expect(parseInt(token(dark, "--bg-thread").slice(1, 3), 16)).toBeGreaterThanOrEqual(
+      0x22,
+    );
     expect(token(light, "--bg-thread")).toBe("#ffffff");
     expect(token(light, "--bg-thread")).not.toBe(token(light, "--bg"));
   });
