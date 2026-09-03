@@ -1,6 +1,6 @@
 import type { ComputerDownload, KnowledgeFile } from "@groxbot/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState, type ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import {
   computerDownloadBlob,
   computerDownloadFilename,
@@ -16,7 +16,10 @@ import {
   knowledgeMarkdownUrl,
   parseKnowledgeHref,
 } from "../lib/knowledge-link";
-import { isOfficeSkillPath } from "../lib/knowledge-tree";
+import {
+  knowledgeMarkdownHasHeading,
+  splitKnowledgeMarkdown,
+} from "../lib/knowledge-markdown";
 import { orpc } from "../lib/orpc";
 import { THINK_MESSAGES_GC_TIME } from "../lib/think-messages";
 import { ChatMarkdown } from "./ChatMarkdown";
@@ -98,7 +101,9 @@ function RemoteFilePreview(props: {
     );
   }
   if (props.kind === "text" && readyText) {
-    return <TextPreview file={readyText} path={props.path} links={props.links} />;
+    return (
+      <TextPreview file={readyText} path={props.path} links={props.links} />
+    );
   }
   if (props.kind === "html" && readyText) {
     return (
@@ -154,7 +159,8 @@ function LocalFilePreview(props: {
   }, [props.file, props.kind]);
 
   if (props.kind === "text") {
-    if (text == null) return <p className="computer-preview-status">Opening…</p>;
+    if (text == null)
+      return <p className="computer-preview-status">Opening…</p>;
     return (
       <TextPreview
         path={props.path}
@@ -173,7 +179,8 @@ function LocalFilePreview(props: {
     );
   }
   if (props.kind === "html") {
-    if (text == null) return <p className="computer-preview-status">Opening…</p>;
+    if (text == null)
+      return <p className="computer-preview-status">Opening…</p>;
     return (
       <iframe
         className="computer-preview-frame"
@@ -196,7 +203,11 @@ function LocalFilePreview(props: {
   }
   if (props.kind === "pdf" && url) {
     return (
-      <iframe className="computer-preview-frame" title={props.filename} src={url} />
+      <iframe
+        className="computer-preview-frame"
+        title={props.filename}
+        src={url}
+      />
     );
   }
   return (
@@ -214,38 +225,82 @@ function TextPreview(props: {
   const markdown =
     computerFileKind(props.path) === "md" ||
     props.file.mediaType === "text/markdown";
-  const links = props.links;
-  const body = bodyOf(props.file);
   return (
-    <div className={markdown ? "knowledge-preview-md" : "computer-preview-text"}>
+    <div
+      className={markdown ? "knowledge-preview-md" : "computer-preview-text"}
+    >
       {props.file.truncated ? (
         <p className="computer-preview-note">
           Showing the first part of this file.
         </p>
       ) : null}
       {markdown ? (
-        links ? (
-          <ChatMarkdown
-            text={body}
-            officePaths
-            urlTransform={knowledgeMarkdownUrl}
-            renderLink={({ href, children }) => (
-              <OfficeMarkdownLink
-                href={href}
-                files={links.files}
-                onOpen={links.onOpen}
-              >
-                {children}
-              </OfficeMarkdownLink>
-            )}
-          />
-        ) : (
-          <ChatMarkdown text={body} />
-        )
+        <KnowledgeMarkdown text={props.file.content} links={props.links} />
       ) : (
         <pre>{props.file.content}</pre>
       )}
     </div>
+  );
+}
+
+export function KnowledgeMarkdown(props: {
+  text: string;
+  links?: OfficeLinks;
+}) {
+  const split = splitKnowledgeMarkdown(props.text);
+  const body = split.body;
+  const showTitle = Boolean(
+    split.meta.title && !knowledgeMarkdownHasHeading(body),
+  );
+  const links = props.links;
+  return (
+    <article className="knowledge-doc">
+      {showTitle ? (
+        <h1 className="knowledge-doc-title">{split.meta.title}</h1>
+      ) : null}
+      <KnowledgeDocMeta
+        updated={split.meta.updated}
+        source={split.meta.source}
+      />
+      {links ? (
+        <ChatMarkdown
+          text={body}
+          variant="document"
+          officePaths
+          urlTransform={knowledgeMarkdownUrl}
+          renderLink={({ href, children }) => (
+            <OfficeMarkdownLink
+              href={href}
+              files={links.files}
+              onOpen={links.onOpen}
+            >
+              {children}
+            </OfficeMarkdownLink>
+          )}
+        />
+      ) : (
+        <ChatMarkdown text={body} variant="document" />
+      )}
+    </article>
+  );
+}
+
+function KnowledgeDocMeta(props: { updated: string; source: string }) {
+  if (!props.updated && !props.source) return null;
+  return (
+    <p className="knowledge-doc-meta">
+      {props.updated ? <span>Updated {props.updated}</span> : null}
+      {props.updated && props.source ? <span aria-hidden> · </span> : null}
+      {props.source ? (
+        /^https?:\/\//iu.test(props.source) ? (
+          <a href={props.source} target="_blank" rel="noreferrer noopener">
+            Source
+          </a>
+        ) : (
+          <span>{props.source}</span>
+        )
+      ) : null}
+    </p>
   );
 }
 
@@ -328,10 +383,4 @@ function useBlobUrl(file: ComputerDownload): string {
     };
   }, [file]);
   return url;
-}
-
-function bodyOf(file: KnowledgeFile): string {
-  if (!isOfficeSkillPath(file.path)) return file.content;
-  const match = file.content.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?([\s\S]*)$/);
-  return (match?.[1] ?? file.content).trim();
 }

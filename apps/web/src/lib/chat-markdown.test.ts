@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
-import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
 import { ChatMarkdown } from "../components/ChatMarkdown";
+import { KnowledgeMarkdown } from "../components/KnowledgeFilePreview";
 import { safeMarkdownUrl } from "./chat-markdown";
 import { knowledgeMarkdownUrl } from "./knowledge-link";
 
@@ -40,7 +41,7 @@ describe("ChatMarkdown", () => {
         text: "See [voice](how-we-work/voice.md) and [[voice]]",
       }),
     );
-    expect(html).not.toContain("href=\"how-we-work/voice.md\"");
+    expect(html).not.toContain('href="how-we-work/voice.md"');
     expect(html).toContain("[[voice]]");
   });
 
@@ -53,5 +54,33 @@ describe("ChatMarkdown", () => {
       }),
     );
     expect(html).toContain("/how-we-work/voice.md");
+  });
+
+  it("marks document markdown for the knowledge reader", () => {
+    const html = renderToStaticMarkup(
+      createElement(ChatMarkdown, {
+        text: "# Resources\n\n- one",
+        variant: "document",
+      }),
+    );
+    expect(html).toContain("knowledge-md");
+    expect(html).not.toContain("chat-md");
+    expect(html).toContain("<h1>Resources</h1>");
+    expect(html).toContain("<ul");
+  });
+});
+
+describe("KnowledgeMarkdown", () => {
+  it("hides fenced YAML and keeps the document heading", () => {
+    const html = renderToStaticMarkup(
+      createElement(KnowledgeMarkdown, {
+        text: "---\ntitle: Resources for agents\nupdated: 2026-09-02\n---\n# Resources for agents\n\n- handbook\n",
+      }),
+    );
+    expect(html).toContain("knowledge-md");
+    expect(html).toContain("<h1>Resources for agents</h1>");
+    expect(html).toContain("<ul");
+    expect(html).not.toContain("title:");
+    expect(html).toContain("Updated 2026-09-02");
   });
 });
