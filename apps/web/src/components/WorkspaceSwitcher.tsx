@@ -3,8 +3,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { userFacingError } from "../lib/errors";
+import { OFFICE_TO, officeParams } from "../lib/office-route";
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
+import { setRpcWorkspaceId } from "../lib/rpc-workspace";
 import { enterActiveWorkspace } from "../lib/session";
 import {
   readCachedWorkspace,
@@ -21,6 +23,7 @@ import { CheckIcon, ChevronDownIcon, PlusIcon } from "./Icons";
 export function WorkspaceSwitcher(props: {
   name?: string | null;
   workspaceId?: string | null;
+  workspaceSlug?: string | null;
 }) {
   const navigate = useNavigate();
   const router = useRouter();
@@ -40,18 +43,20 @@ export function WorkspaceSwitcher(props: {
   const items = workspaceMenuItems({
     currentId: remembered.id,
     currentName: remembered.name,
+    currentSlug: props.workspaceSlug,
     others: listQuery.data,
   });
 
   useEffect(() => {
     const id = props.workspaceId?.trim();
     const name = props.name?.trim();
+    const slug = props.workspaceSlug?.trim();
     if (!id || !name) return;
-    writeCachedWorkspace({ id, name });
-    setCached({ id, name });
-  }, [props.workspaceId, props.name]);
+    writeCachedWorkspace({ id, name, slug });
+    setCached(slug ? { id, name, slug } : { id, name });
+  }, [props.workspaceId, props.name, props.workspaceSlug]);
 
-  async function enterOffice() {
+  async function enterOffice(slug: string) {
     await enterActiveWorkspace({
       queryClient,
       invalidateRouter: () => router.invalidate(),
@@ -59,8 +64,8 @@ export function WorkspaceSwitcher(props: {
         navigate({ to: "/onboarding", search: {}, viewTransition: true }),
       goBot: (botId) =>
         navigate({
-          to: "/bot/$botId",
-          params: { botId },
+          to: OFFICE_TO,
+          params: officeParams(slug, botId),
           viewTransition: true,
         }),
     });
@@ -70,9 +75,11 @@ export function WorkspaceSwitcher(props: {
     setBusy(true);
     setCreateError(null);
     try {
-      await client.workspaces.create({ name });
+      const created = await client.workspaces.create({ name });
+      setRpcWorkspaceId(created.id);
+      writeCachedWorkspace(created);
       setCreateOpen(false);
-      await enterOffice();
+      await enterOffice(created.slug);
     } catch (caught) {
       setCreateError(userFacingError(caught, "Could not create workspace"));
     } finally {
@@ -91,8 +98,9 @@ export function WorkspaceSwitcher(props: {
     setBusy(true);
     setNotice(null);
     try {
+      setRpcWorkspaceId(item.id);
       await client.workspaces.activate({ workspaceId: item.id });
-      await enterOffice();
+      await enterOffice(item.slug);
     } catch (caught) {
       setNotice(userFacingError(caught, "Could not switch workspace"));
     } finally {

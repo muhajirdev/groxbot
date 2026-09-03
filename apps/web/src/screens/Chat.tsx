@@ -130,6 +130,7 @@ const BotRow = memo(function BotRow(props: {
   working: boolean;
   muted?: boolean;
   desk: OfficeSearch;
+  workspaceSlug: string;
   onMenu: (event: MouseEvent, bot: Bot) => void;
   onPick?: () => void;
 }) {
@@ -138,8 +139,8 @@ const BotRow = memo(function BotRow(props: {
   return (
     <div className="group/bot relative">
       <Link
-        to="/bot/$botId"
-        params={{ botId: item.id }}
+        to="/$workspaceSlug/bot/$botId"
+        params={{ workspaceSlug: props.workspaceSlug, botId: item.id }}
         search={props.desk}
         preload="intent"
         preloadDelay={300}
@@ -244,7 +245,11 @@ const AppRow = memo(function AppRow(props: {
   );
 });
 
-export function Chat(props: { botId: string; desk: OfficeSearch }) {
+export function Chat(props: {
+  botId: string;
+  workspace: { id: string; name: string; slug: string };
+  desk: OfficeSearch;
+}) {
   const navigate = useNavigate();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -352,12 +357,15 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
     (botId: string, nextDesk: OfficeSearch = desk) => {
       setRosterOpen(false);
       return navigate({
-        to: "/bot/$botId",
-        params: { botId },
+        to: "/$workspaceSlug/bot/$botId",
+        params: {
+          workspaceSlug: props.workspace.slug,
+          botId,
+        },
         search: nextDesk,
       });
     },
-    [desk, navigate],
+    [desk, navigate, props.workspace.slug],
   );
   const setDesk = useCallback(
     (next: OfficeSearch) => goToBot(props.botId, next),
@@ -543,7 +551,7 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
       const avatarColor = nextAvatarColor(roster);
       const draft = draftCreatedBot({
         id,
-        workspaceId: meQuery.data?.workspaceId ?? id,
+        workspaceId: props.workspace.id,
         name: trimmed,
         avatarColor,
       });
@@ -575,7 +583,7 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
         hiring.current = false;
       }
     },
-    [goToBot, meQuery.data?.workspaceId, props.botId],
+    [goToBot, props.botId, props.workspace.id],
   );
 
   useEffect(() => {
@@ -816,8 +824,9 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
               <div className="side-chrome drag flex min-h-9 items-center gap-1">
                 <div className="no-drag min-w-0 flex-1">
                   <WorkspaceSwitcher
-                    name={me?.workspaceName}
-                    workspaceId={me?.workspaceId}
+                    name={props.workspace.name}
+                    workspaceId={props.workspace.id}
+                    workspaceSlug={props.workspace.slug}
                   />
                 </div>
                 <div className="no-drag relative flex shrink-0 items-center gap-0.5">
@@ -862,6 +871,7 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
                     item.id === bot?.id && (hiringThis || Boolean(working))
                   }
                   desk={desk}
+                  workspaceSlug={props.workspace.slug}
                   onMenu={openBotMenu}
                   onPick={closeRoster}
                 />
@@ -905,6 +915,7 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
                           working={false}
                           muted
                           desk={desk}
+                          workspaceSlug={props.workspace.slug}
                           onMenu={openBotMenu}
                           onPick={closeRoster}
                         />

@@ -82,7 +82,13 @@ describe("workspaceMenuItems", () => {
         currentName: "Acme",
       }),
     ).toEqual([
-      { kind: "workspace", id: "ws-1", name: "Acme", current: true },
+      {
+        kind: "workspace",
+        id: "ws-1",
+        name: "Acme",
+        slug: "ws-1",
+        current: true,
+      },
       { kind: "create" },
     ]);
   });
@@ -93,13 +99,25 @@ describe("workspaceMenuItems", () => {
         currentId: "ws-1",
         currentName: "Acme",
         others: [
-          { id: "ws-1", name: "Acme" },
-          { id: "ws-2", name: "Studio" },
+          { id: "ws-1", name: "Acme", slug: "acme" },
+          { id: "ws-2", name: "Studio", slug: "studio" },
         ],
       }),
     ).toEqual([
-      { kind: "workspace", id: "ws-1", name: "Acme", current: true },
-      { kind: "workspace", id: "ws-2", name: "Studio", current: false },
+      {
+        kind: "workspace",
+        id: "ws-1",
+        name: "Acme",
+        slug: "ws-1",
+        current: true,
+      },
+      {
+        kind: "workspace",
+        id: "ws-2",
+        name: "Studio",
+        slug: "studio",
+        current: false,
+      },
       { kind: "create" },
     ]);
   });

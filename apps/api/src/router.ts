@@ -67,7 +67,7 @@ import {
 } from "./plugins.js";
 import {
   ensureDeploymentOwner,
-  loadWorkspaceName,
+  loadWorkspaceRef,
   requireActor,
   requireUser,
 } from "./session.js";
@@ -96,6 +96,7 @@ export const appRouter = os.router({
         name: user.name,
         image: user.image,
         workspaceId: null,
+        workspaceSlug: null,
         workspaceName: null,
         needsWorkspace: true,
         isDeploymentOwner,
@@ -127,13 +128,15 @@ export const appRouter = os.router({
       .from(userModelCredentials)
       .where(eq(userModelCredentials.workspaceId, actor.workspaceId))
       .limit(1);
+    const workspace = await loadWorkspaceRef(context, user);
     return {
       userId: actor.userId,
       email: actor.email,
       name: actor.name,
       image: actor.image,
       workspaceId: actor.workspaceId,
-      workspaceName: await loadWorkspaceName(context, user),
+      workspaceSlug: workspace.slug,
+      workspaceName: workspace.name,
       needsWorkspace: false,
       isDeploymentOwner,
       needsModel:

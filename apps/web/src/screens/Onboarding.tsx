@@ -40,9 +40,11 @@ import {
   FIRST_HIRE,
   SUGGESTED_JOBS,
 } from "../lib/jobs";
+import { OFFICE_TO, officeParams } from "../lib/office-route";
 import { orpc } from "../lib/orpc";
 import { composioLogoUrl } from "../lib/plugins";
 import { client } from "../lib/rpc";
+import { setRpcWorkspaceId } from "../lib/rpc-workspace";
 import { cacheCreatedBot, firstLiveBot } from "../lib/session";
 import { writeCachedWorkspace } from "../lib/workspace-switcher";
 import { Button, Chip, Field, Input, Select, Textarea } from "../ui";
@@ -231,12 +233,13 @@ export function Onboarding(props: { invite?: string }) {
     try {
       await client.workspaces.create({ name });
       clearRememberedInvite();
-      await queryClient.invalidateQueries({ queryKey: orpc.me.key() });
-      const me = queryClient.getQueryData(orpc.me.queryOptions().queryKey);
+      const me = await queryClient.fetchQuery(orpc.me.queryOptions());
       writeCachedWorkspace({
-        id: me?.workspaceId,
-        name: me?.workspaceName ?? name,
+        id: me.workspaceId,
+        name: me.workspaceName ?? name,
+        slug: me.workspaceSlug,
       });
+      if (me.workspaceId) setRpcWorkspaceId(me.workspaceId);
       setBusy(false);
       runGateTransition(() => {
         setPhase("tour");
@@ -259,11 +262,12 @@ export function Onboarding(props: { invite?: string }) {
     try {
       await client.workspaces.join({ invitationId: raw });
       clearRememberedInvite();
-      await queryClient.invalidateQueries({ queryKey: orpc.me.key() });
-      const me = queryClient.getQueryData(orpc.me.queryOptions().queryKey);
+      const me = await queryClient.fetchQuery(orpc.me.queryOptions());
+      if (me.workspaceId) setRpcWorkspaceId(me.workspaceId);
       writeCachedWorkspace({
-        id: me?.workspaceId,
-        name: me?.workspaceName,
+        id: me.workspaceId,
+        name: me.workspaceName,
+        slug: me.workspaceSlug,
       });
       const bots = await client.bots.list();
       const first = firstLiveBot(bots);
@@ -273,9 +277,13 @@ export function Onboarding(props: { invite?: string }) {
         } catch {
           // Office loader will fetch the roster.
         }
+        if (!me.workspaceSlug) {
+          setBusy(false);
+          return;
+        }
         await navigate({
-          to: "/bot/$botId",
-          params: { botId: first.id },
+          to: OFFICE_TO,
+          params: officeParams(me.workspaceSlug, first.id),
           viewTransition: true,
         });
         return;
@@ -377,9 +385,13 @@ export function Onboarding(props: { invite?: string }) {
       });
       localStorage.setItem("groxbot.onboarded", "1");
       await cacheCreatedBot(bot);
+      const me = await queryClient.fetchQuery(orpc.me.queryOptions());
+      if (!me.workspaceSlug) {
+        throw new Error("Could not open the office");
+      }
       await navigate({
-        to: "/bot/$botId",
-        params: { botId: bot.id },
+        to: OFFICE_TO,
+        params: officeParams(me.workspaceSlug, bot.id),
         viewTransition: true,
       });
     } catch (caught) {

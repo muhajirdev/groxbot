@@ -76,4 +76,35 @@ describe("requireActor", () => {
     expect(actor.workspaceId).toBe("ws_1");
     expect(api.listOrganizations).not.toHaveBeenCalled();
   });
+
+  it("uses an explicit workspace header over the session last-used org", async () => {
+    const api = authApi({
+      user: { id: "u1", email: "a@b.co", name: "A" },
+      session: { activeOrganizationId: "ws_1" },
+    });
+    api.listOrganizations = vi.fn(async () => [
+      { id: "ws_1", name: "Office" },
+      { id: "ws_2", name: "Studio" },
+    ]);
+    const actor = await requireActor({
+      auth: { api },
+      headers: new Headers({ "x-workspace-id": "ws_2" }),
+    } as never);
+    expect(actor.workspaceId).toBe("ws_2");
+    expect(api.setActiveOrganization).not.toHaveBeenCalled();
+  });
+
+  it("rejects an explicit workspace the user does not belong to", async () => {
+    const api = authApi({
+      user: { id: "u1", email: "a@b.co", name: "A" },
+      session: { activeOrganizationId: "ws_1" },
+    });
+    await expect(
+      requireActor({
+        auth: { api },
+        headers: new Headers({ "x-workspace-id": "ws_other" }),
+      } as never),
+    ).rejects.toMatchObject({ message: "That workspace is missing." });
+    expect(api.setActiveOrganization).not.toHaveBeenCalled();
+  });
 });

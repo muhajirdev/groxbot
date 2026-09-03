@@ -369,7 +369,11 @@ function WorkspaceSettings(props: {
     setError("");
     try {
       await client.workspaces.update({ name: trimmed });
-      writeCachedWorkspace({ id: props.me?.workspaceId, name: trimmed });
+      writeCachedWorkspace({
+        id: props.me?.workspaceId,
+        name: trimmed,
+        slug: props.me?.workspaceSlug,
+      });
       await queryClient.invalidateQueries({ queryKey: orpc.me.key() });
     } catch (caught) {
       setError(userFacingError(caught, "Could not update workspace name"));

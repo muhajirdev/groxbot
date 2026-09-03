@@ -29,7 +29,7 @@ import {
 import { productEnv } from "./env.js";
 import { knowledgeAccess } from "./knowledge.js";
 import { r2KnowledgeDisk } from "./knowledge-r2.js";
-import { requireActor } from "./session.js";
+import { actorForAgentBot, requireActor } from "./session.js";
 
 export { CodemodeRuntime } from "@cloudflare/codemode";
 export { AppRuntime, BotActor };
@@ -108,15 +108,26 @@ export default {
       let inbound = request;
       if (request.method !== "OPTIONS") {
         try {
-          const actor = await requireActor({
-            ...handles,
-            headers: request.headers,
-          });
-          const officeUser = officeUserFromActor(actor);
-          if (officeUser) inbound = withOfficeUserRequest(request, officeUser);
           const botId = agentInstanceName(pathname);
           const messagesOnly = pathname.endsWith("/get-messages");
-          if (botId && !messagesOnly) {
+          const actor = botId
+            ? await actorForAgentBot(
+                { ...handles, headers: request.headers },
+                botId,
+              )
+            : await requireActor({
+                ...handles,
+                headers: request.headers,
+              });
+          if (botId && !actor) {
+            return new Response("Not found", { status: 404 });
+          }
+          if (!actor) {
+            return new Response("Sign in", { status: 401 });
+          }
+          const officeUser = officeUserFromActor(actor);
+          if (officeUser) inbound = withOfficeUserRequest(request, officeUser);
+          if (botId && !messagesOnly && actor.workspaceId) {
             const [bot] = await db
               .select({ id: bots.id })
               .from(bots)
