@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { officeUserMessageSender } from "@/lib/office-sender";
 import { isVisibleChatMessage } from "@/lib/chat-messages";
+import { isWaitingForAssistantTurn } from "@/lib/thread-waiting";
 import { cn } from "@/lib/utils";
 import {
   ActionBarMorePrimitive,
@@ -88,6 +89,8 @@ export type ThreadProps = {
   viewerUserId?: string | undefined;
   viewerImage?: string | undefined;
   botName?: string | undefined;
+  /** Composer sent; chat status has not reached submitted yet. */
+  pending?: boolean | undefined;
 };
 
 const EMPTY_COMPONENTS: ThreadComponents = {};
@@ -101,6 +104,7 @@ const ThreadChromeContext = createContext({
   viewerUserId: "",
   viewerImage: "",
   botName: "",
+  pending: false,
 });
 
 // Empty office thread: still a chat — composer stays docked at the bottom.
@@ -127,12 +131,13 @@ const messageHasVisibleText = (message: {
     ),
   );
 
-/** Sent a message; the assistant turn hasn't appeared yet. */
-const isWaitingForAssistantMessage = (s: AssistantState) => {
-  if (!s.thread.isRunning) return false;
-  const last = lastThreadMessage(s);
-  return !last || last.role !== "assistant";
-};
+const isWaitingForAssistantMessage =
+  (pending: boolean) => (s: AssistantState) =>
+    isWaitingForAssistantTurn({
+      isRunning: s.thread.isRunning,
+      pending,
+      lastMessage: lastThreadMessage(s),
+    });
 
 const ThreadHistorySkeleton: FC = () => (
   <div
@@ -163,11 +168,19 @@ export const Thread: FC<ThreadProps> = ({
   viewerUserId = "",
   viewerImage = "",
   botName = "",
+  pending = false,
 }) => {
   return (
     <ThreadComponentsContext.Provider value={components}>
       <ThreadChromeContext.Provider
-        value={{ hideComposer, placeholder, viewerUserId, viewerImage, botName }}
+        value={{
+          hideComposer,
+          placeholder,
+          viewerUserId,
+          viewerImage,
+          botName,
+          pending,
+        }}
       >
         <ThreadRoot autoFocus={autoFocus} />
       </ThreadChromeContext.Provider>
@@ -177,7 +190,8 @@ export const Thread: FC<ThreadProps> = ({
 
 const ThreadRoot: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
   const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
-  const { hideComposer } = useContext(ThreadChromeContext);
+  const { hideComposer, pending } = useContext(ThreadChromeContext);
+  const waiting = isWaitingForAssistantMessage(pending);
 
   return (
     <ThreadPrimitive.Root
@@ -206,8 +220,8 @@ const ThreadRoot: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
             <ThreadPrimitive.Messages>
               {() => <ThreadMessage />}
             </ThreadPrimitive.Messages>
-            <AuiIf condition={isWaitingForAssistantMessage}>
-              <div className="px-2">
+            <AuiIf condition={waiting}>
+              <div className="px-2" data-slot="aui_assistant-waiting">
                 <AssistantWorkingStatus />
               </div>
             </AuiIf>
@@ -276,6 +290,7 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 };
 
 const ComposerAction: FC = () => {
+  const { pending } = useContext(ThreadChromeContext);
   return (
     <div className="aui-composer-action-wrapper relative flex items-center justify-between">
       <ComposerAddAttachment />
@@ -288,10 +303,10 @@ const ComposerAction: FC = () => {
             <ComposerPrimitive.StopDictation render={<TooltipIconButton tooltip="Stop dictation" side="bottom" type="button" variant="ghost" size="icon" className="aui-composer-stop-dictation text-destructive size-7 rounded-full" aria-label="Stop voice input" />}><SquareIcon className="aui-composer-stop-dictation-icon size-3.5 animate-pulse fill-current" /></ComposerPrimitive.StopDictation>
           </AuiIf>
         </AuiIf>
-        <AuiIf condition={(s) => !s.thread.isRunning}>
+        <AuiIf condition={(s) => !s.thread.isRunning && !pending}>
           <ComposerPrimitive.Send render={<TooltipIconButton tooltip="Send message" side="bottom" type="button" variant="default" size="icon" className="aui-composer-send size-7 rounded-full bg-accent text-white hover:bg-accent/90" aria-label="Send message" />}><ArrowUpIcon className="aui-composer-send-icon size-4" /></ComposerPrimitive.Send>
         </AuiIf>
-        <AuiIf condition={(s) => s.thread.isRunning}>
+        <AuiIf condition={(s) => s.thread.isRunning || pending}>
           <ComposerPrimitive.Cancel render={<Button type="button" variant="default" size="icon" className="aui-composer-cancel size-7 rounded-full" aria-label="Stop generating" />}><SquareIcon className="aui-composer-cancel-icon size-3.5 fill-current" /></ComposerPrimitive.Cancel>
         </AuiIf>
       </div>

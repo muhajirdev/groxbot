@@ -33,6 +33,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { waitForAgentReady } from "../lib/agent-ready";
 import { appCardsFromThinkMessage } from "../lib/app-cards";
 import { createWorkspaceAttachmentAdapter } from "../lib/attachment-adapter";
 import { sessionCookie } from "../lib/auth";
@@ -42,8 +43,10 @@ import { agentSocketHost, officeAppUrl } from "../lib/host";
 import { FIRST_TASK } from "../lib/jobs";
 import { officeUserMessageSender } from "../lib/office-sender";
 import { orpc, queryClient } from "../lib/orpc";
+import { seedOutgoingUserMessage } from "../lib/outgoing-user-message";
 import { pickOfficeFiles, pickOfficePhotos } from "../lib/pick-file";
 import { client } from "../lib/rpc";
+import { isWaitingForAssistantTurn } from "../lib/thread-waiting";
 import { colors, radius } from "../theme";
 import { useSetWorking } from "../working";
 import { AppCard } from "./AppCard";
@@ -148,14 +151,24 @@ function ThinkThreadRuntime(props: {
     syncMessagesToServer: false,
     getInitialMessages: null,
   });
-  const { status, stop, error, sendMessage, isStreaming, connectionError } =
-    chat;
+  const {
+    status,
+    stop,
+    error,
+    sendMessage,
+    setMessages,
+    isStreaming,
+    connectionError,
+  } = chat;
   const busy = status === "submitted" || status === "streaming" || isStreaming;
-  const ready = agent.ready;
+  const [pending, setPending] = useState(false);
+  const agentRef = useRef(agent);
+  agentRef.current = agent;
+  const abortSendRef = useRef<AbortController | null>(null);
+  const inFlight = busy || pending;
 
   const send = useCallback(
     async (...args: Parameters<typeof sendMessage>) => {
-      await ready;
       if (archivedRef.current) {
         return Promise.reject(new Error("Archived"));
       }
@@ -167,15 +180,66 @@ function ThinkThreadRuntime(props: {
         return Promise.reject(new Error("Model required"));
       }
       const [payload, ...rest] = args;
-      return sendMessage(
-        withOfficeUserMetadata(payload, senderRef.current) as typeof payload,
-        ...rest,
-      );
+      const labeled = withOfficeUserMetadata(
+        payload,
+        senderRef.current,
+      ) as typeof payload;
+
+      const abort = new AbortController();
+      abortSendRef.current = abort;
+      setPending(true);
+      setWorking(botIdRef.current, true);
+
+      const seededId = crypto.randomUUID();
+      const seeded = seedOutgoingUserMessage(labeled, seededId);
+      if (seeded) {
+        setMessages((current) =>
+          current.some((message) => message.id === seededId)
+            ? current
+            : [...current, seeded],
+        );
+      }
+
+      let handedOff = false;
+      try {
+        await waitForAgentReady(() => agentRef.current, {
+          signal: abort.signal,
+        });
+        if (archivedRef.current) {
+          throw new Error("Archived");
+        }
+        handedOff = true;
+        setPending(false);
+        return await sendMessage(
+          seeded
+            ? ({ ...labeled, messageId: seededId } as typeof payload)
+            : labeled,
+          ...rest,
+        );
+      } catch (caught) {
+        if (!handedOff && seeded) {
+          setMessages((current) =>
+            current.filter((message) => message.id !== seededId),
+          );
+        }
+        throw caught;
+      } finally {
+        if (abortSendRef.current === abort) abortSendRef.current = null;
+        setPending(false);
+      }
     },
-    [ready, sendMessage],
+    [sendMessage, setMessages, setWorking],
   );
 
-  const helpers = useMemo(() => ({ ...chat, sendMessage: send }), [chat, send]);
+  const halt = useCallback(() => {
+    abortSendRef.current?.abort();
+    return stop();
+  }, [stop]);
+
+  const helpers = useMemo(
+    () => ({ ...chat, sendMessage: send, stop: halt }),
+    [chat, send, halt],
+  );
   const attachments = useMemo(
     () =>
       createWorkspaceAttachmentAdapter({
@@ -197,9 +261,9 @@ function ThinkThreadRuntime(props: {
   );
 
   useEffect(() => {
-    setWorking(props.botId, busy);
+    setWorking(props.botId, inFlight);
     return () => setWorking(props.botId, false);
-  }, [busy, props.botId, setWorking]);
+  }, [inFlight, props.botId, setWorking]);
 
   useEffect(() => {
     const preview = lastUiPreview(chat.messages);
@@ -213,7 +277,7 @@ function ThinkThreadRuntime(props: {
   }, [chat.messages, props.botId]);
 
   const banner = composerBannerError({
-    inFlight: busy,
+    inFlight,
     agentError: error?.message || "",
     connectionError: connectionError?.message || "",
     persisted: props.error,
@@ -225,9 +289,10 @@ function ThinkThreadRuntime(props: {
 
   useEffect(() => {
     return () => {
-      void stop();
+      abortSendRef.current?.abort();
+      void halt();
     };
-  }, [stop]);
+  }, [halt]);
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
@@ -237,6 +302,7 @@ function ThinkThreadRuntime(props: {
         hideComposer={props.archived}
         placeholder={props.placeholder}
         viewerUserId={props.userId}
+        pending={pending}
       />
     </AssistantRuntimeProvider>
   );
@@ -248,7 +314,9 @@ function OfficeThread(props: {
   hideComposer: boolean;
   placeholder: string;
   viewerUserId?: string;
+  pending?: boolean;
 }) {
+  const pending = Boolean(props.pending);
   return (
     <ThreadPrimitive.Root style={styles.fill}>
       <ThreadPrimitive.MessagesFlatList
@@ -266,9 +334,11 @@ function OfficeThread(props: {
           <>
             <AuiIf
               condition={(s) =>
-                s.thread.isRunning &&
-                (s.thread.messages.at(-1)?.role !== "assistant" ||
-                  !s.thread.messages.length)
+                isWaitingForAssistantTurn({
+                  isRunning: s.thread.isRunning,
+                  pending,
+                  lastMessage: s.thread.messages.at(-1),
+                })
               }
             >
               <View style={styles.workingRow}>
@@ -288,7 +358,9 @@ function OfficeThread(props: {
           />
         )}
       </ThreadPrimitive.MessagesFlatList>
-      {props.hideComposer ? null : <Composer placeholder={props.placeholder} />}
+      {props.hideComposer ? null : (
+        <Composer placeholder={props.placeholder} pending={pending} />
+      )}
     </ThreadPrimitive.Root>
   );
 }
@@ -544,7 +616,8 @@ function AttachmentChip() {
   );
 }
 
-function Composer(props: { placeholder: string }) {
+function Composer(props: { placeholder: string; pending?: boolean }) {
+  const pending = Boolean(props.pending);
   return (
     <ComposerPrimitive.Root style={styles.composer}>
       <OfficeSkillSlash />
@@ -561,12 +634,12 @@ function Composer(props: { placeholder: string }) {
         <View style={styles.actionLeft}>
           <AttachButton />
         </View>
-        <AuiIf condition={(s) => !s.thread.isRunning}>
+        <AuiIf condition={(s) => !s.thread.isRunning && !pending}>
           <ComposerPrimitive.Send style={styles.send}>
             <Text style={styles.sendLabel}>Send</Text>
           </ComposerPrimitive.Send>
         </AuiIf>
-        <AuiIf condition={(s) => s.thread.isRunning}>
+        <AuiIf condition={(s) => s.thread.isRunning || pending}>
           <ComposerPrimitive.Cancel style={styles.stop}>
             <Text style={styles.stopLabel}>Stop</Text>
           </ComposerPrimitive.Cancel>
