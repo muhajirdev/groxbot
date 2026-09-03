@@ -14,6 +14,7 @@ import {
   listKnowledgeGraph,
   nestKnowledgeTree,
   officeSkillSource,
+  officeThinkSkillSources,
   readKnowledge,
   readKnowledgeMany,
   removeKnowledge,
@@ -228,7 +229,9 @@ describe("write and read", () => {
       [...disk.files.keys()].some((key) => key.endsWith("/_search/index.json")),
     ).toBe(true);
     expect(
-      [...disk.files.keys()].some((key) => key.endsWith("/_search/manifest.json")),
+      [...disk.files.keys()].some((key) =>
+        key.endsWith("/_search/manifest.json"),
+      ),
     ).toBe(false);
     expect(
       [...disk.files.keys()].some((key) => key.includes("/_search/s/")),
@@ -384,6 +387,25 @@ describe("officeSkillSource", () => {
     ]);
     const loaded = await source.load("weekly-update");
     expect(loaded?.body).toMatch(/One line each/);
+  });
+
+  it("skips the office source until the actor has an office id", () => {
+    const disk = new MemoryKnowledge();
+    const workspace = knowledgeSkillWorkspace(disk, OFFICE);
+    expect(
+      officeThinkSkillSources({
+        knowledge: disk,
+        officeId: "",
+        workspace,
+      }).map((source) => source.id),
+    ).toEqual(["workspace:skills"]);
+    expect(
+      officeThinkSkillSources({
+        knowledge: disk,
+        officeId: OFFICE,
+        workspace,
+      }).map((source) => source.id),
+    ).toEqual(["office:skills", "workspace:skills"]);
   });
 
   it("reads skill files through the workspace adapter", async () => {

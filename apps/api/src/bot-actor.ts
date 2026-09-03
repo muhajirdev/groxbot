@@ -45,7 +45,8 @@ import {
   OFFICE_REVIEW_STORAGE,
   officeReviewDue,
   officeReviewUserMessage,
-  officeSkillSource,
+  officeSkillSlashTurn,
+  officeThinkSkillSources,
   parseOfficeReviewCounters,
   prepareRoutineCreate,
   RoutineError,
@@ -62,7 +63,6 @@ import {
   thinkMcpServerId,
   toRoutineDto,
   withOfficeExecuteDescription,
-  workspaceSkillSource,
   writeInboxFile,
 } from "@groxbot/core";
 import { bots } from "@groxbot/db";
@@ -265,7 +265,18 @@ export class BotActor extends Think<WorkerEnv> {
 
   async beforeTurn(ctx: TurnContext) {
     await this.ensureBotLoaded();
-    return { system: rewriteThinkCapability(ctx.system) };
+    const slash = officeSkillSlashTurn({
+      system: rewriteThinkCapability(ctx.system),
+      messages: ctx.messages,
+      continuation: ctx.continuation,
+      hasActivateSkill: "activate_skill" in ctx.tools,
+    });
+    return slash.forceActivate
+      ? {
+          system: slash.system,
+          toolChoice: { type: "tool" as const, toolName: "activate_skill" },
+        }
+      : { system: slash.system };
   }
 
   /** Strip file parts before `convertToModelMessages` calls `new URL(part.url)`. */
@@ -375,12 +386,15 @@ export class BotActor extends Think<WorkerEnv> {
     };
   }
 
-  getSkills() {
-    // Office skills first. Computer skills stay as private drafts.
-    const office = this.officeKnowledge();
-    const sources = office ? [officeSkillSource(office, this.officeId)] : [];
-    sources.push(workspaceSkillSource(this.workspace));
-    return sources;
+  async getSkills() {
+    // Think hydrates skills before BotActor.onStart. Load officeId first or
+    // office playbooks never enter the catalog (slash menu still lists them).
+    await this.ensureOfficeId();
+    return officeThinkSkillSources({
+      knowledge: this.officeKnowledge(),
+      officeId: this.officeId,
+      workspace: this.workspace,
+    });
   }
 
   getSkillScriptRunner() {
@@ -450,6 +464,16 @@ export class BotActor extends Think<WorkerEnv> {
       this.memoryDirty = true;
       console.error("bot actor memory", this.name, error);
     }
+  }
+
+  private async ensureOfficeId(): Promise<void> {
+    if (this.officeId) return;
+    const stored = await this.ctx.storage.get<string>("officeId");
+    if (typeof stored === "string" && stored) {
+      this.officeId = stored;
+      return;
+    }
+    await this.ensureBotLoaded();
   }
 
   private async ensureBotLoaded(): Promise<void> {
