@@ -18,7 +18,7 @@ export function userFacingError(caught: unknown, fallback: string): string {
 }
 
 export function humanizeRunError(raw: string): string {
-  const text = raw.trim().replace(/^(\[flue\]\s*)+/i, "");
+  const text = raw.trim();
   if (/^Agent run was aborted \(submission [^)]+\)\.?$/i.test(text)) {
     return "Stopped.";
   }

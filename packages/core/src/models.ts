@@ -9,7 +9,7 @@ import {
   CLOUDFLARE_PROVIDER,
   CUSTOM_MODEL_SENTINEL,
   DEFAULT_AI_GATEWAY_ID,
-  flueModelId,
+  gatewayModelId,
   HOSTED_AI_ENV,
   HOSTED_AI_FLAG,
   HOSTED_STARTER_MODEL,
@@ -177,15 +177,15 @@ export function fallbackRunnableModel(
   providers: readonly ModelProvider[],
   hosted = false,
 ): string {
-  const current = flueModelId(model);
+  const current = gatewayModelId(model);
   if (current && modelIsRunnable(current, providers)) return current;
   if (hosted && modelIsRunnable(HOSTED_STARTER_MODEL, providers)) {
-    return flueModelId(HOSTED_STARTER_MODEL);
+    return gatewayModelId(HOSTED_STARTER_MODEL);
   }
   const fromCatalog = MODEL_CATALOG.find((item) =>
     modelIsRunnable(item.id, providers),
   )?.id;
-  return flueModelId(fromCatalog || SUGGESTED_STARTER_MODEL);
+  return gatewayModelId(fromCatalog || SUGGESTED_STARTER_MODEL);
 }
 
 function configuredProviders(keys: ModelKeyStatus[]): ModelProvider[] {
@@ -284,7 +284,7 @@ export async function loadModelSettings(
       : undefined) ??
     MODEL_CATALOG.find((item) => modelIsRunnable(item.id, available))?.id ??
     (hosted ? HOSTED_STARTER_MODEL : SUGGESTED_STARTER_MODEL);
-  const defaultModelId = flueModelId(stored || fallback);
+  const defaultModelId = gatewayModelId(stored || fallback);
   const listed = MODEL_CATALOG.some((item) => item.id === defaultModelId);
   const catalog = MODEL_CATALOG.map((item) => ({
     id: item.id,
@@ -636,7 +636,7 @@ async function loadStoredEnv(
       const parsed = parseCloudflareSecret(plain);
       if (parsed.accountId) env.CLOUDFLARE_ACCOUNT_ID = parsed.accountId;
       if (parsed.apiToken) {
-        // Pi's cloudflare-ai-gateway provider reads CLOUDFLARE_API_KEY.
+        // Gateway REST also accepts CLOUDFLARE_API_KEY.
         env.CLOUDFLARE_API_KEY = parsed.apiToken;
         env.CLOUDFLARE_API_TOKEN = parsed.apiToken;
       }

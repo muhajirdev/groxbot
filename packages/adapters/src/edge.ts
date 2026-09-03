@@ -1,5 +1,5 @@
 /**
- * Cloudflare Workers-safe adapters: no Flue Node target, no fs, no dockerode.
+ * Cloudflare Workers-safe adapters: no fs, no dockerode.
  */
 export {
   ComposioError,
@@ -13,7 +13,6 @@ export {
   createEdgeAgentRuntime as createAgentRuntime,
   createHostedAgentRuntime,
   GatewayAgentRuntime,
-  isOfflineAgentRuntime,
   parsePokePrompt,
   resolveAgentRuntimeKind,
   ScriptedAgentRuntime,

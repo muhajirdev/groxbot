@@ -307,12 +307,10 @@ export function gatewayRequestModel(model: string): string {
   return trimmed;
 }
 
-/** Map legacy / short Cloudflare ids onto Pi's cloudflare-ai-gateway provider.
- * Workers AI through the gateway uses `workers-ai/@cf/…` model ids (compat).
- */
-export function flueModelId(model: string): string {
+/** Map short Cloudflare ids onto AI Gateway Workers AI ids. */
+export function gatewayModelId(model: string): string {
   const trimmed = model.trim();
-  // Pi OpenRouter catalog uses deepseek/deepseek-v4-flash (no date suffix).
+  // OpenRouter catalog uses deepseek/deepseek-v4-flash (no date suffix).
   if (
     trimmed === "openrouter/deepseek/deepseek-v4-flash-0731" ||
     trimmed === "deepseek/deepseek-v4-flash-0731"

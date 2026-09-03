@@ -1,6 +1,5 @@
 import type { AgentRuntime } from "@groxbot/adapter-kit";
 import { hostedAiEnabled, PRODUCT_RUNTIME } from "@groxbot/contracts";
-import { flueConfigured, getFlueAgentRuntime } from "./flue/runtime.js";
 import {
   type GatewayEnv,
   gatewayConfigured,
@@ -11,10 +10,7 @@ import { GatewayAgentRuntime } from "./runtime-core.js";
 
 export {
   createHostedAgentRuntime,
-  FLUE_ECHO_RUNTIME,
-  FLUE_RUNTIME,
   GatewayAgentRuntime,
-  isOfflineAgentRuntime,
   parsePokePrompt,
   resolveAgentRuntimeKind,
   ScriptedAgentRuntime,
@@ -22,9 +18,6 @@ export {
 
 import {
   createHostedAgentRuntime,
-  FLUE_ECHO_RUNTIME,
-  FLUE_RUNTIME,
-  isOfflineAgentRuntime,
   resolveAgentRuntimeKind,
 } from "./runtime-core.js";
 
@@ -40,12 +33,11 @@ export function agentRuntimeNeedsModel(
   source: GatewayEnv | NodeJS.ProcessEnv = process.env,
 ): boolean {
   const runtime = resolveAgentRuntimeKind(kind);
-  if (isOfflineAgentRuntime(runtime)) return false;
-  if (runtime === FLUE_RUNTIME) {
-    return !flueConfigured(source as NodeJS.ProcessEnv);
-  }
   if (hostedAiEnabled(source)) return false;
-  return !gatewayConfigured(source);
+  if (runtime === PRODUCT_RUNTIME || isGatewayProvider(runtime)) {
+    return !gatewayConfigured(source);
+  }
+  return true;
 }
 
 export function createAgentRuntime(
@@ -54,12 +46,6 @@ export function createAgentRuntime(
   fetchImpl?: typeof fetch,
 ): AgentRuntime {
   const runtime = kind.trim() || PRODUCT_RUNTIME;
-  if (runtime === FLUE_RUNTIME || runtime === FLUE_ECHO_RUNTIME) {
-    return getFlueAgentRuntime(runtime === FLUE_ECHO_RUNTIME, {
-      ...process.env,
-      ...(source as NodeJS.ProcessEnv),
-    });
-  }
   if (runtime === PRODUCT_RUNTIME) {
     return createHostedAgentRuntime(source, { fetch: fetchImpl });
   }

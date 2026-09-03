@@ -4,7 +4,7 @@ import {
   CLOUDFLARE_PROVIDER,
   CUSTOM_MODEL_SENTINEL,
   DEFAULT_AI_GATEWAY_ID,
-  flueModelId,
+  gatewayModelId,
   gatewayRequestModel,
   HOSTED_AI_ENV,
   HOSTED_AI_FLAG,
@@ -42,18 +42,18 @@ describe("model catalog", () => {
     );
   });
 
-  it("normalizes Cloudflare ids for Flue/Pi", () => {
-    expect(flueModelId("@cf/deepseek-ai/deepseek-v4-flash-0731")).toBe(
+  it("normalizes Cloudflare ids for the hosted gateway", () => {
+    expect(gatewayModelId("@cf/deepseek-ai/deepseek-v4-flash-0731")).toBe(
       "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-flash-0731",
     );
     expect(
-      flueModelId("cloudflare-ai-gateway/workers-ai/@cf/moonshotai/kimi-k2.6"),
+      gatewayModelId("cloudflare-ai-gateway/workers-ai/@cf/moonshotai/kimi-k2.6"),
     ).toBe("cloudflare-ai-gateway/workers-ai/@cf/moonshotai/kimi-k2.6");
-    expect(flueModelId("openrouter/deepseek/deepseek-v4-flash-0731")).toBe(
+    expect(gatewayModelId("openrouter/deepseek/deepseek-v4-flash-0731")).toBe(
       "openrouter/deepseek/deepseek-v4-flash",
     );
     expect(
-      flueModelId(
+      gatewayModelId(
         "cloudflare-workers-ai/@cf/deepseek-ai/deepseek-v4-flash-0731",
       ),
     ).toBe(

@@ -4,7 +4,6 @@ import type { GatewayEnv } from "./gateway.js";
 import {
   createHostedAgentRuntime,
   GatewayAgentRuntime,
-  isOfflineAgentRuntime,
   parsePokePrompt,
   resolveAgentRuntimeKind,
   ScriptedAgentRuntime,
@@ -15,7 +14,6 @@ export type { WorkersAiBinding };
 export {
   createHostedAgentRuntime,
   GatewayAgentRuntime,
-  isOfflineAgentRuntime,
   parsePokePrompt,
   resolveAgentRuntimeKind,
   ScriptedAgentRuntime,
