@@ -1,7 +1,7 @@
 export const DESK_PANES = ["settings", "computer", "app"] as const;
 export type DeskPane = (typeof DESK_PANES)[number];
 
-/** Desk on `/$botId` — back button restores the pane. */
+/** Desk on `/bot/$botId` — back button restores the pane. */
 export type OfficeSearch = {
   pane?: DeskPane;
   app?: string;

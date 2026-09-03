@@ -59,7 +59,7 @@ export function WorkspaceSwitcher(props: {
         navigate({ to: "/onboarding", search: {}, viewTransition: true }),
       goBot: (botId) =>
         navigate({
-          to: "/$botId",
+          to: "/bot/$botId",
           params: { botId },
           viewTransition: true,
         }),

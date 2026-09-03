@@ -274,7 +274,7 @@ export function Onboarding(props: { invite?: string }) {
           // Office loader will fetch the roster.
         }
         await navigate({
-          to: "/$botId",
+          to: "/bot/$botId",
           params: { botId: first.id },
           viewTransition: true,
         });
@@ -378,7 +378,7 @@ export function Onboarding(props: { invite?: string }) {
       localStorage.setItem("groxbot.onboarded", "1");
       await cacheCreatedBot(bot);
       await navigate({
-        to: "/$botId",
+        to: "/bot/$botId",
         params: { botId: bot.id },
         viewTransition: true,
       });

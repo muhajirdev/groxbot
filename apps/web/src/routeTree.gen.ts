@@ -13,8 +13,8 @@ import { Route as IndexRouteImport } from "./routes/index"
 import { Route as AuthedRouteRouteImport } from "./routes/_authed/route"
 import { Route as DesignRouteImport } from "./routes/design"
 import { Route as LoginRouteImport } from "./routes/login"
-import { Route as AuthedBotIdRouteImport } from "./routes/_authed/$botId"
 import { Route as AuthedOnboardingRouteImport } from "./routes/_authed/onboarding"
+import { Route as AuthedBotBotIdRouteImport } from "./routes/_authed/bot/$botId"
 
 const IndexRoute = IndexRouteImport.update({
   id: "/",
@@ -35,14 +35,14 @@ const LoginRoute = LoginRouteImport.update({
   path: "/login",
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthedBotIdRoute = AuthedBotIdRouteImport.update({
-  id: "/$botId",
-  path: "/$botId",
-  getParentRoute: () => AuthedRouteRoute,
-} as any)
 const AuthedOnboardingRoute = AuthedOnboardingRouteImport.update({
   id: "/onboarding",
   path: "/onboarding",
+  getParentRoute: () => AuthedRouteRoute,
+} as any)
+const AuthedBotBotIdRoute = AuthedBotBotIdRouteImport.update({
+  id: "/bot/$botId",
+  path: "/bot/$botId",
   getParentRoute: () => AuthedRouteRoute,
 } as any)
 
@@ -50,15 +50,15 @@ export interface FileRoutesByFullPath {
   "/": typeof IndexRoute
   "/design": typeof DesignRoute
   "/login": typeof LoginRoute
-  "/$botId": typeof AuthedBotIdRoute
   "/onboarding": typeof AuthedOnboardingRoute
+  "/bot/$botId": typeof AuthedBotBotIdRoute
 }
 export interface FileRoutesByTo {
   "/": typeof IndexRoute
   "/design": typeof DesignRoute
   "/login": typeof LoginRoute
-  "/$botId": typeof AuthedBotIdRoute
   "/onboarding": typeof AuthedOnboardingRoute
+  "/bot/$botId": typeof AuthedBotBotIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -66,22 +66,22 @@ export interface FileRoutesById {
   "/_authed": typeof AuthedRouteRouteWithChildren
   "/design": typeof DesignRoute
   "/login": typeof LoginRoute
-  "/_authed/$botId": typeof AuthedBotIdRoute
   "/_authed/onboarding": typeof AuthedOnboardingRoute
+  "/_authed/bot/$botId": typeof AuthedBotBotIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: "/" | "/design" | "/login" | "/$botId" | "/onboarding"
+  fullPaths: "/" | "/design" | "/login" | "/onboarding" | "/bot/$botId"
   fileRoutesByTo: FileRoutesByTo
-  to: "/" | "/design" | "/login" | "/$botId" | "/onboarding"
+  to: "/" | "/design" | "/login" | "/onboarding" | "/bot/$botId"
   id:
     | "__root__"
     | "/"
     | "/_authed"
     | "/design"
     | "/login"
-    | "/_authed/$botId"
     | "/_authed/onboarding"
+    | "/_authed/bot/$botId"
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -121,13 +121,6 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/_authed/$botId": {
-      id: "/_authed/$botId"
-      path: "/$botId"
-      fullPath: "/$botId"
-      preLoaderRoute: typeof AuthedBotIdRouteImport
-      parentRoute: typeof AuthedRouteRoute
-    }
     "/_authed/onboarding": {
       id: "/_authed/onboarding"
       path: "/onboarding"
@@ -135,17 +128,24 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AuthedOnboardingRouteImport
       parentRoute: typeof AuthedRouteRoute
     }
+    "/_authed/bot/$botId": {
+      id: "/_authed/bot/$botId"
+      path: "/bot/$botId"
+      fullPath: "/bot/$botId"
+      preLoaderRoute: typeof AuthedBotBotIdRouteImport
+      parentRoute: typeof AuthedRouteRoute
+    }
   }
 }
 
 interface AuthedRouteRouteChildren {
-  AuthedBotIdRoute: typeof AuthedBotIdRoute
   AuthedOnboardingRoute: typeof AuthedOnboardingRoute
+  AuthedBotBotIdRoute: typeof AuthedBotBotIdRoute
 }
 
 const AuthedRouteRouteChildren: AuthedRouteRouteChildren = {
-  AuthedBotIdRoute: AuthedBotIdRoute,
   AuthedOnboardingRoute: AuthedOnboardingRoute,
+  AuthedBotBotIdRoute: AuthedBotBotIdRoute,
 }
 
 const AuthedRouteRouteWithChildren = AuthedRouteRoute._addFileChildren(

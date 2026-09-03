@@ -67,7 +67,7 @@ export async function redirectAuthedHome(): Promise<never> {
   const bots = await loadBotsForRoute();
   const first = firstLiveBot(bots);
   if (!first) throw redirect({ to: "/onboarding", search: {} });
-  throw redirect({ to: "/$botId", params: { botId: first.id } });
+  throw redirect({ to: "/bot/$botId", params: { botId: first.id } });
 }
 
 /** Drop the current office cache and open the active workspace. */

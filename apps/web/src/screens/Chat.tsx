@@ -141,7 +141,7 @@ const BotRow = memo(function BotRow(props: {
   return (
     <div className="group/bot relative">
       <Link
-        to="/$botId"
+        to="/bot/$botId"
         params={{ botId: item.id }}
         search={props.desk}
         preload="intent"
@@ -355,7 +355,11 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
   const goToBot = useCallback(
     (botId: string, nextDesk: OfficeSearch = desk) => {
       setRosterOpen(false);
-      return navigate({ to: "/$botId", params: { botId }, search: nextDesk });
+      return navigate({
+        to: "/bot/$botId",
+        params: { botId },
+        search: nextDesk,
+      });
     },
     [desk, navigate],
   );
@@ -801,7 +805,7 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
       )}
     >
       <aside
-        className="chat-side flex min-h-0 flex-col border-r border-line bg-bg-side px-2.5 pb-2"
+        className="chat-side flex min-h-0 flex-col px-2.5 pb-2"
         aria-label="Teammates"
         inert={narrow && !rosterOpen ? true : undefined}
       >
@@ -937,10 +941,11 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
           </button>
         </div>
       </aside>
-      <section
-        className="chat-thread flex min-h-0 min-w-0 flex-col bg-bg-thread"
-        inert={narrow && rosterOpen ? true : undefined}
-      >
+      <div className="chat-stage">
+        <section
+          className="chat-thread flex min-h-0 min-w-0 flex-col bg-bg-thread"
+          inert={narrow && rosterOpen ? true : undefined}
+        >
         <div className="thread-head drag flex items-center justify-between gap-2 border-b border-line px-[18px] py-2.5">
           {pokeView ? (
             <button
@@ -1153,6 +1158,7 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
             }}
           />
         ) : null}
+      </div>
       </div>
       {pluginsOpen ? (
         <PluginsModal
