@@ -41,7 +41,7 @@ import {
   PlusIcon,
   TrashIcon,
 } from "../components/Icons";
-import { KnowledgeModal } from "../components/KnowledgeModal";
+import { KnowledgeLibrary, KnowledgePeek } from "../components/KnowledgePlace";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { PluginsModal } from "../components/PluginsModal";
 import { KeptThinkThread } from "../components/ThinkThread";
@@ -62,9 +62,13 @@ import { neighborBotId, type PaletteActionId } from "../lib/command-palette";
 import { userFacingError } from "../lib/errors";
 import { draftCreatedBot, nextAvatarColor } from "../lib/hire";
 import {
+  closeLibrary,
+  closePeek,
   deskApp,
   deskClosed,
   deskComputer,
+  deskLibrary,
+  deskPeek,
   deskSettings,
   type OfficeSearch,
   officeSearch,
@@ -270,8 +274,6 @@ export function Chat(props: {
     "general",
   );
   const [pluginsOpen, setPluginsOpen] = useState(false);
-  const [knowledgeOpen, setKnowledgeOpen] = useState(false);
-  const [knowledgePath, setKnowledgePath] = useState<string | null>(null);
   const [hireOpen, setHireOpen] = useState(false);
   const [rosterOpen, setRosterOpen] = useState(false);
   const [narrow, setNarrow] = useState(
@@ -590,8 +592,7 @@ export function Chat(props: {
     applyTheme(theme);
   }, [theme]);
 
-  const blocking =
-    hireOpen || settingsOpen || pluginsOpen || knowledgeOpen || paletteOpen;
+  const blocking = hireOpen || settingsOpen || pluginsOpen || paletteOpen;
   const cycleBots = useCallback(
     (delta: 1 | -1) => {
       const nextId = neighborBotId(
@@ -616,8 +617,7 @@ export function Chat(props: {
         return;
       }
       if (id === "knowledge") {
-        setKnowledgePath(null);
-        setKnowledgeOpen(true);
+        setDesk(deskLibrary(desk));
         return;
       }
       if (id === "workspace") {
@@ -631,7 +631,7 @@ export function Chat(props: {
       }
       setDesk(deskComputer());
     },
-    [setDesk],
+    [desk, setDesk],
   );
 
   useHotkeys([
@@ -642,9 +642,7 @@ export function Chat(props: {
         setBotMenu(null);
       },
       options: {
-        enabled:
-          (!hireOpen && !settingsOpen && !pluginsOpen && !knowledgeOpen) ||
-          paletteOpen,
+        enabled: (!hireOpen && !settingsOpen && !pluginsOpen) || paletteOpen,
       },
     },
     {
@@ -653,7 +651,7 @@ export function Chat(props: {
         setPaletteOpen(false);
         if (!hiring.current) setHireOpen(true);
       },
-      options: { enabled: !settingsOpen && !pluginsOpen && !knowledgeOpen },
+      options: { enabled: !settingsOpen && !pluginsOpen },
     },
     {
       hotkey: "Mod+,",
@@ -672,12 +670,19 @@ export function Chat(props: {
     {
       hotkey: "ArrowDown",
       callback: () => cycleBots(1),
-      options: { enabled: !blocking },
+      options: { enabled: !blocking && !desk.library },
     },
     {
       hotkey: "ArrowUp",
       callback: () => cycleBots(-1),
-      options: { enabled: !blocking },
+      options: { enabled: !blocking && !desk.library },
+    },
+    {
+      hotkey: "Escape",
+      callback: () => setDesk(closeLibrary(desk)),
+      options: {
+        enabled: Boolean(desk.library) && !paletteOpen && !hireOpen,
+      },
     },
   ]);
 
@@ -783,24 +788,28 @@ export function Chat(props: {
     },
     [props.botId, setDesk],
   );
-  const openKnowledgeFile = useCallback((path: string) => {
-    setKnowledgePath(path);
-    setKnowledgeOpen(true);
-  }, []);
+  const openKnowledgeFile = useCallback(
+    (path: string) => {
+      setDesk(deskPeek(path));
+    },
+    [setDesk],
+  );
   const computerOpenPath =
     computerFile && computerFile.botId === props.botId
       ? computerFile.path
       : null;
 
-  const paneMode = desk.pane ?? null;
+  const paneMode = desk.library ? null : (desk.pane ?? null);
   const activePane =
-    paneMode === "app" && openApp
-      ? "app"
-      : paneMode === "settings" && bot
-        ? "settings"
-        : paneMode === "computer" && bot
-          ? "computer"
-          : null;
+    paneMode === "knowledge"
+      ? "knowledge"
+      : paneMode === "app" && openApp
+        ? "app"
+        : paneMode === "settings" && bot
+          ? "settings"
+          : paneMode === "computer" && bot
+            ? "computer"
+            : null;
   const pane = usePanePresence(activePane);
   const exitingApp = openApp ?? lastApp.current;
 
@@ -812,6 +821,8 @@ export function Chat(props: {
             "chat-shell relative bg-bg",
             paneMode === "app" && "is-app",
             paneMode && paneMode !== "app" && "is-pane",
+            paneMode === "knowledge" && "is-knowledge",
+            desk.library && "is-library",
             rosterOpen && "is-roster",
           )}
         >
@@ -936,10 +947,7 @@ export function Chat(props: {
               <button
                 className="flex w-full items-center gap-2.5 rounded-xl border-0 bg-transparent px-2 py-2 text-left text-inherit hover:bg-hover"
                 type="button"
-                onClick={() => {
-                  setKnowledgePath(null);
-                  setKnowledgeOpen(true);
-                }}
+                onClick={() => setDesk(deskLibrary(desk))}
               >
                 <KnowledgeIcon />
                 <span>Knowledge</span>
@@ -1174,23 +1182,29 @@ export function Chat(props: {
                   }}
                 />
               ) : null}
+              {pane.rendered === "knowledge" ? (
+                <KnowledgePeek
+                  key={desk.knowledge || "peek"}
+                  path={desk.knowledge ?? ""}
+                  onPath={(path) => setDesk(deskPeek(path))}
+                  onOpenLibrary={(path) => setDesk(deskLibrary(desk, path))}
+                  onClose={() => setDesk(closePeek(desk))}
+                />
+              ) : null}
             </div>
           </div>
+          {desk.library ? (
+            <KnowledgeLibrary
+              path={desk.knowledge ?? null}
+              onPath={(path) => setDesk(deskLibrary(desk, path))}
+              onClose={() => setDesk(closeLibrary(desk))}
+            />
+          ) : null}
           {pluginsOpen ? (
             <PluginsModal
               open
               botId={activeId}
               onClose={() => setPluginsOpen(false)}
-            />
-          ) : null}
-          {knowledgeOpen ? (
-            <KnowledgeModal
-              open
-              initialPath={knowledgePath}
-              onClose={() => {
-                setKnowledgeOpen(false);
-                setKnowledgePath(null);
-              }}
             />
           ) : null}
           <AppSettings
@@ -1224,7 +1238,7 @@ export function Chat(props: {
             onBot={(botId) => {
               setPaletteOpen(false);
               setPokeView(null);
-              void goToBot(botId);
+              void goToBot(botId, closeLibrary(desk));
             }}
             onApp={(appId) => {
               setPaletteOpen(false);
