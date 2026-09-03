@@ -1,3 +1,5 @@
+import { defaultGenerativeUILibrary } from "@assistant-ui/react-generative-ui";
+import { PRESENT_TYPES } from "@groxbot/contracts";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -46,5 +48,11 @@ describe("PresentSurface", () => {
     );
     expect(html).not.toContain("javascript:");
     expect(html).not.toContain("<img");
+  });
+
+  it("keeps PRESENT_TYPES in lockstep with the default vocabulary", () => {
+    expect([...PRESENT_TYPES].sort()).toEqual(
+      Object.keys(defaultGenerativeUILibrary).sort(),
+    );
   });
 });
