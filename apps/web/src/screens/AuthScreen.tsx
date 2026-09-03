@@ -1,7 +1,7 @@
 import { MAIL_LOG } from "@groxbot/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { GateMark, GateShell } from "../components/Gate";
 import { GoogleIcon } from "../components/Icons";
 import { authClient } from "../lib/auth";
@@ -17,6 +17,7 @@ export function AuthScreen(props: { errorFromUrl?: string; invite?: string }) {
   const [busy, setBusy] = useState(false);
   const [email, setEmail] = useState("");
   const [sentTo, setSentTo] = useState("");
+  const emailSend = useRef(0);
   const googleReady = health.data?.oauth?.includes("google") ?? false;
   const mailLogged = health.data?.mail === MAIL_LOG;
   const invite = props.invite?.trim() || readRememberedInvite();
@@ -67,20 +68,26 @@ export function AuthScreen(props: { errorFromUrl?: string; invite?: string }) {
       setError("Enter a valid email.");
       return;
     }
-    setBusy(true);
+    const sendId = ++emailSend.current;
     setError("");
     rememberInvite(invite);
-    const result = await authClient.signIn.magicLink({
-      email: address,
-      callbackURL: officeUrl(afterAuth),
-      errorCallbackURL: officeUrl(errorPath),
-    });
-    setBusy(false);
-    if (result.error) {
-      setError(result.error.message ?? "Could not send a sign-in link");
-      return;
-    }
     setSentTo(address);
+    try {
+      const result = await authClient.signIn.magicLink({
+        email: address,
+        callbackURL: officeUrl(afterAuth),
+        errorCallbackURL: officeUrl(errorPath),
+      });
+      if (sendId !== emailSend.current) return;
+      if (result.error) {
+        setSentTo("");
+        setError(result.error.message ?? "Could not send a sign-in link");
+      }
+    } catch (caught) {
+      if (sendId !== emailSend.current) return;
+      setSentTo("");
+      setError(userFacingError(caught, "Could not send a sign-in link"));
+    }
   }
 
   async function joinInvite() {
@@ -200,8 +207,8 @@ export function AuthScreen(props: { errorFromUrl?: string; invite?: string }) {
             {sentTo ? (
               <button
                 type="button"
-                disabled={busy}
                 onClick={() => {
+                  emailSend.current += 1;
                   setSentTo("");
                   setError("");
                 }}

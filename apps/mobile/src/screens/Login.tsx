@@ -1,7 +1,7 @@
 import { MAIL_LOG } from "@groxbot/contracts";
 import { useQuery } from "@tanstack/react-query";
 import * as Linking from "expo-linking";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Button } from "../components/Button";
 import { Field } from "../components/Field";
@@ -26,6 +26,7 @@ export function LoginScreen({
   const [busy, setBusy] = useState(false);
   const [email, setEmail] = useState("");
   const [sentTo, setSentTo] = useState("");
+  const emailSend = useRef(0);
   const inviteId = invitationIdFromInput(invite ?? "");
   const googleReady = health.data?.oauth?.includes("google") ?? false;
   const mailLogged = health.data?.mail === MAIL_LOG;
@@ -73,23 +74,24 @@ export function LoginScreen({
       setError("Enter a valid email.");
       return;
     }
-    setBusy(true);
+    const sendId = ++emailSend.current;
     setError("");
     rememberInvite(inviteId);
+    setSentTo(address);
     try {
       const result = await authClient.signIn.magicLink({
         email: address,
         callbackURL,
         errorCallbackURL: callbackURL,
       });
-      setBusy(false);
+      if (sendId !== emailSend.current) return;
       if (result.error) {
+        setSentTo("");
         setError(result.error.message ?? "Could not send a sign-in link");
-        return;
       }
-      setSentTo(address);
     } catch (caught) {
-      setBusy(false);
+      if (sendId !== emailSend.current) return;
+      setSentTo("");
       setError(userFacingError(caught, "Could not send a sign-in link"));
     }
   }
