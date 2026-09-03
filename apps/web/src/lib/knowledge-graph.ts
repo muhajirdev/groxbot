@@ -443,7 +443,11 @@ export function layoutKnowledgeGraph(
   };
 }
 
-function expandConnectedNodes(nodes: KnowledgeGraphNode[], minSpan = 560) {
+function expandConnectedNodes(
+  nodes: KnowledgeGraphNode[],
+  minW = 820,
+  minH = 300,
+) {
   const linked = nodes.filter((node) => !node.isolate);
   if (linked.length < 2) return;
   let minX = Infinity;
@@ -456,11 +460,21 @@ function expandConnectedNodes(nodes: KnowledgeGraphNode[], minSpan = 560) {
     maxX = Math.max(maxX, node.x);
     maxY = Math.max(maxY, node.y);
   }
-  const span = Math.max(maxX - minX, maxY - minY, 1);
-  if (span >= minSpan) return;
-  const scale = minSpan / span;
+  let spanX = Math.max(maxX - minX, 1);
+  const spanY = Math.max(maxY - minY, 1);
   const cx = (minX + maxX) / 2;
   const cy = (minY + maxY) / 2;
+  const targetAspect = minW / minH;
+  const aspect = spanX / spanY;
+  if (aspect < targetAspect) {
+    const stretch = targetAspect / aspect;
+    for (const node of linked) {
+      node.x = cx + (node.x - cx) * stretch;
+    }
+    spanX *= stretch;
+  }
+  const scale = Math.max(minW / spanX, minH / spanY, 1);
+  if (scale === 1) return;
   for (const node of linked) {
     node.x = cx + (node.x - cx) * scale;
     node.y = cy + (node.y - cy) * scale;

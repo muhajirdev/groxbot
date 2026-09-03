@@ -126,7 +126,7 @@ describe("layoutKnowledgeGraph", () => {
     if (a && b) {
       const dist = Math.hypot(a.x - b.x, a.y - b.y);
       expect(dist).toBeGreaterThan(40);
-      expect(dist).toBeLessThan(900);
+      expect(dist).toBeLessThan(1600);
     }
   });
 
@@ -161,11 +161,8 @@ describe("layoutKnowledgeGraph", () => {
     const linked = layout.nodes.filter((node) => !node.isolate);
     const xs = linked.map((node) => node.x);
     const ys = linked.map((node) => node.y);
-    const span = Math.hypot(
-      Math.max(...xs) - Math.min(...xs),
-      Math.max(...ys) - Math.min(...ys),
-    );
-    expect(span).toBeGreaterThan(400);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(500);
+    expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(120);
   });
 
   it("is empty when the snapshot is empty", () => {
