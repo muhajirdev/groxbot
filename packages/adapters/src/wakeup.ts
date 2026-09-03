@@ -9,7 +9,7 @@ interface BotActor {
 
 /**
  * In-process queue per bot: serial runs + named delayed schedules.
- * Cron lives in the worker (croner) and enqueues onto this driver.
+ * Product cron is Agents `this.schedule` on BotActor, not this driver.
  */
 export class InProcessWakeupDriver implements WakeupDriver {
   private handlers: Record<string, Handler> = {};

@@ -1,8 +1,5 @@
 /** Product API: Cloudflare Worker + Neon HTTP + Durable Object BotActor (Think). */
-import {
-  officeUserFromActor,
-  withOfficeUserRequest,
-} from "@groxbot/contracts";
+import { officeUserFromActor, withOfficeUserRequest } from "@groxbot/contracts";
 import { createSkillImportHttp } from "@groxbot/core";
 import { bots } from "@groxbot/db";
 import { createNeonHttpDb } from "@groxbot/db/neon";
@@ -21,6 +18,14 @@ import {
 } from "./bot-computer.js";
 import { enqueueOnBot } from "./bot-enqueue.js";
 import { addBotMcp, oauthBotMcp, removeBotMcp } from "./bot-mcp.js";
+import {
+  createBotRoutine,
+  listBotRoutines,
+  pauseBotRoutine,
+  removeBotRoutine,
+  resumeBotRoutine,
+  suspendBotRoutines,
+} from "./bot-routines.js";
 import { productEnv } from "./env.js";
 import { knowledgeAccess } from "./knowledge.js";
 import { r2KnowledgeDisk } from "./knowledge-r2.js";
@@ -78,9 +83,19 @@ export default {
           )
         : undefined,
       avatars: env.KNOWLEDGE ? r2KnowledgeDisk(env.KNOWLEDGE) : undefined,
+      routines: {
+        list: (botId) => listBotRoutines(env.BOT_ACTOR, botId),
+        create: (botId, input) => createBotRoutine(env.BOT_ACTOR, botId, input),
+        pause: (botId, id) => pauseBotRoutine(env.BOT_ACTOR, botId, id),
+        resume: (botId, id) => resumeBotRoutine(env.BOT_ACTOR, botId, id),
+        remove: (botId, id) => removeBotRoutine(env.BOT_ACTOR, botId, id),
+        suspend: (botId, suspended) =>
+          suspendBotRoutines(env.BOT_ACTOR, botId, suspended),
+      },
       mcp: {
         add: (botId, input) => addBotMcp(env.BOT_ACTOR, botId, input),
-        remove: (botId, serverId) => removeBotMcp(env.BOT_ACTOR, botId, serverId),
+        remove: (botId, serverId) =>
+          removeBotMcp(env.BOT_ACTOR, botId, serverId),
         oauth: (botId, request) => oauthBotMcp(env.BOT_ACTOR, botId, request),
       },
       forgetBot: (botId) => destroyBotActor(env.BOT_ACTOR, botId),

@@ -4,6 +4,7 @@ import type {
   ComputerDownload,
   ComputerFile,
   ComputerList,
+  Routine,
 } from "@groxbot/contracts";
 import type { GuestHub, KnowledgeDisk } from "@groxbot/core";
 import type { Database } from "@groxbot/db";
@@ -33,6 +34,24 @@ export interface RpcContext {
   knowledge?: KnowledgeAccess;
   /** Profile photos. Same R2 bucket as knowledge, `_avatars/` prefix — not the office tree. */
   avatars?: KnowledgeDisk;
+  /** Recurring jobs on this bot’s Think actor. Optional in local tests. */
+  routines?: {
+    list(botId: string): Promise<Routine[]>;
+    create(
+      botId: string,
+      input: {
+        name: string;
+        prompt: string;
+        cron: string;
+        timezone?: string;
+      },
+    ): Promise<Routine>;
+    pause(botId: string, id: string): Promise<Routine>;
+    resume(botId: string, id: string): Promise<Routine>;
+    remove(botId: string, id: string): Promise<void>;
+    /** Archive side-effect: Think stops firing without wiping the catalog. */
+    suspend?(botId: string, suspended: boolean): Promise<void>;
+  };
   /** Live MCP client on a bot actor. Optional in local tests. */
   mcp?: {
     add(

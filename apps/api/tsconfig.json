@@ -12,6 +12,8 @@
     "src/bot-computer.ts",
     "src/bot-mcp.ts",
     "src/bot-mcp-connector.ts",
+    "src/bot-routines.ts",
+    "src/bot-routines-connector.ts",
     "src/bot-execute.ts",
     "src/bot-markdown.ts",
     "src/bot-knowledge.ts",

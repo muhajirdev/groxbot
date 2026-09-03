@@ -1373,10 +1373,23 @@ a.btn {
 .routine-list li {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 8px;
   padding: 8px 0;
   border-bottom: 1px solid var(--line);
   font-size: 13px;
+}
+
+.routine-list li > div:first-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.routine-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .create-routine {

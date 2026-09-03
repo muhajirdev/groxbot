@@ -13,7 +13,7 @@ Early scaffold: contracts, Neon Postgres (team data), one Think Durable Object p
 - Postgres + Drizzle — workspaces, threads, skills (Neon on Cloudflare)
 - **One queue per bot** — Durable Object `BotActor` (Think)
 - Hosted brains: Think on that actor (tests: ScriptedAgentRuntime)
-- **Routines** — Postgres cron metadata; the actor enqueues `routine.wakeup`
+- **Routines** — Agents `this.schedule` on `BotActor`. Office UI and `routines.*` oRPC talk to that actor.
 - Better Auth (magic-link email, Google, GitHub)
 - **Cloudflare first:** Workers (landing, web, API) + Neon. Local = `wrangler dev` + Vite
 - **Computer** — built into each bot (Think workspace on `BotActor`). Not a second table or DO.
