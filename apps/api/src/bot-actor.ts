@@ -1,21 +1,14 @@
 /** Cloudflare-only. Excluded from `tsc`. BotActor is Think. */
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import {
-  Think,
-  skills,
   type ChatResponseResult,
   type MessageConcurrency,
-  type ThinkScheduledTasks,
+  skills,
+  Think,
   type ToolCallResultContext,
   type TurnContext,
 } from "@cloudflare/think";
 import { createExecuteTool } from "@cloudflare/think/tools/execute";
-import type { ToolSet } from "ai";
-import { createBundlingExecutor } from "./bot-execute.js";
-import { KnowledgeConnector } from "./bot-knowledge.js";
-import { WorkspaceMcpConnector } from "./bot-mcp-connector.js";
-import { RoutinesConnector } from "./bot-routines-connector.js";
-import { bindToMarkdown, createPageTools } from "./bot-markdown.js";
 import type { WorkersAiBinding } from "@groxbot/adapters/edge";
 import {
   gatewayChatUrl,
@@ -28,56 +21,64 @@ import {
   labelForModel,
   officeUserFromHeaders,
   parseOfficeUser,
-  stampIncomingOfficeUser,
   type Routine,
+  stampIncomingOfficeUser,
 } from "@groxbot/contracts";
-import { getCurrentAgent } from "agents";
-import { AgentContextProvider } from "agents/experimental/memory/session";
 import {
-  encryptionSecret,
-  listComputerEntries,
-  readComputerFile,
-  downloadComputerFile,
-  decodeComputerBytes,
-  writeInboxFile,
-  hostedChatMessages,
-  resolveRunModel,
-  rewriteThinkCapability,
-  withOfficeExecuteDescription,
-  composeSoul,
-  soulOverlayFromWrite,
-  teammatePrompt,
-  workspaceSkillSource,
-  officeSkillSource,
+  applyOfficeReviewTurn,
+  assistantTurnSettled,
   ComputerFileError,
   ComputerPathError,
   ComputerWriteError,
+  composeSoul,
+  countUiToolParts,
   DEFAULT_ROUTINE_TIMEZONE,
+  decodeComputerBytes,
+  downloadComputerFile,
+  emptyOfficeReviewCounters,
+  encryptionSecret,
+  formatRoutinePrompt,
+  hostedChatMessages,
+  isoUnixSeconds,
+  listComputerEntries,
+  newId,
+  OFFICE_REVIEW_STORAGE,
+  officeReviewDue,
+  officeReviewUserMessage,
+  officeSkillSource,
+  parseOfficeReviewCounters,
+  prepareRoutineCreate,
   RoutineError,
   RoutineNotFoundError,
   RoutineScheduleError,
-  createStoredRoutine,
-  thinkScheduledTasks,
-  toRoutineDto,
+  readComputerFile,
+  resolveRunModel,
+  rewriteThinkCapability,
   type StoredRoutine,
   saveMcpConnection,
-  OFFICE_REVIEW_STORAGE,
-  applyOfficeReviewTurn,
-  assistantTurnSettled,
-  countUiToolParts,
-  emptyOfficeReviewCounters,
-  officeReviewDue,
-  officeReviewUserMessage,
-  parseOfficeReviewCounters,
   shouldEnqueueOfficeReview,
+  soulOverlayFromWrite,
+  teammatePrompt,
+  toRoutineDto,
+  withOfficeExecuteDescription,
+  workspaceSkillSource,
+  writeInboxFile,
 } from "@groxbot/core";
 import { bots } from "@groxbot/db";
 import { createNeonHttpDb } from "@groxbot/db/neon";
+import { getCurrentAgent } from "agents";
+import { AgentContextProvider } from "agents/experimental/memory/session";
+import type { ToolSet } from "ai";
 import { eq } from "drizzle-orm";
+import { createBundlingExecutor } from "./bot-execute.js";
+import { KnowledgeConnector } from "./bot-knowledge.js";
+import { bindToMarkdown, createPageTools } from "./bot-markdown.js";
+import { WorkspaceMcpConnector } from "./bot-mcp-connector.js";
+import { RoutinesConnector } from "./bot-routines-connector.js";
 import { agentRuntimeSource, productEnv, type RuntimeSource } from "./env.js";
-import { mcpCallbackPage } from "./mcp-callback-page.js";
-import type { SendEmailBinding } from "./mail.js";
 import { r2KnowledgeDisk } from "./knowledge-r2.js";
+import type { SendEmailBinding } from "./mail.js";
+import { mcpCallbackPage } from "./mcp-callback-page.js";
 
 function connectedOfficeUser() {
   const { connection, request } = getCurrentAgent();
@@ -154,6 +155,79 @@ function routineHttpError(error: unknown): Response {
   );
 }
 
+const ROUTINE_CALLBACK = "runScheduledRoutine" as const;
+const PAUSED_ROUTINES_STORAGE = "pausedRoutines";
+
+type RoutineSchedulePayload = {
+  name: string;
+  prompt: string;
+  timezone: string;
+  schedule: string;
+  cron?: string;
+  intervalSeconds?: number;
+  createdAt?: number;
+};
+
+type ParkedRoutine = RoutineSchedulePayload & { fireOnUnarchive: boolean };
+
+function routinePayload(value: unknown): RoutineSchedulePayload | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const row = value as Record<string, unknown>;
+  if (typeof row.name !== "string" || typeof row.prompt !== "string") {
+    return null;
+  }
+  if (typeof row.schedule !== "string") return null;
+  return {
+    name: row.name,
+    prompt: row.prompt,
+    timezone:
+      typeof row.timezone === "string"
+        ? row.timezone
+        : DEFAULT_ROUTINE_TIMEZONE,
+    schedule: row.schedule,
+    cron: typeof row.cron === "string" ? row.cron : undefined,
+    intervalSeconds:
+      typeof row.intervalSeconds === "number" ? row.intervalSeconds : undefined,
+    createdAt: typeof row.createdAt === "number" ? row.createdAt : undefined,
+  };
+}
+
+function routinePayloadFromCreate(input: {
+  name: string;
+  prompt: string;
+  cron: string;
+  timezone?: string;
+}): RoutineSchedulePayload {
+  const { name, prompt, parsed, when } = prepareRoutineCreate(input);
+  return {
+    name,
+    prompt,
+    timezone: parsed.timezone,
+    schedule: parsed.schedule,
+    createdAt: Date.now(),
+    ...(when.kind === "cron"
+      ? { cron: when.cron }
+      : { intervalSeconds: when.intervalSeconds }),
+  };
+}
+
+function storedRoutine(
+  id: string,
+  payload: RoutineSchedulePayload,
+  active: boolean,
+): StoredRoutine {
+  return {
+    id,
+    name: payload.name,
+    prompt: payload.prompt,
+    schedule: payload.schedule,
+    timezone: payload.timezone,
+    active,
+    createdAt: payload.createdAt ?? 0,
+    updatedAt: payload.createdAt ?? 0,
+  };
+}
+
 export class BotActor extends Think<WorkerEnv> {
   override messageConcurrency: MessageConcurrency = "queue";
   /** MCP is tools.* / named connectors inside execute, not a dumped AI SDK catalog. */
@@ -219,7 +293,7 @@ export class BotActor extends Think<WorkerEnv> {
       this.officeId = stored;
     }
     this.ensureMcpOAuthCallback();
-    this.ensureRoutinesTable();
+    this.sql`DROP TABLE IF EXISTS groxbot_routines`;
     console.log(`[bot ${this.name}] onStart after think hydrate`);
   }
 
@@ -249,7 +323,6 @@ export class BotActor extends Think<WorkerEnv> {
   configureSession(session: Parameters<Think["configureSession"]>[0]) {
     console.log(`[bot ${this.name}] configureSession`);
     const evolved = new AgentContextProvider(this, "soul-evolved");
-    const actor = this;
     return session
       .withContext("soul", {
         description:
@@ -259,11 +332,11 @@ export class BotActor extends Think<WorkerEnv> {
           get: async () => {
             // Do not block Think hydrate / get-messages on Neon. Chat turns
             // still wait in beforeTurn; loadBot refreshes the prompt after.
-            void actor.ensureBotLoaded();
-            return composeSoul(actor.soulPrompt, (await evolved.get()) ?? "");
+            void this.ensureBotLoaded();
+            return composeSoul(this.soulPrompt, (await evolved.get()) ?? "");
           },
           set: async (content: string) => {
-            await evolved.set(soulOverlayFromWrite(actor.soulPrompt, content));
+            await evolved.set(soulOverlayFromWrite(this.soulPrompt, content));
           },
         },
       })
@@ -601,17 +674,44 @@ export class BotActor extends Think<WorkerEnv> {
     await this.ctx.storage.put(OFFICE_REVIEW_STORAGE, next);
   }
 
-  getDefaultTimezone() {
-    return DEFAULT_ROUTINE_TIMEZONE;
-  }
-
-  async getScheduledTasks(): Promise<ThinkScheduledTasks> {
-    if (await this.routinesSuspended()) return {};
-    return thinkScheduledTasks(this.storedRoutines()) as ThinkScheduledTasks;
+  /**
+   * Agents `this.schedule` callback. Cron/interval rows live in
+   * `cf_agents_schedules` — not a Groxbot table.
+   */
+  async runScheduledRoutine(payload: RoutineSchedulePayload): Promise<void> {
+    const body = routinePayload(payload);
+    if (!body) return;
+    if (await this.routinesSuspended()) return;
+    await this.submitMessages([
+      {
+        id: crypto.randomUUID(),
+        role: "user",
+        parts: [
+          { type: "text", text: formatRoutinePrompt(body.name, body.prompt) },
+        ],
+        createdAt: new Date(),
+        metadata: { source: "routine", custom: { source: "routine" } },
+      },
+    ]);
   }
 
   async listRoutines(): Promise<Routine[]> {
-    return this.listRoutineDtos();
+    const live = await this.liveRoutineSchedules();
+    const parked = await this.parkedRoutines();
+    const rows: Routine[] = live.map((row) =>
+      toRoutineDto(
+        this.name,
+        storedRoutine(row.id, row.payload, true),
+        isoUnixSeconds(row.time),
+      ),
+    );
+    for (const [id, payload] of Object.entries(parked)) {
+      if (live.some((row) => row.id === id)) continue;
+      rows.push(
+        toRoutineDto(this.name, storedRoutine(id, payload, false), null),
+      );
+    }
+    return rows;
   }
 
   async createRoutine(input: {
@@ -620,138 +720,158 @@ export class BotActor extends Think<WorkerEnv> {
     cron: string;
     timezone?: string;
   }): Promise<Routine> {
-    const row = createStoredRoutine(input);
-    this.ensureRoutinesTable();
-    this.sql`
-      INSERT INTO groxbot_routines (
-        id, name, prompt, schedule, timezone, active, created_at, updated_at
-      ) VALUES (
-        ${row.id}, ${row.name}, ${row.prompt}, ${row.schedule}, ${row.timezone},
-        ${row.active ? 1 : 0}, ${row.createdAt}, ${row.updatedAt}
-      )
-    `;
-    await this.internal_reconcileScheduledTasks();
-    return this.routineDto(row);
+    const payload = routinePayloadFromCreate(input);
+    if (await this.routinesSuspended()) {
+      const id = newId();
+      await this.putParkedRoutine(id, { ...payload, fireOnUnarchive: true });
+      return toRoutineDto(this.name, storedRoutine(id, payload, true), null);
+    }
+    const row = await this.armRoutine(payload);
+    return toRoutineDto(
+      this.name,
+      storedRoutine(row.id, payload, true),
+      isoUnixSeconds(row.time),
+    );
   }
 
   async pauseRoutine(id: string): Promise<Routine> {
-    return this.setRoutineActive(id, false);
+    const live = await this.liveRoutineById(id);
+    if (live) {
+      await this.putParkedRoutine(id, {
+        ...live.payload,
+        fireOnUnarchive: false,
+      });
+      await this.cancelSchedule(id);
+      return toRoutineDto(
+        this.name,
+        storedRoutine(id, live.payload, false),
+        null,
+      );
+    }
+    const parked = (await this.parkedRoutines())[id];
+    if (!parked) throw new RoutineNotFoundError();
+    return toRoutineDto(this.name, storedRoutine(id, parked, false), null);
   }
 
   async resumeRoutine(id: string): Promise<Routine> {
-    return this.setRoutineActive(id, true);
+    const parked = (await this.parkedRoutines())[id];
+    if (!parked) {
+      const live = await this.liveRoutineById(id);
+      if (live) {
+        return toRoutineDto(
+          this.name,
+          storedRoutine(live.id, live.payload, true),
+          isoUnixSeconds(live.time),
+        );
+      }
+      throw new RoutineNotFoundError();
+    }
+    if (await this.routinesSuspended()) {
+      throw new RoutineError("This teammate is archived.");
+    }
+    const { fireOnUnarchive: _, ...payload } = parked;
+    const row = await this.armRoutine(payload);
+    await this.deleteParkedRoutine(id);
+    return toRoutineDto(
+      this.name,
+      storedRoutine(row.id, payload, true),
+      isoUnixSeconds(row.time),
+    );
   }
 
   async removeRoutine(id: string): Promise<void> {
-    this.requireStoredRoutine(id);
-    this.sql`DELETE FROM groxbot_routines WHERE id = ${id}`;
-    await this.internal_reconcileScheduledTasks();
+    const cancelled = await this.cancelSchedule(id);
+    const parked = (await this.parkedRoutines())[id];
+    if (parked) await this.deleteParkedRoutine(id);
+    if (!cancelled && !parked) throw new RoutineNotFoundError();
   }
 
   async setRoutinesSuspended(suspended: boolean): Promise<void> {
-    await this.ctx.storage.put("routinesSuspended", suspended);
-    await this.internal_reconcileScheduledTasks();
-  }
-
-  private ensureRoutinesTable(): void {
-    this.sql`
-      CREATE TABLE IF NOT EXISTS groxbot_routines (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        prompt TEXT NOT NULL,
-        schedule TEXT NOT NULL,
-        timezone TEXT NOT NULL,
-        active INTEGER NOT NULL,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      )
-    `;
-  }
-
-  private storedRoutines(): StoredRoutine[] {
-    this.ensureRoutinesTable();
-    return this.sql<{
-      id: string;
-      name: string;
-      prompt: string;
-      schedule: string;
-      timezone: string;
-      active: number;
-      created_at: number;
-      updated_at: number;
-    }>`
-      SELECT id, name, prompt, schedule, timezone, active, created_at, updated_at
-      FROM groxbot_routines
-      ORDER BY created_at DESC
-    `.map((row) => ({
-      id: row.id,
-      name: row.name,
-      prompt: row.prompt,
-      schedule: row.schedule,
-      timezone: row.timezone,
-      active: row.active === 1,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    }));
-  }
-
-  private requireStoredRoutine(id: string): StoredRoutine {
-    const row = this.storedRoutines().find((item) => item.id === id);
-    if (!row) throw new RoutineNotFoundError();
-    return row;
-  }
-
-  private async setRoutineActive(
-    id: string,
-    active: boolean,
-  ): Promise<Routine> {
-    this.requireStoredRoutine(id);
-    const updatedAt = Date.now();
-    this.sql`
-      UPDATE groxbot_routines
-      SET active = ${active ? 1 : 0}, updated_at = ${updatedAt}
-      WHERE id = ${id}
-    `;
-    await this.internal_reconcileScheduledTasks();
-    return this.routineDto({
-      ...this.requireStoredRoutine(id),
-      active,
-      updatedAt,
-    });
-  }
-
-  private listRoutineDtos(): Routine[] {
-    const next = this.routineNextRuns();
-    return this.storedRoutines().map((row) =>
-      toRoutineDto(this.name, row, next.get(row.id) ?? null),
-    );
-  }
-
-  private routineDto(row: StoredRoutine): Routine {
-    return toRoutineDto(
-      this.name,
-      row,
-      this.routineNextRuns().get(row.id) ?? null,
-    );
-  }
-
-  private routineNextRuns(): Map<string, number> {
-    try {
-      const rows = this.sql<{ task_id: string; next_run_at: number | null }>`
-        SELECT task_id, next_run_at FROM cf_think_scheduled_tasks
-      `;
-      return new Map(
-        rows
-          .filter((row) => row.next_run_at != null)
-          .map((row) => [row.task_id, Number(row.next_run_at)]),
-      );
-    } catch {
-      return new Map();
+    if (suspended) {
+      for (const row of await this.liveRoutineSchedules()) {
+        await this.putParkedRoutine(row.id, {
+          ...row.payload,
+          fireOnUnarchive: true,
+        });
+        await this.cancelSchedule(row.id);
+      }
+      await this.ctx.storage.put("routinesSuspended", true);
+      return;
+    }
+    await this.ctx.storage.put("routinesSuspended", false);
+    const parked = await this.parkedRoutines();
+    for (const [id, row] of Object.entries(parked)) {
+      if (!row.fireOnUnarchive) continue;
+      const { fireOnUnarchive: _, ...payload } = row;
+      await this.armRoutine(payload);
+      await this.deleteParkedRoutine(id);
     }
   }
 
-  private handleRoutinesList(): Response {
-    return Response.json({ routines: this.listRoutineDtos() });
+  private async armRoutine(payload: RoutineSchedulePayload) {
+    if (payload.intervalSeconds) {
+      return this.scheduleEvery(
+        payload.intervalSeconds,
+        ROUTINE_CALLBACK,
+        payload,
+      );
+    }
+    if (!payload.cron) throw new RoutineScheduleError();
+    return this.schedule(payload.cron, ROUTINE_CALLBACK, payload);
+  }
+
+  private async liveRoutineSchedules(): Promise<
+    Array<{ id: string; time: number; payload: RoutineSchedulePayload }>
+  > {
+    const rows = await this.listSchedules();
+    const out: Array<{
+      id: string;
+      time: number;
+      payload: RoutineSchedulePayload;
+    }> = [];
+    for (const row of rows) {
+      if (row.callback !== ROUTINE_CALLBACK) continue;
+      const payload = routinePayload(row.payload);
+      if (!payload) continue;
+      out.push({ id: row.id, time: row.time, payload });
+    }
+    return out;
+  }
+
+  private async liveRoutineById(id: string) {
+    return (
+      (await this.liveRoutineSchedules()).find((row) => row.id === id) ?? null
+    );
+  }
+
+  private async parkedRoutines(): Promise<Record<string, ParkedRoutine>> {
+    const raw =
+      (await this.ctx.storage.get<Record<string, ParkedRoutine>>(
+        PAUSED_ROUTINES_STORAGE,
+      )) ?? {};
+    return raw && typeof raw === "object" ? raw : {};
+  }
+
+  private async putParkedRoutine(
+    id: string,
+    row: ParkedRoutine,
+  ): Promise<void> {
+    const next = { ...(await this.parkedRoutines()), [id]: row };
+    await this.ctx.storage.put(PAUSED_ROUTINES_STORAGE, next);
+  }
+
+  private async deleteParkedRoutine(id: string): Promise<void> {
+    const next = { ...(await this.parkedRoutines()) };
+    delete next[id];
+    await this.ctx.storage.put(PAUSED_ROUTINES_STORAGE, next);
+  }
+
+  private async handleRoutinesList(): Promise<Response> {
+    try {
+      return Response.json({ routines: await this.listRoutines() });
+    } catch (error) {
+      return routineHttpError(error);
+    }
   }
 
   private async handleRoutinesCreate(request: Request): Promise<Response> {

@@ -33,7 +33,7 @@ export class RoutinesConnector extends CodemodeConnector {
     return [
       "This bot’s recurring jobs. Use when someone asks you to do something on a schedule.",
       "Schedules: “every day at 09:00”, “every weekday at 09:00”, “every week on monday at 09:00”, “every 30 minutes”.",
-      "Timezone is IANA (default UTC). Pause or remove instead of stacking duplicates.",
+      "Timezone is IANA for display (alarms are UTC cron). Pause or remove instead of stacking duplicates.",
     ].join(" ");
   }
 

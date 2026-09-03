@@ -1,18 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
+  agentRoutineWhen,
   createStoredRoutine,
-  formatRoutinePrompt,
   isIntervalSchedule,
   MemoryRoutineStore,
   parseRoutineSchedule,
   RoutineNotFoundError,
   RoutineScheduleError,
-  thinkScheduledTasks,
   toRoutineDto,
 } from "./routines.js";
 
 describe("parseRoutineSchedule", () => {
-  it("keeps Think wall-clock strings", () => {
+  it("keeps wall-clock strings", () => {
     expect(parseRoutineSchedule("every weekday at 09:00")).toEqual({
       kind: "wall-clock",
       schedule: "every weekday at 09:00",
@@ -61,7 +60,7 @@ describe("parseRoutineSchedule", () => {
     });
   });
 
-  it("pads a single-digit hour so Think will accept it", () => {
+  it("pads a single-digit hour", () => {
     expect(parseRoutineSchedule("every day at 9:00")).toEqual({
       kind: "wall-clock",
       schedule: "every day at 09:00",
@@ -83,7 +82,7 @@ describe("parseRoutineSchedule", () => {
 });
 
 describe("createStoredRoutine", () => {
-  it("stores a Think task Think can fire", () => {
+  it("maps office copy onto an Agents cron", () => {
     const row = createStoredRoutine({
       name: " Nightly Gmail ",
       prompt: " Check overnight mail. ",
@@ -94,12 +93,9 @@ describe("createStoredRoutine", () => {
     expect(row.schedule).toBe("every day at 22:00");
     expect(row.active).toBe(true);
     expect(isIntervalSchedule(row.schedule)).toBe(false);
-    const tasks = thinkScheduledTasks([row]);
-    expect(tasks[row.id]).toEqual({
-      schedule: "every day at 22:00",
-      timezone: "UTC",
-      prompt: formatRoutinePrompt(row.name, row.prompt),
-      metadata: { name: row.name, source: "routine" },
+    expect(agentRoutineWhen(parseRoutineSchedule(row.schedule))).toEqual({
+      kind: "cron",
+      cron: "0 22 * * *",
     });
     expect(toRoutineDto("bot_1", row, 1_700_000_000_000)).toMatchObject({
       botId: "bot_1",
@@ -109,26 +105,26 @@ describe("createStoredRoutine", () => {
     });
   });
 
-  it("omits paused jobs from Think", () => {
-    const row = createStoredRoutine({
-      name: "Digest",
-      prompt: "Write the digest.",
-      cron: "every day at 09:00",
+  it("uses scheduleEvery when cron cannot express the interval", () => {
+    expect(agentRoutineWhen(parseRoutineSchedule("every 7 minutes"))).toEqual({
+      kind: "interval",
+      intervalSeconds: 7 * 60,
     });
-    row.active = false;
-    expect(thinkScheduledTasks([row])).toEqual({});
-  });
-
-  it("omits timezone on interval jobs", () => {
-    const row = createStoredRoutine({
-      name: "Pulse",
-      prompt: "Check the inbox.",
-      cron: "every 15 minutes",
+    expect(agentRoutineWhen(parseRoutineSchedule("every 15 minutes"))).toEqual({
+      kind: "cron",
+      cron: "*/15 * * * *",
     });
-    expect(thinkScheduledTasks([row])[row.id]).toEqual({
-      schedule: "every 15 minutes",
-      prompt: formatRoutinePrompt(row.name, row.prompt),
-      metadata: { name: row.name, source: "routine" },
+    expect(
+      agentRoutineWhen(parseRoutineSchedule("every weekday at 09:00")),
+    ).toEqual({
+      kind: "cron",
+      cron: "0 9 * * 1-5",
+    });
+    expect(
+      agentRoutineWhen(parseRoutineSchedule("every week on monday at 08:30")),
+    ).toEqual({
+      kind: "cron",
+      cron: "30 8 * * 1",
     });
   });
 });

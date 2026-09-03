@@ -1,4 +1,4 @@
-/** This bot’s recurring jobs. Think schedules on BotActor — not a Postgres catalog. */
+/** This bot’s recurring jobs. Agents `this.schedule` on BotActor — not a product table. */
 
 import type { Routine } from "@groxbot/contracts";
 import { newId } from "./ids.js";
@@ -83,15 +83,10 @@ export type ParsedRoutineSchedule = {
   kind: "interval" | "wall-clock";
 };
 
-/** Shape Think `getScheduledTasks()` expects. Kernel stays off cloudflare:workers. */
-export type RoutineThinkTask = {
-  schedule: string;
-  timezone?: string;
-  prompt: string;
-  metadata?: Record<string, unknown>;
-};
-
-export type RoutineThinkTasks = Record<string, RoutineThinkTask>;
+/** What Agents `this.schedule` / `scheduleEvery` needs. Kernel stays off agents. */
+export type AgentRoutineWhen =
+  | { kind: "cron"; cron: string }
+  | { kind: "interval"; intervalSeconds: number };
 
 export function isoMillis(
   value: number | Date | string | null | undefined,
@@ -135,25 +130,40 @@ export function isIntervalSchedule(schedule: string): boolean {
   );
 }
 
-export function thinkScheduledTasks(rows: StoredRoutine[]): RoutineThinkTasks {
-  const tasks: RoutineThinkTasks = {};
-  for (const row of rows) {
-    if (!row.active) continue;
-    const prompt = formatRoutinePrompt(row.name, row.prompt);
-    tasks[row.id] = isIntervalSchedule(row.schedule)
-      ? {
-          schedule: row.schedule,
-          prompt,
-          metadata: { name: row.name, source: "routine" },
-        }
-      : {
-          schedule: row.schedule,
-          timezone: row.timezone,
-          prompt,
-          metadata: { name: row.name, source: "routine" },
-        };
+/** Cron when it fits; `scheduleEvery` for intervals cron cannot express. */
+export function agentRoutineWhen(
+  parsed: ParsedRoutineSchedule,
+): AgentRoutineWhen {
+  if (parsed.kind === "interval") {
+    return intervalToAgentWhen(parsed.schedule);
   }
-  return tasks;
+  return { kind: "cron", cron: wallClockToCron(parsed.schedule) };
+}
+
+export function prepareRoutineCreate(input: RoutineCreateInput): {
+  name: string;
+  prompt: string;
+  parsed: ParsedRoutineSchedule;
+  when: AgentRoutineWhen;
+} {
+  const name = input.name.trim();
+  const prompt = input.prompt.trim();
+  if (!name || name.length > MAX_ROUTINE_NAME) {
+    throw new RoutineError("Name the routine.");
+  }
+  if (!prompt || prompt.length > MAX_ROUTINE_PROMPT) {
+    throw new RoutineError("Say what this routine should do.");
+  }
+  const parsed = parseRoutineSchedule(input.cron, input.timezone);
+  return { name, prompt, parsed, when: agentRoutineWhen(parsed) };
+}
+
+/** Agents `Schedule.time` is unix seconds. */
+export function isoUnixSeconds(
+  value: number | null | undefined,
+): string | null {
+  if (value == null || !Number.isFinite(value)) return null;
+  return new Date(value * 1000).toISOString();
 }
 
 export function parseRoutineSchedule(
@@ -178,15 +188,7 @@ export function parseRoutineSchedule(
 }
 
 export function createStoredRoutine(input: RoutineCreateInput): StoredRoutine {
-  const name = input.name.trim();
-  const prompt = input.prompt.trim();
-  if (!name || name.length > MAX_ROUTINE_NAME) {
-    throw new RoutineError("Name the routine.");
-  }
-  if (!prompt || prompt.length > MAX_ROUTINE_PROMPT) {
-    throw new RoutineError("Say what this routine should do.");
-  }
-  const parsed = parseRoutineSchedule(input.cron, input.timezone);
+  const { name, prompt, parsed } = prepareRoutineCreate(input);
   const now = Date.now();
   return {
     id: newId(),
@@ -388,6 +390,50 @@ function parseDayList(raw: string): string | null {
     days.push(name);
   }
   return days.length > 0 ? days.join(",") : null;
+}
+
+function intervalToAgentWhen(schedule: string): AgentRoutineWhen {
+  const match = /^every ([1-9]\d*) (minute|minutes|hour|hours)$/.exec(schedule);
+  const count = Number(match?.[1]);
+  const unit = match?.[2];
+  if (!match || !Number.isFinite(count) || !unit) {
+    throw new RoutineScheduleError();
+  }
+  if (unit.startsWith("minute")) {
+    if (count === 1) return { kind: "cron", cron: "* * * * *" };
+    if (count < 60 && 60 % count === 0) {
+      return { kind: "cron", cron: `*/${count} * * * *` };
+    }
+    return { kind: "interval", intervalSeconds: count * 60 };
+  }
+  if (count === 1) return { kind: "cron", cron: "0 * * * *" };
+  if (count < 24 && 24 % count === 0) {
+    return { kind: "cron", cron: `0 */${count} * * *` };
+  }
+  return { kind: "interval", intervalSeconds: count * 3600 };
+}
+
+function wallClockToCron(schedule: string): string {
+  const daily = /^every day at (\d{2}):(\d{2})$/.exec(schedule);
+  if (daily?.[1] && daily[2]) {
+    return `${Number(daily[2])} ${Number(daily[1])} * * *`;
+  }
+  const weekday = /^every weekday at (\d{2}):(\d{2})$/.exec(schedule);
+  if (weekday?.[1] && weekday[2]) {
+    return `${Number(weekday[2])} ${Number(weekday[1])} * * 1-5`;
+  }
+  const weekly = /^every week on ([a-z,]+) at (\d{2}):(\d{2})$/.exec(schedule);
+  const rawDays = weekly?.[1];
+  const hour = weekly?.[2];
+  const minute = weekly?.[3];
+  if (!rawDays || !hour || !minute) throw new RoutineScheduleError();
+  const days: number[] = [];
+  for (const part of rawDays.split(",")) {
+    const index = DAY_INDEX[part];
+    if (index == null) throw new RoutineScheduleError();
+    days.push(index);
+  }
+  return `${Number(minute)} ${Number(hour)} * * ${days.join(",")}`;
 }
 
 export class MemoryRoutineStore {

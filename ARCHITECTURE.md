@@ -45,7 +45,7 @@ UI: copy Grok Bot simplicity — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). R
 ## Wake a bot
 
 - `run.continue` — user messaged (that bot’s queue)
-- Routines — Think `getScheduledTasks()` on `BotActor`. The office UI and Code Mode `routines` connector write DO SQLite; Think fires `submitMessages` on the schedule.
+- Routines — Agents `this.schedule` on `BotActor`. The office UI and Code Mode `routines` connector call `schedule` / `listSchedules` / `cancelSchedule`; the callback `submitMessages` a Think turn.
 
 Do not run the brain from Worker Cron Triggers. Do not store routine clocks in Postgres.
 
