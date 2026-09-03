@@ -3,8 +3,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const css = readFileSync(
-  join(dirname(fileURLToPath(import.meta.url)), "../styles.css"),
+const root = dirname(fileURLToPath(import.meta.url));
+const css = readFileSync(join(root, "../styles.css"), "utf8");
+const threadAui = readFileSync(
+  join(root, "../components/assistant-ui/elements/thread.aui.tsx"),
   "utf8",
 );
 
@@ -40,5 +42,17 @@ describe("office chrome", () => {
     );
     expect(token(light, "--bg-thread")).toBe("#ffffff");
     expect(token(light, "--bg-thread")).not.toBe(token(light, "--bg"));
+  });
+
+  it("paints the assistant-ui canvas with the stage, not shell black", () => {
+    expect(threadAui).toMatch(
+      /className="aui-root aui-thread-root bg-bg-thread /,
+    );
+    expect(threadAui).toMatch(
+      /className="aui-thread-viewport-footer bg-bg-thread /,
+    );
+    expect(threadAui).not.toMatch(
+      /className="aui-root aui-thread-root bg-background /,
+    );
   });
 });
