@@ -3,6 +3,10 @@ export const CLOUD_LANDING_ORIGIN = "https://groxbot.com";
 export const CLOUD_WEB_ORIGIN = "https://app.groxbot.com";
 export const CLOUD_API_ORIGIN = "https://api.groxbot.com";
 
+/** Expo app scheme. Magic-link and OAuth callbacks land here on a device. */
+export const CLOUD_APP_SCHEME = "groxbot";
+export const CLOUD_APP_ORIGIN = `${CLOUD_APP_SCHEME}://`;
+
 /** Staging on workers.dev until groxbot.com is attached. */
 export const STAGING_LANDING_ORIGIN =
   "https://groxbot-landing.qalam.workers.dev";

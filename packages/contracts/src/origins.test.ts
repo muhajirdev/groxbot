@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   CLOUD_API_ORIGIN,
+  CLOUD_APP_ORIGIN,
+  CLOUD_APP_SCHEME,
   CLOUD_LANDING_ORIGIN,
   CLOUD_WEB_ORIGIN,
   groxbotCookieDomain,
@@ -14,6 +16,8 @@ describe("cloud origins", () => {
     expect(CLOUD_LANDING_ORIGIN).toBe("https://groxbot.com");
     expect(CLOUD_WEB_ORIGIN).toBe("https://app.groxbot.com");
     expect(CLOUD_API_ORIGIN).toBe("https://api.groxbot.com");
+    expect(CLOUD_APP_SCHEME).toBe("groxbot");
+    expect(CLOUD_APP_ORIGIN).toBe("groxbot://");
   });
 
   it("names workers.dev staging hosts", () => {

@@ -19,7 +19,7 @@ Early scaffold: contracts, Neon Postgres (team data), one Think Durable Object p
 - **Computer** — built into each bot (Think workspace on `BotActor`). Not a second table or DO.
 - **Apps** — docs / slides / sheets as `AppRuntime` Durable Objects
 - Plugins: Composio (optional)
-- UI: **web first** (Grok Bot-simple) — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). Desktop = Electron around web. Mobile = Expo later.
+- UI: **web first** (Grok Bot-simple) — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). Desktop = Electron around web. Mobile = Expo (`pnpm dev:mobile`).
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) and [docs/computers.md](./docs/computers.md).
 
@@ -99,13 +99,15 @@ OAuth callbacks (hosted staging until groxbot.com is attached):
 - `https://groxbot-api.qalam.workers.dev/api/auth/callback/google`
 - `https://groxbot-api.qalam.workers.dev/api/auth/callback/github`
 
-Mobile (Expo stub, later):
+Mobile (Expo):
 
 ```bash
 pnpm dev:mobile
 ```
 
-On a device, set `EXPO_PUBLIC_API_URL` to this machine’s LAN address.
+The phone is the same office: roster, Think thread (assistant-ui React Native + `useAgent` / `useAgentChat` / `useAISDKRuntime`), this bot’s computer, knowledge, plugins, and settings. Live docs / slides / sheets still open in the web office.
+
+On a device, set `EXPO_PUBLIC_API_URL` to this machine’s LAN address (`http://192.168.x.x:3100`) and `EXPO_PUBLIC_WEB_URL` to the office (`http://192.168.x.x:5173`). Magic-link and Google callbacks use the `groxbot://` scheme. Live docs / slides / sheets still open in the web office.
 
 ## Layout
 

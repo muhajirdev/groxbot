@@ -1,3 +1,4 @@
+import { expo } from "@better-auth/expo";
 import type { Database } from "@groxbot/db";
 import {
   account,
@@ -94,6 +95,7 @@ export function createAuth(
       },
     },
     plugins: [
+      expo(),
       organizationPlugin({
         sendInvitationEmail: async (data) => {
           const origin = opts.webOrigin.replace(/\/$/, "");
