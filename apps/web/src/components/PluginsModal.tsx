@@ -219,7 +219,8 @@ export function PluginsModal(props: {
     }
   }
 
-  const emptySearch = q.length > 0 && visible.length === 0 && mcpVisible.length === 0;
+  const emptySearch =
+    q.length > 0 && visible.length === 0 && mcpVisible.length === 0;
 
   return (
     <ModalShell open={props.open} wide onClose={props.onClose}>
@@ -275,8 +276,8 @@ export function PluginsModal(props: {
             }}
           >
             <p className="muted m-0 text-xs">
-              Streamable HTTP URL. OAuth2 opens a popup. The open teammate
-              uses it from execute.
+              Streamable HTTP URL. OAuth2 opens a popup. The open teammate uses
+              it from execute.
             </p>
             <div className="grid gap-2 sm:grid-cols-[minmax(0,140px)_minmax(0,1fr)_auto]">
               <Field label="Name" className="mb-0">
@@ -299,13 +300,13 @@ export function PluginsModal(props: {
               </Field>
               <div className="flex items-end">
                 <button
-                  className="mini"
+                  className="mini disabled:cursor-not-allowed disabled:opacity-50"
                   type="submit"
                   disabled={
                     busy === "mcp-add" || !mcpName.trim() || !mcpUrl.trim()
                   }
                 >
-                  Connect
+                  {busy === "mcp-add" ? "Connecting…" : "Connect"}
                 </button>
               </div>
             </div>

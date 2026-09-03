@@ -1,9 +1,15 @@
 import type { McpConnection, PluginStatus } from "@groxbot/contracts";
-import { McpName, PluginStatus as PluginStatusSchema } from "@groxbot/contracts";
+import {
+  McpName,
+  PluginStatus as PluginStatusSchema,
+} from "@groxbot/contracts";
 import { type Database, mcpConnections } from "@groxbot/db";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { newId } from "./ids.js";
 import { iso } from "./threads.js";
+
+/** Agents `normalizeServerId` truncates to this length. */
+const THINK_MCP_SERVER_ID_MAX = 64;
 
 export class McpError extends Error {
   constructor(message: string) {
@@ -38,8 +44,7 @@ export function parseMcpUrl(value: string): string {
   }
   url.hash = "";
   const host = url.hostname.toLowerCase();
-  const local =
-    host === "localhost" || host === "127.0.0.1" || host === "::1";
+  const local = host === "localhost" || host === "127.0.0.1" || host === "::1";
   if (url.protocol === "http:") {
     if (!local) throw new McpError("Remote MCP must be https.");
   } else if (url.protocol !== "https:") {
@@ -87,7 +92,10 @@ export async function getMcpConnection(
     .select()
     .from(mcpConnections)
     .where(
-      and(eq(mcpConnections.workspaceId, workspaceId), eq(mcpConnections.id, id)),
+      and(
+        eq(mcpConnections.workspaceId, workspaceId),
+        eq(mcpConnections.id, id),
+      ),
     )
     .limit(1);
   return row;
@@ -97,10 +105,12 @@ export async function getMcpConnectionById(
   db: Database,
   id: string,
 ): Promise<typeof mcpConnections.$inferSelect | undefined> {
+  const ids = mcpCatalogIds(id);
+  if (ids.length === 0) return undefined;
   const [row] = await db
     .select()
     .from(mcpConnections)
-    .where(eq(mcpConnections.id, id))
+    .where(inArray(mcpConnections.id, ids))
     .limit(1);
   return row;
 }
@@ -143,7 +153,8 @@ export async function addMcpConnection(
   const [row] = await db
     .insert(mcpConnections)
     .values({
-      id: newId(),
+      // Letter prefix so Agents `normalizeServerId` does not rewrite a UUID.
+      id: `mcp-${newId()}`,
       workspaceId: actor.workspaceId,
       userId: actor.userId,
       name,
@@ -167,10 +178,12 @@ export async function saveMcpConnection(
     userId?: string;
   },
 ): Promise<McpConnection> {
+  const existing = await getMcpConnectionById(db, id);
+  if (!existing) throw new McpError("MCP server missing.");
   const [row] = await db
     .update(mcpConnections)
     .set({ ...patch, updatedAt: new Date() })
-    .where(eq(mcpConnections.id, id))
+    .where(eq(mcpConnections.id, existing.id))
     .returning();
   if (!row) throw new McpError("MCP server missing.");
   return toMcpDto(row);
@@ -187,8 +200,47 @@ export async function removeMcpConnection(
   return existing;
 }
 
+/**
+ * Agents OAuth state is `{nonce}.{serverId}`. Older guesses used
+ * `{serverId}:{nonce}`; keep that as a fallback.
+ */
 export function mcpOauthServerId(state: string | undefined): string {
   const raw = state?.trim() ?? "";
+  if (!raw) return "";
+  const dot = raw.indexOf(".");
+  if (dot !== -1) {
+    const serverId = raw.slice(dot + 1).trim();
+    if (serverId && !serverId.includes(".")) return serverId;
+  }
   const cut = raw.indexOf(":");
   return (cut === -1 ? raw : raw.slice(0, cut)).trim();
+}
+
+/**
+ * Agents prefixes `id-` when a server id does not start with a letter, so a
+ * UUID catalog row must also be tried without that prefix.
+ */
+export function mcpCatalogIds(serverId: string): string[] {
+  const id = serverId.trim();
+  if (!id) return [];
+  const ids = [id];
+  if (id.startsWith("id-") && id.length > 3) ids.push(id.slice(3));
+  return ids;
+}
+
+/** Same rules as Agents `normalizeServerId` for MCP client storage keys. */
+export function thinkMcpServerId(input: string): string {
+  let id = input
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^[-_]+|[-_]+$/g, "");
+  if (id.length === 0 || !/^[a-z]/.test(id)) {
+    id = `id-${id}`.replace(/-+$/g, "");
+  }
+  if (id.length > THINK_MCP_SERVER_ID_MAX) {
+    id = id.slice(0, THINK_MCP_SERVER_ID_MAX).replace(/-+$/g, "");
+  }
+  return id;
 }
