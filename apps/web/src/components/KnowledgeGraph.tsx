@@ -130,15 +130,18 @@ export function KnowledgeGraphMap(props: {
     const hoverId = hover ? index.byPath.get(hover) : undefined;
     if (selectedId != null) ids.add(selectedId);
     if (hoverId != null) ids.add(hoverId);
-    if (focusing) {
-      for (const id of linked) ids.add(id);
-    }
     return ids;
-  }, [focusing, hover, index, linked, props.selected]);
+  }, [hover, index, props.selected]);
   const labeled = useMemo(() => {
+    const candidates =
+      focusing && camera.k < 0.85
+        ? visible.filter(
+            (node) => linked.has(node.id) || alwaysLabels.has(node.id),
+          )
+        : visible;
     if (camera.k < 0.48) return alwaysLabels;
-    return pickGraphLabels(visible, alwaysLabels);
-  }, [alwaysLabels, camera.k, visible]);
+    return pickGraphLabels(candidates, alwaysLabels);
+  }, [alwaysLabels, camera.k, focusing, linked, visible]);
   const status =
     hover ||
     props.selected ||
@@ -399,7 +402,7 @@ function GraphNode(props: {
     >
       <title>{props.node.path}</title>
       {props.selected ? (
-        <circle className="knowledge-graph-glow" r={props.node.r + 10} />
+        <circle className="knowledge-graph-glow" r={props.node.r + 7} />
       ) : null}
       <circle
         r={props.selected ? props.node.r + 1.8 : props.node.r}

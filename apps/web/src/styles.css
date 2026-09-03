@@ -2639,8 +2639,8 @@ html.electron .pane-head {
 
 .knowledge-graph-edge path {
   fill: none;
-  stroke: color-mix(in srgb, var(--ink) 26%, transparent);
-  stroke-width: 1.15;
+  stroke: color-mix(in srgb, var(--ink) 22%, transparent);
+  stroke-width: 1.05;
   stroke-linecap: round;
 }
 
@@ -2649,8 +2649,8 @@ html.electron .pane-head {
 }
 
 .knowledge-graph-edge.linked path {
-  stroke: color-mix(in srgb, var(--accent) 78%, var(--ink));
-  stroke-width: 1.7;
+  stroke: color-mix(in srgb, var(--accent) 72%, var(--ink));
+  stroke-width: 1.45;
 }
 
 .knowledge-graph-edge.linked .knowledge-graph-arrow {

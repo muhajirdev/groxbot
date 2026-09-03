@@ -43,6 +43,7 @@ describe("graph labels", () => {
     expect(graphNodeLabel("playbooks/weekly-update/SKILL.md")).toBe(
       "weekly-update",
     );
+    expect(graphNodeLabel("playbooks/SKILL.md")).toBe("SKILL");
     expect(graphNodeLabel("notes/clients.md")).toBe("clients");
     expect(graphFolder("notes/clients.md")).toBe("notes");
     expect(graphFolder("orphan.md")).toBe("");
@@ -121,7 +122,7 @@ describe("layoutKnowledgeGraph", () => {
     if (a && b) {
       const dist = Math.hypot(a.x - b.x, a.y - b.y);
       expect(dist).toBeGreaterThan(KNOWLEDGE_GRAPH_REST * 0.35);
-      expect(dist).toBeLessThan(KNOWLEDGE_GRAPH_REST * 3);
+      expect(dist).toBeLessThan(KNOWLEDGE_GRAPH_REST * 4.5);
     }
   });
 

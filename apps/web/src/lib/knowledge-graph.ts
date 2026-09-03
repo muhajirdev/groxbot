@@ -48,7 +48,7 @@ export type GraphLabelBox = {
 };
 
 const EMPTY_SIZE = { width: 720, height: 480 };
-export const KNOWLEDGE_GRAPH_REST = 92;
+export const KNOWLEDGE_GRAPH_REST = 118;
 export const GRAPH_ZOOM_MIN = 0.22;
 export const GRAPH_ZOOM_MAX = 3.6;
 
@@ -100,7 +100,7 @@ export function knowledgeGraphLinkedIds(
 export function graphNodeLabel(path: string): string {
   const parts = path.split("/").filter(Boolean);
   const last = parts.at(-1) || path;
-  if (/^skill\.md$/i.test(last) && parts.length >= 2) {
+  if (/^skill\.md$/i.test(last) && parts.length >= 3) {
     return parts.at(-2) ?? last;
   }
   return last.replace(/\.md$/i, "");
@@ -175,7 +175,7 @@ export function fitGraphCamera(
   const w = Math.max(1, maxX - minX + padding * 2);
   const h = Math.max(1, maxY - minY + padding * 2);
   const k = clampGraphZoom(
-    Math.min(viewport.width / w, viewport.height / h, 1.65),
+    Math.min(viewport.width / w, viewport.height / h, 2.35),
   );
   const cx = (minX + maxX) / 2;
   const cy = (minY + maxY) / 2;
@@ -458,7 +458,7 @@ function forceComponent(
   }
 
   const folders = ids.map((id) => graphFolder(paths[id] ?? ""));
-  const span = Math.max(64, Math.sqrt(k) * 36);
+  const span = Math.max(88, Math.sqrt(k) * 48);
   for (let i = 0; i < k; i++) {
     const t = i + 0.5;
     const radius = Math.sqrt(t / k) * span;
@@ -467,15 +467,15 @@ function forceComponent(
     y[i] = radius * Math.sin(angle);
   }
 
-  const ticks = k > 240 ? 56 : k > 80 ? 92 : 160;
-  const rest = KNOWLEDGE_GRAPH_REST + Math.min(28, Math.sqrt(k) * 1.4);
-  const spring = 0.065;
-  const damp = 0.86;
+  const ticks = k > 240 ? 64 : k > 80 ? 110 : 180;
+  const rest = KNOWLEDGE_GRAPH_REST + Math.min(36, Math.sqrt(k) * 2);
+  const spring = 0.05;
+  const damp = 0.88;
   const allPairs = k <= 180;
 
   for (let tick = 0; tick < ticks; tick++) {
     const cool = 1 - tick / (ticks + 8);
-    const repulsion = (k > 240 ? 220 : k > 80 ? 420 : 620) * cool;
+    const repulsion = (k > 240 ? 280 : k > 80 ? 560 : 920) * cool;
     if (allPairs) {
       applyAllPairsRepulsion(x, y, vx, vy, k, repulsion);
     } else {
@@ -500,17 +500,17 @@ function forceComponent(
       const folder = folders[i] ?? "";
       const center = centroids.get(folder);
       if (center && folder) {
-        vx[i] = (vx[i] ?? 0) + (center.x - (x[i] ?? 0)) * 0.012;
-        vy[i] = (vy[i] ?? 0) + (center.y - (y[i] ?? 0)) * 0.012;
+        vx[i] = (vx[i] ?? 0) + (center.x - (x[i] ?? 0)) * 0.006;
+        vy[i] = (vy[i] ?? 0) + (center.y - (y[i] ?? 0)) * 0.006;
       }
-      vx[i] = (vx[i] ?? 0) - (x[i] ?? 0) * 0.01;
-      vy[i] = (vy[i] ?? 0) - (y[i] ?? 0) * 0.01;
+      vx[i] = (vx[i] ?? 0) - (x[i] ?? 0) * 0.0035;
+      vy[i] = (vy[i] ?? 0) - (y[i] ?? 0) * 0.0035;
       vx[i] = (vx[i] ?? 0) * damp;
       vy[i] = (vy[i] ?? 0) * damp;
       x[i] = (x[i] ?? 0) + (vx[i] ?? 0);
       y[i] = (y[i] ?? 0) + (vy[i] ?? 0);
     }
-    separateNodes(x, y, k, 18);
+    separateNodes(x, y, k, 34);
   }
 
   const out = new Map<number, { x: number; y: number }>();
