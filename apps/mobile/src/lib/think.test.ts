@@ -21,6 +21,23 @@ describe("parseThinkMessages", () => {
     expect(rows).toHaveLength(1);
     expect(lastThinkPreview(rows)).toBe("hello");
   });
+
+  it("previews a present card when the assistant has no text", () => {
+    expect(
+      lastThinkPreview([
+        {
+          id: "a1",
+          role: "assistant",
+          parts: [
+            {
+              type: "tool-present",
+              input: { $type: "Card", title: "Hiring shortlist" },
+            },
+          ],
+        },
+      ]),
+    ).toBe("Hiring shortlist");
+  });
 });
 
 describe("applyThinkChunk", () => {

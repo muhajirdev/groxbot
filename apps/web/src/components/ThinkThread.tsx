@@ -8,8 +8,8 @@ import {
 import { useAgent } from "agents/react";
 import type { UIMessage } from "ai";
 import {
-  memo,
   type MutableRefObject,
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -26,9 +26,10 @@ import { FIRST_TASK } from "../lib/jobs";
 import { orpc, queryClient } from "../lib/orpc";
 import { client } from "../lib/rpc";
 import { peekThinkMessages, setThinkMessages } from "../lib/think-messages";
-import { THINK_WORKING, patchThreadMeta } from "../lib/thread-cache";
+import { patchThreadMeta, THINK_WORKING } from "../lib/thread-cache";
 import { cn } from "../lib/utils";
 import { Button } from "../ui";
+import { PresentToolUI } from "./PresentToolUI";
 
 function rememberPreview(botId: string, messages: UIMessage[]) {
   setThinkMessages(botId, messages);
@@ -279,10 +280,7 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
     [ready, sendMessage],
   );
 
-  const helpers = useMemo(
-    () => ({ ...chat, sendMessage: send }),
-    [chat, send],
-  );
+  const helpers = useMemo(() => ({ ...chat, sendMessage: send }), [chat, send]);
   const attachments = useMemo(
     () =>
       createWorkspaceAttachmentAdapter({
@@ -346,6 +344,7 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <AssistantRuntimeProvider runtime={runtime}>
+        <PresentToolUI />
         <div className="flex min-h-0 flex-1 flex-col">
           <Thread
             autoFocus={false}
