@@ -1,4 +1,4 @@
-import type { McpConnectResult, McpConnection } from "@groxbot/contracts";
+import type { McpConnection, McpConnectResult } from "@groxbot/contracts";
 import {
   addMcpConnection,
   getMcpConnection,
@@ -8,10 +8,11 @@ import {
   mcpOauthServerId,
   removeMcpConnection,
   saveMcpConnection,
+  thinkMcpServerId,
 } from "@groxbot/core";
 import { ORPCError } from "@orpc/server";
-import type { RpcContext } from "./context.js";
 import { getBotThread } from "./bots.js";
+import type { RpcContext } from "./context.js";
 import { requireActor } from "./session.js";
 
 function mapMcpError(error: unknown): never {
@@ -66,7 +67,9 @@ export async function connectMcp(
       input.id,
     );
     if (!existing) {
-      throw new ORPCError("NOT_FOUND", { message: "Add the MCP server first." });
+      throw new ORPCError("NOT_FOUND", {
+        message: "Add the MCP server first.",
+      });
     }
     const result = await context.mcp.add(bot.id, {
       serverId: existing.id,
@@ -111,7 +114,7 @@ export async function removeMcp(context: RpcContext, id: string) {
     const row = await getMcpConnection(context.db, actor.workspaceId, id);
     if (row?.hostBotId && context.mcp) {
       try {
-        await context.mcp.remove(row.hostBotId, row.id);
+        await context.mcp.remove(row.hostBotId, thinkMcpServerId(row.id));
       } catch {
         // Catalog still goes away if the actor is already gone.
       }

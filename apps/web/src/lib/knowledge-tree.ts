@@ -96,11 +96,10 @@ export function officeSkills(
   for (const row of entries) {
     if (!isOfficeSkillPath(row.path)) continue;
     const folder =
-      row.path === "SKILL.md"
-        ? ""
-        : row.path.slice(0, -"/SKILL.md".length);
+      row.path === "SKILL.md" ? "" : row.path.slice(0, -"/SKILL.md".length);
+    // Think activate_skill uses YAML `name` (list title), not the folder.
     const name =
-      folder.split("/").filter(Boolean).at(-1) || row.title;
+      row.title.trim() || folder.split("/").filter(Boolean).at(-1) || "";
     if (!name || seen.has(name)) continue;
     seen.add(name);
     skills.push({ name, description: row.description });

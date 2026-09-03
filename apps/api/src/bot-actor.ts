@@ -1,19 +1,14 @@
 /** Cloudflare-only. Excluded from `tsc`. BotActor is Think. */
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import {
-  Think,
-  skills,
   type ChatResponseResult,
   type MessageConcurrency,
+  skills,
+  Think,
   type ToolCallResultContext,
   type TurnContext,
 } from "@cloudflare/think";
 import { createExecuteTool } from "@cloudflare/think/tools/execute";
-import type { ToolSet } from "ai";
-import { createBundlingExecutor } from "./bot-execute.js";
-import { KnowledgeConnector } from "./bot-knowledge.js";
-import { WorkspaceMcpConnector } from "./bot-mcp-connector.js";
-import { bindToMarkdown, createPageTools } from "./bot-markdown.js";
 import type { WorkersAiBinding } from "@groxbot/adapters/edge";
 import {
   gatewayChatUrl,
@@ -26,51 +21,65 @@ import {
   labelForModel,
   officeUserFromHeaders,
   parseOfficeUser,
+  type Routine,
   stampIncomingOfficeUser,
 } from "@groxbot/contracts";
-import { getCurrentAgent } from "agents";
-import { AgentContextProvider } from "agents/experimental/memory/session";
 import {
-  encryptionSecret,
-  listComputerEntries,
-  readComputerFile,
-  downloadComputerFile,
-  decodeComputerBytes,
-  writeInboxFile,
-  hostedChatMessages,
-  resolveRunModel,
-  rewriteThinkCapability,
-  withOfficeExecuteDescription,
-  composeSoul,
-  soulOverlayFromWrite,
-  teammatePrompt,
-  workspaceSkillSource,
-  officeSkillSource,
+  applyOfficeReviewTurn,
+  assistantTurnSettled,
   ComputerFileError,
   ComputerPathError,
   ComputerWriteError,
-  saveMcpConnection,
-  OFFICE_REVIEW_STORAGE,
-  applyOfficeReviewTurn,
-  assistantTurnSettled,
+  composeSoul,
   countUiToolParts,
+  DEFAULT_ROUTINE_TIMEZONE,
+  decodeComputerBytes,
+  downloadComputerFile,
   emptyOfficeReviewCounters,
+  encryptionSecret,
+  formatRoutinePrompt,
+  hostedChatMessages,
+  isoUnixSeconds,
+  listComputerEntries,
+  newId,
+  OFFICE_REVIEW_STORAGE,
   officeReviewDue,
   officeReviewUserMessage,
+  officeSkillSlashTurn,
+  officeThinkSkillSources,
   parseOfficeReviewCounters,
+  prepareRoutineCreate,
+  RoutineError,
+  RoutineNotFoundError,
+  RoutineScheduleError,
+  readComputerFile,
+  resolveRunModel,
+  rewriteThinkCapability,
+  type StoredRoutine,
+  saveMcpConnection,
   shouldEnqueueOfficeReview,
+  soulOverlayFromWrite,
+  teammatePrompt,
+  thinkMcpServerId,
+  toRoutineDto,
+  withOfficeExecuteDescription,
+  writeInboxFile,
 } from "@groxbot/core";
 import { bots } from "@groxbot/db";
 import { createNeonHttpDb } from "@groxbot/db/neon";
+import { getCurrentAgent } from "agents";
+import { AgentContextProvider } from "agents/experimental/memory/session";
+import type { ToolSet } from "ai";
 import { eq } from "drizzle-orm";
-import {
-  agentRuntimeSource,
-  productEnv,
-  type RuntimeSource,
-} from "./env.js";
-import { mcpCallbackPage } from "./mcp-callback-page.js";
-import type { SendEmailBinding } from "./mail.js";
+import { createBundlingExecutor } from "./bot-execute.js";
+import { KnowledgeConnector } from "./bot-knowledge.js";
+import { bindToMarkdown, createPageTools } from "./bot-markdown.js";
+import { WorkspaceMcpConnector } from "./bot-mcp-connector.js";
+import { RoutinesConnector } from "./bot-routines-connector.js";
+import { agentRuntimeSource, productEnv, type RuntimeSource } from "./env.js";
 import { r2KnowledgeDisk } from "./knowledge-r2.js";
+import type { SendEmailBinding } from "./mail.js";
+import { mcpCallbackPage } from "./mcp-callback-page.js";
 
 function connectedOfficeUser() {
   const { connection, request } = getCurrentAgent();
@@ -117,14 +126,107 @@ type StoredJob = {
 };
 
 function workspaceError(error: unknown): Response {
-  if (error instanceof ComputerPathError || error instanceof ComputerWriteError) {
+  if (
+    error instanceof ComputerPathError ||
+    error instanceof ComputerWriteError
+  ) {
     return Response.json({ error: error.message }, { status: 400 });
   }
   if (error instanceof ComputerFileError) {
     return Response.json({ error: error.message }, { status: 404 });
   }
   console.error("bot actor workspace", error);
-  return Response.json({ error: "Could not read this computer." }, { status: 500 });
+  return Response.json(
+    { error: "Could not read this computer." },
+    { status: 500 },
+  );
+}
+
+function routineHttpError(error: unknown): Response {
+  if (error instanceof RoutineNotFoundError) {
+    return Response.json({ error: error.message }, { status: 404 });
+  }
+  if (error instanceof RoutineScheduleError || error instanceof RoutineError) {
+    return Response.json({ error: error.message }, { status: 400 });
+  }
+  console.error("bot actor routine", error);
+  return Response.json(
+    { error: "Could not save that routine." },
+    { status: 500 },
+  );
+}
+
+const ROUTINE_CALLBACK = "runScheduledRoutine" as const;
+const PAUSED_ROUTINES_STORAGE = "pausedRoutines";
+
+type RoutineSchedulePayload = {
+  name: string;
+  prompt: string;
+  timezone: string;
+  schedule: string;
+  cron?: string;
+  intervalSeconds?: number;
+  createdAt?: number;
+};
+
+type ParkedRoutine = RoutineSchedulePayload & { fireOnUnarchive: boolean };
+
+function routinePayload(value: unknown): RoutineSchedulePayload | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const row = value as Record<string, unknown>;
+  if (typeof row.name !== "string" || typeof row.prompt !== "string") {
+    return null;
+  }
+  if (typeof row.schedule !== "string") return null;
+  return {
+    name: row.name,
+    prompt: row.prompt,
+    timezone:
+      typeof row.timezone === "string"
+        ? row.timezone
+        : DEFAULT_ROUTINE_TIMEZONE,
+    schedule: row.schedule,
+    cron: typeof row.cron === "string" ? row.cron : undefined,
+    intervalSeconds:
+      typeof row.intervalSeconds === "number" ? row.intervalSeconds : undefined,
+    createdAt: typeof row.createdAt === "number" ? row.createdAt : undefined,
+  };
+}
+
+function routinePayloadFromCreate(input: {
+  name: string;
+  prompt: string;
+  cron: string;
+  timezone?: string;
+}): RoutineSchedulePayload {
+  const { name, prompt, parsed, when } = prepareRoutineCreate(input);
+  return {
+    name,
+    prompt,
+    timezone: parsed.timezone,
+    schedule: parsed.schedule,
+    createdAt: Date.now(),
+    ...(when.kind === "cron"
+      ? { cron: when.cron }
+      : { intervalSeconds: when.intervalSeconds }),
+  };
+}
+
+function storedRoutine(
+  id: string,
+  payload: RoutineSchedulePayload,
+  active: boolean,
+): StoredRoutine {
+  return {
+    id,
+    name: payload.name,
+    prompt: payload.prompt,
+    schedule: payload.schedule,
+    timezone: payload.timezone,
+    active,
+    createdAt: payload.createdAt ?? 0,
+    updatedAt: payload.createdAt ?? 0,
+  };
 }
 
 export class BotActor extends Think<WorkerEnv> {
@@ -163,7 +265,18 @@ export class BotActor extends Think<WorkerEnv> {
 
   async beforeTurn(ctx: TurnContext) {
     await this.ensureBotLoaded();
-    return { system: rewriteThinkCapability(ctx.system) };
+    const slash = officeSkillSlashTurn({
+      system: rewriteThinkCapability(ctx.system),
+      messages: ctx.messages,
+      continuation: ctx.continuation,
+      hasActivateSkill: "activate_skill" in ctx.tools,
+    });
+    return slash.forceActivate
+      ? {
+          system: slash.system,
+          toolChoice: { type: "tool" as const, toolName: "activate_skill" },
+        }
+      : { system: slash.system };
   }
 
   /** Strip file parts before `convertToModelMessages` calls `new URL(part.url)`. */
@@ -192,6 +305,7 @@ export class BotActor extends Think<WorkerEnv> {
       this.officeId = stored;
     }
     this.ensureMcpOAuthCallback();
+    this.sql`DROP TABLE IF EXISTS groxbot_routines`;
     console.log(`[bot ${this.name}] onStart after think hydrate`);
   }
 
@@ -221,7 +335,6 @@ export class BotActor extends Think<WorkerEnv> {
   configureSession(session: Parameters<Think["configureSession"]>[0]) {
     console.log(`[bot ${this.name}] configureSession`);
     const evolved = new AgentContextProvider(this, "soul-evolved");
-    const actor = this;
     return session
       .withContext("soul", {
         description:
@@ -231,13 +344,11 @@ export class BotActor extends Think<WorkerEnv> {
           get: async () => {
             // Do not block Think hydrate / get-messages on Neon. Chat turns
             // still wait in beforeTurn; loadBot refreshes the prompt after.
-            void actor.ensureBotLoaded();
-            return composeSoul(actor.soulPrompt, (await evolved.get()) ?? "");
+            void this.ensureBotLoaded();
+            return composeSoul(this.soulPrompt, (await evolved.get()) ?? "");
           },
           set: async (content: string) => {
-            await evolved.set(
-              soulOverlayFromWrite(actor.soulPrompt, content),
-            );
+            await evolved.set(soulOverlayFromWrite(this.soulPrompt, content));
           },
         },
       })
@@ -269,19 +380,21 @@ export class BotActor extends Think<WorkerEnv> {
         description: withOfficeExecuteDescription(
           description,
           Boolean(this.env.KNOWLEDGE),
+          { routines: true },
         ),
       },
     };
   }
 
-  getSkills() {
-    // Office skills first. Computer skills stay as private drafts.
-    const office = this.officeKnowledge();
-    const sources = office
-      ? [officeSkillSource(office, this.officeId)]
-      : [];
-    sources.push(workspaceSkillSource(this.workspace));
-    return sources;
+  async getSkills() {
+    // Think hydrates skills before BotActor.onStart. Load officeId first or
+    // office playbooks never enter the catalog (slash menu still lists them).
+    await this.ensureOfficeId();
+    return officeThinkSkillSources({
+      knowledge: this.officeKnowledge(),
+      officeId: this.officeId,
+      workspace: this.workspace,
+    });
   }
 
   getSkillScriptRunner() {
@@ -314,6 +427,24 @@ export class BotActor extends Think<WorkerEnv> {
     if (request.method === "POST" && url.pathname === "/mcp/remove") {
       return this.handleMcpRemove(request);
     }
+    if (request.method === "POST" && url.pathname === "/routines/list") {
+      return this.handleRoutinesList();
+    }
+    if (request.method === "POST" && url.pathname === "/routines/create") {
+      return this.handleRoutinesCreate(request);
+    }
+    if (request.method === "POST" && url.pathname === "/routines/pause") {
+      return this.handleRoutinesSetActive(request, false);
+    }
+    if (request.method === "POST" && url.pathname === "/routines/resume") {
+      return this.handleRoutinesSetActive(request, true);
+    }
+    if (request.method === "POST" && url.pathname === "/routines/remove") {
+      return this.handleRoutinesRemove(request);
+    }
+    if (request.method === "POST" && url.pathname === "/routines/suspend") {
+      return this.handleRoutinesSuspend(request);
+    }
     if (request.method === "POST" && url.pathname === "/destroy") {
       return this.handleDestroy();
     }
@@ -333,6 +464,16 @@ export class BotActor extends Think<WorkerEnv> {
       this.memoryDirty = true;
       console.error("bot actor memory", this.name, error);
     }
+  }
+
+  private async ensureOfficeId(): Promise<void> {
+    if (this.officeId) return;
+    const stored = await this.ctx.storage.get<string>("officeId");
+    if (typeof stored === "string" && stored) {
+      this.officeId = stored;
+      return;
+    }
+    await this.ensureBotLoaded();
   }
 
   private async ensureBotLoaded(): Promise<void> {
@@ -398,7 +539,10 @@ export class BotActor extends Think<WorkerEnv> {
       );
       return Response.json(listed);
     } catch (error) {
-      console.error(`[bot ${this.name}] workspace list +${Date.now() - t0}ms`, error);
+      console.error(
+        `[bot ${this.name}] workspace list +${Date.now() - t0}ms`,
+        error,
+      );
       return workspaceError(error);
     }
   }
@@ -432,7 +576,9 @@ export class BotActor extends Think<WorkerEnv> {
     const content = typeof body.content === "string" ? body.content : "";
     try {
       const bytes = decodeComputerBytes(content);
-      return Response.json(await writeInboxFile(this.workspace, filename, bytes));
+      return Response.json(
+        await writeInboxFile(this.workspace, filename, bytes),
+      );
     } catch (error) {
       return workspaceError(error);
     }
@@ -553,8 +699,274 @@ export class BotActor extends Think<WorkerEnv> {
     await this.ctx.storage.put(OFFICE_REVIEW_STORAGE, next);
   }
 
+  /**
+   * Agents `this.schedule` callback. Cron/interval rows live in
+   * `cf_agents_schedules` — not a Groxbot table.
+   */
+  async runScheduledRoutine(payload: RoutineSchedulePayload): Promise<void> {
+    const body = routinePayload(payload);
+    if (!body) return;
+    if (await this.routinesSuspended()) return;
+    await this.submitMessages([
+      {
+        id: crypto.randomUUID(),
+        role: "user",
+        parts: [
+          { type: "text", text: formatRoutinePrompt(body.name, body.prompt) },
+        ],
+        createdAt: new Date(),
+        metadata: { source: "routine", custom: { source: "routine" } },
+      },
+    ]);
+  }
+
+  async listRoutines(): Promise<Routine[]> {
+    const live = await this.liveRoutineSchedules();
+    const parked = await this.parkedRoutines();
+    const rows: Routine[] = live.map((row) =>
+      toRoutineDto(
+        this.name,
+        storedRoutine(row.id, row.payload, true),
+        isoUnixSeconds(row.time),
+      ),
+    );
+    for (const [id, payload] of Object.entries(parked)) {
+      if (live.some((row) => row.id === id)) continue;
+      rows.push(
+        toRoutineDto(this.name, storedRoutine(id, payload, false), null),
+      );
+    }
+    return rows;
+  }
+
+  async createRoutine(input: {
+    name: string;
+    prompt: string;
+    cron: string;
+    timezone?: string;
+  }): Promise<Routine> {
+    const payload = routinePayloadFromCreate(input);
+    if (await this.routinesSuspended()) {
+      const id = newId();
+      await this.putParkedRoutine(id, { ...payload, fireOnUnarchive: true });
+      return toRoutineDto(this.name, storedRoutine(id, payload, true), null);
+    }
+    const row = await this.armRoutine(payload);
+    return toRoutineDto(
+      this.name,
+      storedRoutine(row.id, payload, true),
+      isoUnixSeconds(row.time),
+    );
+  }
+
+  async pauseRoutine(id: string): Promise<Routine> {
+    const live = await this.liveRoutineById(id);
+    if (live) {
+      await this.putParkedRoutine(id, {
+        ...live.payload,
+        fireOnUnarchive: false,
+      });
+      await this.cancelSchedule(id);
+      return toRoutineDto(
+        this.name,
+        storedRoutine(id, live.payload, false),
+        null,
+      );
+    }
+    const parked = (await this.parkedRoutines())[id];
+    if (!parked) throw new RoutineNotFoundError();
+    return toRoutineDto(this.name, storedRoutine(id, parked, false), null);
+  }
+
+  async resumeRoutine(id: string): Promise<Routine> {
+    const parked = (await this.parkedRoutines())[id];
+    if (!parked) {
+      const live = await this.liveRoutineById(id);
+      if (live) {
+        return toRoutineDto(
+          this.name,
+          storedRoutine(live.id, live.payload, true),
+          isoUnixSeconds(live.time),
+        );
+      }
+      throw new RoutineNotFoundError();
+    }
+    if (await this.routinesSuspended()) {
+      throw new RoutineError("This teammate is archived.");
+    }
+    const { fireOnUnarchive: _, ...payload } = parked;
+    const row = await this.armRoutine(payload);
+    await this.deleteParkedRoutine(id);
+    return toRoutineDto(
+      this.name,
+      storedRoutine(row.id, payload, true),
+      isoUnixSeconds(row.time),
+    );
+  }
+
+  async removeRoutine(id: string): Promise<void> {
+    const cancelled = await this.cancelSchedule(id);
+    const parked = (await this.parkedRoutines())[id];
+    if (parked) await this.deleteParkedRoutine(id);
+    if (!cancelled && !parked) throw new RoutineNotFoundError();
+  }
+
+  async setRoutinesSuspended(suspended: boolean): Promise<void> {
+    if (suspended) {
+      for (const row of await this.liveRoutineSchedules()) {
+        await this.putParkedRoutine(row.id, {
+          ...row.payload,
+          fireOnUnarchive: true,
+        });
+        await this.cancelSchedule(row.id);
+      }
+      await this.ctx.storage.put("routinesSuspended", true);
+      return;
+    }
+    await this.ctx.storage.put("routinesSuspended", false);
+    const parked = await this.parkedRoutines();
+    for (const [id, row] of Object.entries(parked)) {
+      if (!row.fireOnUnarchive) continue;
+      const { fireOnUnarchive: _, ...payload } = row;
+      await this.armRoutine(payload);
+      await this.deleteParkedRoutine(id);
+    }
+  }
+
+  private async armRoutine(payload: RoutineSchedulePayload) {
+    if (payload.intervalSeconds) {
+      return this.scheduleEvery(
+        payload.intervalSeconds,
+        ROUTINE_CALLBACK,
+        payload,
+      );
+    }
+    if (!payload.cron) throw new RoutineScheduleError();
+    return this.schedule(payload.cron, ROUTINE_CALLBACK, payload);
+  }
+
+  private async liveRoutineSchedules(): Promise<
+    Array<{ id: string; time: number; payload: RoutineSchedulePayload }>
+  > {
+    const rows = await this.listSchedules();
+    const out: Array<{
+      id: string;
+      time: number;
+      payload: RoutineSchedulePayload;
+    }> = [];
+    for (const row of rows) {
+      if (row.callback !== ROUTINE_CALLBACK) continue;
+      const payload = routinePayload(row.payload);
+      if (!payload) continue;
+      out.push({ id: row.id, time: row.time, payload });
+    }
+    return out;
+  }
+
+  private async liveRoutineById(id: string) {
+    return (
+      (await this.liveRoutineSchedules()).find((row) => row.id === id) ?? null
+    );
+  }
+
+  private async parkedRoutines(): Promise<Record<string, ParkedRoutine>> {
+    const raw =
+      (await this.ctx.storage.get<Record<string, ParkedRoutine>>(
+        PAUSED_ROUTINES_STORAGE,
+      )) ?? {};
+    return raw && typeof raw === "object" ? raw : {};
+  }
+
+  private async putParkedRoutine(
+    id: string,
+    row: ParkedRoutine,
+  ): Promise<void> {
+    const next = { ...(await this.parkedRoutines()), [id]: row };
+    await this.ctx.storage.put(PAUSED_ROUTINES_STORAGE, next);
+  }
+
+  private async deleteParkedRoutine(id: string): Promise<void> {
+    const next = { ...(await this.parkedRoutines()) };
+    delete next[id];
+    await this.ctx.storage.put(PAUSED_ROUTINES_STORAGE, next);
+  }
+
+  private async handleRoutinesList(): Promise<Response> {
+    try {
+      return Response.json({ routines: await this.listRoutines() });
+    } catch (error) {
+      return routineHttpError(error);
+    }
+  }
+
+  private async handleRoutinesCreate(request: Request): Promise<Response> {
+    const body = (await request.json().catch(() => ({}))) as {
+      name?: unknown;
+      prompt?: unknown;
+      cron?: unknown;
+      timezone?: unknown;
+    };
+    try {
+      return Response.json(
+        await this.createRoutine({
+          name: typeof body.name === "string" ? body.name : "",
+          prompt: typeof body.prompt === "string" ? body.prompt : "",
+          cron: typeof body.cron === "string" ? body.cron : "",
+          timezone:
+            typeof body.timezone === "string" ? body.timezone : undefined,
+        }),
+      );
+    } catch (error) {
+      return routineHttpError(error);
+    }
+  }
+
+  private async handleRoutinesSetActive(
+    request: Request,
+    active: boolean,
+  ): Promise<Response> {
+    const body = (await request.json().catch(() => ({}))) as { id?: unknown };
+    const id = typeof body.id === "string" ? body.id : "";
+    try {
+      return Response.json(
+        active ? await this.resumeRoutine(id) : await this.pauseRoutine(id),
+      );
+    } catch (error) {
+      return routineHttpError(error);
+    }
+  }
+
+  private async handleRoutinesRemove(request: Request): Promise<Response> {
+    const body = (await request.json().catch(() => ({}))) as { id?: unknown };
+    const id = typeof body.id === "string" ? body.id : "";
+    try {
+      await this.removeRoutine(id);
+      return Response.json({ ok: true });
+    } catch (error) {
+      return routineHttpError(error);
+    }
+  }
+
+  private async handleRoutinesSuspend(request: Request): Promise<Response> {
+    const body = (await request.json().catch(() => ({}))) as {
+      suspended?: unknown;
+    };
+    try {
+      await this.setRoutinesSuspended(body.suspended === true);
+      return Response.json({ ok: true });
+    } catch (error) {
+      return routineHttpError(error);
+    }
+  }
+
+  private async routinesSuspended(): Promise<boolean> {
+    return (await this.ctx.storage.get<boolean>("routinesSuspended")) === true;
+  }
+
   private executeConnectors() {
-    const connectors: Array<KnowledgeConnector | WorkspaceMcpConnector> = [];
+    const connectors: Array<
+      KnowledgeConnector | WorkspaceMcpConnector | RoutinesConnector
+    > = [new RoutinesConnector(this.ctx, this.env, () => this)];
     if (this.env.KNOWLEDGE) {
       connectors.push(
         new KnowledgeConnector(
@@ -601,11 +1013,14 @@ export class BotActor extends Think<WorkerEnv> {
     const callbackHost =
       typeof body.callbackHost === "string" ? body.callbackHost : "";
     if (!serverId || !name || !url || !callbackHost) {
-      return Response.json({ error: "MCP server is missing fields." }, { status: 400 });
+      return Response.json(
+        { error: "MCP server is missing fields." },
+        { status: 400 },
+      );
     }
     try {
       const result = await this.addMcpServer(name, url, {
-        id: serverId,
+        id: thinkMcpServerId(serverId),
         callbackHost,
         callbackPath: "api/mcp/oauth",
       });
@@ -631,7 +1046,7 @@ export class BotActor extends Think<WorkerEnv> {
       return Response.json({ error: "MCP server missing." }, { status: 400 });
     }
     try {
-      await this.removeMcpServer(serverId);
+      await this.removeMcpServer(thinkMcpServerId(serverId));
       return Response.json({ ok: true });
     } catch (error) {
       console.error("bot actor mcp remove", this.name, error);

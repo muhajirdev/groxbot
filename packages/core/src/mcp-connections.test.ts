@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   McpError,
+  mcpCatalogIds,
   mcpOauthServerId,
   parseMcpName,
   parseMcpUrl,
+  thinkMcpServerId,
   toMcpDto,
 } from "./mcp-connections.js";
 
@@ -34,10 +36,40 @@ describe("mcp connections", () => {
     );
   });
 
-  it("reads the server id from an OAuth state", () => {
+  it("reads the server id from an Agents OAuth state", () => {
+    expect(
+      mcpOauthServerId(
+        "gs-YXhdpL0L_VoUXaO1HH.id-5729b24b-c968-4504-925a-ae9451f326cc",
+      ),
+    ).toBe("id-5729b24b-c968-4504-925a-ae9451f326cc");
+    expect(
+      mcpOauthServerId("nonce.mcp-11111111-1111-4111-8111-111111111111"),
+    ).toBe("mcp-11111111-1111-4111-8111-111111111111");
     expect(mcpOauthServerId("abc-1:nonce")).toBe("abc-1");
     expect(mcpOauthServerId("abc-1")).toBe("abc-1");
     expect(mcpOauthServerId(undefined)).toBe("");
+  });
+
+  it("maps Think’s id- prefix back to a UUID catalog row", () => {
+    expect(mcpCatalogIds("id-5729b24b-c968-4504-925a-ae9451f326cc")).toEqual([
+      "id-5729b24b-c968-4504-925a-ae9451f326cc",
+      "5729b24b-c968-4504-925a-ae9451f326cc",
+    ]);
+    expect(mcpCatalogIds("mcp-11111111-1111-4111-8111-111111111111")).toEqual([
+      "mcp-11111111-1111-4111-8111-111111111111",
+    ]);
+  });
+
+  it("prefixes digit UUIDs the way Agents normalizeServerId does", () => {
+    expect(thinkMcpServerId("5729b24b-c968-4504-925a-ae9451f326cc")).toBe(
+      "id-5729b24b-c968-4504-925a-ae9451f326cc",
+    );
+    expect(thinkMcpServerId("mcp-11111111-1111-4111-8111-111111111111")).toBe(
+      "mcp-11111111-1111-4111-8111-111111111111",
+    );
+    expect(thinkMcpServerId("a729b24b-c968-4504-925a-ae9451f326cc")).toBe(
+      "a729b24b-c968-4504-925a-ae9451f326cc",
+    );
   });
 
   it("maps a row onto the contract", () => {

@@ -28,10 +28,7 @@ const entries: KnowledgeEntry[] = [
 describe("nestKnowledgeTree", () => {
   it("builds only folders that exist", () => {
     const tree = nestKnowledgeTree(entries);
-    expect(tree.map((node) => node.path)).toEqual([
-      "how-we-work",
-      "playbooks",
-    ]);
+    expect(tree.map((node) => node.path)).toEqual(["how-we-work", "playbooks"]);
     expect(tree[1]?.children[0]?.children[0]).toMatchObject({
       path: "playbooks/weekly-update/SKILL.md",
       kind: "file",
@@ -50,6 +47,23 @@ describe("officeSkills", () => {
   it("lists slash names from SKILL.md files", () => {
     expect(officeSkills(entries)).toEqual([
       { name: "weekly-update", description: "Five-bullet Monday." },
+    ]);
+  });
+
+  it("uses the YAML skill name, not the folder", () => {
+    expect(
+      officeSkills([
+        {
+          path: "skills/client-agreements/SKILL.md",
+          name: "SKILL.md",
+          title: "agreements",
+          description: "Draft the client agreement.",
+          encoding: "text",
+          mediaType: "text/markdown",
+        },
+      ]),
+    ).toEqual([
+      { name: "agreements", description: "Draft the client agreement." },
     ]);
   });
 });

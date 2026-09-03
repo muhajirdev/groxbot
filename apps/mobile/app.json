@@ -5,7 +5,7 @@
     "version": "0.0.1",
     "orientation": "portrait",
     "scheme": "groxbot",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
@@ -14,6 +14,17 @@
     "android": {
       "package": "dev.groxbot.mobile"
     },
-    "plugins": []
+    "plugins": [
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-document-picker",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Attach a photo to this teammate’s computer."
+        }
+      ],
+      "expo-sharing"
+    ]
   }
 }

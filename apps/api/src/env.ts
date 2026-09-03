@@ -1,5 +1,6 @@
 import {
   CLOUD_API_ORIGIN,
+  CLOUD_APP_ORIGIN,
   CLOUD_LANDING_ORIGIN,
   CLOUD_WEB_ORIGIN,
   DURABLE_OBJECT_WAKEUP,
@@ -147,6 +148,7 @@ export function loadEnv(source: EnvStrings): Env {
       "http://localhost:5174",
       "http://127.0.0.1:8081",
       "http://localhost:8081",
+      CLOUD_APP_ORIGIN,
     ]),
     workerUrl: read(source, "WORKER_URL"),
     apiUrl: read(source, "API_URL") ?? "http://127.0.0.1:3100",

@@ -1,14 +1,16 @@
 import { ScriptedAgentRuntime } from "@groxbot/adapters/edge";
 import { IN_PROCESS_WAKEUP } from "@groxbot/contracts";
 import {
+  type ComputerDisk,
   createWakeHandlers,
   decodeComputerBytes,
-  listComputerEntries,
-  readComputerFile,
   downloadComputerFile,
-  writeInboxFile,
-  type ComputerDisk,
   type KnowledgeDisk,
+  listComputerEntries,
+  MemoryRoutineStore,
+  readComputerFile,
+  toRoutineDto,
+  writeInboxFile,
 } from "@groxbot/core";
 import { createDb } from "@groxbot/db/node";
 import { createGroxbotClient } from "@groxbot/rpc";
@@ -146,6 +148,7 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
 
   let handles: AppHandles;
   let cookie = "";
+  const routineStore = new MemoryRoutineStore();
 
   beforeAll(async () => {
     const { db, close } = createDb(databaseUrl);
@@ -173,9 +176,27 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
         read: (botId, path) => readComputerFile(diskFor(botId), path),
         download: (botId, path) => downloadComputerFile(diskFor(botId), path),
         write: (botId, filename, content) =>
-          writeInboxFile(diskFor(botId), filename, decodeComputerBytes(content)),
+          writeInboxFile(
+            diskFor(botId),
+            filename,
+            decodeComputerBytes(content),
+          ),
       },
       avatars: new MemoryAvatarDisk(),
+      routines: {
+        list: async (botId) =>
+          routineStore.list(botId).map((row) => toRoutineDto(botId, row)),
+        create: async (botId, input) =>
+          toRoutineDto(botId, routineStore.create(botId, input)),
+        pause: async (botId, id) =>
+          toRoutineDto(botId, routineStore.setActive(botId, id, false)),
+        resume: async (botId, id) =>
+          toRoutineDto(botId, routineStore.setActive(botId, id, true)),
+        remove: async (botId, id) => {
+          routineStore.remove(botId, id);
+        },
+        suspend: async () => {},
+      },
     });
     handlers = createWakeHandlers({
       db,
@@ -440,6 +461,7 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
 
     const listed = await rpc.computer.list({ botId: piper.id });
     expect(listed.entries.map((row) => row.path)).toContain("memory.md");
+    expect(listed.truncated).toBe(false);
     expect(listed.entries.map((row) => row.path)).toContain(
       "skills/digest/SKILL.md",
     );
@@ -483,10 +505,65 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
     });
     expect(downloaded.filename).toBe("brief.md");
     expect(downloaded.mediaType).toBe("text/markdown");
-    expect(new TextDecoder().decode(decodeComputerBytes(downloaded.content))).toBe(
-      "week one",
-    );
+    expect(
+      new TextDecoder().decode(decodeComputerBytes(downloaded.content)),
+    ).toBe("week one");
   }, 20_000);
+
+  it("creates, pauses, and removes a routine on the bot", async () => {
+    const email = `routines-${Date.now()}@example.com`;
+    const signUp = await handles.app.request(
+      new Request(`${origin}/api/auth/sign-up/email`, {
+        method: "POST",
+        headers: {
+          origin,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "Routine Tester",
+          email,
+          password: "password1",
+        }),
+      }),
+    );
+    cookie = cookieHeader(signUp, cookie);
+    expect(signUp.status, await signUp.text()).toBe(200);
+
+    const rpc = client();
+    await rpc.workspaces.create({ name: "Routine office" });
+    const piper = await rpc.bots.create({
+      name: "Piper",
+      title: "Product",
+      description: "Keep notes.",
+      instructions: "Keep notes.",
+    });
+
+    const created = await rpc.routines.create({
+      botId: piper.id,
+      name: "Nightly Gmail",
+      prompt: "Check overnight mail. Do not send.",
+      cron: "0 22 * * *",
+    });
+    expect(created.cron).toBe("every day at 22:00");
+    expect(created.active).toBe(true);
+
+    const listed = await rpc.routines.list({ botId: piper.id });
+    expect(listed.map((row) => row.name)).toEqual(["Nightly Gmail"]);
+
+    const paused = await rpc.routines.pause({
+      botId: piper.id,
+      id: created.id,
+    });
+    expect(paused.active).toBe(false);
+    const resumed = await rpc.routines.resume({
+      botId: piper.id,
+      id: created.id,
+    });
+    expect(resumed.active).toBe(true);
+
+    await rpc.routines.remove({ botId: piper.id, id: created.id });
+    expect(await rpc.routines.list({ botId: piper.id })).toEqual([]);
+  }, 15_000);
 
   it("lets a guest agent dial in and answer", async () => {
     const email = `guest-${Date.now()}@example.com`;
@@ -717,7 +794,9 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
     expect(pinned.id).toBe(lookout.id);
 
     const listed = await rpc.bots.list();
-    expect(listed.find((item) => item.id === lookout.id)?.pinnedAt).toBeTruthy();
+    expect(
+      listed.find((item) => item.id === lookout.id)?.pinnedAt,
+    ).toBeTruthy();
 
     const again = await rpc.bots.pin({ botId: lookout.id });
     expect(again.pinnedAt).toBe(pinned.pinnedAt);

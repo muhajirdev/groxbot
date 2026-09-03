@@ -189,31 +189,6 @@ export const runs = pgTable("runs", {
     .defaultNow(),
 });
 
-/** Cron metadata. The worker fires it (`routine.wakeup`); Postgres does not. */
-export const routines = pgTable("routines", {
-  id: text("id").primaryKey(),
-  workspaceId: text("workspace_id")
-    .notNull()
-    .references(() => organization.id, { onDelete: "cascade" }),
-  botId: text("bot_id")
-    .notNull()
-    .references(() => bots.id, { onDelete: "cascade" }),
-  userId: text("user_id").notNull(),
-  name: text("name").notNull(),
-  prompt: text("prompt").notNull(),
-  cron: text("cron").notNull(),
-  timezone: text("timezone").notNull().default("UTC"),
-  active: boolean("active").notNull().default(false),
-  lastRunAt: timestamp("last_run_at", { withTimezone: true }),
-  nextRunAt: timestamp("next_run_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
-
 export const memoryDocuments = pgTable(
   "memory_documents",
   {

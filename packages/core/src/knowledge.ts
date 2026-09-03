@@ -58,6 +58,7 @@ import {
   skillResourceKind,
   skillResourcePathError,
   type WorkspaceSkillSource,
+  workspaceSkillSource,
 } from "./skills.js";
 
 export const MAX_KNOWLEDGE_ENTRIES = 800;
@@ -770,6 +771,24 @@ export function knowledgeSkillWorkspace(
       return bytes ? { type: "file", size: bytes.byteLength } : null;
     },
   };
+}
+
+/**
+ * Think `getSkills()` sources. Office playbooks first, then this computer.
+ * Skip the office source when `officeId` is empty — Think hydrates skills
+ * before `BotActor.onStart`, so the actor must load the office id first.
+ */
+export function officeThinkSkillSources(opts: {
+  knowledge: KnowledgeDisk | null;
+  officeId: string;
+  workspace: SkillWorkspace;
+}): WorkspaceSkillSource[] {
+  const sources: WorkspaceSkillSource[] = [];
+  if (opts.knowledge && opts.officeId) {
+    sources.push(officeSkillSource(opts.knowledge, opts.officeId));
+  }
+  sources.push(workspaceSkillSource(opts.workspace));
+  return sources;
 }
 
 export function officeSkillSource(

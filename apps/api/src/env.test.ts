@@ -59,4 +59,8 @@ describe("loadEnv", () => {
     expect(env.webOrigin).toBe("http://127.0.0.1:5173");
     expect(env.apiUrl).toBe("http://127.0.0.1:3100");
   });
+
+  it("trusts the Expo app scheme so magic links can return to a device", () => {
+    expect(loadEnv(base).corsOrigins).toContain("groxbot://");
+  });
 });

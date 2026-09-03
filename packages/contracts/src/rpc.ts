@@ -1,37 +1,18 @@
 import { eventIterator, oc } from "@orpc/contract";
 import * as z from "zod";
 import {
+  AccountSchema,
   BotSchema,
+  ComputerDownloadSchema,
+  ComputerFileSchema,
+  ComputerListSchema,
   CreateBotInput,
   ActivateWorkspaceInput,
   CreateWorkspaceInput,
-  UpdateWorkspaceInput,
   GuestConnectSchema,
   GuestStatusSchema,
   InviteWorkspaceInput,
   JoinWorkspaceInput,
-  MemoryDocumentSchema,
-  MeSchema,
-  McpConnectResultSchema,
-  McpConnectionSchema,
-  PluginConnectionSchema,
-  PluginConnectResultSchema,
-  PluginStatusSchema,
-  PokeThreadSchema,
-  RoutineSchema,
-  ToolkitSlug,
-  UpdateAccountInput,
-  AccountSchema,
-  UpdateBotInput,
-  WorkspaceAppSchema,
-  WorkspaceMemberSchema,
-  WorkspaceInvitationSchema,
-  WorkspaceInvitePeekSchema,
-  WorkspaceInviteSchema,
-  WorkspaceSchema,
-  ComputerDownloadSchema,
-  ComputerFileSchema,
-  ComputerListSchema,
   KnowledgeFileSchema,
   KnowledgeGraphSchema,
   KnowledgeImportInput,
@@ -39,6 +20,25 @@ import {
   KnowledgeListSchema,
   KnowledgeWriteSchema,
   MAX_COMPUTER_WRITE_BYTES,
+  McpConnectionSchema,
+  McpConnectResultSchema,
+  MemoryDocumentSchema,
+  MeSchema,
+  PluginConnectionSchema,
+  PluginConnectResultSchema,
+  PluginStatusSchema,
+  PokeThreadSchema,
+  RoutineSchema,
+  ToolkitSlug,
+  UpdateAccountInput,
+  UpdateBotInput,
+  UpdateWorkspaceInput,
+  WorkspaceAppSchema,
+  WorkspaceInvitationSchema,
+  WorkspaceInvitePeekSchema,
+  WorkspaceInviteSchema,
+  WorkspaceMemberSchema,
+  WorkspaceSchema,
 } from "./domain.js";
 import { ProductEventSchema } from "./events.js";
 import { GuestAgentKind, Id } from "./ids.js";
@@ -175,6 +175,11 @@ export const appContract = oc.router({
         }),
       )
       .output(RoutineSchema),
+    pause: oc.input(z.object({ botId: Id, id: Id })).output(RoutineSchema),
+    resume: oc.input(z.object({ botId: Id, id: Id })).output(RoutineSchema),
+    remove: oc
+      .input(z.object({ botId: Id, id: Id }))
+      .output(z.object({ ok: z.literal(true) })),
   },
   /** Workspace library on R2. One prefix per office. */
   knowledge: {
@@ -219,7 +224,9 @@ export const appContract = oc.router({
           mediaType: z.string().max(127).optional(),
         }),
       )
-      .output(z.object({ path: z.string(), size: z.number().int().nonnegative() })),
+      .output(
+        z.object({ path: z.string(), size: z.number().int().nonnegative() }),
+      ),
   },
 });
 

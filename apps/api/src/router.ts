@@ -4,8 +4,14 @@ import {
   SUGGESTED_STARTER_MODEL,
 } from "@groxbot/contracts";
 import {
+  ComputerFileError,
+  ComputerPathError,
+  ComputerWriteError,
   encryptionSecret,
   getPokeThread,
+  KnowledgeFileError,
+  KnowledgePathError,
+  KnowledgeWriteError,
   listEventsAfter,
   listWorkspaceApps,
   listWorkspaceMembers,
@@ -13,29 +19,25 @@ import {
   ModelSettingsError,
   PokeError,
   publishedProfileImage,
+  RoutineError,
+  RoutineNotFoundError,
+  RoutineScheduleError,
+  SkillImportError,
   saveModelSettings,
   sleep,
   toBotDto,
   userHasModelCredentials,
-  ComputerFileError,
-  ComputerPathError,
-  ComputerWriteError,
-  KnowledgeFileError,
-  KnowledgePathError,
-  KnowledgeWriteError,
-  SkillImportError,
 } from "@groxbot/core";
 import { guestConnectors, threads, userModelCredentials } from "@groxbot/db";
 import { implement, ORPCError } from "@orpc/server";
 import { and, eq } from "drizzle-orm";
+import { updateAccount } from "./account.js";
 import {
   archiveBot,
   createBot,
-  createRoutine,
   deleteBot,
   getBotThread,
   listBots,
-  listRoutines,
   pinBot,
   sendMessage,
   stopBotRuns,
@@ -53,6 +55,7 @@ import {
   rotateGuest,
 } from "./guests.js";
 import { healthPayload } from "./health.js";
+import { addMcp, connectMcp, listMcp, removeMcp } from "./mcp.js";
 import {
   addPlugin,
   connectPlugin,
@@ -62,12 +65,6 @@ import {
   refreshPlugins,
   removePlugin,
 } from "./plugins.js";
-import {
-  addMcp,
-  connectMcp,
-  listMcp,
-  removeMcp,
-} from "./mcp.js";
 import {
   ensureDeploymentOwner,
   loadWorkspaceName,
@@ -84,7 +81,6 @@ import {
   pendingInvitations,
   updateWorkspace,
 } from "./workspaces.js";
-import { updateAccount } from "./account.js";
 
 const os = implement(appContract).$context<RpcContext>();
 
@@ -92,10 +88,7 @@ export const appRouter = os.router({
   health: os.health.handler(async ({ context }) => healthPayload(context.env)),
   me: os.me.handler(async ({ context }) => {
     const user = await requireUser(context);
-    const isDeploymentOwner = await ensureDeploymentOwner(
-      context,
-      user.userId,
-    );
+    const isDeploymentOwner = await ensureDeploymentOwner(context, user.userId);
     if (!user.workspaceId) {
       return {
         userId: user.userId,
@@ -416,7 +409,9 @@ export const appRouter = os.router({
   },
   mcp: {
     list: os.mcp.list.handler(async ({ context }) => listMcp(context)),
-    add: os.mcp.add.handler(async ({ context, input }) => addMcp(context, input)),
+    add: os.mcp.add.handler(async ({ context, input }) =>
+      addMcp(context, input),
+    ),
     connect: os.mcp.connect.handler(async ({ context, input }) =>
       connectMcp(context, input),
     ),
@@ -427,11 +422,69 @@ export const appRouter = os.router({
   routines: {
     list: os.routines.list.handler(async ({ context, input }) => {
       const actor = await requireActor(context);
-      return listRoutines(context, actor, input.botId);
+      await getBotThread(context, actor, input.botId);
+      if (!context.routines) return [];
+      try {
+        return await context.routines.list(input.botId);
+      } catch (error) {
+        throwRoutineError(error);
+      }
     }),
     create: os.routines.create.handler(async ({ context, input }) => {
       const actor = await requireActor(context);
-      return createRoutine(context, actor, input);
+      const { bot } = await getBotThread(context, actor, input.botId);
+      if (bot.archivedAt) {
+        throw new ORPCError("PRECONDITION_FAILED", {
+          message: "This teammate is archived.",
+        });
+      }
+      try {
+        if (!context.routines) throw new RoutineError();
+        return await context.routines.create(input.botId, {
+          name: input.name,
+          prompt: input.prompt,
+          cron: input.cron,
+          timezone: input.timezone,
+        });
+      } catch (error) {
+        throwRoutineError(error);
+      }
+    }),
+    pause: os.routines.pause.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      await getBotThread(context, actor, input.botId);
+      try {
+        if (!context.routines) throw new RoutineError();
+        return await context.routines.pause(input.botId, input.id);
+      } catch (error) {
+        throwRoutineError(error);
+      }
+    }),
+    resume: os.routines.resume.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      const { bot } = await getBotThread(context, actor, input.botId);
+      if (bot.archivedAt) {
+        throw new ORPCError("PRECONDITION_FAILED", {
+          message: "This teammate is archived.",
+        });
+      }
+      try {
+        if (!context.routines) throw new RoutineError();
+        return await context.routines.resume(input.botId, input.id);
+      } catch (error) {
+        throwRoutineError(error);
+      }
+    }),
+    remove: os.routines.remove.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      await getBotThread(context, actor, input.botId);
+      try {
+        if (!context.routines) throw new RoutineError();
+        await context.routines.remove(input.botId, input.id);
+        return { ok: true as const };
+      } catch (error) {
+        throwRoutineError(error);
+      }
     }),
   },
   knowledge: {
@@ -489,17 +542,19 @@ export const appRouter = os.router({
         throwKnowledgeError(error);
       }
     }),
-    importSkill: os.knowledge.importSkill.handler(async ({ context, input }) => {
-      const actor = await requireActor(context);
-      try {
-        if (!context.knowledge) {
-          throw new SkillImportError("Knowledge is not configured.");
+    importSkill: os.knowledge.importSkill.handler(
+      async ({ context, input }) => {
+        const actor = await requireActor(context);
+        try {
+          if (!context.knowledge) {
+            throw new SkillImportError("Knowledge is not configured.");
+          }
+          return await context.knowledge.importSkill(actor.workspaceId, input);
+        } catch (error) {
+          throwKnowledgeError(error);
         }
-        return await context.knowledge.importSkill(actor.workspaceId, input);
-      } catch (error) {
-        throwKnowledgeError(error);
-      }
-    }),
+      },
+    ),
     remove: os.knowledge.remove.handler(async ({ context, input }) => {
       const actor = await requireActor(context);
       try {
@@ -581,11 +636,24 @@ function throwKnowledgeError(error: unknown): never {
 }
 
 function throwComputerError(error: unknown): never {
-  if (error instanceof ComputerPathError || error instanceof ComputerWriteError) {
+  if (
+    error instanceof ComputerPathError ||
+    error instanceof ComputerWriteError
+  ) {
     throw new ORPCError("BAD_REQUEST", { message: error.message });
   }
   if (error instanceof ComputerFileError) {
     throw new ORPCError("NOT_FOUND", { message: error.message });
+  }
+  throw error;
+}
+
+function throwRoutineError(error: unknown): never {
+  if (error instanceof RoutineNotFoundError) {
+    throw new ORPCError("NOT_FOUND", { message: error.message });
+  }
+  if (error instanceof RoutineScheduleError || error instanceof RoutineError) {
+    throw new ORPCError("BAD_REQUEST", { message: error.message });
   }
   throw error;
 }
