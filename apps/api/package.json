@@ -8,6 +8,7 @@
     "start": "wrangler dev",
     "dev:node": "tsx watch src/index.ts",
     "deploy": "wrangler deploy",
+    "upload": "wrangler versions upload",
     "cf-typegen": "wrangler types",
     "check": "tsc --noEmit -p tsconfig.json"
   },

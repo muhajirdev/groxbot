@@ -73,7 +73,9 @@ Landing (marketing site, TanStack Start):
 pnpm dev:landing
 ```
 
-Deploy hosted staging to Cloudflare Workers. Config lives in each app’s `wrangler.jsonc` — no account IDs or secrets. Attach `groxbot.com` / `app.groxbot.com` / `api.groxbot.com` in the dashboard when the domain is ready.
+Deploy hosted staging to Cloudflare Workers. Config lives in each app’s `wrangler.jsonc`. Secrets stay in `wrangler secret put` / `.dev.vars`, not the repo. Attach `groxbot.com` / `app.groxbot.com` / `api.groxbot.com` in the dashboard when the domain is ready.
+
+Workers Builds (GitHub → auto deploy) is a pnpm workspace: install at the repo root, then `pnpm deploy:*` on `main` and `pnpm upload:*` (`wrangler versions upload`) on other branches. Re-apply with `infra/scripts/setup-workers-builds.sh`.
 
 ```bash
 pnpm --filter @groxbot/api exec wrangler login

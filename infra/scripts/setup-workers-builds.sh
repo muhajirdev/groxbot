@@ -1,22 +1,44 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Wire groxbot monorepo to Cloudflare Workers Builds (GitHub -> auto deploy on push).
+# Wire groxbot monorepo to Cloudflare Workers Builds (GitHub -> auto deploy).
 # Prerequisite: install the Cloudflare GitHub App once via dashboard:
 # Workers & Pages -> any Worker -> Settings -> Builds -> Connect -> GitHub.
+#
+# Preview must run `pnpm upload:*` from the repo root. `npx wrangler versions
+# upload` at `/` fails because wrangler.jsonc lives under apps/<name>.
+#
+# Requires CLOUDFLARE_API_TOKEN (Workers Builds Configuration: Edit).
+# Set WORKERS_BUILDS_TRIGGER_BUILD=1 to kick a production build after updating.
 
-ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID:-67f961331110b81774851ee4f54349b9}"
+ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID:-}"
 GITHUB_USER_ID="${GITHUB_USER_ID:-12745166}"
 GITHUB_USERNAME="${GITHUB_USERNAME:-muhajirdev}"
 REPO_ID="${GITHUB_REPO_ID:-1334749004}"
 REPO_NAME="${GITHUB_REPO_NAME:-groxbot}"
 PRODUCTION_BRANCH="${WORKERS_BUILDS_BRANCH:-main}"
+BUILD_COMMAND="corepack enable && corepack pnpm install --frozen-lockfile"
+
+if [[ -z "${ACCOUNT_ID}" ]]; then
+  ACCOUNT_ID="$(python3 - <<'PY'
+import pathlib, re
+text = pathlib.Path("apps/api/wrangler.jsonc").read_text()
+match = re.search(r'"account_id"\s*:\s*"([^"]+)"', text)
+print(match.group(1) if match else "")
+PY
+)"
+fi
+
+if [[ -z "${ACCOUNT_ID}" ]]; then
+  echo "Set CLOUDFLARE_ACCOUNT_ID" >&2
+  exit 1
+fi
 
 if [[ -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
   WRANGLER_CONFIG="${HOME}/.wrangler/config/default.toml"
   if [[ -f "${WRANGLER_CONFIG}" ]]; then
     CLOUDFLARE_API_TOKEN="$(python3 - <<'PY'
-import tomllib, pathlib, sys
+import tomllib, pathlib
 path = pathlib.Path.home() / ".wrangler/config/default.toml"
 data = tomllib.loads(path.read_text())
 print(data.get("oauth_token", ""))
@@ -26,7 +48,7 @@ PY
 fi
 
 if [[ -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
-  echo "Set CLOUDFLARE_API_TOKEN (Workers Builds Configuration: Edit) or run: wrangler login"
+  echo "Set CLOUDFLARE_API_TOKEN (Workers Builds Configuration: Edit) or run: wrangler login" >&2
   exit 1
 fi
 
@@ -93,10 +115,6 @@ PY
 )"
 echo "build_token_uuid=${BUILD_TOKEN_UUID}"
 
-echo "==> Loading worker tags"
-SCRIPTS_RESPONSE="$(api GET "/accounts/${ACCOUNT_ID}/workers/scripts")"
-require_success "workers/scripts" "${SCRIPTS_RESPONSE}" >/dev/null
-
 declare -A WORKER_TAGS=(
   ["groxbot-api"]="1fd37c5f076445c3a7770110d11af994"
   ["groxbot-web"]="e20e26171c3745fcac819ca0f694b751"
@@ -104,9 +122,15 @@ declare -A WORKER_TAGS=(
 )
 
 declare -A DEPLOY_COMMANDS=(
-  ["groxbot-api"]="corepack enable && corepack pnpm install --frozen-lockfile && corepack pnpm deploy:api"
-  ["groxbot-web"]="corepack enable && corepack pnpm install --frozen-lockfile && corepack pnpm deploy:web"
-  ["groxbot-landing"]="corepack enable && corepack pnpm install --frozen-lockfile && corepack pnpm deploy:landing"
+  ["groxbot-api"]="corepack pnpm deploy:api"
+  ["groxbot-web"]="corepack pnpm deploy:web"
+  ["groxbot-landing"]="corepack pnpm deploy:landing"
+)
+
+declare -A UPLOAD_COMMANDS=(
+  ["groxbot-api"]="corepack pnpm upload:api"
+  ["groxbot-web"]="corepack pnpm upload:web"
+  ["groxbot-landing"]="corepack pnpm upload:landing"
 )
 
 declare -A PATH_INCLUDES=(
@@ -115,36 +139,37 @@ declare -A PATH_INCLUDES=(
   ["groxbot-landing"]='["apps/landing/**","packages/**","pnpm-lock.yaml","pnpm-workspace.yaml","package.json","turbo.json"]'
 )
 
-for worker in groxbot-api groxbot-web groxbot-landing; do
-  tag="${WORKER_TAGS[$worker]}"
-  echo "==> Configuring ${worker} (${tag})"
+upsert_trigger() {
+  local worker="$1"
+  local kind="$2"
+  local existing_uuid="$3"
+  local tag="${WORKER_TAGS[$worker]}"
+  local trigger_name deploy_command branch_includes branch_excludes
 
-  EXISTING="$(api GET "/accounts/${ACCOUNT_ID}/builds/workers/${tag}/triggers")"
-  EXISTING_UUID="$(python3 - <<'PY' "${EXISTING}"
-import json, sys
-data = json.loads(sys.argv[1])
-if not data.get("success"):
-    print("")
-    raise SystemExit(0)
-for trigger in data.get("result") or []:
-    branches = trigger.get("branch_includes") or []
-    if "main" in branches or "*" in branches:
-        print(trigger.get("trigger_uuid", ""))
-        break
-PY
-)"
+  if [[ "${kind}" == "production" ]]; then
+    trigger_name="Deploy ${PRODUCTION_BRANCH}"
+    deploy_command="${DEPLOY_COMMANDS[$worker]}"
+    branch_includes="[\"${PRODUCTION_BRANCH}\"]"
+    branch_excludes="[]"
+  else
+    trigger_name="Deploy non-production branches"
+    deploy_command="${UPLOAD_COMMANDS[$worker]}"
+    branch_includes='["*"]'
+    branch_excludes="[\"${PRODUCTION_BRANCH}\"]"
+  fi
 
-  PAYLOAD="$(cat <<JSON
+  local payload
+  payload="$(cat <<JSON
 {
   "external_script_id": "${tag}",
   "repo_connection_uuid": "${REPO_CONNECTION_UUID}",
   "build_token_uuid": "${BUILD_TOKEN_UUID}",
-  "trigger_name": "Deploy ${PRODUCTION_BRANCH}",
-  "build_command": "",
-  "deploy_command": "${DEPLOY_COMMANDS[$worker]}",
+  "trigger_name": "${trigger_name}",
+  "build_command": "${BUILD_COMMAND}",
+  "deploy_command": "${deploy_command}",
   "root_directory": "/",
-  "branch_includes": ["${PRODUCTION_BRANCH}"],
-  "branch_excludes": [],
+  "branch_includes": ${branch_includes},
+  "branch_excludes": ${branch_excludes},
   "path_includes": ${PATH_INCLUDES[$worker]},
   "path_excludes": [],
   "build_caching_enabled": true
@@ -152,25 +177,56 @@ PY
 JSON
 )"
 
-  if [[ -n "${EXISTING_UUID}" ]]; then
-    echo "  updating trigger ${EXISTING_UUID}"
-    TRIGGER_RESPONSE="$(api PATCH "/accounts/${ACCOUNT_ID}/builds/triggers/${EXISTING_UUID}" "${PAYLOAD}")"
+  local response
+  if [[ -n "${existing_uuid}" ]]; then
+    echo "  updating ${kind} trigger ${existing_uuid}" >&2
+    response="$(api PATCH "/accounts/${ACCOUNT_ID}/builds/triggers/${existing_uuid}" "${payload}")"
   else
-    echo "  creating production trigger"
-    TRIGGER_RESPONSE="$(api POST "/accounts/${ACCOUNT_ID}/builds/triggers" "${PAYLOAD}")"
+    echo "  creating ${kind} trigger" >&2
+    response="$(api POST "/accounts/${ACCOUNT_ID}/builds/triggers" "${payload}")"
   fi
-  TRIGGER="$(require_success "${worker} trigger" "${TRIGGER_RESPONSE}")"
-  TRIGGER_UUID="$(python3 - <<'PY' "${TRIGGER}"
+  local result
+  result="$(require_success "${worker} ${kind} trigger" "${response}")"
+  python3 - <<'PY' "${result}"
 import json, sys
 result = json.loads(sys.argv[1])
 print(result.get("trigger_uuid") or result.get("uuid") or "")
 PY
-)"
-  echo "  trigger_uuid=${TRIGGER_UUID}"
+}
 
-  echo "  triggering initial build on ${PRODUCTION_BRANCH}"
-  BUILD_RESPONSE="$(api POST "/accounts/${ACCOUNT_ID}/builds/triggers/${TRIGGER_UUID}/builds" "{\"branch\":\"${PRODUCTION_BRANCH}\"}")"
-  require_success "${worker} initial build" "${BUILD_RESPONSE}" >/dev/null
+for worker in groxbot-api groxbot-web groxbot-landing; do
+  tag="${WORKER_TAGS[$worker]}"
+  echo "==> Configuring ${worker} (${tag})"
+
+  EXISTING="$(api GET "/accounts/${ACCOUNT_ID}/builds/workers/${tag}/triggers")"
+  read -r PROD_UUID PREVIEW_UUID < <(python3 - <<'PY' "${EXISTING}" "${PRODUCTION_BRANCH}"
+import json, sys
+data = json.loads(sys.argv[1])
+prod_branch = sys.argv[2]
+prod_uuid = ""
+preview_uuid = ""
+if data.get("success"):
+    for trigger in data.get("result") or []:
+        branches = trigger.get("branch_includes") or []
+        uuid = trigger.get("trigger_uuid", "")
+        if prod_branch in branches and "*" not in branches:
+            prod_uuid = uuid
+        elif "*" in branches:
+            preview_uuid = uuid
+print(prod_uuid, preview_uuid)
+PY
+)
+
+  PROD_TRIGGER_UUID="$(upsert_trigger "${worker}" production "${PROD_UUID}")"
+  echo "  production trigger_uuid=${PROD_TRIGGER_UUID}"
+  PREVIEW_TRIGGER_UUID="$(upsert_trigger "${worker}" preview "${PREVIEW_UUID}")"
+  echo "  preview trigger_uuid=${PREVIEW_TRIGGER_UUID}"
+
+  if [[ "${WORKERS_BUILDS_TRIGGER_BUILD:-}" == "1" ]]; then
+    echo "  triggering production build on ${PRODUCTION_BRANCH}"
+    BUILD_RESPONSE="$(api POST "/accounts/${ACCOUNT_ID}/builds/triggers/${PROD_TRIGGER_UUID}/builds" "{\"branch\":\"${PRODUCTION_BRANCH}\"}")"
+    require_success "${worker} production build" "${BUILD_RESPONSE}" >/dev/null
+  fi
 done
 
-echo "Done. Push to ${PRODUCTION_BRANCH} will auto-deploy groxbot-api, groxbot-web, and groxbot-landing."
+echo "Done. Push to ${PRODUCTION_BRANCH} runs pnpm deploy:*. Other branches run pnpm upload:*."

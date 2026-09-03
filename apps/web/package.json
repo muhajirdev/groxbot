@@ -8,6 +8,7 @@
     "dev": "vite --host 127.0.0.1 --port 5173",
     "build": "vite build",
     "deploy": "vite build && wrangler deploy",
+    "upload": "vite build && wrangler versions upload",
     "cf-typegen": "wrangler types",
     "check": "tsc --noEmit -p tsconfig.json"
   },
