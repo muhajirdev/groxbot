@@ -64,12 +64,32 @@ const TOKENS = [
 
 const GRAPH_PATHS = [
   "playbooks/handoff.md",
-  "notes/clients.md",
-  "sources/brief.md",
   "playbooks/SKILL.md",
+  "playbooks/weekly-update.md",
+  "notes/clients.md",
+  "notes/meetings.md",
   "notes/ghost.md",
+  "sources/brief.md",
+  "sources/research.md",
+  "how-we-work/constraints.md",
+  "company/README.md",
+  "company/resources.md",
+  "scratch/todo.md",
 ];
-const GRAPH_OUT = [[1, 3], [0, 2], [1], [0], [0]];
+const GRAPH_OUT = [
+  [1, 3, 9],
+  [0, 2],
+  [1, 9],
+  [0, 4, 6],
+  [3],
+  [0],
+  [3, 7, 10],
+  [6, 8],
+  [9],
+  [10, 0],
+  [9, 6],
+  [],
+];
 const GRAPH_FILES = new Set(
   GRAPH_PATHS.filter((path) => path !== "notes/ghost.md"),
 );

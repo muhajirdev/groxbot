@@ -1,11 +1,28 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import {
+  type PointerEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  fitGraphCamera,
+  type GraphCamera,
+  graphCameraScale,
+  graphEdgeGeom,
   indexKnowledgeGraph,
+  type KnowledgeGraphNode,
   knowledgeGraphLinkedIds,
   layoutKnowledgeGraph,
-  type KnowledgeGraphNode,
+  panGraphCamera,
+  pickGraphLabels,
+  worldFromScreen,
+  zoomGraphCamera,
 } from "../lib/knowledge-graph";
 import { cn } from "../ui";
+
+const EMPTY_VIEW = { width: 720, height: 480 };
 
 export function KnowledgeGraphMap(props: {
   paths: string[];
@@ -24,30 +41,23 @@ export function KnowledgeGraphMap(props: {
     [props.paths, props.out],
   );
   const [nodes, setNodes] = useState(layout.nodes);
-  useEffect(() => {
-    setNodes(layout.nodes);
-  }, [layout]);
-  const byId = useMemo(
-    () => new Map(nodes.map((node) => [node.id, node])),
-    [nodes],
-  );
-  const linked = useMemo(
-    () =>
-      props.selected
-        ? knowledgeGraphLinkedIds(index, props.selected)
-        : new Set<number>(),
-    [index, props.selected],
-  );
-  const focusing = Boolean(props.selected);
+  const [showIsolates, setShowIsolates] = useState(false);
   const [hover, setHover] = useState<string | null>(null);
   const [panning, setPanning] = useState(false);
-  const [pan, setPan] = useState({ x: 0, y: 0, k: 1 });
+  const [viewport, setViewport] = useState(EMPTY_VIEW);
+  const [camera, setCamera] = useState<GraphCamera>({
+    x: 0,
+    y: 0,
+    w: EMPTY_VIEW.width,
+    h: EMPTY_VIEW.height,
+  });
+  const svgRef = useRef<SVGSVGElement>(null);
+  const sizeObserver = useRef<ResizeObserver | null>(null);
   const canvasDrag = useRef<{
     pointer: number;
     x: number;
     y: number;
-    panX: number;
-    panY: number;
+    origin: GraphCamera;
     moved: boolean;
   } | null>(null);
   const nodeDrag = useRef<{
@@ -60,7 +70,116 @@ export function KnowledgeGraphMap(props: {
     moved: boolean;
   } | null>(null);
 
-  if (layout.nodes.length === 0) {
+  useEffect(() => {
+    setNodes(layout.nodes);
+  }, [layout]);
+
+  const attachSvg = useCallback((node: SVGSVGElement | null) => {
+    sizeObserver.current?.disconnect();
+    sizeObserver.current = null;
+    svgRef.current = node;
+    if (!node) return;
+    const measure = () => {
+      const width = Math.round(node.clientWidth);
+      const height = Math.round(node.clientHeight);
+      if (width < 8 || height < 8) return;
+      setViewport((current) =>
+        current.width === width && current.height === height
+          ? current
+          : { width, height },
+      );
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    sizeObserver.current = observer;
+  }, []);
+
+  const visible = useMemo(
+    () => (showIsolates ? nodes : nodes.filter((node) => !node.isolate)),
+    [nodes, showIsolates],
+  );
+
+  useEffect(() => {
+    const fitted = showIsolates
+      ? layout.nodes
+      : layout.nodes.filter((node) => !node.isolate);
+    setCamera(fitGraphCamera(fitted, viewport));
+  }, [layout, showIsolates, viewport]);
+
+  const byId = useMemo(
+    () => new Map(visible.map((node) => [node.id, node])),
+    [visible],
+  );
+  const linked = useMemo(
+    () =>
+      props.selected
+        ? knowledgeGraphLinkedIds(index, props.selected)
+        : new Set<number>(),
+    [index, props.selected],
+  );
+  const focusing = Boolean(
+    props.selected && visible.length > 18 && linked.size > 0,
+  );
+  const isolateCount = layout.nodes.filter((node) => node.isolate).length;
+  const folders = useMemo(() => {
+    const seen = new Map<string, number>();
+    for (const node of visible) {
+      const name = node.folder || "root";
+      if (!seen.has(name)) seen.set(name, node.hue);
+    }
+    return [...seen.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [visible]);
+  const alwaysLabels = useMemo(() => {
+    const ids = new Set<number>();
+    const selectedId = props.selected
+      ? index.byPath.get(props.selected)
+      : undefined;
+    const hoverId = hover ? index.byPath.get(hover) : undefined;
+    if (selectedId != null) ids.add(selectedId);
+    if (hoverId != null) ids.add(hoverId);
+    return ids;
+  }, [hover, index, props.selected]);
+  const labeled = useMemo(() => {
+    const candidates = focusing
+      ? visible.filter(
+          (node) => linked.has(node.id) || alwaysLabels.has(node.id),
+        )
+      : visible;
+    if (graphCameraScale(camera, viewport) < 0.48) return alwaysLabels;
+    return pickGraphLabels(candidates, alwaysLabels);
+  }, [alwaysLabels, camera, focusing, linked, viewport, visible]);
+  const status =
+    hover ||
+    props.selected ||
+    (visible.length === 0
+      ? isolateCount > 0
+        ? "No links yet"
+        : "Empty map"
+      : `${visible.length} notes`);
+
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const rect = svg.getBoundingClientRect();
+      const screen = {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+      };
+      const world = worldFromScreen(camera, screen, viewport);
+      const factor = event.deltaY > 0 ? 0.9 : 1.11;
+      setCamera(zoomGraphCamera(camera, world, factor, viewport));
+    };
+    svg.addEventListener("wheel", onWheel, { passive: false });
+    return () => svg.removeEventListener("wheel", onWheel);
+  }, [camera, viewport]);
+
+  if (
+    layout.nodes.length === 0 ||
+    (visible.length === 0 && isolateCount === 0)
+  ) {
     return (
       <p className="explorer-empty knowledge-hint">
         No links yet. Notes that mention each other show up here.
@@ -70,101 +189,127 @@ export function KnowledgeGraphMap(props: {
 
   return (
     <div className="knowledge-graph">
-      <svg
-        className={panning ? "panning" : undefined}
-        viewBox={`0 0 ${layout.width} ${layout.height}`}
-        aria-label="Office knowledge links"
-        onPointerDown={(event) => {
-          if (event.button !== 0 || nodeDrag.current) return;
-          canvasDrag.current = {
-            pointer: event.pointerId,
-            x: event.clientX,
-            y: event.clientY,
-            panX: pan.x,
-            panY: pan.y,
-            moved: false,
-          };
-          event.currentTarget.setPointerCapture(event.pointerId);
-        }}
-        onPointerMove={(event) => {
-          const pin = nodeDrag.current;
-          if (pin && pin.pointer === event.pointerId) {
-            const dx = (event.clientX - pin.x) / pan.k;
-            const dy = (event.clientY - pin.y) / pan.k;
-            if (Math.abs(dx) + Math.abs(dy) > 2) pin.moved = true;
-            setNodes((current) =>
-              current.map((node) =>
-                node.id === pin.id
-                  ? { ...node, x: pin.origX + dx, y: pin.origY + dy }
-                  : node,
-              ),
-            );
-            return;
-          }
-          const start = canvasDrag.current;
-          if (!start || start.pointer !== event.pointerId) return;
-          const dx = event.clientX - start.x;
-          const dy = event.clientY - start.y;
-          if (Math.abs(dx) + Math.abs(dy) > 3) {
-            start.moved = true;
-            setPanning(true);
-          }
-          if (start.moved) {
-            setPan({ x: start.panX + dx, y: start.panY + dy, k: pan.k });
-          }
-        }}
-        onPointerUp={(event) => {
-          if (nodeDrag.current?.pointer === event.pointerId) {
-            nodeDrag.current = null;
-          }
-          if (canvasDrag.current?.pointer === event.pointerId) {
-            canvasDrag.current = null;
-            setPanning(false);
-          }
-        }}
-        onWheel={(event) => {
-          event.preventDefault();
-          const next = Math.min(
-            2.8,
-            Math.max(0.35, pan.k * (event.deltaY > 0 ? 0.9 : 1.1)),
-          );
-          setPan((current) => ({ ...current, k: next }));
-        }}
-      >
-        <g transform={`translate(${pan.x} ${pan.y}) scale(${pan.k})`}>
+      <div className="knowledge-graph-toolbar">
+        <p className="knowledge-graph-status" title={status}>
+          {status}
+        </p>
+        <div className="knowledge-graph-tools">
+          {isolateCount > 0 ? (
+            <button
+              className="btn ghost tiny"
+              type="button"
+              aria-pressed={showIsolates}
+              onClick={() => setShowIsolates((open) => !open)}
+            >
+              Isolates
+            </button>
+          ) : null}
+          <button
+            className="btn ghost tiny"
+            type="button"
+            onClick={() => setCamera(fitGraphCamera(visible, viewport))}
+          >
+            Fit
+          </button>
+        </div>
+      </div>
+      <div className="knowledge-graph-canvas">
+        {visible.length === 0 ? (
+          <p className="explorer-empty knowledge-hint">
+            Notes aren’t linked yet. Turn on Isolates to see unlinked files.
+          </p>
+        ) : null}
+        <svg
+          ref={attachSvg}
+          className={panning ? "panning" : undefined}
+          viewBox={`${camera.x} ${camera.y} ${camera.w} ${camera.h}`}
+          preserveAspectRatio="none"
+          aria-label="Office knowledge links"
+          onPointerDown={(event) => {
+            if (event.button !== 0 || nodeDrag.current) return;
+            canvasDrag.current = {
+              pointer: event.pointerId,
+              x: event.clientX,
+              y: event.clientY,
+              origin: camera,
+              moved: false,
+            };
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }}
+          onPointerMove={(event) => {
+            const pin = nodeDrag.current;
+            if (pin && pin.pointer === event.pointerId) {
+              const dx =
+                ((event.clientX - pin.x) * camera.w) /
+                Math.max(1, viewport.width);
+              const dy =
+                ((event.clientY - pin.y) * camera.h) /
+                Math.max(1, viewport.height);
+              if (Math.abs(dx) + Math.abs(dy) > 2) pin.moved = true;
+              setNodes((current) =>
+                current.map((node) =>
+                  node.id === pin.id
+                    ? { ...node, x: pin.origX + dx, y: pin.origY + dy }
+                    : node,
+                ),
+              );
+              return;
+            }
+            const start = canvasDrag.current;
+            if (!start || start.pointer !== event.pointerId) return;
+            const dx = event.clientX - start.x;
+            const dy = event.clientY - start.y;
+            if (Math.abs(dx) + Math.abs(dy) > 3) {
+              start.moved = true;
+              setPanning(true);
+            }
+            if (start.moved) {
+              setCamera(panGraphCamera(start.origin, dx, dy, viewport));
+            }
+          }}
+          onPointerUp={(event) => {
+            if (nodeDrag.current?.pointer === event.pointerId) {
+              nodeDrag.current = null;
+            }
+            if (canvasDrag.current?.pointer === event.pointerId) {
+              canvasDrag.current = null;
+              setPanning(false);
+            }
+          }}
+        >
           {layout.edges.map((edge) => {
             const from = byId.get(edge.from);
             const to = byId.get(edge.to);
             if (!from || !to) return null;
             const hot = linked.has(edge.from) && linked.has(edge.to);
             const faded = focusing && !hot;
+            const geom = graphEdgeGeom(from, to, edge.reciprocal);
             return (
-              <line
+              <g
                 key={`${edge.from}-${edge.to}`}
                 className={cn(
                   "knowledge-graph-edge",
                   hot && "linked",
                   faded && "faded",
                 )}
-                x1={from.x}
-                y1={from.y}
-                x2={to.x}
-                y2={to.y}
-              />
+              >
+                <path d={geom.d} />
+                <polygon
+                  className="knowledge-graph-arrow"
+                  transform={`translate(${geom.ax} ${geom.ay}) rotate(${geom.angle})`}
+                  points="0,-3.1 8,0 0,3.1"
+                />
+              </g>
             );
           })}
-          {nodes.map((node) => (
+          {visible.map((node) => (
             <GraphNode
               key={node.path}
               node={node}
               selected={node.path === props.selected}
               linked={linked.has(node.id)}
               faded={focusing && !linked.has(node.id)}
-              labeled={
-                node.path === props.selected ||
-                node.path === hover ||
-                linked.has(node.id)
-              }
+              labeled={labeled.has(node.id)}
               missing={!props.files.has(node.path)}
               onHover={setHover}
               onPointerDown={(event) => {
@@ -180,7 +325,8 @@ export function KnowledgeGraphMap(props: {
                 };
               }}
               onSelect={() => {
-                if (nodeDrag.current?.moved || canvasDrag.current?.moved) return;
+                if (nodeDrag.current?.moved || canvasDrag.current?.moved)
+                  return;
                 props.onSelect(node.path);
               }}
               onOpen={() => {
@@ -189,10 +335,23 @@ export function KnowledgeGraphMap(props: {
               }}
             />
           ))}
-        </g>
-      </svg>
+        </svg>
+      </div>
+      {folders.length > 1 ? (
+        <ul className="knowledge-graph-legend">
+          {folders.map(([name, hue]) => (
+            <li key={name}>
+              <span
+                className="knowledge-graph-swatch"
+                style={{ background: `hsl(${hue} 46% 54%)` }}
+              />
+              {name}
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <p className="knowledge-graph-hint">
-        Drag a note to pin it. Double-click to open.
+        Scroll to zoom, drag to pan. Double-click opens a note.
       </p>
     </div>
   );
@@ -210,6 +369,9 @@ function GraphNode(props: {
   onSelect: () => void;
   onOpen: () => void;
 }) {
+  const fill = props.selected
+    ? undefined
+    : `hsl(${props.node.hue} ${props.linked ? 52 : 42}% ${props.linked ? 62 : 54}%)`;
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: SVG graph node
     <g
@@ -219,6 +381,7 @@ function GraphNode(props: {
         props.linked && "linked",
         props.faded && "faded",
         props.missing && "missing",
+        props.node.isolate && "isolate",
       )}
       transform={`translate(${props.node.x} ${props.node.y})`}
       onPointerDown={(event) => {
@@ -239,11 +402,14 @@ function GraphNode(props: {
     >
       <title>{props.node.path}</title>
       {props.selected ? (
-        <circle className="knowledge-graph-glow" r={props.node.r + 8} />
+        <circle className="knowledge-graph-glow" r={props.node.r + 7} />
       ) : null}
-      <circle r={props.selected ? props.node.r + 1.6 : props.node.r} />
+      <circle
+        r={props.selected ? props.node.r + 1.8 : props.node.r}
+        style={fill ? { fill } : undefined}
+      />
       {props.labeled ? (
-        <text y={props.node.r + 12} textAnchor="middle">
+        <text y={props.node.r + 13} textAnchor="middle">
           {props.node.label}
         </text>
       ) : null}
