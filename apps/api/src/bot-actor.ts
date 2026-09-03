@@ -59,6 +59,7 @@ import {
   shouldEnqueueOfficeReview,
   soulOverlayFromWrite,
   teammatePrompt,
+  thinkMcpServerId,
   toRoutineDto,
   withOfficeExecuteDescription,
   workspaceSkillSource,
@@ -995,7 +996,7 @@ export class BotActor extends Think<WorkerEnv> {
     }
     try {
       const result = await this.addMcpServer(name, url, {
-        id: serverId,
+        id: thinkMcpServerId(serverId),
         callbackHost,
         callbackPath: "api/mcp/oauth",
       });
@@ -1021,7 +1022,7 @@ export class BotActor extends Think<WorkerEnv> {
       return Response.json({ error: "MCP server missing." }, { status: 400 });
     }
     try {
-      await this.removeMcpServer(serverId);
+      await this.removeMcpServer(thinkMcpServerId(serverId));
       return Response.json({ ok: true });
     } catch (error) {
       console.error("bot actor mcp remove", this.name, error);
