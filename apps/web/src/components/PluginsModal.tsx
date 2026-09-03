@@ -84,8 +84,8 @@ export function PluginsModal(props: {
     [mcpServers, query],
   );
   const groups = useMemo(
-    () => groupVisiblePlugins(tab, visible, mcpVisible.length),
-    [mcpVisible.length, tab, visible],
+    () => groupVisiblePlugins(tab, visible),
+    [tab, visible],
   );
 
   async function addOrRemove(item: PluginCard) {
@@ -252,96 +252,90 @@ export function PluginsModal(props: {
           <p className="muted py-10 text-center">No plugins match “{q}”.</p>
         ) : (
           <>
+            {tab === "installed" &&
+            groups.size === 0 &&
+            mcpVisible.length === 0 ? (
+              <p className="muted mb-[18px]">
+                Nothing here yet. Add a plugin from Search, then authenticate.
+              </p>
+            ) : null}
             {[...groups.entries()].map(([category, items]) => (
               <section key={category} className="mb-[18px]">
                 <p className="group-label">{category}</p>
-                {items.length === 0 ? (
-                  <p className="muted">
-                    Nothing here yet. Add a plugin from Search, then
-                    authenticate.
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2.5">
-                    {items.map((item) => {
-                      const row = byToolkit.get(item.id);
-                      const on = Boolean(row);
-                      const live = row?.status === "connected";
-                      return (
-                        <article
-                          key={item.id}
-                          className="flex items-start justify-between gap-2.5 rounded-[14px] bg-card-2 p-3"
-                        >
-                          <div className="flex min-w-0 gap-2.5">
-                            {item.kind === "connector" ? (
-                              <PluginLogo
-                                slug={item.id}
-                                name={item.name}
-                                src={item.logo}
-                              />
-                            ) : null}
-                            <div className="min-w-0">
-                              <strong className="mb-1 block">
-                                {item.name}
-                              </strong>
-                              {tab === "installed" ? (
-                                <p className="muted m-0 text-xs">
-                                  1{" "}
-                                  {item.kind === "skill"
-                                    ? "skill"
-                                    : "connector"}
-                                  {row?.status === "error" && row.lastError
-                                    ? ` · ${row.lastError}`
-                                    : ""}
-                                </p>
-                              ) : (
-                                <p className="muted m-0 text-xs">
-                                  {item.blurb}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          {tab === "search" ? (
-                            <button
-                              className={cn("mini", on && "on")}
-                              type="button"
-                              disabled={
-                                busy === item.id || item.kind !== "connector"
-                              }
-                              onClick={() => void addOrRemove(item)}
-                            >
-                              {on ? (
-                                <>
-                                  <CheckIcon /> Added
-                                </>
-                              ) : item.kind === "skill" ? (
-                                "Soon"
-                              ) : (
-                                "Add"
-                              )}
-                            </button>
-                          ) : item.kind === "connector" ? (
-                            live ? (
-                              <span className="ok">Connected</span>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2.5">
+                  {items.map((item) => {
+                    const row = byToolkit.get(item.id);
+                    const on = Boolean(row);
+                    const live = row?.status === "connected";
+                    return (
+                      <article
+                        key={item.id}
+                        className="flex items-start justify-between gap-2.5 rounded-[14px] bg-card-2 p-3"
+                      >
+                        <div className="flex min-w-0 gap-2.5">
+                          {item.kind === "connector" ? (
+                            <PluginLogo
+                              slug={item.id}
+                              name={item.name}
+                              src={item.logo}
+                            />
+                          ) : null}
+                          <div className="min-w-0">
+                            <strong className="mb-1 block">{item.name}</strong>
+                            {tab === "installed" ? (
+                              <p className="muted m-0 text-xs">
+                                1{" "}
+                                {item.kind === "skill" ? "skill" : "connector"}
+                                {row?.status === "error" && row.lastError
+                                  ? ` · ${row.lastError}`
+                                  : ""}
+                              </p>
                             ) : (
-                              <button
-                                className="mini"
-                                type="button"
-                                disabled={busy === item.id}
-                                onClick={() => void authenticate(item)}
-                              >
-                                {row?.status === "connecting"
-                                  ? "Continue"
-                                  : "Authenticate"}
-                              </button>
-                            )
+                              <p className="muted m-0 text-xs">{item.blurb}</p>
+                            )}
+                          </div>
+                        </div>
+                        {tab === "search" ? (
+                          <button
+                            className={cn("mini", on && "on")}
+                            type="button"
+                            disabled={
+                              busy === item.id || item.kind !== "connector"
+                            }
+                            onClick={() => void addOrRemove(item)}
+                          >
+                            {on ? (
+                              <>
+                                <CheckIcon /> Added
+                              </>
+                            ) : item.kind === "skill" ? (
+                              "Soon"
+                            ) : (
+                              "Add"
+                            )}
+                          </button>
+                        ) : item.kind === "connector" ? (
+                          live ? (
+                            <span className="ok">Connected</span>
                           ) : (
-                            <span className="muted">1 skill</span>
-                          )}
-                        </article>
-                      );
-                    })}
-                  </div>
-                )}
+                            <button
+                              className="mini"
+                              type="button"
+                              disabled={busy === item.id}
+                              onClick={() => void authenticate(item)}
+                            >
+                              {row?.status === "connecting"
+                                ? "Continue"
+                                : "Authenticate"}
+                            </button>
+                          )
+                        ) : (
+                          <span className="muted">1 skill</span>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
               </section>
             ))}
             {tab === "installed" && mcpVisible.length > 0 ? (

@@ -58,16 +58,13 @@ describe("visiblePluginCards", () => {
 
 describe("groupVisiblePlugins", () => {
   it("groups Search by category", () => {
-    const groups = groupVisiblePlugins("search", [gmail, github], 0);
+    const groups = groupVisiblePlugins("search", [gmail, github]);
     expect([...groups.keys()]).toEqual(["Email", "Developer Tools"]);
   });
 
-  it("groups Installed without an empty Private row when a custom MCP exists", () => {
-    expect([...groupVisiblePlugins("installed", [], 1).keys()]).toEqual([]);
-    expect([...groupVisiblePlugins("installed", [], 0).keys()]).toEqual([
-      "Private",
-    ]);
-    const groups = groupVisiblePlugins("installed", [gmail, canvas], 0);
+  it("groups Installed without an empty placeholder section", () => {
+    expect([...groupVisiblePlugins("installed", []).keys()]).toEqual([]);
+    const groups = groupVisiblePlugins("installed", [gmail, canvas]);
     expect([...groups.keys()]).toEqual(["Installed", "Skills"]);
   });
 });

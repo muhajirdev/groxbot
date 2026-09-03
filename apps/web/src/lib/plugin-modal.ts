@@ -21,7 +21,6 @@ export function visiblePluginCards(
 export function groupVisiblePlugins(
   tab: PluginTab,
   visible: PluginCard[],
-  customMcpCount: number,
 ): Map<string, PluginCard[]> {
   if (tab === "installed") {
     const installed = visible.filter((item) => item.kind === "connector");
@@ -29,9 +28,6 @@ export function groupVisiblePlugins(
     const next = new Map<string, PluginCard[]>();
     if (installed.length) next.set("Installed", installed);
     if (skills.length) next.set("Skills", skills);
-    if (!installed.length && !skills.length && customMcpCount === 0) {
-      next.set("Private", []);
-    }
     return next;
   }
   const map = new Map<string, PluginCard[]>();
