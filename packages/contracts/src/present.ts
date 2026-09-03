@@ -16,6 +16,7 @@ export const PRESENT_TYPES = [
   "DatePicker",
   "Divider",
   "Fact",
+  "File",
   "Form",
   "Header",
   "Icon",
@@ -43,7 +44,8 @@ export const PRESENT_TOOL_DESCRIPTION = [
   "Show a glanceable UI in this thread. Args are one JSON tree: `$type` names a component, other keys are props, `children` is an array of objects — never a stringified JSON array.",
   `Allowed $type: ${PRESENT_TYPES.join(", ")}.`,
   'Example: { "$type": "Card", "title": "Q3", "children": [{ "$type": "Fact", "label": "Bookings", "value": "$1.2M" }] }.',
-  "Use this for facts, a short table, a chart, or a choice. Put long notes and drafts in a file on this computer. Keep the chat reply to one short line.",
+  'After you save a file, present File: { "$type": "File", "path": "notes/q3.md", "place": "computer" } or place "knowledge" for the office library. Image src is an http(s) URL only.',
+  "Use this for facts, a short table, a chart, a saved file, or a choice. Put long notes and drafts in a file on this computer. Keep the chat reply to one short line.",
 ].join(" ");
 
 export type PresentOk = {
@@ -72,6 +74,12 @@ export function runPresent(input: unknown): PresentResult {
           message: "present Image src must be an http(s) URL.",
         };
       }
+      if (input.$type === "File") {
+        return {
+          ok: false,
+          message: "present File needs an office-root path (no ..).",
+        };
+      }
     }
     return {
       ok: false,
@@ -90,6 +98,11 @@ export function presentPreview(tree: unknown): string {
   if (!node) return "";
   const title = str(node.title);
   if (title) return clip(title);
+  if (node.$type === "File") {
+    const path = str(node.path);
+    const name = path.split("/").filter(Boolean).at(-1) ?? path;
+    if (name) return clip(name);
+  }
   const text = str(node.text) || str(node.value);
   if (node.$type === "Fact") {
     const label = str(node.label);
@@ -182,6 +195,19 @@ export function sanitizePresentTree(
     return { ...node, src, children: undefined };
   }
 
+  if (node.$type === "File") {
+    const path = safePresentFilePath(str(node.path));
+    if (!path) return null;
+    const place = str(node.place) === "knowledge" ? "knowledge" : "computer";
+    const title = str(node.title);
+    return {
+      $type: "File",
+      path,
+      place,
+      ...(title ? { title } : {}),
+    };
+  }
+
   const kids = childList(node.children)
     .map((child) => {
       if (typeof child === "string") {
@@ -228,6 +254,26 @@ export function safePresentImageSrc(src: string): string | null {
   } catch {
     return null;
   }
+}
+
+const MAX_FILE_PATH = 240;
+
+export function safePresentFilePath(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  if (/^[a-z][a-z0-9+.-]*:/iu.test(trimmed)) return null;
+  const pathPart = trimmed.split(/[?#]/u, 1)[0] ?? "";
+  const normalized = pathPart.replaceAll("\\", "/").replace(/^\/+/u, "");
+  if (!normalized || normalized === ".") return null;
+  const parts: string[] = [];
+  for (const part of normalized.split("/")) {
+    if (!part || part === ".") continue;
+    if (part === ".." || part.includes("\0")) return null;
+    parts.push(part);
+  }
+  const path = parts.join("/");
+  if (!path || path.length > MAX_FILE_PATH) return null;
+  return path;
 }
 
 function asNode(value: unknown): PresentNode | null {

@@ -62,6 +62,20 @@ function PresentNodeView(props: { node: PresentNode }) {
   if (node.$type === "Table") {
     return <Text style={styles.body}>{presentPreview(node) || "Table"}</Text>;
   }
+  if (node.$type === "File") {
+    const title =
+      typeof node.title === "string" && node.title.trim()
+        ? node.title.trim()
+        : presentPreview(node);
+    return (
+      <View style={styles.file}>
+        <Text style={styles.body}>{title}</Text>
+        <Text style={styles.muted}>
+          {node.place === "knowledge" ? "Knowledge" : "Computer"}
+        </Text>
+      </View>
+    );
+  }
   if (kids.length) return <View style={styles.stack}>{kids}</View>;
   const preview = presentPreview(node);
   return preview ? <Text style={styles.body}>{preview}</Text> : null;
@@ -86,4 +100,12 @@ const styles = StyleSheet.create({
   muted: { color: colors.muted, fontSize: 12 },
   value: { color: colors.text, fontSize: 14, fontVariant: ["tabular-nums"] },
   body: { color: colors.text, fontSize: 14 },
+  file: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: 12,
+    gap: 4,
+  },
 });

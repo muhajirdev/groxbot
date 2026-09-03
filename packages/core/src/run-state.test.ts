@@ -52,7 +52,8 @@ describe("teammatePrompt", () => {
     expect(prompt).toMatch(/knowledge\.write/);
     expect(prompt).toMatch(/routines\.list/);
     expect(prompt).toMatch(/every weekday at 09:00/);
-    expect(prompt).toMatch(/one short line with the office path/);
+    expect(prompt).toMatch(/present a File/);
+    expect(prompt).toMatch(/place` knowledge/);
     expect(prompt).toMatch(/Patch an existing playbook/);
     expect(prompt).toMatch(/skills\/<name>\/SKILL\.md/);
     expect(prompt).toMatch(/how-we-work\/constraints\.md/);

@@ -3,6 +3,7 @@ import { PRESENT_TYPES } from "@groxbot/contracts";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { KnowledgeFileOpenProvider } from "../components/ChatFileLink";
 import { PresentSurface } from "../components/PresentToolUI";
 
 describe("PresentSurface", () => {
@@ -68,9 +69,60 @@ describe("PresentSurface", () => {
     expect(html).not.toContain("<img");
   });
 
-  it("keeps PRESENT_TYPES in lockstep with the default vocabulary", () => {
-    expect([...PRESENT_TYPES].sort()).toEqual(
+  it("wraps http(s) images in a zoom trigger", () => {
+    const html = renderToStaticMarkup(
+      createElement(PresentSurface, {
+        tree: {
+          $type: "Image",
+          src: "https://example.com/chart.png",
+          alt: "Chart",
+        },
+      }),
+    );
+    expect(html).toContain("Click to zoom image");
+    expect(html).toContain("<img");
+    expect(html).toContain("https://example.com/chart.png");
+  });
+
+  it("renders a File chip for a computer path", () => {
+    const html = renderToStaticMarkup(
+      createElement(PresentSurface, {
+        tree: {
+          $type: "File",
+          path: "notes/q3.md",
+          place: "computer",
+        },
+      }),
+    );
+    expect(html).toContain('data-aui="file"');
+    expect(html).toContain("q3.md");
+    expect(html).toContain("Computer");
+  });
+
+  it("enables a knowledge File chip when an opener is present", () => {
+    const html = renderToStaticMarkup(
+      createElement(
+        KnowledgeFileOpenProvider,
+        { onOpen: () => undefined },
+        createElement(PresentSurface, {
+          tree: {
+            $type: "File",
+            path: "skills/q3/SKILL.md",
+            place: "knowledge",
+            title: "Q3 skill",
+          },
+        }),
+      ),
+    );
+    expect(html).toContain("Q3 skill");
+    expect(html).toContain("Knowledge");
+    expect(html).not.toContain("disabled");
+  });
+
+  it("covers the default vocabulary and the office File type", () => {
+    expect(PRESENT_TYPES.filter((type) => type !== "File").sort()).toEqual(
       Object.keys(defaultGenerativeUILibrary).sort(),
     );
+    expect(PRESENT_TYPES).toContain("File");
   });
 });

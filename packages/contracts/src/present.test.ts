@@ -84,6 +84,32 @@ describe("runPresent", () => {
       value: "Live in-thread UI",
     });
   });
+
+  it("accepts a computer File path", () => {
+    expect(
+      runPresent({
+        $type: "File",
+        path: "notes/q3.md",
+        place: "computer",
+      }),
+    ).toEqual({
+      ok: true,
+      $type: "File",
+      preview: "q3.md",
+    });
+  });
+
+  it("rejects a File path that walks up", () => {
+    expect(
+      runPresent({
+        $type: "File",
+        path: "../secret.md",
+      }),
+    ).toEqual({
+      ok: false,
+      message: "present File needs an office-root path (no ..).",
+    });
+  });
 });
 
 describe("presentPreview", () => {
@@ -97,6 +123,16 @@ describe("presentPreview", () => {
     expect(
       presentPreview({ $type: "Fact", label: "Owner", value: "Reja" }),
     ).toBe("Owner Reja");
+  });
+
+  it("uses a File basename", () => {
+    expect(
+      presentPreview({
+        $type: "File",
+        path: "how-we-work/constraints.md",
+        place: "knowledge",
+      }),
+    ).toBe("constraints.md");
   });
 });
 

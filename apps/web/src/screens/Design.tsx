@@ -316,6 +316,24 @@ export function Design() {
                 }}
               />
             </Specimen>
+            <Specimen label="File">
+              <PresentSurface
+                tree={{
+                  $type: "File",
+                  path: "notes/q3.md",
+                  place: "computer",
+                }}
+              />
+            </Specimen>
+            <Specimen label="Image">
+              <PresentSurface
+                tree={{
+                  $type: "Image",
+                  src: "https://example.com/chart.png",
+                  alt: "Chart",
+                }}
+              />
+            </Specimen>
           </Section>
 
           <Section

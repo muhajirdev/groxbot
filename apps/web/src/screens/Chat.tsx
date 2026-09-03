@@ -5,39 +5,42 @@ import type {
   WorkspaceApp,
 } from "@groxbot/contracts";
 import { eq, useLiveQuery } from "@tanstack/react-db";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useHotkeys } from "@tanstack/react-hotkeys";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import {
+  type MouseEvent,
   memo,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type MouseEvent,
 } from "react";
 import { AppPane } from "../components/AppPane";
 import { AppSettings } from "../components/AppSettings";
 import { AvatarMark } from "../components/Avatar";
 import { BotSettingsPane } from "../components/BotSettingsPane";
-import { ComputerFileOpenProvider } from "../components/ChatFileLink";
-import { ComputerPane } from "../components/ComputerPane";
+import {
+  ComputerFileOpenProvider,
+  KnowledgeFileOpenProvider,
+} from "../components/ChatFileLink";
 import { CommandPalette, SearchTrigger } from "../components/CommandPalette";
+import { ComputerPane } from "../components/ComputerPane";
+import { HireDialog } from "../components/HireDialog";
 import {
   ChevronLeftIcon,
   CloseIcon,
   FileIcon,
   GearIcon,
+  KnowledgeIcon,
   MonitorIcon,
   MoreIcon,
   PinIcon,
   PlugIcon,
   PlusIcon,
-  KnowledgeIcon,
   TrashIcon,
 } from "../components/Icons";
-import { HireDialog } from "../components/HireDialog";
 import { KnowledgeModal } from "../components/KnowledgeModal";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { PluginsModal } from "../components/PluginsModal";
@@ -55,23 +58,17 @@ import {
   removeBot,
   threadMetaCollection,
 } from "../lib/collections";
+import { neighborBotId, type PaletteActionId } from "../lib/command-palette";
 import { userFacingError } from "../lib/errors";
-import {
-  draftCreatedBot,
-  nextAvatarColor,
-} from "../lib/hire";
-import {
-  neighborBotId,
-  type PaletteActionId,
-} from "../lib/command-palette";
+import { draftCreatedBot, nextAvatarColor } from "../lib/hire";
 import {
   deskApp,
   deskClosed,
   deskComputer,
   deskSettings,
+  type OfficeSearch,
   officeSearch,
   toggleDesk,
-  type OfficeSearch,
 } from "../lib/office-search";
 import { orpc } from "../lib/orpc";
 import { usePanePresence } from "../lib/presence";
@@ -83,20 +80,20 @@ import {
   isArchivedBot,
 } from "../lib/session";
 import {
+  type BotMenuPhase,
   botMenuBox,
   botMenuItems,
   compareSidebarBots,
   isPinnedBot,
   nextBotIdAfterDelete,
-  type BotMenuPhase,
 } from "../lib/sidebar";
+import { applyTheme, readTheme, type Theme } from "../lib/theme";
 import {
   dropThinkKeepAlive,
   rememberThinkKeepAlive,
   sameThinkKeepAlive,
 } from "../lib/think-keepalive";
 import { forgetThinkMessages, setThinkMessages } from "../lib/think-messages";
-import { applyTheme, readTheme, type Theme } from "../lib/theme";
 import {
   dropThreadMeta,
   ensureThreadMeta,
@@ -177,12 +174,11 @@ const BotRow = memo(function BotRow(props: {
         <span className="chat-conv-copy min-w-0">
           <span className="flex items-center justify-between gap-2">
             <span className="flex min-w-0 items-center gap-1">
-              <span className="truncate text-sm font-semibold">{item.name}</span>
+              <span className="truncate text-sm font-semibold">
+                {item.name}
+              </span>
               {pinned ? (
-                <PinIcon
-                  className="size-3 shrink-0 text-muted"
-                  weight="fill"
-                />
+                <PinIcon className="size-3 shrink-0 text-muted" weight="fill" />
               ) : null}
             </span>
             <span className="chat-conv-time shrink-0 text-[11px] whitespace-nowrap text-muted group-hover/bot:invisible">
@@ -270,6 +266,7 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
   );
   const [pluginsOpen, setPluginsOpen] = useState(false);
   const [knowledgeOpen, setKnowledgeOpen] = useState(false);
+  const [knowledgePath, setKnowledgePath] = useState<string | null>(null);
   const [hireOpen, setHireOpen] = useState(false);
   const [rosterOpen, setRosterOpen] = useState(false);
   const [narrow, setNarrow] = useState(
@@ -316,14 +313,13 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
     },
     [activeId],
   );
-  const meta = metaQuery.data ?? (activeId ? readThreadMeta(activeId) : undefined);
+  const meta =
+    metaQuery.data ?? (activeId ? readThreadMeta(activeId) : undefined);
   const hiringThis = Boolean(meta?.opening);
   const working = meta?.working ?? "";
   const error = meta?.error ?? "";
   const liveBots = useMemo(() => {
-    return bots
-      .filter((item) => !isArchivedBot(item))
-      .sort(compareSidebarBots);
+    return bots.filter((item) => !isArchivedBot(item)).sort(compareSidebarBots);
   }, [bots]);
   const archivedBots = useMemo(() => {
     return bots
@@ -480,12 +476,11 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
     removeBot(botId);
 
     const nextId = nextBotIdAfterDelete(peekBots(), botId, currentId);
-    const leave =
-      !nextId
-        ? navigate({ to: "/onboarding", search: {} })
-        : nextId !== currentId
-          ? goToBot(nextId, deskClosed())
-          : undefined;
+    const leave = !nextId
+      ? navigate({ to: "/onboarding", search: {} })
+      : nextId !== currentId
+        ? goToBot(nextId, deskClosed())
+        : undefined;
 
     try {
       await client.bots.delete({ botId });
@@ -613,6 +608,7 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
         return;
       }
       if (id === "knowledge") {
+        setKnowledgePath(null);
         setKnowledgeOpen(true);
         return;
       }
@@ -638,7 +634,9 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
         setBotMenu(null);
       },
       options: {
-        enabled: (!hireOpen && !settingsOpen && !pluginsOpen && !knowledgeOpen) || paletteOpen,
+        enabled:
+          (!hireOpen && !settingsOpen && !pluginsOpen && !knowledgeOpen) ||
+          paletteOpen,
       },
     },
     {
@@ -777,6 +775,10 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
     },
     [props.botId, setDesk],
   );
+  const openKnowledgeFile = useCallback((path: string) => {
+    setKnowledgePath(path);
+    setKnowledgeOpen(true);
+  }, []);
   const computerOpenPath =
     computerFile && computerFile.botId === props.botId
       ? computerFile.path
@@ -796,506 +798,514 @@ export function Chat(props: { botId: string; desk: OfficeSearch }) {
 
   return (
     <ComputerFileOpenProvider onOpen={openComputerFile}>
-    <div
-      className={cn(
-        "chat-shell relative bg-bg",
-        paneMode === "app" && "is-app",
-        paneMode && paneMode !== "app" && "is-pane",
-        rosterOpen && "is-roster",
-      )}
-    >
-      <aside
-        className="chat-side flex min-h-0 flex-col px-2.5 pb-2"
-        aria-label="Teammates"
-        inert={narrow && !rosterOpen ? true : undefined}
-      >
-        <div className="flex flex-col gap-2 px-0.5 pt-1.5 pb-2.5">
-          <div className="side-chrome drag flex min-h-9 items-center gap-1">
-            <div className="no-drag min-w-0 flex-1">
-              <WorkspaceSwitcher
-                name={me?.workspaceName}
-                workspaceId={me?.workspaceId}
+      <KnowledgeFileOpenProvider onOpen={openKnowledgeFile}>
+        <div
+          className={cn(
+            "chat-shell relative bg-bg",
+            paneMode === "app" && "is-app",
+            paneMode && paneMode !== "app" && "is-pane",
+            rosterOpen && "is-roster",
+          )}
+        >
+          <aside
+            className="chat-side flex min-h-0 flex-col px-2.5 pb-2"
+            aria-label="Teammates"
+            inert={narrow && !rosterOpen ? true : undefined}
+          >
+            <div className="flex flex-col gap-2 px-0.5 pt-1.5 pb-2.5">
+              <div className="side-chrome drag flex min-h-9 items-center gap-1">
+                <div className="no-drag min-w-0 flex-1">
+                  <WorkspaceSwitcher
+                    name={me?.workspaceName}
+                    workspaceId={me?.workspaceId}
+                  />
+                </div>
+                <div className="no-drag relative flex shrink-0 items-center gap-0.5">
+                  {bot ? (
+                    <Button
+                      className="hidden max-[720px]:grid"
+                      variant="icon"
+                      type="button"
+                      aria-label="Close teammates"
+                      onClick={closeRoster}
+                    >
+                      <CloseIcon />
+                    </Button>
+                  ) : null}
+                  <Button
+                    variant="icon"
+                    type="button"
+                    aria-label="New"
+                    aria-busy={hiringThis}
+                    disabled={hiringThis}
+                    on={hireOpen}
+                    onClick={() => setHireOpen(true)}
+                  >
+                    <PlusIcon />
+                  </Button>
+                </div>
+              </div>
+              <SearchTrigger
+                onOpen={() => {
+                  setBotMenu(null);
+                  setPaletteOpen(true);
+                }}
               />
             </div>
-            <div className="no-drag relative flex shrink-0 items-center gap-0.5">
-              {bot ? (
-                <Button
-                  className="hidden max-[720px]:grid"
-                  variant="icon"
-                  type="button"
-                  aria-label="Close teammates"
-                  onClick={closeRoster}
-                >
-                  <CloseIcon />
-                </Button>
-              ) : null}
-              <Button
-                variant="icon"
-                type="button"
-                aria-label="New"
-                aria-busy={hiringThis}
-                disabled={hiringThis}
-                on={hireOpen}
-                onClick={() => setHireOpen(true)}
-              >
-                <PlusIcon />
-              </Button>
-            </div>
-          </div>
-          <SearchTrigger
-            onOpen={() => {
-              setBotMenu(null);
-              setPaletteOpen(true);
-            }}
-          />
-        </div>
-        <div className="grid flex-1 content-start gap-0.5 overflow-auto px-1">
-          {liveBots.map((item) => (
-            <BotRow
-              key={item.id}
-              item={item}
-              selected={item.id === bot?.id}
-              working={item.id === bot?.id && (hiringThis || Boolean(working))}
-              desk={desk}
-              onMenu={openBotMenu}
-              onPick={closeRoster}
-            />
-          ))}
-          {liveBots.length === 0 && archivedBots.length === 0 ? (
-            <p className="empty">No teammates yet.</p>
-          ) : null}
-          {workspaceApps.length > 0 ? (
-            <div className="mt-2">
-              <div className="px-2 py-2 text-[12px] text-muted">Apps</div>
-              {workspaceApps.map((item) => (
-                <AppRow
+            <div className="grid flex-1 content-start gap-0.5 overflow-auto px-1">
+              {liveBots.map((item) => (
+                <BotRow
                   key={item.id}
                   item={item}
-                  selected={paneMode === "app" && openApp?.id === item.id}
-                  onOpen={() => {
-                    closeRoster();
-                    setPokeView(null);
-                    openDocument({ appId: item.id });
-                  }}
+                  selected={item.id === bot?.id}
+                  working={
+                    item.id === bot?.id && (hiringThis || Boolean(working))
+                  }
+                  desk={desk}
+                  onMenu={openBotMenu}
+                  onPick={closeRoster}
                 />
               ))}
-            </div>
-          ) : null}
-          {archivedBots.length > 0 ? (
-            <div className="mt-2">
-              <button
-                className="flex w-full items-center justify-between rounded-xl border-0 bg-transparent px-2 py-2 text-left text-[12px] text-muted hover:bg-hover"
-                type="button"
-                onClick={() => setArchivedOpen((open) => !open)}
-              >
-                <span>Archived</span>
-                <span>{archivedBots.length}</span>
-              </button>
-              {showArchived
-                ? archivedBots.map((item) => (
-                    <BotRow
+              {liveBots.length === 0 && archivedBots.length === 0 ? (
+                <p className="empty">No teammates yet.</p>
+              ) : null}
+              {workspaceApps.length > 0 ? (
+                <div className="mt-2">
+                  <div className="px-2 py-2 text-[12px] text-muted">Apps</div>
+                  {workspaceApps.map((item) => (
+                    <AppRow
                       key={item.id}
                       item={item}
-                      selected={item.id === bot?.id}
-                      working={false}
-                      muted
-                      desk={desk}
-                      onMenu={openBotMenu}
-                      onPick={closeRoster}
+                      selected={paneMode === "app" && openApp?.id === item.id}
+                      onOpen={() => {
+                        closeRoster();
+                        setPokeView(null);
+                        openDocument({ appId: item.id });
+                      }}
                     />
-                  ))
-                : null}
+                  ))}
+                </div>
+              ) : null}
+              {archivedBots.length > 0 ? (
+                <div className="mt-2">
+                  <button
+                    className="flex w-full items-center justify-between rounded-xl border-0 bg-transparent px-2 py-2 text-left text-[12px] text-muted hover:bg-hover"
+                    type="button"
+                    onClick={() => setArchivedOpen((open) => !open)}
+                  >
+                    <span>Archived</span>
+                    <span>{archivedBots.length}</span>
+                  </button>
+                  {showArchived
+                    ? archivedBots.map((item) => (
+                        <BotRow
+                          key={item.id}
+                          item={item}
+                          selected={item.id === bot?.id}
+                          working={false}
+                          muted
+                          desk={desk}
+                          onMenu={openBotMenu}
+                          onPick={closeRoster}
+                        />
+                      ))
+                    : null}
+                </div>
+              ) : null}
             </div>
-          ) : null}
-        </div>
-        <div className="chat-foot mt-auto grid gap-1 px-1.5 pt-2 pb-1">
-          <button
-            className="flex w-full items-center gap-2.5 rounded-xl border-0 bg-transparent px-2 py-2 text-left text-inherit hover:bg-hover"
-            type="button"
-            onClick={() => setPluginsOpen(true)}
-          >
-            <PlugIcon />
-            <span>Plugins</span>
-          </button>
-          <button
-            className="flex w-full items-center gap-2.5 rounded-xl border-0 bg-transparent px-2 py-2 text-left text-inherit hover:bg-hover"
-            type="button"
-            onClick={() => setKnowledgeOpen(true)}
-          >
-            <KnowledgeIcon />
-            <span>Knowledge</span>
-          </button>
-          <button
-            className="flex w-full items-center gap-2.5 rounded-xl border-0 bg-transparent px-2 py-2 text-left text-inherit hover:bg-hover"
-            type="button"
-            onClick={() => {
-              setSettingsTab("general");
-              setSettingsOpen(true);
-            }}
-          >
-            <PersonAvatar
-              name={me?.name || "You"}
-              image={me?.image}
-            />
-            <span>{me?.name || "You"}</span>
-          </button>
-        </div>
-      </aside>
-      <div className="chat-stage">
-        <section
-          className="chat-thread flex min-h-0 min-w-0 flex-col bg-bg-thread"
-          inert={narrow && rosterOpen ? true : undefined}
-        >
-        <div className="thread-head drag flex items-center justify-between gap-2 border-b border-line px-[18px] py-2.5">
-          {pokeView ? (
-            <button
-              className="no-drag flex min-w-0 items-center gap-2.5 border-0 bg-transparent p-0 text-inherit"
-              type="button"
-              onClick={() => setPokeView(null)}
-            >
-              <ChevronLeftIcon />
-              <strong className="truncate text-[15px] font-semibold tracking-tight">
-                {bot?.name ?? "—"} · {pokeView.peerName}
-              </strong>
-            </button>
-          ) : (
-            <div className="no-drag flex min-w-0 items-center gap-1">
-              <Button
-                className="chat-back hidden max-[720px]:grid"
-                variant="icon"
-                type="button"
-                aria-label="Teammates"
-                aria-expanded={rosterOpen}
-                onClick={() => setRosterOpen(true)}
-              >
-                <ChevronLeftIcon />
-              </Button>
+            <div className="chat-foot mt-auto grid gap-1 px-1.5 pt-2 pb-1">
               <button
-                className="flex min-w-0 items-center gap-2.5 border-0 bg-transparent p-0 text-inherit"
+                className="flex w-full items-center gap-2.5 rounded-xl border-0 bg-transparent px-2 py-2 text-left text-inherit hover:bg-hover"
+                type="button"
+                onClick={() => setPluginsOpen(true)}
+              >
+                <PlugIcon />
+                <span>Plugins</span>
+              </button>
+              <button
+                className="flex w-full items-center gap-2.5 rounded-xl border-0 bg-transparent px-2 py-2 text-left text-inherit hover:bg-hover"
                 type="button"
                 onClick={() => {
-                  setDesk(deskSettings());
+                  setKnowledgePath(null);
+                  setKnowledgeOpen(true);
                 }}
               >
-                {bot ? (
-                  <AvatarMark
-                    name={bot.name}
-                    color={bot.avatarColor}
-                    shape={bot.avatarShape}
-                    mood={
-                      hiringThis || working ? "working" : "idle"
-                    }
-                    size="sm"
-                    hero
-                  />
-                ) : null}
-                <strong className="truncate text-[15px] font-semibold tracking-tight">
-                  {bot?.name ?? "—"}
-                </strong>
+                <KnowledgeIcon />
+                <span>Knowledge</span>
+              </button>
+              <button
+                className="flex w-full items-center gap-2.5 rounded-xl border-0 bg-transparent px-2 py-2 text-left text-inherit hover:bg-hover"
+                type="button"
+                onClick={() => {
+                  setSettingsTab("general");
+                  setSettingsOpen(true);
+                }}
+              >
+                <PersonAvatar name={me?.name || "You"} image={me?.image} />
+                <span>{me?.name || "You"}</span>
               </button>
             </div>
-          )}
-          <div className="no-drag flex shrink-0 items-center gap-1.5">
-            {working && !pokeView ? (
-              <Button
-                variant="mini"
-                type="button"
-                onClick={() => stopThink.current?.()}
-              >
-                Stop now
-              </Button>
-            ) : null}
-            {bot && !pokeView ? (
-              <>
-                <Button
-                  variant="icon"
-                  type="button"
-                  aria-label="Open computer"
-                  title="Computer"
-                  on={paneMode === "computer"}
-                  onClick={() => {
-                    if (desk.pane === "computer") setComputerFile(null);
-                    setDesk(toggleDesk(desk, "computer"));
-                  }}
-                >
-                  <MonitorIcon />
-                </Button>
-                <Button
-                  variant="icon"
-                  type="button"
-                  aria-label="Bot settings"
-                  title="Settings"
-                  on={paneMode === "settings"}
-                  onClick={() => {
-                    setDesk(toggleDesk(desk, "settings"));
-                  }}
-                >
-                  <GearIcon />
-                </Button>
-              </>
-            ) : null}
-          </div>
-        </div>
-        {me?.needsModel || me?.modelWarning ? (
-          <div className="mx-5 mb-2 flex items-center justify-between gap-3 rounded-xl border border-line bg-card px-3 py-2.5 text-[13px] max-[720px]:mx-3">
-            <span>
-              {me?.needsModel
-                ? "Add a model key, or use Groxbot’s included gateway, to talk to teammates."
-                : me?.modelWarning}
-            </span>
-            <Button
-              variant="text"
-              type="button"
-              onClick={() => {
-                setSettingsTab("models");
-                setSettingsOpen(true);
-              }}
+          </aside>
+          <div className="chat-stage">
+            <section
+              className="chat-thread flex min-h-0 min-w-0 flex-col bg-bg-thread"
+              inert={narrow && rosterOpen ? true : undefined}
             >
-              Open models
-            </Button>
-          </div>
-        ) : null}
-        {pokeView ? (
-          <>
-            <div className="min-h-0 flex-1">
-              <ThreadList
-                botId="_"
-                teammateNames={Object.fromEntries(
-                  bots.map((item) => [item.id, item.name]),
+              <div className="thread-head drag flex items-center justify-between gap-2 border-b border-line px-[18px] py-2.5">
+                {pokeView ? (
+                  <button
+                    className="no-drag flex min-w-0 items-center gap-2.5 border-0 bg-transparent p-0 text-inherit"
+                    type="button"
+                    onClick={() => setPokeView(null)}
+                  >
+                    <ChevronLeftIcon />
+                    <strong className="truncate text-[15px] font-semibold tracking-tight">
+                      {bot?.name ?? "—"} · {pokeView.peerName}
+                    </strong>
+                  </button>
+                ) : (
+                  <div className="no-drag flex min-w-0 items-center gap-1">
+                    <Button
+                      className="chat-back hidden max-[720px]:grid"
+                      variant="icon"
+                      type="button"
+                      aria-label="Teammates"
+                      aria-expanded={rosterOpen}
+                      onClick={() => setRosterOpen(true)}
+                    >
+                      <ChevronLeftIcon />
+                    </Button>
+                    <button
+                      className="flex min-w-0 items-center gap-2.5 border-0 bg-transparent p-0 text-inherit"
+                      type="button"
+                      onClick={() => {
+                        setDesk(deskSettings());
+                      }}
+                    >
+                      {bot ? (
+                        <AvatarMark
+                          name={bot.name}
+                          color={bot.avatarColor}
+                          shape={bot.avatarShape}
+                          mood={hiringThis || working ? "working" : "idle"}
+                          size="sm"
+                          hero
+                        />
+                      ) : null}
+                      <strong className="truncate text-[15px] font-semibold tracking-tight">
+                        {bot?.name ?? "—"}
+                      </strong>
+                    </button>
+                  </div>
                 )}
-                messages={pokeMessages}
-                empty={pokeMessages.length === 0}
-                working=""
-                onOpenApp={openDocument}
-              />
-            </div>
-            <div className="px-5 pt-2 pb-[18px]">
-              {error ? (
-                <p className="mb-2 text-[13px] text-danger">{error}</p>
+                <div className="no-drag flex shrink-0 items-center gap-1.5">
+                  {working && !pokeView ? (
+                    <Button
+                      variant="mini"
+                      type="button"
+                      onClick={() => stopThink.current?.()}
+                    >
+                      Stop now
+                    </Button>
+                  ) : null}
+                  {bot && !pokeView ? (
+                    <>
+                      <Button
+                        variant="icon"
+                        type="button"
+                        aria-label="Open computer"
+                        title="Computer"
+                        on={paneMode === "computer"}
+                        onClick={() => {
+                          if (desk.pane === "computer") setComputerFile(null);
+                          setDesk(toggleDesk(desk, "computer"));
+                        }}
+                      >
+                        <MonitorIcon />
+                      </Button>
+                      <Button
+                        variant="icon"
+                        type="button"
+                        aria-label="Bot settings"
+                        title="Settings"
+                        on={paneMode === "settings"}
+                        onClick={() => {
+                          setDesk(toggleDesk(desk, "settings"));
+                        }}
+                      >
+                        <GearIcon />
+                      </Button>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+              {me?.needsModel || me?.modelWarning ? (
+                <div className="mx-5 mb-2 flex items-center justify-between gap-3 rounded-xl border border-line bg-card px-3 py-2.5 text-[13px] max-[720px]:mx-3">
+                  <span>
+                    {me?.needsModel
+                      ? "Add a model key, or use Groxbot’s included gateway, to talk to teammates."
+                      : me?.modelWarning}
+                  </span>
+                  <Button
+                    variant="text"
+                    type="button"
+                    onClick={() => {
+                      setSettingsTab("models");
+                      setSettingsOpen(true);
+                    }}
+                  >
+                    Open models
+                  </Button>
+                </div>
               ) : null}
-              <p className="mb-1 px-1 text-[13px] text-muted">
-                {bot?.name} and {pokeView.peerName} talking. Back to stay with{" "}
-                {bot?.name}.
-              </p>
-            </div>
-          </>
-        ) : bot ? (
-          <div className="relative flex min-h-0 flex-1 flex-col">
-            {mountedThinkIds.map((id) => {
-              const item = bots.find((row) => row.id === id);
-              if (!item) return null;
-              const isActive = item.id === bot.id;
-              const itemMeta = isActive ? meta : readThreadMeta(item.id);
-              const itemOpening = Boolean(itemMeta?.opening);
-              const itemError = isActive ? error : (itemMeta?.error ?? "");
-              return (
-                <KeptThinkThread
-                  key={item.id}
-                  botId={item.id}
-                  botName={item.name}
-                  active={isActive}
-                  archived={Boolean(item.archivedAt)}
-                  needsModel={Boolean(me?.needsModel)}
-                  userId={me?.userId}
-                  userName={me?.name}
-                  userImage={me?.image ?? undefined}
-                  opening={itemOpening}
-                  placeholder={
-                    me?.needsModel
-                      ? "Add a model key to send"
-                      : `Message ${item.name}`
-                  }
-                  error={itemError}
-                  onNeedsModel={onNeedsModel}
-                  onUnarchive={onUnarchiveBot}
-                  stopRef={stopThink}
+              {pokeView ? (
+                <>
+                  <div className="min-h-0 flex-1">
+                    <ThreadList
+                      botId="_"
+                      teammateNames={Object.fromEntries(
+                        bots.map((item) => [item.id, item.name]),
+                      )}
+                      messages={pokeMessages}
+                      empty={pokeMessages.length === 0}
+                      working=""
+                      onOpenApp={openDocument}
+                    />
+                  </div>
+                  <div className="px-5 pt-2 pb-[18px]">
+                    {error ? (
+                      <p className="mb-2 text-[13px] text-danger">{error}</p>
+                    ) : null}
+                    <p className="mb-1 px-1 text-[13px] text-muted">
+                      {bot?.name} and {pokeView.peerName} talking. Back to stay
+                      with {bot?.name}.
+                    </p>
+                  </div>
+                </>
+              ) : bot ? (
+                <div className="relative flex min-h-0 flex-1 flex-col">
+                  {mountedThinkIds.map((id) => {
+                    const item = bots.find((row) => row.id === id);
+                    if (!item) return null;
+                    const isActive = item.id === bot.id;
+                    const itemMeta = isActive ? meta : readThreadMeta(item.id);
+                    const itemOpening = Boolean(itemMeta?.opening);
+                    const itemError = isActive
+                      ? error
+                      : (itemMeta?.error ?? "");
+                    return (
+                      <KeptThinkThread
+                        key={item.id}
+                        botId={item.id}
+                        botName={item.name}
+                        active={isActive}
+                        archived={Boolean(item.archivedAt)}
+                        needsModel={Boolean(me?.needsModel)}
+                        userId={me?.userId}
+                        userName={me?.name}
+                        userImage={me?.image ?? undefined}
+                        opening={itemOpening}
+                        placeholder={
+                          me?.needsModel
+                            ? "Add a model key to send"
+                            : `Message ${item.name}`
+                        }
+                        error={itemError}
+                        onNeedsModel={onNeedsModel}
+                        onUnarchive={onUnarchiveBot}
+                        stopRef={stopThink}
+                      />
+                    );
+                  })}
+                </div>
+              ) : null}
+            </section>
+            <div
+              className={cn("chat-pane-slot", pane.leaving && "is-leaving")}
+              aria-hidden={!activePane}
+            >
+              {pane.rendered === "app" && exitingApp ? (
+                <AppPane
+                  appId={exitingApp.id}
+                  title={exitingApp.title}
+                  templateId={exitingApp.templateId}
+                  onCollapse={() => setDesk(deskClosed())}
                 />
-              );
-            })}
-          </div>
-        ) : null}
-      </section>
-      <div
-        className={cn("chat-pane-slot", pane.leaving && "is-leaving")}
-        aria-hidden={!activePane}
-      >
-        {pane.rendered === "app" && exitingApp ? (
-          <AppPane
-            appId={exitingApp.id}
-            title={exitingApp.title}
-            templateId={exitingApp.templateId}
-            onCollapse={() => setDesk(deskClosed())}
-          />
-        ) : null}
-        {pane.rendered === "settings" && bot ? (
-          <BotSettingsPane
-            key={bot.id}
-            bot={bot}
-            pending={hiringThis}
-            onCollapse={() => setDesk(deskClosed())}
-            onSaved={async () => {
-              await refreshBots(bot.id);
-            }}
-            onArchiveChange={applyArchiveChange}
-            onDeleted={async (bot) => {
-              await deleteTeammate(bot.id);
-            }}
-          />
-        ) : null}
-        {pane.rendered === "computer" && bot ? (
-          <ComputerPane
-            key={bot.id}
-            bot={bot}
-            openPath={computerOpenPath}
-            onPreviewClose={() => setComputerFile(null)}
-            onSettings={() => {
-              setComputerFile(null);
-              setDesk(deskSettings());
-            }}
-            onCollapse={() => {
-              setComputerFile(null);
-              setDesk(deskClosed());
-            }}
-          />
-        ) : null}
-      </div>
-      </div>
-      {pluginsOpen ? (
-        <PluginsModal
-          open
-          botId={activeId}
-          onClose={() => setPluginsOpen(false)}
-        />
-      ) : null}
-      {knowledgeOpen ? (
-        <KnowledgeModal
-          open
-          onClose={() => setKnowledgeOpen(false)}
-        />
-      ) : null}
-      <AppSettings
-        open={settingsOpen}
-        me={me}
-        theme={theme}
-        initialTab={settingsTab}
-        onTheme={(value) => {
-          setTheme(value);
-          applyTheme(value);
-        }}
-        onClose={() => {
-          setSettingsOpen(false);
-          setSettingsTab("general");
-        }}
-        onSignOut={() => {
-          void (async () => {
-            await authClient.signOut();
-            clearThreadStore();
-            queryClient.clear();
-            await router.invalidate();
-            await navigate({ to: "/" });
-          })();
-        }}
-      />
-      <CommandPalette
-        open={paletteOpen}
-        bots={[...liveBots, ...archivedBots]}
-        apps={workspaceApps}
-        onClose={() => setPaletteOpen(false)}
-        onBot={(botId) => {
-          setPaletteOpen(false);
-          setPokeView(null);
-          void goToBot(botId);
-        }}
-        onApp={(appId) => {
-          setPaletteOpen(false);
-          setPokeView(null);
-          openDocument({ appId });
-        }}
-        onAction={runPaletteAction}
-      />
-      <HireDialog
-        open={hireOpen}
-        onClose={() => setHireOpen(false)}
-        onHire={(name) => void hire(name)}
-      />
-      {botMenu ? (
-        <>
-          <button
-            className="fixed inset-0 z-30 cursor-default border-0 bg-transparent"
-            type="button"
-            aria-label="Close bot menu"
-            onClick={() => setBotMenu(null)}
-          />
-          <div
-            className="menu"
-            role="menu"
-            style={{
-              position: "fixed",
-              left: botMenu.x,
-              top: botMenu.y,
-              right: "auto",
-              zIndex: 31,
-            }}
-          >
-            {botMenuItems({
-              pinned: isPinnedBot(botMenu.bot),
-              name: botMenu.bot.name,
-              phase: botMenu.phase,
-            }).flatMap((item, index) => {
-              const nodes = [];
-              if (
-                item.id === "delete" &&
-                botMenu.phase === "actions" &&
-                index > 0
-              ) {
-                nodes.push(<div key="sep" className="menu-sep" />);
-              }
-              nodes.push(
-                <button
-                  key={item.id}
-                  className={item.id === "delete" ? "danger" : undefined}
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    if (item.id === "pin") {
-                      void togglePin(botMenu.bot);
-                      return;
-                    }
-                    if (item.id === "cancel-delete") {
-                      setBotMenu({ ...botMenu, phase: "actions" });
-                      return;
-                    }
-                    if (botMenu.phase === "actions") {
-                      const box = botMenuBox("confirm-delete");
-                      setBotMenu({
-                        ...botMenu,
-                        phase: "confirm-delete",
-                        x: Math.min(
-                          botMenu.x,
-                          window.innerWidth - box.width - 8,
-                        ),
-                        y: Math.min(
-                          botMenu.y,
-                          window.innerHeight - box.height - 8,
-                        ),
-                      });
-                      return;
-                    }
-                    setBotMenu(null);
-                    void deleteTeammate(botMenu.bot.id);
+              ) : null}
+              {pane.rendered === "settings" && bot ? (
+                <BotSettingsPane
+                  key={bot.id}
+                  bot={bot}
+                  pending={hiringThis}
+                  onCollapse={() => setDesk(deskClosed())}
+                  onSaved={async () => {
+                    await refreshBots(bot.id);
                   }}
-                >
-                  {item.id === "pin" ? <PinIcon /> : null}
-                  {item.id === "delete" ? <TrashIcon /> : null}
-                  <span className="min-w-0 truncate">{item.label}</span>
-                </button>,
-              );
-              return nodes;
-            })}
+                  onArchiveChange={applyArchiveChange}
+                  onDeleted={async (bot) => {
+                    await deleteTeammate(bot.id);
+                  }}
+                />
+              ) : null}
+              {pane.rendered === "computer" && bot ? (
+                <ComputerPane
+                  key={bot.id}
+                  bot={bot}
+                  openPath={computerOpenPath}
+                  onPreviewClose={() => setComputerFile(null)}
+                  onSettings={() => {
+                    setComputerFile(null);
+                    setDesk(deskSettings());
+                  }}
+                  onCollapse={() => {
+                    setComputerFile(null);
+                    setDesk(deskClosed());
+                  }}
+                />
+              ) : null}
+            </div>
           </div>
-        </>
-      ) : null}
-    </div>
+          {pluginsOpen ? (
+            <PluginsModal
+              open
+              botId={activeId}
+              onClose={() => setPluginsOpen(false)}
+            />
+          ) : null}
+          {knowledgeOpen ? (
+            <KnowledgeModal
+              open
+              initialPath={knowledgePath}
+              onClose={() => {
+                setKnowledgeOpen(false);
+                setKnowledgePath(null);
+              }}
+            />
+          ) : null}
+          <AppSettings
+            open={settingsOpen}
+            me={me}
+            theme={theme}
+            initialTab={settingsTab}
+            onTheme={(value) => {
+              setTheme(value);
+              applyTheme(value);
+            }}
+            onClose={() => {
+              setSettingsOpen(false);
+              setSettingsTab("general");
+            }}
+            onSignOut={() => {
+              void (async () => {
+                await authClient.signOut();
+                clearThreadStore();
+                queryClient.clear();
+                await router.invalidate();
+                await navigate({ to: "/" });
+              })();
+            }}
+          />
+          <CommandPalette
+            open={paletteOpen}
+            bots={[...liveBots, ...archivedBots]}
+            apps={workspaceApps}
+            onClose={() => setPaletteOpen(false)}
+            onBot={(botId) => {
+              setPaletteOpen(false);
+              setPokeView(null);
+              void goToBot(botId);
+            }}
+            onApp={(appId) => {
+              setPaletteOpen(false);
+              setPokeView(null);
+              openDocument({ appId });
+            }}
+            onAction={runPaletteAction}
+          />
+          <HireDialog
+            open={hireOpen}
+            onClose={() => setHireOpen(false)}
+            onHire={(name) => void hire(name)}
+          />
+          {botMenu ? (
+            <>
+              <button
+                className="fixed inset-0 z-30 cursor-default border-0 bg-transparent"
+                type="button"
+                aria-label="Close bot menu"
+                onClick={() => setBotMenu(null)}
+              />
+              <div
+                className="menu"
+                role="menu"
+                style={{
+                  position: "fixed",
+                  left: botMenu.x,
+                  top: botMenu.y,
+                  right: "auto",
+                  zIndex: 31,
+                }}
+              >
+                {botMenuItems({
+                  pinned: isPinnedBot(botMenu.bot),
+                  name: botMenu.bot.name,
+                  phase: botMenu.phase,
+                }).flatMap((item, index) => {
+                  const nodes = [];
+                  if (
+                    item.id === "delete" &&
+                    botMenu.phase === "actions" &&
+                    index > 0
+                  ) {
+                    nodes.push(<div key="sep" className="menu-sep" />);
+                  }
+                  nodes.push(
+                    <button
+                      key={item.id}
+                      className={item.id === "delete" ? "danger" : undefined}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        if (item.id === "pin") {
+                          void togglePin(botMenu.bot);
+                          return;
+                        }
+                        if (item.id === "cancel-delete") {
+                          setBotMenu({ ...botMenu, phase: "actions" });
+                          return;
+                        }
+                        if (botMenu.phase === "actions") {
+                          const box = botMenuBox("confirm-delete");
+                          setBotMenu({
+                            ...botMenu,
+                            phase: "confirm-delete",
+                            x: Math.min(
+                              botMenu.x,
+                              window.innerWidth - box.width - 8,
+                            ),
+                            y: Math.min(
+                              botMenu.y,
+                              window.innerHeight - box.height - 8,
+                            ),
+                          });
+                          return;
+                        }
+                        setBotMenu(null);
+                        void deleteTeammate(botMenu.bot.id);
+                      }}
+                    >
+                      {item.id === "pin" ? <PinIcon /> : null}
+                      {item.id === "delete" ? <TrashIcon /> : null}
+                      <span className="min-w-0 truncate">{item.label}</span>
+                    </button>,
+                  );
+                  return nodes;
+                })}
+              </div>
+            </>
+          ) : null}
+        </div>
+      </KnowledgeFileOpenProvider>
     </ComputerFileOpenProvider>
   );
 }
