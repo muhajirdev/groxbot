@@ -12,6 +12,11 @@ import { type ReactNode, useState } from "react";
 import { AppCard } from "../components/AppCard";
 import { AvatarMark } from "../components/Avatar";
 import {
+  GateSplit,
+  GateWelcome,
+} from "../components/Gate";
+import { OfficeFeed } from "../components/OfficeFeed";
+import {
   ReasoningContent,
   ReasoningRoot,
   ReasoningText,
@@ -33,6 +38,7 @@ import { applyTheme, readTheme, type Theme } from "../lib/theme";
 import { Button, Chip, cn, Field, Input, Textarea } from "../ui";
 
 const SECTIONS = [
+  { id: "onboarding", label: "Onboarding" },
   { id: "thinking", label: "Thinking" },
   { id: "reasoning", label: "Reasoning" },
   { id: "tools", label: "Tools" },
@@ -177,6 +183,22 @@ export function Design() {
         </nav>
 
         <main className="design-main">
+          <Section
+            id="onboarding"
+            title="Onboarding"
+            lede="Split layout. Groxbot thread and jobs on the right — Sales Outbound, Talent Scout, Expense Manager, Bug Reproduction."
+          >
+            <div className="design-gate-frame">
+              <GateSplit proof={<OfficeFeed youName="Alex" />}>
+                <GateWelcome>
+                  <Button type="button">Create a workspace</Button>
+                  <Button variant="ghost" type="button">
+                    Join with an invite →
+                  </Button>
+                </GateWelcome>
+              </GateSplit>
+            </div>
+          </Section>
           <Section
             id="thinking"
             title="Thinking"

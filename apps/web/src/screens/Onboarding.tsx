@@ -15,15 +15,18 @@ import {
   SUGGESTED_STARTER_MODEL,
 } from "@groxbot/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useRouter } from "@tanstack/react-router";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { AvatarMark, ShapePicks } from "../components/Avatar";
 import {
   GateAnywhere,
-  GateMark,
-  GateShell,
+  GateSplit,
   GateSteps,
+  GateWelcome,
 } from "../components/Gate";
+import { OfficeFeed } from "../components/OfficeFeed";
+import { authClient } from "../lib/auth";
+import { clearThreadStore } from "../lib/collections";
 import { userFacingError } from "../lib/errors";
 import { runGateTransition } from "../lib/gate-transition";
 import {
@@ -65,6 +68,7 @@ const MODEL_MARKS = [
 
 export function Onboarding(props: { invite?: string }) {
   const navigate = useNavigate();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const meQuery = useQuery(orpc.me.queryOptions());
   const invitesQuery = useQuery({
@@ -170,8 +174,29 @@ export function Onboarding(props: { invite?: string }) {
     });
   }
 
-  const heroMood =
-    step === 0 || step === 4 ? "happy" : step === 2 ? "thinking" : "idle";
+  async function signOut() {
+    await authClient.signOut();
+    clearThreadStore();
+    queryClient.clear();
+    await router.invalidate();
+    await navigate({ to: "/" });
+  }
+
+  function frame(children: ReactNode) {
+    return (
+      <GateSplit
+        proof={
+          <OfficeFeed
+            youName={meQuery.data?.name}
+            youImage={meQuery.data?.image}
+          />
+        }
+        onSignOut={() => void signOut()}
+      >
+        {children}
+      </GateSplit>
+    );
+  }
 
   useEffect(() => {
     if (!meQuery.data || phase) return;
@@ -367,49 +392,30 @@ export function Onboarding(props: { invite?: string }) {
   }
 
   if (!phase) {
-    return (
-      <GateShell>
-        <p className="kicker">Groxbot</p>
-      </GateShell>
-    );
+    return frame(<p className="gate-greeting">Groxbot</p>);
   }
 
   if (phase === "workspace") {
     const pending = invitesQuery.data ?? [];
-    return (
-      <GateShell>
-        <p className="kicker">Your workspace</p>
-        <GateMark hero size="lg" mood="happy" />
+    return frame(
+      <>
         {workspaceStep === "choose" ? (
-          <div className="gate-stage" key="choose">
-            <h1>Create or join?</h1>
-            <p className="lede">
-              A workspace is the office. Bots, files, and people share it.
-            </p>
-            <div className="gate-choices">
-              <button
-                type="button"
-                className="gate-choice"
-                onClick={() => goWorkspace("create")}
-              >
-                <strong>Create a new workspace</strong>
-                <span>
-                  Name the office. Hire teammates. Invite people later.
-                </span>
-              </button>
-              <button
-                type="button"
-                className="gate-choice"
-                onClick={() => goWorkspace("join")}
-              >
-                <strong>Join a workspace</strong>
-                <span>Use the invite a teammate sent you.</span>
-              </button>
-            </div>
-          </div>
+          <GateWelcome key="choose">
+            <Button type="button" onClick={() => goWorkspace("create")}>
+              Create a workspace
+            </Button>
+            <Button
+              variant="ghost"
+              type="button"
+              onClick={() => goWorkspace("join")}
+            >
+              Join with an invite →
+            </Button>
+          </GateWelcome>
         ) : null}
         {workspaceStep === "create" ? (
           <div className="gate-stage" key="create">
+            <p className="kicker">Your workspace</p>
             <h1>Name the workspace.</h1>
             <p className="lede">
               This is the office bots and people share. You can invite others
@@ -444,6 +450,7 @@ export function Onboarding(props: { invite?: string }) {
         ) : null}
         {workspaceStep === "join" ? (
           <div className="gate-stage" key="join">
+            <p className="kicker">Your workspace</p>
             <h1>Join a workspace.</h1>
             <p className="lede">
               Paste the invite link, or pick one waiting for{" "}
@@ -493,30 +500,24 @@ export function Onboarding(props: { invite?: string }) {
             </div>
           </div>
         ) : null}
-      </GateShell>
+      </>,
     );
   }
 
-  return (
-    <GateShell>
-      <p className="kicker">Hire your first Bot</p>
-      <GateSteps current={step} total={6} />
-      {step !== 1 && step !== 5 ? (
-        <GateMark hero size={step === 0 ? "lg" : "md"} mood={heroMood} />
+  return frame(
+    <>
+      {step !== 0 ? (
+        <>
+          <p className="kicker">Hire your first Bot</p>
+          <GateSteps current={step} total={6} />
+        </>
       ) : null}
       {step === 0 ? (
-        <div className="gate-stage" key="tour">
-          <h1>Bots are teammates.</h1>
-          <p className="lede">
-            Give work the way you would a coworker. Each Bot is a contact —
-            name, optional job, one thread. They already have a computer; you
-            can ignore it. Talk first. Open docs, slides, and sheets from a card
-            in chat.
-          </p>
+        <GateWelcome key="tour">
           <Button type="button" onClick={() => go(1)}>
             Continue
           </Button>
-        </div>
+        </GateWelcome>
       ) : null}
       {step === 1 ? (
         <div className="gate-stage" key="computer">
@@ -851,6 +852,6 @@ export function Onboarding(props: { invite?: string }) {
           </div>
         </div>
       ) : null}
-    </GateShell>
+    </>,
   );
 }

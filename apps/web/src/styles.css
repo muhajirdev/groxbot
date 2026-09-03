@@ -669,6 +669,310 @@ html.vt-ready .gate > .gate-steps {
   background: var(--hover);
 }
 
+
+.screen.gate-split-screen {
+  display: block;
+  padding: 0;
+  overflow: hidden;
+}
+
+.gate-split {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.92fr) minmax(280px, 1.18fr);
+  width: 100%;
+  height: 100%;
+  min-height: 100dvh;
+  max-width: none;
+}
+
+.gate-signout {
+  position: absolute;
+  top: 22px;
+  right: 24px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.gate-signout:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.gate-signout svg {
+  width: 15px;
+  height: 15px;
+}
+
+.gate-split-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 56px 48px 48px 64px;
+}
+
+.gate-split-copy .kicker,
+.gate-split-copy .gate-steps {
+  margin-bottom: 18px;
+}
+
+.gate-split-copy .gate-steps {
+  justify-content: flex-start;
+}
+
+.gate-split-copy .lede {
+  max-width: 42ch;
+}
+
+.gate-split-copy .gate-note {
+  margin: 0 0 28px;
+  max-width: 42ch;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.gate-split-copy .hero-title {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.gate-split-copy .thesis,
+.gate-split-proof .thesis {
+  margin-left: 0;
+  margin-right: 0;
+  text-align: left;
+}
+
+.gate-split-proof {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  padding: 72px 40px 48px;
+  overflow: hidden;
+}
+
+.gate-welcome .lede {
+  margin-bottom: 10px;
+}
+
+.gate-welcome .thesis {
+  margin-bottom: 16px;
+}
+
+.gate-welcome-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.gate-welcome-actions > :first-child {
+  padding: 12px 22px;
+  font-size: 15px;
+}
+
+.office-proof {
+  width: min(440px, 100%);
+  display: grid;
+  gap: 16px;
+}
+
+.office-proof > .thesis {
+  margin: 0;
+  font-size: 16px;
+  text-align: center;
+  max-width: none;
+}
+
+.office-thread {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.office-thread-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--line);
+}
+
+.office-thread-body {
+  padding: 16px 16px 14px;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.office-thread-body .bubble {
+  max-width: 100%;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 18px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.office-thread-body .bubble.human {
+  justify-self: end;
+  background: var(--card-2);
+  border: 1px solid var(--line);
+}
+
+.office-thread-body .bubble.bot {
+  justify-self: start;
+  background: var(--bg);
+}
+
+.office-thread-body .tool-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.office-thread-body .tool-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  column-gap: 10px;
+  row-gap: 2px;
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.office-thread-body .demo-logo {
+  grid-row: 1 / span 2;
+  width: 20px;
+  height: 20px;
+}
+
+.office-thread-body .tool-row-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.office-thread-body .tool-row code {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.office-thread-body .tool-row-detail {
+  grid-column: 2;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.office-thread-body .status-pill {
+  justify-self: start;
+}
+
+.office-thread-body .status-pill i {
+  background: var(--ok);
+  animation: pulse-ok 1.6s ease-in-out infinite;
+}
+
+.office-snips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.office-snip {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  border-radius: 16px;
+}
+
+.office-snip-who {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.office-snip-who span {
+  margin-left: 8px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.office-snip-line {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+html.electron .screen.gate-split-screen {
+  padding-top: 52px;
+}
+
+html.electron .gate-split {
+  min-height: calc(100dvh - 52px);
+  height: calc(100dvh - 52px);
+}
+
+html.electron .gate-signout {
+  top: 64px;
+}
+
+@media (max-width: 960px) {
+  .screen.gate-split-screen {
+    overflow-y: auto;
+  }
+
+  .gate-split {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .gate-split-copy {
+    padding: 72px 28px 36px;
+    justify-content: flex-start;
+  }
+
+  .gate-split-proof {
+    padding: 8px 20px 48px;
+  }
+
+  .office-snip:nth-child(n + 3) {
+    display: none;
+  }
+}
+
 .gate-handoff + .gate-nav {
   margin-top: 16px;
 }
@@ -3510,6 +3814,40 @@ html.electron .pane-head {
 
 .design-canvas {
   padding: 16px;
+}
+
+.design-gate-frame {
+  position: relative;
+  height: min(820px, 85vh);
+  min-height: 600px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.design-gate-frame .screen.gate-split-screen {
+  min-height: 100%;
+  max-height: 100%;
+  height: 100%;
+}
+
+.design-gate-frame .gate-split {
+  min-height: 100%;
+  height: 100%;
+}
+
+.design-gate-frame .gate-split-copy {
+  padding: 40px 36px 36px 40px;
+}
+
+.design-gate-frame .hero-title {
+  font-size: clamp(28px, 3.2vw, 40px);
+}
+
+.design-gate-frame .gate-split-proof {
+  padding: 24px 20px;
+  overflow-y: auto;
 }
 
 .design-row {

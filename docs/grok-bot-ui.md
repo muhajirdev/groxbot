@@ -18,6 +18,7 @@ We could not screenshot the live desktop app (paywalled: SuperGrok Heavy / Curso
 | Appearance, attention states | [docs: settings](https://docs.x.ai/grok-bot/settings-and-notifications) |
 | Sidebar screenshot description (Inbox Manager, Talent Scout…) | [eesel review](https://www.eesel.ai/blog/grok-bot-review) |
 | Walkthrough video | [YouTube: Cursor Just Released Grok Bot](https://www.youtube.com/watch?v=QTcZPI-g7is) |
+| Post-login welcome split (layout only) | [docs/references/onboarding-multica.md](./references/onboarding-multica.md) |
 
 ---
 
@@ -99,6 +100,8 @@ Copy voice: teammate, job, handoff, come back when you need approval. Not “age
 ---
 
 ## Onboarding (copy this sequence)
+
+Welcome **layout** (copy left, product proof right): [Multica reference](./references/onboarding-multica.md). Visual language stays Groxbot. Sequence stays Grok Bot’s.
 
 Desktop ([get started](https://docs.x.ai/grok-bot/get-started)):
 
