@@ -1,5 +1,3 @@
-export const WORKSPACE_COMING_SOON = "Feature coming soon";
-
 export type WorkspaceOption = {
   id: string;
   name: string;
@@ -9,9 +7,11 @@ export type WorkspaceMenuItem =
   | { kind: "workspace"; id: string; name: string; current: boolean }
   | { kind: "create" };
 
-export function workspaceDisplayName(
-  name: string | null | undefined,
-): string {
+export type WorkspaceDestination =
+  | { to: "/onboarding" }
+  | { to: "/$botId"; botId: string };
+
+export function workspaceDisplayName(name: string | null | undefined): string {
   const trimmed = name?.trim();
   return trimmed || "Workspace";
 }
@@ -52,11 +52,11 @@ export function workspaceMenuItems(opts: {
   return [...current, ...others, { kind: "create" }];
 }
 
-/** Switching or creating another office is stubbed until multi-workspace ships. */
-export function workspaceActionNotice(
-  item: WorkspaceMenuItem,
-): string | null {
-  if (item.kind === "create") return WORKSPACE_COMING_SOON;
-  if (!item.current) return WORKSPACE_COMING_SOON;
-  return null;
+/** Empty offices hire first; otherwise open a live teammate. */
+export function destinationAfterWorkspaceChange(
+  bots: { id: string; archivedAt?: string | null }[],
+): WorkspaceDestination {
+  const live = bots.find((bot) => !bot.archivedAt) ?? bots[0];
+  if (!live) return { to: "/onboarding" };
+  return { to: "/$botId", botId: live.id };
 }

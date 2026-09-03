@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  WORKSPACE_COMING_SOON,
   canSaveWorkspaceName,
-  workspaceActionNotice,
+  destinationAfterWorkspaceChange,
   workspaceDisplayName,
   workspaceMenuItems,
 } from "./workspace-switcher";
@@ -63,29 +62,17 @@ describe("workspaceMenuItems", () => {
   });
 });
 
-describe("workspaceActionNotice", () => {
-  it("leaves the current office alone", () => {
-    expect(
-      workspaceActionNotice({
-        kind: "workspace",
-        id: "ws-1",
-        name: "Acme",
-        current: true,
-      }),
-    ).toBeNull();
+describe("destinationAfterWorkspaceChange", () => {
+  it("opens onboarding when the office has no teammates", () => {
+    expect(destinationAfterWorkspaceChange([])).toEqual({ to: "/onboarding" });
   });
 
-  it("stubs switch and create", () => {
+  it("opens the first live teammate", () => {
     expect(
-      workspaceActionNotice({
-        kind: "workspace",
-        id: "ws-2",
-        name: "Studio",
-        current: false,
-      }),
-    ).toBe(WORKSPACE_COMING_SOON);
-    expect(workspaceActionNotice({ kind: "create" })).toBe(
-      WORKSPACE_COMING_SOON,
-    );
+      destinationAfterWorkspaceChange([
+        { id: "bot-archived", archivedAt: "2026-01-01T00:00:00.000Z" },
+        { id: "bot-live", archivedAt: null },
+      ]),
+    ).toEqual({ to: "/$botId", botId: "bot-live" });
   });
 });

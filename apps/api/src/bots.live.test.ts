@@ -374,6 +374,59 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
     );
   }, 15_000);
 
+  it("creates a second office and switches back", async () => {
+    cookie = "";
+    const email = `offices-${Date.now()}@example.com`;
+    const signUp = await handles.app.request(
+      new Request(`${origin}/api/auth/sign-up/email`, {
+        method: "POST",
+        headers: {
+          origin,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "Offices Tester",
+          email,
+          password: "password1",
+        }),
+      }),
+    );
+    cookie = cookieHeader(signUp, cookie);
+    expect(signUp.status, await signUp.text()).toBe(200);
+
+    const rpc = client();
+    const first = await rpc.workspaces.create({ name: "First office" });
+    const piper = await rpc.bots.create({
+      name: "Piper",
+      title: "Product",
+      description: "Home office.",
+      instructions: "Home office.",
+    });
+    const listed = await rpc.workspaces.list();
+    expect(listed.map((item) => item.id).sort()).toEqual([first.id]);
+
+    const second = await rpc.workspaces.create({ name: "Second office" });
+    expect(second.id).not.toBe(first.id);
+    const inSecond = await rpc.me();
+    expect(inSecond.workspaceId).toBe(second.id);
+    expect(inSecond.workspaceName).toBe("Second office");
+    expect(await rpc.bots.list()).toEqual([]);
+    expect((await rpc.workspaces.list()).map((item) => item.id).sort()).toEqual(
+      [first.id, second.id].sort(),
+    );
+
+    const activated = await rpc.workspaces.activate({
+      workspaceId: first.id,
+    });
+    expect(activated.id).toBe(first.id);
+    const home = await rpc.me();
+    expect(home.workspaceId).toBe(first.id);
+    expect(home.workspaceName).toBe("First office");
+    expect((await rpc.bots.list()).some((bot) => bot.id === piper.id)).toBe(
+      true,
+    );
+  }, 15_000);
+
   it("lists files on this bot's computer", async () => {
     const email = `desk-files-${Date.now()}@example.com`;
     const signUp = await handles.app.request(

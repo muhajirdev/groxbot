@@ -30,7 +30,10 @@ export async function requireUser(context: RpcContext): Promise<SessionUser> {
     throw new ORPCError("UNAUTHORIZED", { message: "Sign in" });
   }
   const headers = context.headers ?? new Headers();
-  const session = await context.auth.api.getSession({ headers });
+  const session = await context.auth.api.getSession({
+    headers,
+    query: { disableCookieCache: true },
+  });
   if (!session) {
     throw new ORPCError("UNAUTHORIZED", { message: "Sign in" });
   }

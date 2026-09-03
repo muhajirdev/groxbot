@@ -2,8 +2,14 @@ import type { Bot } from "@groxbot/contracts";
 import type { QueryClient } from "@tanstack/react-query";
 import { redirect } from "@tanstack/react-router";
 import { authClient } from "./auth";
-import { botsCollection, peekBots, upsertBot } from "./collections";
+import {
+  botsCollection,
+  clearThreadStore,
+  peekBots,
+  upsertBot,
+} from "./collections";
 import { orpc, queryClient } from "./orpc";
+import { destinationAfterWorkspaceChange } from "./workspace-switcher";
 
 export const sessionQueryKey = ["auth", "session"] as const;
 
@@ -62,4 +68,27 @@ export async function redirectAuthedHome(): Promise<never> {
   const first = firstLiveBot(bots);
   if (!first) throw redirect({ to: "/onboarding", search: {} });
   throw redirect({ to: "/$botId", params: { botId: first.id } });
+}
+
+/** Drop the current office cache and open the active workspace. */
+export async function enterActiveWorkspace(opts: {
+  queryClient: QueryClient;
+  invalidateRouter: () => Promise<unknown>;
+  goOnboarding: () => Promise<unknown>;
+  goBot: (botId: string) => Promise<unknown>;
+}): Promise<void> {
+  clearThreadStore();
+  await opts.queryClient.invalidateQueries();
+  if (botsCollection.isReady()) {
+    await botsCollection.utils.refetch();
+  } else {
+    await botsCollection.preload();
+  }
+  const dest = destinationAfterWorkspaceChange(peekBots());
+  await opts.invalidateRouter();
+  if (dest.to === "/onboarding") {
+    await opts.goOnboarding();
+    return;
+  }
+  await opts.goBot(dest.botId);
 }
