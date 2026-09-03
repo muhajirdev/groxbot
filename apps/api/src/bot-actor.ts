@@ -42,6 +42,10 @@ import {
   hostedChatMessages,
   isoUnixSeconds,
   listComputerEntries,
+  MCP_OAUTH_SETTLE_MS,
+  mcpCatalogStatusFromThink,
+  mcpConnectionIsExecutable,
+  mcpServersForExecute,
   newId,
   OFFICE_REVIEW_STORAGE,
   officeReviewDue,
@@ -235,7 +239,7 @@ export class BotActor extends Think<WorkerEnv> {
   override messageConcurrency: MessageConcurrency = "queue";
   /** MCP is tools.* / named connectors inside execute, not a dumped AI SDK catalog. */
   override includeMcpTools = false;
-  override waitForMcpConnections = true;
+  override waitForMcpConnections = { timeout: MCP_OAUTH_SETTLE_MS };
   private soulPrompt = "You are a helpful teammate.";
   private turnModel = HOSTED_STARTER_MODEL;
   private turnHosted = true;
@@ -369,14 +373,18 @@ export class BotActor extends Think<WorkerEnv> {
       workspace: this.workspace,
       convert: bindToMarkdown(this.env.AI),
     });
+    const connectors = this.executeConnectors();
     const execute = createExecuteTool(this, {
       executor: createBundlingExecutor(this.env.LOADER, { timeout: 120_000 }),
       session: { mode: "reuse", key: this.name },
       tools: pageTools,
-      connectors: this.executeConnectors(),
+      connectors,
     });
     const description =
       typeof execute.description === "string" ? execute.description : "";
+    const mcp = connectors
+      .filter((row) => row instanceof WorkspaceMcpConnector)
+      .map((row) => row.name());
     return {
       ...pageTools,
       execute: {
@@ -384,7 +392,7 @@ export class BotActor extends Think<WorkerEnv> {
         description: withOfficeExecuteDescription(
           description,
           Boolean(this.env.KNOWLEDGE),
-          { routines: true },
+          { routines: true, mcp },
         ),
       },
     };
@@ -994,21 +1002,20 @@ export class BotActor extends Think<WorkerEnv> {
   }
 
   private mcpExecuteConnectors(): WorkspaceMcpConnector[] {
-    const used = new Set<string>();
-    const connectors: WorkspaceMcpConnector[] = [];
     const servers = this.getMcpServers().servers;
-    for (const [id, server] of Object.entries(servers)) {
-      if (server.state !== "ready") continue;
-      const connection = this.mcp.mcpConnections[id];
-      if (!connection) continue;
-      let name = server.name.trim() || "mcp";
-      if (used.has(name)) name = `${name}-${id.slice(0, 8)}`;
-      used.add(name);
-      connectors.push(
-        new WorkspaceMcpConnector(this.ctx, this.env, connection, name),
-      );
-    }
-    return connectors;
+    const connections = this.mcp.mcpConnections as Record<
+      string,
+      { connectionState?: string; name?: string } | undefined
+    >;
+    return mcpServersForExecute(servers, connections).flatMap(
+      ({ id, name }) => {
+        const connection = this.mcp.mcpConnections[id];
+        if (!connection) return [];
+        return [
+          new WorkspaceMcpConnector(this.ctx, this.env, connection, name),
+        ];
+      },
+    );
   }
 
   private async handleMcpAdd(request: Request): Promise<Response> {
@@ -1078,13 +1085,35 @@ export class BotActor extends Think<WorkerEnv> {
     authError?: string;
   }): Promise<void> {
     if (!result.serverId) return;
+    if (result.authSuccess) {
+      try {
+        await this.mcp.waitForConnections({ timeout: MCP_OAUTH_SETTLE_MS });
+        const state = (
+          this.mcp.mcpConnections[result.serverId] as
+            | { connectionState?: string }
+            | undefined
+        )?.connectionState;
+        if (!mcpConnectionIsExecutable(state)) {
+          await this.mcp.establishConnection(result.serverId);
+        }
+      } catch (error) {
+        console.error("bot actor mcp wait", this.name, error);
+      }
+    }
+    const live = this.mcp.mcpConnections[result.serverId] as
+      | { connectionState?: string; connectionError?: string | null }
+      | undefined;
+    const catalog = mcpCatalogStatusFromThink(
+      live?.connectionState,
+      result.authSuccess,
+    );
     try {
       const env = productEnv(this.env);
       const { db } = createNeonHttpDb(env.databaseUrl);
       await saveMcpConnection(db, result.serverId, {
-        status: result.authSuccess ? "connected" : "error",
+        status: catalog.status,
         lastError: result.authSuccess
-          ? null
+          ? (catalog.lastError ?? live?.connectionError ?? null)
           : result.authError || "Authentication failed",
       });
     } catch (error) {

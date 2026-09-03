@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   McpError,
   mcpCatalogIds,
+  mcpCatalogStatusFromThink,
   mcpOauthServerId,
+  mcpServersForExecute,
   parseMcpName,
   parseMcpUrl,
   thinkMcpServerId,
@@ -96,6 +98,92 @@ describe("mcp connections", () => {
       lastError: null,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
+    });
+  });
+
+  it("exposes live Think MCP sessions, not just catalog-ready rows", () => {
+    expect(
+      mcpServersForExecute(
+        {
+          "mcp-1": { name: "mimpimu", state: "authenticating" },
+          "mcp-2": { name: "github", state: "ready" },
+        },
+        {
+          "mcp-1": { connectionState: "ready" },
+          "mcp-2": undefined,
+        },
+      ),
+    ).toEqual([{ id: "mcp-1", name: "mimpimu" }]);
+  });
+
+  it("keeps connected and discovering sessions in execute", () => {
+    expect(
+      mcpServersForExecute(
+        { a: { name: "linear", state: "connected" } },
+        { a: { connectionState: "connected" } },
+      ),
+    ).toEqual([{ id: "a", name: "linear" }]);
+    expect(
+      mcpServersForExecute(
+        { a: { name: "linear", state: "discovering" } },
+        { a: { connectionState: "discovering" } },
+      ),
+    ).toEqual([{ id: "a", name: "linear" }]);
+  });
+
+  it("skips authenticating and failed live clients", () => {
+    expect(
+      mcpServersForExecute(
+        {
+          a: { name: "one", state: "authenticating" },
+          b: { name: "two", state: "failed" },
+        },
+        {
+          a: { connectionState: "authenticating" },
+          b: { connectionState: "failed" },
+        },
+      ),
+    ).toEqual([]);
+  });
+
+  it("disambiguates duplicate MCP names", () => {
+    expect(
+      mcpServersForExecute(
+        {
+          "mcp-aaaaaaa1": { name: "linear", state: "ready" },
+          "mcp-bbbbbbb2": { name: "linear", state: "ready" },
+        },
+        {
+          "mcp-aaaaaaa1": { connectionState: "ready" },
+          "mcp-bbbbbbb2": { connectionState: "ready" },
+        },
+      ),
+    ).toEqual([
+      { id: "mcp-aaaaaaa1", name: "linear" },
+      { id: "mcp-bbbbbbb2", name: "linear-mcp-bbbb" },
+    ]);
+  });
+
+  it("maps Think live state onto the Plugins badge", () => {
+    expect(mcpCatalogStatusFromThink("ready", true)).toEqual({
+      status: "connected",
+      lastError: null,
+    });
+    expect(mcpCatalogStatusFromThink("connected", true)).toEqual({
+      status: "connected",
+      lastError: null,
+    });
+    expect(mcpCatalogStatusFromThink("authenticating", true)).toEqual({
+      status: "connecting",
+      lastError: null,
+    });
+    expect(mcpCatalogStatusFromThink("failed", true)).toEqual({
+      status: "error",
+      lastError: "MCP connection failed after OAuth.",
+    });
+    expect(mcpCatalogStatusFromThink("ready", false)).toEqual({
+      status: "error",
+      lastError: "Authentication failed",
     });
   });
 });

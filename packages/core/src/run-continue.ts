@@ -104,16 +104,26 @@ export const KNOWLEDGE_EXECUTE_HINT =
 export const ROUTINES_EXECUTE_HINT =
   "`routines` — this bot’s recurring jobs. `await routines.list()` / `create({ name, prompt, schedule })`. Schedules like `every weekday at 09:00`.";
 
+export function mcpExecuteHint(name: string): string {
+  const safe = name.trim() || "mcp";
+  return `\`${safe}\` — connected office MCP. \`await codemode.search("${safe}")\` then \`await ${safe}.<method>(args)\`.`;
+}
+
 export function withOfficeExecuteDescription(
   description: string,
   hasKnowledge: boolean,
-  extras?: { routines?: boolean },
+  extras?: { routines?: boolean; mcp?: string[] },
 ): string {
   let next = description;
   if (hasKnowledge)
     next = hintExecuteConnector(next, "knowledge", KNOWLEDGE_EXECUTE_HINT);
   if (extras?.routines)
     next = hintExecuteConnector(next, "routines", ROUTINES_EXECUTE_HINT);
+  for (const name of extras?.mcp ?? []) {
+    const slug = name.trim();
+    if (!slug) continue;
+    next = hintExecuteConnector(next, slug, mcpExecuteHint(slug));
+  }
   return next;
 }
 
