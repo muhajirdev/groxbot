@@ -26,6 +26,24 @@ describe("PresentSurface", () => {
     expect(html).toContain("+18%");
   });
 
+  it("renders Facts when children arrived as a JSON string", () => {
+    const html = renderToStaticMarkup(
+      createElement(PresentSurface, {
+        tree: {
+          $type: "Card",
+          title: "Demo card",
+          children:
+            '[{"$type":"Fact","label":"Team","value":"Groxbot Office"},{"$type":"Badge","text":"Live in-thread UI","tone":"positive"}]',
+        },
+      }),
+    );
+    expect(html).toContain('data-aui="fact"');
+    expect(html).toContain("Team");
+    expect(html).toContain("Groxbot Office");
+    expect(html).toContain("Live in-thread UI");
+    expect(html).not.toContain('[{"$type"');
+  });
+
   it("drops unknown $type nodes", () => {
     const html = renderToStaticMarkup(
       createElement(PresentSurface, {

@@ -4,6 +4,7 @@ import {
   presentPreview,
   presentTreeFromToolPart,
   runPresent,
+  sanitizePresentTree,
 } from "./present.js";
 
 describe("runPresent", () => {
@@ -54,6 +55,34 @@ describe("runPresent", () => {
         alt: "chart",
       }).ok,
     ).toBe(true);
+  });
+
+  it("parses children passed as a JSON string", () => {
+    const result = runPresent({
+      $type: "Card",
+      title: "Demo card",
+      children:
+        '[{"$type":"Fact","label":"Team","value":"Groxbot Office"},{"$type":"Badge","text":"Live in-thread UI","tone":"positive"}]',
+    });
+    expect(result).toEqual({
+      ok: true,
+      $type: "Card",
+      preview: "Demo card",
+    });
+    const tree = sanitizePresentTree({
+      $type: "Card",
+      title: "Demo card",
+      children:
+        '[{"$type":"Fact","label":"Team","value":"Groxbot Office"},{"$type":"Badge","text":"Live in-thread UI","tone":"positive"}]',
+    });
+    expect(tree?.children?.map((child) => child.$type)).toEqual([
+      "Fact",
+      "Badge",
+    ]);
+    expect(tree?.children?.[1]).toMatchObject({
+      $type: "Badge",
+      value: "Live in-thread UI",
+    });
   });
 });
 
