@@ -51,9 +51,9 @@
 :root {
   color-scheme: dark;
   --bg: #000000;
-  --bg-side: #0c0c0c;
-  --bg-thread: #0c0c0c;
-  --bg-pane: #0e0e0e;
+  --bg-side: #000000;
+  --bg-thread: #161616;
+  --bg-pane: #1a1a1a;
   --ink: #f4f4f4;
   --muted: #8a8a8a;
   --line: #1f1f1f;
@@ -79,7 +79,7 @@
 :root[data-theme="light"] {
   color-scheme: light;
   --bg: #f6f6f6;
-  --bg-side: #efefef;
+  --bg-side: #f6f6f6;
   --bg-thread: #ffffff;
   --bg-pane: #f0f0f0;
   --ink: #111111;
@@ -2786,6 +2786,12 @@ html.electron .pane-head {
   transition: grid-template-columns var(--dur-pane) var(--ease-soft);
   overflow: hidden;
   overscroll-behavior: none;
+}
+
+.chat-side {
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg);
 }
 
 .chat-stage {
