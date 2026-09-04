@@ -10,6 +10,7 @@ import {
   piCompletionsModel,
   resolvePiStreamFn,
   runPiTurn,
+  settleOfficeDraft,
 } from "@groxbot/adapters/edge";
 import {
   HOSTED_STARTER_MODEL,
@@ -44,6 +45,8 @@ import {
   newId,
   OFFICE_GENERATION_STORAGE,
   OFFICE_REVIEW_STORAGE,
+  OFFICE_TOOL_CANCELLED,
+  OFFICE_TOOL_UNFINISHED,
   OFFICE_WORKSPACE_HEADER,
   type OfficeChatMessage,
   officeChatShouldRun,
@@ -506,16 +509,26 @@ export class RoomHome extends Agent<WorkerEnv> {
           }
         },
       });
+      const aborted = result.stopReason === "aborted" || abort.signal.aborted;
+      const failed = result.stopReason === "error";
+      draft = settleOfficeDraft(
+        draft,
+        aborted
+          ? OFFICE_TOOL_CANCELLED
+          : failed
+            ? result.errorMessage || OFFICE_TOOL_UNFINISHED
+            : OFFICE_TOOL_UNFINISHED,
+      );
       const assistant = officeDraftMessage(draft);
       const next = [...messages, assistant];
       this.writeOfficeLog(next);
       await this.broadcastOfficeMessage(assistant);
-      if (result.stopReason === "aborted" || abort.signal.aborted) {
+      if (aborted) {
         this.officeStatus = "ready";
         await this.broadcastOfficeStatus();
         return;
       }
-      if (result.stopReason === "error") {
+      if (failed) {
         this.officeStatus = "error";
         this.officeError = result.errorMessage || "The model run failed.";
         await this.broadcastOfficeError();
@@ -530,6 +543,19 @@ export class RoomHome extends Agent<WorkerEnv> {
         continuation: false,
       });
     } catch (error) {
+      draft = settleOfficeDraft(
+        draft,
+        abort.signal.aborted
+          ? OFFICE_TOOL_CANCELLED
+          : error instanceof Error
+            ? error.message
+            : OFFICE_TOOL_UNFINISHED,
+      );
+      const assistant = officeDraftMessage(draft);
+      if (assistant.parts.length > 0) {
+        this.writeOfficeLog([...messages, assistant]);
+        await this.broadcastOfficeMessage(assistant);
+      }
       if (abort.signal.aborted) {
         this.officeStatus = "ready";
         await this.broadcastOfficeStatus();
@@ -607,12 +633,29 @@ export class RoomHome extends Agent<WorkerEnv> {
           }
         },
       });
+      const aborted = result.stopReason === "aborted" || abort.signal.aborted;
+      const failed = result.stopReason === "error";
+      draft = settleOfficeDraft(
+        draft,
+        aborted
+          ? OFFICE_TOOL_CANCELLED
+          : failed
+            ? result.errorMessage || OFFICE_TOOL_UNFINISHED
+            : OFFICE_TOOL_UNFINISHED,
+      );
       const assistant = officeDraftMessage(draft);
-      if (result.stopReason === "aborted" || abort.signal.aborted) {
-        await notify("abort", {});
+      if (aborted) {
+        if (assistant.parts.length > 0) {
+          await notify("complete", { message: assistant });
+        } else {
+          await notify("abort", {});
+        }
         return;
       }
-      if (result.stopReason === "error") {
+      if (failed) {
+        if (assistant.parts.length > 0) {
+          await notify("complete", { message: assistant });
+        }
         await notify("error", {
           message: result.errorMessage || "The model run failed.",
         });
@@ -620,8 +663,20 @@ export class RoomHome extends Agent<WorkerEnv> {
       }
       await notify("complete", { message: assistant });
     } catch (error) {
+      draft = settleOfficeDraft(
+        draft,
+        abort.signal.aborted
+          ? OFFICE_TOOL_CANCELLED
+          : error instanceof Error
+            ? error.message
+            : OFFICE_TOOL_UNFINISHED,
+      );
+      const assistant = officeDraftMessage(draft);
+      if (assistant.parts.length > 0) {
+        await notify("complete", { message: assistant });
+      }
       if (abort.signal.aborted) {
-        await notify("abort", {});
+        if (assistant.parts.length === 0) await notify("abort", {});
         return;
       }
       await notify("error", {

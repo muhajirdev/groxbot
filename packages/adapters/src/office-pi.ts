@@ -9,7 +9,9 @@ import type {
 } from "@earendil-works/pi-ai";
 import type { OfficeChatMessage, OfficeChatPart } from "@groxbot/core";
 import {
+  OFFICE_TOOL_UNFINISHED,
   officeChatText,
+  settleOfficeToolParts,
   stringifyToolOutput,
   toolNameFromPart,
 } from "@groxbot/core";
@@ -26,6 +28,14 @@ export function emptyOfficeDraft(id: string): OfficeDraft {
 
 export function officeDraftMessage(draft: OfficeDraft): OfficeChatMessage {
   return { id: draft.id, role: "assistant", parts: draft.parts };
+}
+
+/** Persist/broadcast ready: leftover `input-available` is an error, not HITL. */
+export function settleOfficeDraft(
+  draft: OfficeDraft,
+  errorText: string,
+): OfficeDraft {
+  return { ...draft, parts: settleOfficeToolParts(draft.parts, errorText) };
 }
 
 export function officeLogToPiMessages(
@@ -130,15 +140,57 @@ export function applyOfficeAgentEvent(
       errorText: event.isError ? stringifyToolOutput(event.result) : undefined,
     });
   }
-  if (event.type === "message_end" || event.type === "turn_end") {
+  if (event.type === "message_end") {
     if (event.message.role !== "assistant") return draft;
     return applyAssistantContent(draft, event.message.content);
+  }
+  if (event.type === "turn_end") {
+    if (event.message.role !== "assistant") return draft;
+    return applyTurnEnd(draft, event);
   }
   return draft;
 }
 
+function applyTurnEnd(
+  draft: OfficeDraft,
+  event: {
+    message: { content: AssistantMessage["content"] };
+    toolResults?: readonly {
+      toolCallId?: unknown;
+      toolName?: unknown;
+      isError?: unknown;
+      details?: unknown;
+      content?: unknown;
+    }[];
+  },
+): OfficeDraft {
+  let next = applyAssistantContent(draft, event.message.content);
+  for (const row of event.toolResults ?? []) {
+    if (
+      typeof row.toolCallId !== "string" ||
+      typeof row.toolName !== "string"
+    ) {
+      continue;
+    }
+    const output = row.details ?? row.content;
+    const isError = row.isError === true;
+    next = upsertToolPart(next, {
+      toolCallId: row.toolCallId,
+      toolName: row.toolName,
+      state: isError ? "output-error" : "output-available",
+      output,
+      errorText: isError ? stringifyToolOutput(output) : undefined,
+    });
+  }
+  return settleOfficeDraft(next, OFFICE_TOOL_UNFINISHED);
+}
+
 function isSettledToolState(state: unknown): boolean {
-  return state === "output-available" || state === "output-error";
+  return (
+    state === "output-available" ||
+    state === "output-error" ||
+    state === "output-denied"
+  );
 }
 
 function applyAssistantEvent(

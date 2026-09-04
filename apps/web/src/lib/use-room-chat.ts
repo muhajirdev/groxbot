@@ -1,3 +1,4 @@
+import { applyChatToolOutput } from "@groxbot/contracts";
 import type { UIMessage } from "ai";
 import { newWebSocketRpcSession, RpcTarget } from "capnweb";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -225,7 +226,23 @@ export function useRoomChat(options: {
     await hostRef.current?.stop();
   }, []);
 
-  const addToolOutput = useCallback(async () => {}, []);
+  const addToolOutput = useCallback(
+    async (input: {
+      toolCallId: string;
+      state?: "output-available" | "output-error" | "output-denied";
+      output?: unknown;
+      errorText?: string;
+    }) => {
+      setMessagesState((current) => applyChatToolOutput(current, input));
+    },
+    [],
+  );
+
+  const addToolApprovalResponse = useCallback(async () => {}, []);
+
+  const clearError = useCallback(() => {
+    setError(undefined);
+  }, []);
 
   const helpers = useMemo(
     () => ({
@@ -238,11 +255,15 @@ export function useRoomChat(options: {
       stop,
       regenerate,
       addToolOutput,
+      addToolApprovalResponse,
+      clearError,
       connectionError,
       isStreaming: status === "streaming",
     }),
     [
+      addToolApprovalResponse,
       addToolOutput,
+      clearError,
       connectionError,
       error,
       messages,

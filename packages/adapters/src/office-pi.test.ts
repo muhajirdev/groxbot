@@ -147,6 +147,86 @@ describe("applyOfficeAgentEvent", () => {
       },
     ]);
   });
+
+  it("applies turn_end toolResults so chips are complete, not HITL", () => {
+    let draft = emptyOfficeDraft("a1");
+    draft = applyOfficeAgentEvent(draft, {
+      type: "message_update",
+      message: { role: "assistant" },
+      assistantMessageEvent: {
+        type: "toolcall_end",
+        toolCall: {
+          id: "call_1",
+          name: "list",
+          arguments: { path: "/workspace" },
+        },
+      },
+    } as unknown as AgentEvent);
+    draft = applyOfficeAgentEvent(draft, {
+      type: "turn_end",
+      message: {
+        role: "assistant",
+        content: [
+          {
+            type: "toolCall",
+            id: "call_1",
+            name: "list",
+            arguments: { path: "/workspace" },
+          },
+        ],
+      },
+      toolResults: [
+        {
+          toolCallId: "call_1",
+          toolName: "list",
+          isError: false,
+          details: { entries: ["a"] },
+        },
+      ],
+    } as unknown as AgentEvent);
+    expect(officeDraftMessage(draft).parts).toEqual([
+      {
+        type: "tool-list",
+        toolCallId: "call_1",
+        toolName: "list",
+        state: "output-available",
+        input: { path: "/workspace" },
+        output: { entries: ["a"] },
+      },
+    ]);
+  });
+
+  it("settles leftover input-available tools on turn_end", () => {
+    let draft = emptyOfficeDraft("a1");
+    draft = applyOfficeAgentEvent(draft, {
+      type: "tool_execution_start",
+      toolCallId: "call_1",
+      toolName: "exec",
+      args: { command: "ls" },
+    });
+    draft = applyOfficeAgentEvent(draft, {
+      type: "turn_end",
+      message: {
+        role: "assistant",
+        content: [
+          {
+            type: "toolCall",
+            id: "call_1",
+            name: "exec",
+            arguments: { command: "ls" },
+          },
+        ],
+      },
+    } as unknown as AgentEvent);
+    expect(officeDraftMessage(draft).parts).toMatchObject([
+      {
+        type: "tool-exec",
+        toolCallId: "call_1",
+        state: "output-error",
+        errorText: "Tool did not finish.",
+      },
+    ]);
+  });
 });
 
 describe("Worker barrel", () => {
@@ -156,5 +236,6 @@ describe("Worker barrel", () => {
       "utf8",
     );
     expect(edge).toMatch(/openObjectParameters/);
+    expect(edge).toMatch(/settleOfficeDraft/);
   });
 });

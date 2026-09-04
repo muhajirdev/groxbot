@@ -185,3 +185,37 @@ export function stringifyToolOutput(value: unknown): string {
     return String(value);
   }
 }
+
+/** Left on a tool Pi never finished. Not a client Allow/Deny. */
+export const OFFICE_TOOL_CANCELLED = "Cancelled.";
+export const OFFICE_TOOL_UNFINISHED = "Tool did not finish.";
+
+export function isSettledOfficeToolState(state: unknown): boolean {
+  return (
+    state === "output-available" ||
+    state === "output-error" ||
+    state === "output-denied"
+  );
+}
+
+function isPendingOfficeApproval(part: OfficeChatPart): boolean {
+  const approval = part.approval;
+  if (!approval || typeof approval !== "object" || Array.isArray(approval)) {
+    return false;
+  }
+  const row = approval as { approved?: unknown };
+  return row.approved === undefined;
+}
+
+/** Server-run tools must not persist as `input-available` (assistant-ui HITL). */
+export function settleOfficeToolParts(
+  parts: readonly OfficeChatPart[],
+  errorText: string,
+): OfficeChatPart[] {
+  return parts.map((part) => {
+    if (!toolNameFromPart(part)) return part;
+    if (isSettledOfficeToolState(part.state)) return part;
+    if (isPendingOfficeApproval(part)) return part;
+    return { ...part, state: "output-error", errorText };
+  });
+}
