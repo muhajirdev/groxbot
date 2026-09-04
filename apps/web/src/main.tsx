@@ -1,6 +1,5 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { IconContext } from "@phosphor-icons/react";
 import { HotkeysProvider } from "@tanstack/react-hotkeys";
 import { RouterProvider } from "@tanstack/react-router";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -20,16 +19,14 @@ if (!root) throw new Error("Missing #root");
 
 createRoot(root).render(
   <StrictMode>
-    <IconContext.Provider value={{ size: 18, weight: "duotone" }}>
-      <HotkeysProvider
-        defaultOptions={{
-          hotkey: { preventDefault: true },
-        }}
-      >
-        <TooltipProvider>
-          <RouterProvider router={router} />
-        </TooltipProvider>
-      </HotkeysProvider>
-    </IconContext.Provider>
+    <HotkeysProvider
+      defaultOptions={{
+        hotkey: { preventDefault: true },
+      }}
+    >
+      <TooltipProvider>
+        <RouterProvider router={router} />
+      </TooltipProvider>
+    </HotkeysProvider>
   </StrictMode>,
 );

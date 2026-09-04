@@ -47,6 +47,14 @@ export function isHiddenOfficeUserMessage(message: {
   );
 }
 
+/** Visible "filed" line after a review that actually wrote something. */
+export function isOfficeLearnedMessage(message: {
+  role?: string;
+  metadata?: unknown;
+}): boolean {
+  return message.role === "assistant" && isOfficeReviewSource(message.metadata);
+}
+
 export function isOfficeReviewSkip(text: string): boolean {
   return text.trim() === OFFICE_REVIEW_SKIP;
 }

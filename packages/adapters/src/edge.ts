@@ -28,6 +28,7 @@ export {
 } from "./gateway.js";
 export { openObjectParameters } from "./office-pi.js";
 export {
+  appendOfficeAssistantText,
   appendOfficeUserText,
   migrateOfficeChatToSession,
   persistOfficeSessionEvent,

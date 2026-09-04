@@ -3,14 +3,14 @@
 import { memo, type FC } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import {
-  BracketsCurlyIcon,
-  DownloadSimpleIcon,
+  CodeFileIcon,
+  DownloadIcon,
   FileAudioIcon,
   FileIcon,
   FileTextIcon,
   FileVideoIcon,
-  ImageIcon,
-} from "@phosphor-icons/react";
+  ImageFileIcon,
+} from "@/components/Icons";
 import type { FileMessagePartComponent } from "@assistant-ui/react";
 import { cn } from "@/lib/utils";
 
@@ -39,13 +39,13 @@ const fileVariants = cva(
 function getMimeTypeIcon(mimeType: string): FC<{ className?: string }> {
   const type = mimeType.toLowerCase();
   if (type.startsWith("image/")) {
-    return ImageIcon;
+    return ImageFileIcon;
   }
   if (type === "application/pdf") {
     return FileTextIcon;
   }
   if (type === "application/json") {
-    return BracketsCurlyIcon;
+    return CodeFileIcon;
   }
   if (type.startsWith("text/")) {
     return FileTextIcon;
@@ -201,7 +201,7 @@ function FileDownload({
       )}
       {...props}
     >
-      {children || <DownloadSimpleIcon className="size-4" />}
+      {children || <DownloadIcon className="size-4" />}
     </a>
   );
 }

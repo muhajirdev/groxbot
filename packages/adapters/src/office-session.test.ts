@@ -5,6 +5,7 @@ import {
   type SessionEntryStore,
 } from "./durable-session-storage.js";
 import {
+  appendOfficeAssistantText,
   appendOfficeUserText,
   migrateOfficeChatToSession,
   persistOfficeSessionEvent,
@@ -181,5 +182,25 @@ describe("office session tree", () => {
     expect(
       tool && tool.type === "message" ? tool.message : {},
     ).not.toHaveProperty("details");
+  });
+
+  it("stamps a filed assistant line with custom metadata", async () => {
+    const session = new Session(new DurableSessionStorage(memoryStore()));
+    await appendOfficeUserText(session, { id: "u1", content: "do the work" });
+    await appendOfficeAssistantText(session, {
+      id: "a-filed",
+      content: "Saved skills/weekly-update/SKILL.md",
+      metadata: { source: "office-review" },
+    });
+    const bound = piBoundFromSessionEntries(
+      await session.getBranch(),
+      await session.getStorage().findEntries("custom"),
+    );
+    expect(bound.map((row) => row.id)).toEqual(["u1", "a-filed"]);
+    expect(bound[1]?.metadata).toEqual({ source: "office-review" });
+    expect(bound[1]?.message).toMatchObject({
+      role: "assistant",
+      content: [{ type: "text", text: "Saved skills/weekly-update/SKILL.md" }],
+    });
   });
 });

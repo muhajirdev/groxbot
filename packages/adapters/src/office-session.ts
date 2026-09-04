@@ -63,6 +63,32 @@ export async function persistOfficeSessionEvent(
   return assistantId;
 }
 
+export async function appendOfficeAssistantText(
+  session: Session,
+  input: { id: string; content: string; metadata?: unknown },
+): Promise<void> {
+  const storage = session.getStorage();
+  if (await storage.getEntry(input.id)) return;
+  await storage.appendEntry({
+    type: "message",
+    id: input.id,
+    parentId: await storage.getLeafId(),
+    timestamp: new Date().toISOString(),
+    message: {
+      role: "assistant",
+      content: [{ type: "text", text: input.content }],
+      timestamp: Date.now(),
+      stopReason: "stop",
+    } as AgentMessage,
+  });
+  if (input.metadata !== undefined) {
+    await session.appendCustomEntry(OFFICE_META_CUSTOM_TYPE, {
+      forId: input.id,
+      metadata: input.metadata,
+    });
+  }
+}
+
 export async function appendOfficeUserText(
   session: Session,
   input: { id: string; content: string; metadata?: unknown },

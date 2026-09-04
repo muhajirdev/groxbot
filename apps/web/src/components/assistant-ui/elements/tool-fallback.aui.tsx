@@ -2,11 +2,11 @@
 
 import { memo, useCallback, useRef, useState } from "react";
 import {
-  CaretDownIcon,
   CheckIcon,
+  ChevronDownIcon,
   WarningCircleIcon,
   XCircleIcon,
-} from "@phosphor-icons/react";
+} from "@/components/Icons";
 import {
   useScrollLock,
   useToolCallElapsed,
@@ -174,7 +174,7 @@ function ToolFallbackTrigger({
         {label}: <b>{toolName}</b>
       </span>
       <ToolFallbackDuration />
-      <CaretDownIcon
+      <ChevronDownIcon
         data-slot="tool-fallback-trigger-chevron"
         className={cn(
           "aui-tool-fallback-trigger-chevron size-4 shrink-0",

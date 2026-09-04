@@ -9,7 +9,7 @@ import {
   unstable_memoizeMarkdownComponents as memoizeMarkdownComponents,
   useIsMarkdownCodeBlock,
 } from "@assistant-ui/react-markdown";
-import { CheckIcon, CopyIcon } from "@phosphor-icons/react";
+import { CheckIcon, CopyIcon } from "@/components/Icons";
 import { type FC, memo, useMemo, useRef } from "react";
 import remarkGfm from "remark-gfm";
 

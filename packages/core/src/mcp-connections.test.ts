@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   McpError,
+  isMcpOAuthCallbackPath,
+  mcpCatalogForExecute,
   mcpCatalogIds,
   mcpCatalogStatusFromLive,
+  mcpOAuthActorUrl,
   mcpOauthServerId,
+  mcpProbeError,
   mcpServersForExecute,
+  mcpToolNames,
   parseMcpName,
   parseMcpUrl,
   mcpServerId,
@@ -36,6 +41,20 @@ describe("mcp connections", () => {
     expect(() => parseMcpUrl("https://user:pass@mcp.example.com/mcp")).toThrow(
       McpError,
     );
+  });
+
+  it("recognizes the Worker MCP OAuth callback path", () => {
+    expect(isMcpOAuthCallbackPath("/api/mcp/oauth")).toBe(true);
+    expect(isMcpOAuthCallbackPath("/api/mcp/oauth/")).toBe(true);
+    expect(isMcpOAuthCallbackPath("/mcp/add")).toBe(false);
+  });
+
+  it("rewrites the OAuth callback onto the actor path without dropping state", () => {
+    expect(
+      mcpOAuthActorUrl(
+        "http://127.0.0.1:3100/api/mcp/oauth?code=abc&state=nonce.mcp-1",
+      ),
+    ).toBe("https://groxbot.internal/api/mcp/oauth?code=abc&state=nonce.mcp-1");
   });
 
   it("reads the server id from an Agents OAuth state", () => {
@@ -99,6 +118,31 @@ describe("mcp connections", () => {
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
     });
+  });
+
+  it("binds connected workspace catalog rows for every teammate", () => {
+    expect(
+      mcpCatalogForExecute([
+        {
+          id: "mcp-1",
+          name: "mimpimu",
+          status: "connected",
+          hostBotId: "bot-1",
+        },
+        {
+          id: "mcp-2",
+          name: "github",
+          status: "connecting",
+          hostBotId: "bot-1",
+        },
+        {
+          id: "mcp-3",
+          name: "orphan",
+          status: "connected",
+          hostBotId: null,
+        },
+      ]),
+    ).toEqual([{ id: "mcp-1", name: "mimpimu", hostBotId: "bot-1" }]);
   });
 
   it("exposes live MCP sessions, not just catalog-ready rows", () => {

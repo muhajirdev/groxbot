@@ -1,3 +1,5 @@
+import type { McpConnectionLike } from "@cloudflare/codemode";
+import { mcpOAuthActorUrl, OFFICE_WORKSPACE_HEADER } from "@groxbot/core";
 import { getAgentByName } from "agents";
 
 type ActorBinding = DurableObjectNamespace;
@@ -36,7 +38,69 @@ export async function oauthBotMcp(
   request: Request,
 ): Promise<Response> {
   const stub = await getAgentByName(actors, botId);
-  return stub.fetch(request);
+  return stub.fetch(
+    new Request(mcpOAuthActorUrl(request.url), { method: "GET" }),
+  );
+}
+
+/** Other home rooms call the host actor’s live MCP client. */
+export function remoteMcpConnection(
+  actors: ActorBinding,
+  hostRoomId: string,
+  workspaceId: string,
+  serverId: string,
+  serverName: string,
+): McpConnectionLike {
+  return {
+    name: serverName,
+    client: {
+      callTool: async (params) =>
+        callHostMcp(actors, hostRoomId, workspaceId, "/mcp/call", {
+          serverId,
+          name: params.name,
+          arguments: params.arguments ?? {},
+        }),
+    },
+    fetchTools: async () => {
+      const payload = await callHostMcp<{ tools?: unknown[] }>(
+        actors,
+        hostRoomId,
+        workspaceId,
+        "/mcp/tools",
+        { serverId },
+      );
+      return Array.isArray(payload.tools) ? (payload.tools as never) : [];
+    },
+  };
+}
+
+async function callHostMcp<T>(
+  actors: ActorBinding,
+  hostRoomId: string,
+  workspaceId: string,
+  pathname: string,
+  body: Record<string, unknown>,
+): Promise<T> {
+  const stub = await getAgentByName(actors, hostRoomId);
+  const response = await stub.fetch(
+    new Request(`https://groxbot.internal${pathname}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        [OFFICE_WORKSPACE_HEADER]: workspaceId,
+      },
+      body: JSON.stringify(body),
+    }),
+  );
+  const payload = (await response.json().catch(() => ({}))) as {
+    error?: unknown;
+  } & T;
+  const message =
+    typeof payload.error === "string" ? payload.error : undefined;
+  if (!response.ok) {
+    throw new Error(message || `mcp ${response.status}`);
+  }
+  return payload;
 }
 
 async function callBotMcp<T>(

@@ -4,9 +4,12 @@ import {
   assistantTurnSettled,
   countUiToolParts,
   emptyOfficeReviewCounters,
+  isOfficeLearnedMessage,
   isOfficeReviewSkip,
   isOfficeReviewUserMessage,
+  officeReviewAnnounce,
   officeReviewDue,
+  officeReviewNoteMetadata,
   officeReviewUserMessage,
   officeReviewUserText,
   parseOfficeReviewCounters,
@@ -84,6 +87,16 @@ describe("office review cadence", () => {
         counters: due,
       }),
     ).toBe(false);
+    expect(
+      shouldEnqueueOfficeReview({
+        status: "completed",
+        reviewBusy: false,
+        hasOfficeKnowledge: true,
+        settled: true,
+        idle: false,
+        counters: due,
+      }),
+    ).toBe(false);
   });
 
   it("ignores junk storage", () => {
@@ -105,7 +118,32 @@ describe("office review messages", () => {
     expect(officeReviewUserText()).toMatch(/When you write a knowledge file/);
     expect(officeReviewUserText()).toMatch(/\[label\]\(path\/from\/office\/root\.md\)/);
     expect(officeReviewUserText()).toMatch(/skill_manage patch/);
+    expect(officeReviewUserText()).toMatch(/set_context/);
     expect(officeReviewUserText()).toMatch(/Skip/);
+  });
+
+  it("announces a filed line and drops Skip", () => {
+    expect(officeReviewAnnounce("Skip")).toBeNull();
+    expect(officeReviewAnnounce("  ")).toBeNull();
+    expect(officeReviewAnnounce("Saved skills/weekly-update/SKILL.md")).toBe(
+      "Saved skills/weekly-update/SKILL.md",
+    );
+    expect(officeReviewAnnounce("soul\nextra recap")).toBe("soul");
+    expect(isOfficeLearnedMessage({ role: "assistant", metadata: {} })).toBe(
+      false,
+    );
+    expect(
+      isOfficeLearnedMessage({
+        role: "assistant",
+        metadata: officeReviewNoteMetadata(),
+      }),
+    ).toBe(true);
+    expect(
+      isOfficeLearnedMessage({
+        role: "user",
+        metadata: officeReviewNoteMetadata(),
+      }),
+    ).toBe(false);
   });
 
   it("treats Skip as nothing to announce", () => {

@@ -481,6 +481,13 @@ export const McpConnectResultSchema = z.object({
 });
 export type McpConnectResult = z.infer<typeof McpConnectResultSchema>;
 
+export const McpProbeResultSchema = z.object({
+  ok: z.boolean(),
+  tools: z.array(z.string()),
+  error: z.string().nullable(),
+});
+export type McpProbeResult = z.infer<typeof McpProbeResultSchema>;
+
 /** Explicit tenant on product RPC. Last-used org stays on the Better Auth session. */
 export const WORKSPACE_ID_HEADER = "x-workspace-id";
 

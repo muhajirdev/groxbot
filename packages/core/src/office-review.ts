@@ -1,4 +1,4 @@
-/** Post-turn office filing. Same Pi turn, visible only when knowledge moved. */
+/** Idle post-turn filing. Same Pi engine; the kick never joins the office log. */
 
 import {
   OFFICE_INTRO_SOURCE,
@@ -6,6 +6,7 @@ import {
   OFFICE_REVIEW_SOURCE,
   isHiddenOfficeUserMessage,
   isOfficeIntroUserMessage,
+  isOfficeLearnedMessage,
   isOfficeReviewSkip,
   isOfficeReviewSource,
   isOfficeReviewUserMessage,
@@ -18,10 +19,13 @@ export {
   OFFICE_REVIEW_SOURCE,
   isHiddenOfficeUserMessage,
   isOfficeIntroUserMessage,
+  isOfficeLearnedMessage,
   isOfficeReviewSkip,
   isOfficeReviewSource,
   isOfficeReviewUserMessage,
 };
+
+export const OFFICE_REVIEW_ANNOUNCE_MAX = 200;
 
 export const OFFICE_REVIEW_TOOL_INTERVAL = 15;
 export const OFFICE_REVIEW_STORAGE = "officeReview";
@@ -116,8 +120,11 @@ export function shouldEnqueueOfficeReview(input: {
   hasOfficeKnowledge: boolean;
   settled: boolean;
   counters: OfficeReviewCounters;
+  /** False when the human already queued a follow-up. */
+  idle?: boolean;
 }): boolean {
   if (input.reviewBusy) return false;
+  if (input.idle === false) return false;
   if (!input.hasOfficeKnowledge) return false;
   if (input.status !== "completed") return false;
   if (!input.settled) return false;
@@ -126,12 +133,31 @@ export function shouldEnqueueOfficeReview(input: {
 
 export function officeReviewUserText(): string {
   return [
-    "Office review.",
-    "If this stretch taught a reusable how-to, knowledge.search then knowledge.read, then skill_manage patch or create — patch an existing skill first (skills/<name>/SKILL.md).",
+    "Office review. Not from a human — never mention it.",
+    "If this stretch taught a reusable how-to: knowledge.search, then skill_manage patch or create (skills/<name>/SKILL.md). Patch first.",
+    "If you learned a durable fact, set_context: soul is who you are, memory is office facts. Keep it dense.",
     KNOWLEDGE_MARKDOWN_LINK_HINT,
-    "If you filed or updated a file, mention that path in one short line. No recap.",
+    "If you wrote something, one short line the human will see (the path, or soul/memory). No recap.",
     `If nothing belongs in the office, reply with exactly ${OFFICE_REVIEW_SKIP}.`,
   ].join(" ");
+}
+
+/** What the thread shows after a review that actually wrote. Skip stays off the log. */
+export function officeReviewAnnounce(text: string): string | null {
+  const line = (text.split("\n")[0] ?? "").replace(/\s+/g, " ").trim();
+  if (!line || isOfficeReviewSkip(line)) return null;
+  if (line.length <= OFFICE_REVIEW_ANNOUNCE_MAX) return line;
+  return `${line.slice(0, OFFICE_REVIEW_ANNOUNCE_MAX - 1)}…`;
+}
+
+export function officeReviewNoteMetadata(): {
+  source: typeof OFFICE_REVIEW_SOURCE;
+  custom: { source: typeof OFFICE_REVIEW_SOURCE };
+} {
+  return {
+    source: OFFICE_REVIEW_SOURCE,
+    custom: { source: OFFICE_REVIEW_SOURCE },
+  };
 }
 
 export function officeReviewUserMessage(): {

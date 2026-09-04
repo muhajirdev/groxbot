@@ -4,6 +4,7 @@ import {
   OFFICE_REVIEW_SOURCE,
   isHiddenOfficeUserMessage,
   isOfficeIntroUserMessage,
+  isOfficeLearnedMessage,
   isOfficeReviewSkip,
   isOfficeReviewUserMessage,
 } from "./office-review.js";
@@ -52,5 +53,15 @@ describe("office review identity", () => {
   it("treats Skip as nothing to show", () => {
     expect(isOfficeReviewSkip("Skip")).toBe(true);
     expect(isOfficeReviewSkip(" skip ")).toBe(false);
+  });
+
+  it("marks a filed assistant line as learned, not as a hidden kick", () => {
+    const filed = {
+      role: "assistant" as const,
+      metadata: { custom: { source: OFFICE_REVIEW_SOURCE } },
+    };
+    expect(isOfficeLearnedMessage(filed)).toBe(true);
+    expect(isHiddenOfficeUserMessage(filed)).toBe(false);
+    expect(isOfficeReviewUserMessage(filed)).toBe(false);
   });
 });

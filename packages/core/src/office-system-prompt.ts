@@ -106,12 +106,26 @@ export function officeToolPromptContribution(
   return snippet ? { snippet } : null;
 }
 
+export function officeMcpGuideline(names: readonly string[]): string | null {
+  const listed = [
+    ...new Set(names.map((name) => name.trim()).filter(Boolean)),
+  ];
+  if (listed.length === 0) return null;
+  const ticks = listed.map((name) => `\`${name}\``).join(", ");
+  const first = listed[0]!;
+  return `Workspace MCP inside code: ${ticks}. Call \`await ${first}.<method>(args)\`. Not a top-level tool. Use \`await codemode.describe("${first}")\` for methods — search does not list connector names.`;
+}
+
 export function buildOfficeSystemPrompt(opts: {
   identity: string;
   tools: readonly OfficePromptTool[];
+  mcp?: readonly string[];
 }): string {
   const names = opts.tools.map((row) => row.name).filter(Boolean);
   const byName = new Map(opts.tools.map((row) => [row.name, row]));
+  const mcpGuideline = names.includes(OFFICE_CODE_TOOL_NAME)
+    ? officeMcpGuideline(opts.mcp ?? [])
+    : null;
   const visible: string[] = [];
   for (const name of names) {
     const contribution = officeToolPromptContribution(
@@ -119,7 +133,14 @@ export function buildOfficeSystemPrompt(opts: {
       byName.get(name)?.description,
     );
     if (!contribution) continue;
-    visible.push(`- ${name}: ${contribution.snippet}`);
+    const snippet =
+      name === OFFICE_CODE_TOOL_NAME && mcpGuideline
+        ? contribution.snippet.replace(
+            "knowledge, routines, history, and page helpers",
+            "knowledge, routines, history, page helpers, and workspace MCP",
+          )
+        : contribution.snippet;
+    visible.push(`- ${name}: ${snippet}`);
   }
   const toolsList = visible.length > 0 ? visible.join("\n") : "(none)";
 
@@ -148,6 +169,7 @@ export function buildOfficeSystemPrompt(opts: {
       add(guideline);
     }
   }
+  if (mcpGuideline) add(mcpGuideline);
   if (names.length === 1 && names[0] === OFFICE_SET_CONTEXT_TOOL_NAME) {
     add(
       "This turn only has set_context. Call that tool first (label soul, mode replace), then greet in 1–2 short lines and ask if they want a role, personality, or working style. Do not write the overlay as chat text.",

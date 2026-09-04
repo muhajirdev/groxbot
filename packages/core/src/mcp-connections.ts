@@ -200,6 +200,27 @@ export async function removeMcpConnection(
   return existing;
 }
 
+/** Worker + actor path for MCP OAuth redirects. */
+export const MCP_OAUTH_CALLBACK_PATH = "/api/mcp/oauth";
+
+/**
+ * Agents `isCallbackRequest` also requires the inbound origin to match the
+ * stored callback URL. Wrangler/DO `stub.fetch` often rewrites that host, so
+ * the actor matches on path and redeems without the origin check.
+ */
+export function isMcpOAuthCallbackPath(pathname: string): boolean {
+  const path = pathname.replace(/\/+$/, "") || "/";
+  return path === MCP_OAUTH_CALLBACK_PATH || path.endsWith("/mcp/oauth");
+}
+
+/** Stable URL so the home actor sees `/api/mcp/oauth` regardless of inbound host. */
+export function mcpOAuthActorUrl(requestUrl: string): string {
+  const inbound = new URL(requestUrl);
+  const next = new URL(`https://groxbot.internal${MCP_OAUTH_CALLBACK_PATH}`);
+  next.search = inbound.search;
+  return next.href;
+}
+
 /**
  * Agents OAuth state is `{nonce}.{serverId}`. Older guesses used
  * `{serverId}:{nonce}`; keep that as a fallback.
@@ -274,6 +295,32 @@ export function mcpConnectionIsExecutable(state: string | undefined): boolean {
   return Boolean(state && MCP_EXECUTE_STATES.has(state));
 }
 
+export type WorkspaceMcpCatalogRow = {
+  id: string;
+  name: string;
+  status: string;
+  hostBotId: string | null;
+};
+
+/**
+ * Workspace catalog rows every teammate can bind. Live OAuth still sits on
+ * `hostBotId`; other home rooms proxy into that actor.
+ */
+export function mcpCatalogForExecute(
+  rows: readonly WorkspaceMcpCatalogRow[],
+): Array<{ id: string; name: string; hostBotId: string }> {
+  const used = new Set<string>();
+  const out: Array<{ id: string; name: string; hostBotId: string }> = [];
+  for (const row of rows) {
+    if (row.status !== "connected" || !row.hostBotId) continue;
+    let name = row.name.trim() || "mcp";
+    if (used.has(name)) name = `${name}-${row.id.slice(0, 8)}`;
+    used.add(name);
+    out.push({ id: row.id, name, hostBotId: row.hostBotId });
+  }
+  return out;
+}
+
 /**
  * Pick live Agents MCP sessions for Code Mode. Catalog `connected` is OAuth
  * only — execute needs an in-memory client that is past authenticating.
@@ -317,4 +364,27 @@ export function mcpCatalogStatusFromLive(
     };
   }
   return { status: "connecting", lastError: null };
+}
+
+export function mcpToolNames(tools: unknown): string[] {
+  if (!Array.isArray(tools)) return [];
+  const names: string[] = [];
+  for (const row of tools) {
+    if (!row || typeof row !== "object" || Array.isArray(row)) continue;
+    const name = (row as { name?: unknown }).name;
+    if (typeof name === "string" && name.trim()) names.push(name.trim());
+  }
+  return names;
+}
+
+export function mcpProbeError(caught: unknown): string {
+  const raw = caught instanceof Error ? caught.message.trim() : "";
+  if (
+    !raw ||
+    raw === "MCP is not connected." ||
+    /^mcp \d+$/.test(raw)
+  ) {
+    return "Catalog says connected, but the live client is not answering.";
+  }
+  return raw;
 }

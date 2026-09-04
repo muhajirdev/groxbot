@@ -11,15 +11,15 @@ import {
 import { Dialog } from "@base-ui/react/dialog";
 import { cva, type VariantProps } from "class-variance-authority";
 import {
-  ArrowClockwiseIcon,
-  CircleNotchIcon,
+  CloseIcon,
   CopyIcon,
-  DownloadSimpleIcon,
+  DownloadIcon,
   ImageBrokenIcon,
-  ImageIcon,
+  ImageFileIcon,
+  ReloadIcon,
   ShieldWarningIcon,
-  XIcon,
-} from "@phosphor-icons/react";
+  SpinnerIcon,
+} from "@/components/Icons";
 import type {
   ImageMessagePart,
   ImageMessagePartComponent,
@@ -194,7 +194,7 @@ function ImagePreview({
           data-slot="image-preview-loading"
           className="bg-muted/50 absolute inset-0 flex items-center justify-center"
         >
-          <ImageIcon className="text-muted-foreground size-8 animate-pulse" />
+          <ImageFileIcon className="text-muted-foreground size-8 animate-pulse" />
         </div>
       )}
       {error ? (
@@ -299,7 +299,7 @@ function ImageZoom({ src, alt = "Image preview", children }: ImageZoomProps) {
               className="text-muted-foreground hover:text-foreground bg-background/80 fixed end-4 top-4 z-50 cursor-pointer rounded-md border-0 p-2"
               aria-label="Close zoomed image"
             >
-              <XIcon className="size-5" />
+              <CloseIcon className="size-5" />
             </Dialog.Close>
           </Dialog.Popup>
         </Dialog.Portal>
@@ -317,7 +317,7 @@ function ImageGenerating({ className }: { className?: string }) {
         className,
       )}
     >
-      <CircleNotchIcon className="text-muted-foreground size-8 animate-spin" />
+      <SpinnerIcon className="text-muted-foreground size-8 animate-spin" />
       <span className="sr-only">Generating image…</span>
     </div>
   );
@@ -378,7 +378,7 @@ function RegenerateButton({
       aria-label="Regenerate image"
       className="hover:bg-muted inline-flex size-7 items-center justify-center rounded disabled:opacity-50"
     >
-      <ArrowClockwiseIcon
+      <ReloadIcon
         className={cn("size-4", isRegenerating && "animate-spin")}
       />
     </button>
@@ -398,7 +398,7 @@ function ImageActions({ part, onRegenerate, className }: ImageActionsProps) {
         aria-label="Download image"
         className="hover:bg-muted inline-flex size-7 items-center justify-center rounded"
       >
-        <DownloadSimpleIcon className="size-4" />
+        <DownloadIcon className="size-4" />
       </button>
       <button
         type="button"

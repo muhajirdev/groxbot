@@ -1,12 +1,12 @@
 import { MASCOT_MOODS, type MascotMood } from "@groxbot/mascot";
 import {
   ArrowUpIcon,
-  CaretDownIcon,
   CheckIcon,
+  ChevronDownIcon,
   SquareIcon,
   WarningCircleIcon,
   XCircleIcon,
-} from "@phosphor-icons/react";
+} from "../components/Icons";
 import { Link } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 import { AppCard } from "../components/AppCard";
@@ -761,7 +761,7 @@ function ToolRow(props: {
       {running ? null : (
         <span className="text-muted-foreground text-xs tabular-nums">1.2s</span>
       )}
-      <CaretDownIcon className="size-4 shrink-0 -rotate-90 opacity-50" />
+      <ChevronDownIcon className="size-4 shrink-0 -rotate-90 opacity-50" />
     </div>
   );
 }
@@ -778,7 +778,7 @@ function ToolGroupRow(props: { count: number; active?: boolean }) {
       >
         {props.count} tool calls
       </span>
-      <CaretDownIcon className="size-3 shrink-0 -rotate-90 opacity-50" />
+      <ChevronDownIcon className="size-3 shrink-0 -rotate-90 opacity-50" />
     </div>
   );
 }

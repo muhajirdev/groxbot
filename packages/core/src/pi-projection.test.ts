@@ -167,6 +167,14 @@ describe("projectPiBoundMessages", () => {
         content: [{ type: "text", text: "Skip" }],
       }),
     ).toBe(false);
+    expect(
+      isVisibleProjectedMessage({
+        id: "filed",
+        role: "assistant",
+        content: [{ type: "text", text: "Saved skills/weekly-update/SKILL.md" }],
+        metadata: { custom: { source: OFFICE_REVIEW_SOURCE } },
+      }),
+    ).toBe(true);
   });
 
   it("hides the hire-intro trigger and keeps the greeting", () => {

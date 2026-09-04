@@ -20,9 +20,10 @@ export class WorkspaceMcpConnector extends McpConnector {
   }
 
   protected override instructions() {
+    const slug = this.name();
     return (
       this.connection.instructions ||
-      `Office MCP server “${this.serverName}”. Search with codemode.search before calling.`
+      `Workspace MCP “${this.serverName}”. Call await ${slug}.<method>(args). Use await codemode.describe("${slug}") for methods — search does not list this connector.`
     );
   }
 

@@ -8,7 +8,7 @@ import {
   type FC,
   type PropsWithChildren,
 } from "react";
-import { CaretDownIcon } from "@phosphor-icons/react";
+import { ChevronDownIcon } from "@/components/Icons";
 import { cva, type VariantProps } from "class-variance-authority";
 import { useScrollLock } from "@assistant-ui/react";
 import {
@@ -135,7 +135,7 @@ function ToolGroupTrigger({
       >
         {label}
       </span>
-      <CaretDownIcon
+      <ChevronDownIcon
         data-slot="tool-group-trigger-chevron"
         className={cn(
           "aui-tool-group-trigger-chevron size-3 shrink-0",

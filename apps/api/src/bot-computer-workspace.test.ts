@@ -27,6 +27,14 @@ describe("Computer Worker shell wiring", () => {
     expect(room).not.toMatch(/enqueueOnActor\(this\.env\.ROOM_ACTOR, homeRoomId/);
     expect(home).toMatch(/\/door\/context/);
     expect(home).toMatch(/handleDoorTool/);
+    expect(home).toMatch(/isMcpOAuthCallbackPath/);
+    expect(home).toMatch(/handleMcpOAuth/);
+    expect(home).toMatch(/handleCallbackRequest/);
+    expect(home).toMatch(/mcp:\s*this\.workspaceMcp/);
+    expect(home).toMatch(/hostMcpConnectionLike/);
+    expect(home).toMatch(/remoteMcpConnection/);
+    expect(home).toMatch(/\/mcp\/tools/);
+    expect(home).toMatch(/\/mcp\/call/);
     expect(home).not.toMatch(/runRoomTurn/);
   });
 
@@ -53,6 +61,9 @@ describe("Computer Worker shell wiring", () => {
     expect(actor).toMatch(/buildOfficeSystemPrompt/);
     expect(actor).toMatch(/officeIntroTurnTools/);
     expect(actor).toMatch(/lastOfficeUserIsIntro/);
+    expect(actor).toMatch(/runOfficeReviewTurn/);
+    expect(actor).toMatch(/officeReviewAnnounce/);
+    expect(actor).toMatch(/appendOfficeAssistantText/);
     expect(actor).not.toMatch(/hasActivateSkill/);
     expect(actor).not.toMatch(/activate_skill/);
     expect(readSrc("bot-skill.ts")).toMatch(/SKILL_TOOL_NAME/);

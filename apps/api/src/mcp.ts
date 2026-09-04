@@ -11,7 +11,7 @@ import {
   mcpServerId,
 } from "@groxbot/core";
 import { ORPCError } from "@orpc/server";
-import { getBotThread } from "./bots.js";
+import { getMcpHostBot } from "./bots.js";
 import type { RpcContext } from "./context.js";
 import { requireActor } from "./session.js";
 
@@ -37,7 +37,7 @@ export async function listMcp(context: RpcContext): Promise<McpConnection[]> {
 
 export async function addMcp(
   context: RpcContext,
-  input: { botId: string; name: string; url: string },
+  input: { botId?: string; name: string; url: string },
 ): Promise<McpConnectResult> {
   const actor = await requireActor(context);
   try {
@@ -50,14 +50,11 @@ export async function addMcp(
 
 export async function connectMcp(
   context: RpcContext,
-  input: { id: string; botId: string },
+  input: { id: string; botId?: string },
 ): Promise<McpConnectResult> {
   const actor = await requireActor(context);
   try {
-    const { bot } = await getBotThread(context, actor, input.botId);
-    if (bot.archivedAt) {
-      throw new McpError("Unarchive this teammate before connecting MCP.");
-    }
+    const bot = await getMcpHostBot(context, actor, input.botId);
     if (!context.mcp) {
       throw new McpError("Remote MCP is only available on the Cloudflare API.");
     }

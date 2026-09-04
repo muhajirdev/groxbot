@@ -3,6 +3,7 @@ import { OFFICE_CODE_TOOL_NAME } from "./execute-imports.js";
 import {
   buildOfficeSystemPrompt,
   officeCanReadSkills,
+  officeMcpGuideline,
   OFFICE_SET_CONTEXT_TOOL_NAME,
 } from "./office-system-prompt.js";
 
@@ -43,6 +44,28 @@ describe("buildOfficeSystemPrompt", () => {
     expect(prompt).toMatch(/This turn only has set_context/);
     expect(prompt).toMatch(/ask if they want a role, personality/);
     expect(prompt).toMatch(/Do not write the overlay as chat text/);
+  });
+
+  it("names workspace MCP inside code when the sandbox is on this turn", () => {
+    const prompt = buildOfficeSystemPrompt({
+      identity,
+      tools: [{ name: OFFICE_CODE_TOOL_NAME }],
+      mcp: ["mimpimu"],
+    });
+    expect(prompt).toMatch(/workspace MCP/);
+    expect(prompt).toContain(officeMcpGuideline(["mimpimu"]));
+    expect(prompt).toMatch(/codemode\.describe\("mimpimu"\)/);
+    expect(prompt).not.toMatch(/codemode\.search\("mimpimu"\)/);
+  });
+
+  it("omits workspace MCP on the intro turn", () => {
+    const prompt = buildOfficeSystemPrompt({
+      identity,
+      tools: [{ name: OFFICE_SET_CONTEXT_TOOL_NAME }],
+      mcp: ["mimpimu"],
+    });
+    expect(prompt).not.toMatch(/mimpimu/);
+    expect(prompt).not.toMatch(/workspace MCP/);
   });
 
   it("shows (none) when the catalog is empty", () => {

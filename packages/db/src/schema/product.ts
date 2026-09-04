@@ -375,7 +375,7 @@ export const pluginConnections = pgTable(
   ],
 );
 
-/** Workspace remote MCP catalog. Live OAuth session lives on the host bot’s actor. */
+/** Workspace remote MCP catalog. Live OAuth sits on one home actor; every teammate uses it. */
 export const mcpConnections = pgTable(
   "mcp_connections",
   {

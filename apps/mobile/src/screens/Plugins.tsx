@@ -115,17 +115,17 @@ export function PluginsScreen({ navigation, route }: Props) {
   }
 
   async function addRemoteMcp() {
-    if (!botId) {
-      setError("Open a teammate first, then connect this MCP.");
-      return;
-    }
     const name = mcpName.trim();
     const url = mcpUrl.trim();
     if (!name || !url) return;
     setBusy("mcp-add");
     setError("");
     try {
-      const result = await client.mcp.add({ botId, name, url });
+      const result = await client.mcp.add({
+        ...(botId ? { botId } : {}),
+        name,
+        url,
+      });
       setMcpName("");
       setMcpUrl("");
       setAdvancedOpen(false);

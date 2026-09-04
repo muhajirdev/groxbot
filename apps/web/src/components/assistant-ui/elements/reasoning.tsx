@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
-import { CaretDownIcon } from "@phosphor-icons/react";
+import { ChevronDownIcon } from "@/components/Icons";
 import {
   Collapsible,
   CollapsibleContent,
@@ -202,7 +202,7 @@ function ReasoningTrigger({
         {active ? "Thinking" : "Thought"}
         {durationText}
       </span>
-      <CaretDownIcon
+      <ChevronDownIcon
         data-slot="reasoning-trigger-chevron"
         className={cn(
           "aui-reasoning-trigger-chevron size-3 shrink-0 opacity-50",

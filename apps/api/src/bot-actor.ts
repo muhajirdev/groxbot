@@ -1,8 +1,10 @@
 /** Cloudflare-only. Excluded from `tsc`. Disk is Computer; office chat is Pi over Cap'n Web. */
 import { createAITools } from "@cloudflare/computer/tools";
+import type { McpConnectionLike } from "@cloudflare/codemode";
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import type { WorkersAiBinding } from "@groxbot/adapters/edge";
 import {
+  appendOfficeAssistantText,
   appendOfficeUserText,
   DurableSessionStorage,
   gatewayConfigured,
@@ -22,7 +24,6 @@ import {
   HOSTED_STARTER_MODEL,
   labelForModel,
   OFFICE_INTRO_SOURCE,
-  OFFICE_REVIEW_SOURCE,
   officeUserFromHeaders,
   type Routine,
   stampIncomingOfficeUser,
@@ -45,16 +46,18 @@ import {
   encryptionSecret,
   ensureComputerHome,
   formatRoutinePrompt,
+  isMcpOAuthCallbackPath,
   isoUnixSeconds,
   jsonClone,
   lastOfficeUserIsIntro,
   listComputerEntries,
+  listMcpConnections,
   loadOfficeSkillCatalog,
   MCP_OAUTH_SETTLE_MS,
+  mcpCatalogForExecute,
   mcpCatalogStatusFromLive,
   mcpConnectionIsExecutable,
   mcpServerId,
-  mcpServersForExecute,
   newId,
   OFFICE_GENERATION_STORAGE,
   OFFICE_INTRO_STORAGE,
@@ -65,7 +68,9 @@ import {
   officeCanReadSkills,
   officeIntroTurnTools,
   officeIntroUserText,
+  officeReviewAnnounce,
   officeReviewDue,
+  officeReviewNoteMetadata,
   officeReviewUserText,
   parseOfficeChatMessages,
   parseOfficeReviewCounters,
@@ -104,7 +109,7 @@ import { bots } from "@groxbot/db";
 import { createNeonHttpDb } from "@groxbot/db/neon";
 import { Agent } from "agents";
 import { AgentContextProvider } from "agents/experimental/memory/session";
-import { eq, or } from "drizzle-orm";
+import { eq, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 import { createBotComputer } from "./bot-computer-workspace.js";
 import {
@@ -115,6 +120,7 @@ import { HistoryConnector } from "./bot-history.js";
 import { KnowledgeConnector } from "./bot-knowledge.js";
 import { bindToMarkdown, createPageAgentTools } from "./bot-markdown.js";
 import { WorkspaceMcpConnector } from "./bot-mcp-connector.js";
+import { remoteMcpConnection } from "./bot-mcp.js";
 import {
   type OfficeChatSubscriber,
   officeRpcResponse,
@@ -303,6 +309,11 @@ export class RoomHome extends Agent<WorkerEnv> {
   private officeSession: Session | null = null;
   private officeSeq = 0;
   private tinyfishKeys: TinyfishKeyPool | null = null;
+  private workspaceMcp: Array<{
+    id: string;
+    name: string;
+    hostRoomId: string;
+  }> = [];
 
   async onStart(): Promise<void> {
     const stored = await this.ctx.storage.get<string>("officeId");
@@ -345,9 +356,7 @@ export class RoomHome extends Agent<WorkerEnv> {
       page,
       connectors,
     });
-    const mcp = connectors
-      .filter((row) => row instanceof WorkspaceMcpConnector)
-      .map((row) => row.name());
+    const mcp = this.workspaceMcp.map((row) => row.name);
     const knowledge = this.officeKnowledge();
     const skill =
       knowledge && this.officeId
@@ -378,6 +387,11 @@ export class RoomHome extends Agent<WorkerEnv> {
         ),
       },
     ];
+  }
+
+  private async officeAgentTools(): Promise<AgentTool[]> {
+    await this.ensureWorkspaceMcp();
+    return this.getAgentTools();
   }
 
   /** Worker shell HOST (`WorkspaceServiceProxy`) reaches this DO’s Computer VFS. */
@@ -426,6 +440,15 @@ export class RoomHome extends Agent<WorkerEnv> {
     }
     if (request.method === "POST" && url.pathname === "/workspace/write") {
       return this.handleWorkspaceWrite(request);
+    }
+    if (isMcpOAuthCallbackPath(url.pathname)) {
+      return this.handleMcpOAuth(request);
+    }
+    if (request.method === "POST" && url.pathname === "/mcp/tools") {
+      return this.handleMcpTools(request);
+    }
+    if (request.method === "POST" && url.pathname === "/mcp/call") {
+      return this.handleMcpCall(request);
     }
     if (request.method === "POST" && url.pathname === "/mcp/add") {
       return this.handleMcpAdd(request);
@@ -639,8 +662,8 @@ export class RoomHome extends Agent<WorkerEnv> {
     const bound = await this.officeBound(session);
     const intro = lastOfficeUserIsIntro(bound);
     const tools = intro
-      ? officeIntroTurnTools(this.getAgentTools())
-      : this.getAgentTools();
+      ? officeIntroTurnTools(await this.officeAgentTools())
+      : await this.officeAgentTools();
     const system = await this.officeSystemPrompt(bound, tools);
     try {
       const context = await session.buildContext();
@@ -782,7 +805,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     }
     await this.ensureBotLoaded();
     await this.healComputerFiles();
-    const tools = this.getAgentTools().map((tool) => ({
+    const tools = (await this.officeAgentTools()).map((tool) => ({
       name: tool.name,
       description: tool.description,
       parameters: jsonClone(tool.parameters) ?? { type: "object" },
@@ -802,7 +825,7 @@ export class RoomHome extends Agent<WorkerEnv> {
       toolCallId?: unknown;
     };
     const name = typeof body.name === "string" ? body.name.trim() : "";
-    const tool = this.getAgentTools().find((row) => row.name === name);
+    const tool = (await this.officeAgentTools()).find((row) => row.name === name);
     if (!tool) {
       return Response.json({ error: `Unknown tool ${name}` }, { status: 404 });
     }
@@ -826,7 +849,11 @@ export class RoomHome extends Agent<WorkerEnv> {
     let identity = composeSoul(this.soulPrompt, overlay);
     if (memory.trim()) identity = `${identity}\n\nMemory:\n${memory.trim()}`;
     return this.withOfficeSkills(
-      buildOfficeSystemPrompt({ identity, tools }),
+      buildOfficeSystemPrompt({
+        identity,
+        tools,
+        mcp: this.workspaceMcp.map((row) => row.name),
+      }),
       messages.map((row) => row.message),
       { canReadSkills: officeCanReadSkills(tools) },
     );
@@ -1164,9 +1191,8 @@ export class RoomHome extends Agent<WorkerEnv> {
   }
 
   /**
-   * After enough tool work, the same Pi loop files a playbook if one belongs
-   * in the office. The trigger user is hidden; a real write shows one line
-   * with the path.
+   * After enough tool work, file on an idle snapshot turn. The kick stays off
+   * the office log; a real write shows one Filed line in the thread.
    */
   private enqueueOfficeReview(result: {
     status: string;
@@ -1231,6 +1257,7 @@ export class RoomHome extends Agent<WorkerEnv> {
         reviewBusy: this.reviewBusy || this.reviewQueued,
         hasOfficeKnowledge: true,
         settled: true,
+        idle: this.officeSteer.pending().length === 0,
         counters: dueNow,
       })
     ) {
@@ -1245,32 +1272,100 @@ export class RoomHome extends Agent<WorkerEnv> {
       if (
         this.reviewBusy ||
         !officeReviewDue(counters) ||
-        !this.officeKnowledge()
+        !this.officeKnowledge() ||
+        this.officeSteer.pending().length > 0
       ) {
         return;
       }
-      this.reviewBusy = true;
-      try {
-        await this.ctx.storage.put(
-          OFFICE_REVIEW_STORAGE,
-          emptyOfficeReviewCounters(),
-        );
-        await this.appendOfficeUserAndRun({
-          id: crypto.randomUUID(),
-          content: officeReviewUserText(),
-          metadata: {
-            source: OFFICE_REVIEW_SOURCE,
-            custom: { source: OFFICE_REVIEW_SOURCE },
-          },
-        });
-      } catch (error) {
-        await this.ctx.storage.put(OFFICE_REVIEW_STORAGE, counters);
-        console.error("bot actor office review", this.name, error);
-      } finally {
-        this.reviewBusy = false;
-      }
+      await this.enqueueTurn(() => this.runOfficeReviewTurn(counters));
     } finally {
       this.reviewQueued = false;
+    }
+  }
+
+  /** Snapshot Pi turn. Tools write for real; only a filed line joins the log. */
+  private async runOfficeReviewTurn(
+    counters: ReturnType<typeof parseOfficeReviewCounters>,
+  ): Promise<void> {
+    if (this.reviewBusy || this.officeSteer.pending().length > 0) return;
+    this.reviewBusy = true;
+    const abort = new AbortController();
+    this.officeTurn = abort;
+    try {
+      await this.ctx.storage.put(
+        OFFICE_REVIEW_STORAGE,
+        emptyOfficeReviewCounters(),
+      );
+      await this.ensureBotLoaded();
+      if (abort.signal.aborted) {
+        await this.ctx.storage.put(OFFICE_REVIEW_STORAGE, counters);
+        return;
+      }
+      const streamFn = this.turnStreamFn();
+      if (!streamFn) {
+        await this.ctx.storage.put(OFFICE_REVIEW_STORAGE, counters);
+        return;
+      }
+      const session = await this.ensureOfficeSession();
+      const tools = await this.officeAgentTools();
+      const bound = await this.officeBound(session);
+      const system = await this.officeSystemPrompt(bound, tools);
+      const context = await session.buildContext();
+      const result = await runPiTurn({
+        systemPrompt: system,
+        messages: [
+          ...context.messages,
+          {
+            role: "user",
+            content: officeReviewUserText(),
+            timestamp: Date.now(),
+          },
+        ],
+        model: this.turnPiModel(),
+        streamFn,
+        tools,
+        signal: abort.signal,
+      });
+      if (result.stopReason === "aborted" || abort.signal.aborted) {
+        await this.ctx.storage.put(OFFICE_REVIEW_STORAGE, counters);
+        return;
+      }
+      const note = officeReviewAnnounce(result.text);
+      if (!note) return;
+      const id = crypto.randomUUID();
+      const metadata = officeReviewNoteMetadata();
+      await appendOfficeAssistantText(session, {
+        id,
+        content: note,
+        metadata,
+      });
+      await this.broadcastOfficeEvent({
+        type: "message_end",
+        id,
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: note }],
+          timestamp: Date.now(),
+          stopReason: "stop",
+        },
+        metadata,
+      });
+    } catch (error) {
+      await this.ctx.storage.put(OFFICE_REVIEW_STORAGE, counters);
+      console.error("bot actor office review", this.name, error);
+    } finally {
+      if (this.officeTurn === abort) this.officeTurn = null;
+      this.reviewBusy = false;
+      const leftover = this.officeSteer.takeAll();
+      if (leftover.length) {
+        const session = await this.ensureOfficeSession();
+        for (const row of leftover) {
+          await appendOfficeUserText(session, row);
+        }
+        if (!abort.signal.aborted) {
+          this.ctx.waitUntil(this.enqueueOfficeTurn());
+        }
+      }
     }
   }
 
@@ -1595,21 +1690,216 @@ export class RoomHome extends Agent<WorkerEnv> {
     return connectors;
   }
 
-  private mcpExecuteConnectors(): WorkspaceMcpConnector[] {
-    const servers = this.getMcpServers().servers;
-    const connections = this.mcp.mcpConnections as Record<
-      string,
-      { connectionState?: string; name?: string } | undefined
-    >;
-    return mcpServersForExecute(servers, connections).flatMap(
-      ({ id, name }) => {
-        const connection = this.mcp.mcpConnections[id];
-        if (!connection) return [];
-        return [
-          new WorkspaceMcpConnector(this.ctx, this.env, connection, name),
-        ];
-      },
+  private async ensureWorkspaceMcp(): Promise<void> {
+    await this.ensureBotLoaded();
+    if (!this.officeId) {
+      this.workspaceMcp = [];
+      return;
+    }
+    const env = productEnv(this.env);
+    const { db } = createNeonHttpDb(env.databaseUrl);
+    const catalog = mcpCatalogForExecute(
+      await listMcpConnections(db, this.officeId),
     );
+    const hostIds = [...new Set(catalog.map((row) => row.hostBotId))];
+    const hosts =
+      hostIds.length === 0
+        ? []
+        : await db
+            .select({ id: bots.id, homeRoomId: bots.homeRoomId })
+            .from(bots)
+            .where(inArray(bots.id, hostIds));
+    const homeByBot = new Map(
+      hosts.map((row) => [row.id, row.homeRoomId || row.id]),
+    );
+    const next = catalog.flatMap((row) => {
+      const hostRoomId =
+        homeByBot.get(row.hostBotId) ||
+        (row.hostBotId === this.personId || row.hostBotId === this.name
+          ? this.name
+          : undefined);
+      if (!hostRoomId) return [];
+      return [{ id: row.id, name: row.name, hostRoomId }];
+    });
+    if (next.some((row) => row.hostRoomId === this.name)) {
+      try {
+        await this.mcp.waitForConnections({ timeout: MCP_OAUTH_SETTLE_MS });
+      } catch (error) {
+        console.error("bot actor mcp wait", this.name, error);
+      }
+      for (const row of next) {
+        if (row.hostRoomId !== this.name) continue;
+        const id = mcpServerId(row.id);
+        if (this.mcp.mcpConnections[id]) continue;
+        try {
+          await this.mcp.establishConnection(id);
+        } catch (error) {
+          console.error("bot actor mcp establish", this.name, error);
+        }
+      }
+    }
+    this.workspaceMcp = next;
+  }
+
+  private mcpExecuteConnectors(): WorkspaceMcpConnector[] {
+    return this.workspaceMcp.flatMap((row) => {
+      const hostedHere = row.hostRoomId === this.name;
+      if (hostedHere) {
+        return [
+          new WorkspaceMcpConnector(
+            this.ctx,
+            this.env,
+            this.hostMcpConnectionLike(row.id, row.name),
+            row.name,
+          ),
+        ];
+      }
+      if (!this.officeId) return [];
+      return [
+        new WorkspaceMcpConnector(
+          this.ctx,
+          this.env,
+          remoteMcpConnection(
+            this.env.ROOM_ACTOR,
+            row.hostRoomId,
+            this.officeId,
+            row.id,
+            row.name,
+          ),
+          row.name,
+        ),
+      ];
+    });
+  }
+
+  private hostMcpConnectionLike(
+    serverId: string,
+    name: string,
+  ): McpConnectionLike {
+    return {
+      name,
+      client: {
+        callTool: async (params) => {
+          const live = await this.hostMcpConnection(serverId);
+          if (!live) {
+            throw new Error(`MCP “${name}” is not connected.`);
+          }
+          return live.client.callTool(params);
+        },
+      },
+      fetchTools: async () => {
+        const live = await this.hostMcpConnection(serverId);
+        if (!live) return [];
+        return live.tools?.length ? live.tools : live.fetchTools();
+      },
+    };
+  }
+
+  /**
+   * Worker already routed this to the host actor. Redeem here instead of
+   * Agents `isCallbackRequest`, which 404s when stub.fetch rewrites the host.
+   */
+  private async handleMcpOAuth(request: Request): Promise<Response> {
+    this.ensureMcpOAuthCallback();
+    const result = await this.mcp.handleCallbackRequest(request);
+    if (result.authSuccess) {
+      this.mcp.establishConnection(result.serverId).catch((error) => {
+        console.error("bot actor mcp oauth connect", this.name, error);
+      });
+    }
+    this.broadcastMcpServers();
+    return this.handleOAuthCallbackResponse(result, request);
+  }
+
+  private async hostMcpConnection(serverId: string) {
+    await this.ensureBotLoaded();
+    try {
+      await this.mcp.waitForConnections({ timeout: MCP_OAUTH_SETTLE_MS });
+    } catch (error) {
+      console.error("bot actor mcp wait", this.name, error);
+    }
+    const id = mcpServerId(serverId);
+    const connection = this.mcp.mcpConnections[id];
+    if (!connection) return null;
+    if (!mcpConnectionIsExecutable(connection.connectionState)) {
+      try {
+        await this.mcp.establishConnection(id);
+      } catch (error) {
+        console.error("bot actor mcp establish", this.name, error);
+      }
+    }
+    return this.mcp.mcpConnections[id] ?? connection;
+  }
+
+  private async handleMcpTools(request: Request): Promise<Response> {
+    if (!(await this.requireDoorWorkspace(request))) {
+      return new Response("Forbidden", { status: 403 });
+    }
+    const body = (await request.json().catch(() => ({}))) as {
+      serverId?: unknown;
+    };
+    const serverId = typeof body.serverId === "string" ? body.serverId : "";
+    const connection = await this.hostMcpConnection(serverId);
+    if (!connection) {
+      return Response.json({ error: "MCP is not connected." }, { status: 404 });
+    }
+    try {
+      const tools =
+        connection.tools?.length > 0
+          ? connection.tools
+          : await connection.fetchTools();
+      return Response.json({
+        tools,
+        instructions: connection.instructions ?? null,
+      });
+    } catch (error) {
+      console.error("bot actor mcp tools", this.name, error);
+      return Response.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Could not list MCP tools.",
+        },
+        { status: 400 },
+      );
+    }
+  }
+
+  private async handleMcpCall(request: Request): Promise<Response> {
+    if (!(await this.requireDoorWorkspace(request))) {
+      return new Response("Forbidden", { status: 403 });
+    }
+    const body = (await request.json().catch(() => ({}))) as {
+      serverId?: unknown;
+      name?: unknown;
+      arguments?: unknown;
+    };
+    const serverId = typeof body.serverId === "string" ? body.serverId : "";
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const connection = await this.hostMcpConnection(serverId);
+    if (!connection || !name) {
+      return Response.json({ error: "MCP is not connected." }, { status: 404 });
+    }
+    try {
+      const result = await connection.client.callTool({
+        name,
+        arguments:
+          body.arguments &&
+          typeof body.arguments === "object" &&
+          !Array.isArray(body.arguments)
+            ? (body.arguments as Record<string, unknown>)
+            : {},
+      });
+      return Response.json(result);
+    } catch (error) {
+      console.error("bot actor mcp call", this.name, error);
+      return Response.json(
+        {
+          error:
+            error instanceof Error ? error.message : "MCP tool call failed.",
+        },
+        { status: 400 },
+      );
+    }
   }
 
   private async handleMcpAdd(request: Request): Promise<Response> {

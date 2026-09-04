@@ -1,129 +1,170 @@
 import {
-  CaretDoubleRightIcon,
-  CaretDownIcon,
-  CaretLeftIcon,
-  CaretRightIcon,
-  CaretLineLeftIcon,
-  CaretUpDownIcon,
-  CheckIcon as PhosphorCheck,
-  CopySimpleIcon,
-  DotsThreeIcon,
-  DownloadSimpleIcon,
-  UploadSimpleIcon,
-  FileIcon as PhosphorFile,
-  FolderNotchIcon,
-  FolderNotchOpenIcon,
-  FunnelIcon,
-  GearIcon as PhosphorGear,
-  GithubLogoIcon,
-  GraphIcon as PhosphorGraph,
-  ImageIcon as PhosphorImage,
-  MagnifyingGlassIcon,
-  MicrophoneIcon,
-  MonitorIcon as PhosphorMonitor,
-  BookmarkSimpleIcon,
-  PlugIcon as PhosphorPlug,
-  PlusIcon as PhosphorPlus,
-  BookOpenIcon,
-  SquaresFourIcon as PhosphorSquaresFour,
-  PushPinIcon,
-  SignOutIcon as PhosphorSignOut,
-  NoteIcon,
-  TrayArrowDownIcon,
-  TrashSimpleIcon,
-  UsersThreeIcon,
-  XIcon as PhosphorX,
-} from "@phosphor-icons/react";
+  AlertCircleIcon,
+  ArrowDown01Icon,
+  ArrowLeftToLineIcon,
+  ArrowReloadHorizontalIcon,
+  ArrowRightDoubleIcon,
+  ArrowUp01Icon,
+  ArrowUpDownIcon,
+  Bookmark01Icon,
+  Cancel01Icon,
+  CancelCircleIcon,
+  ChevronDownIcon as ChevronDownGlyph,
+  ChevronLeftIcon as ChevronLeftGlyph,
+  ChevronRightIcon as ChevronRightGlyph,
+  ComputerIcon,
+  Copy01Icon,
+  DashboardSquare01Icon,
+  Delete02Icon,
+  Download01Icon,
+  File01Icon,
+  FileAudioIcon as FileAudioGlyph,
+  FilterIcon as FilterGlyph,
+  Folder01Icon,
+  FolderOpenIcon as FolderOpenGlyph,
+  GithubIcon,
+  HierarchyIcon,
+  Image01Icon,
+  ImageNotFoundIcon,
+  InboxDownloadIcon,
+  KnowledgeIcon as KnowledgeGlyph,
+  Loading03Icon,
+  Logout01Icon,
+  Mic01Icon,
+  MoreHorizontalIcon,
+  Note01Icon,
+  PencilEdit01Icon,
+  PinIcon as PinGlyph,
+  Plug01Icon,
+  PlusSignIcon,
+  SearchIcon as SearchGlyph,
+  Settings01Icon,
+  ShieldAlertIcon,
+  SourceCodeIcon,
+  SquareIcon as SquareGlyph,
+  Tick01Icon,
+  Upload01Icon,
+  UserGroupIcon,
+  Video01Icon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
+import type { SVGProps } from "react";
 import { computerFileKind } from "../lib/computer-preview";
 
-type IconProps = { className?: string };
+export type IconProps = Omit<SVGProps<SVGSVGElement>, "strokeWidth"> & {
+  size?: number | string;
+  strokeWidth?: number;
+};
+
+function Glyph(
+  props: IconProps & {
+    icon: IconSvgElement;
+    altIcon?: IconSvgElement;
+    showAlt?: boolean;
+  },
+) {
+  const { icon, altIcon, showAlt, size = 18, strokeWidth = 1.5, ...rest } =
+    props;
+  return (
+    <HugeiconsIcon
+      icon={icon}
+      altIcon={altIcon}
+      showAlt={showAlt}
+      size={size}
+      color="currentColor"
+      strokeWidth={strokeWidth}
+      aria-hidden
+      {...rest}
+    />
+  );
+}
 
 export function SearchIcon(props: IconProps) {
-  return <MagnifyingGlassIcon className={props.className} />;
+  return <Glyph icon={SearchGlyph} {...props} />;
 }
 
 export function PlusIcon(props: IconProps) {
-  return <PhosphorPlus className={props.className} />;
+  return <Glyph icon={PlusSignIcon} {...props} />;
 }
 
 export function PlugIcon(props: IconProps) {
-  return <PhosphorPlug className={props.className} />;
+  return <Glyph icon={Plug01Icon} {...props} />;
 }
 
 export function KnowledgeIcon(props: IconProps) {
-  return <BookOpenIcon className={props.className} />;
+  return <Glyph icon={KnowledgeGlyph} {...props} />;
 }
 
 export function SkillsIcon(props: IconProps) {
-  return <BookmarkSimpleIcon className={props.className} />;
+  return <Glyph icon={Bookmark01Icon} {...props} />;
 }
 
 export function LiveAppsIcon(props: IconProps) {
-  return <PhosphorSquaresFour className={props.className} />;
+  return <Glyph icon={DashboardSquare01Icon} {...props} />;
 }
 
 export function RoomIcon(props: IconProps) {
-  return <UsersThreeIcon className={props.className} />;
+  return <Glyph icon={UserGroupIcon} {...props} />;
 }
 
 export function GraphIcon(props: IconProps) {
-  return <PhosphorGraph className={props.className} />;
+  return <Glyph icon={HierarchyIcon} {...props} />;
 }
 
 export function MicIcon(props: IconProps) {
-  return <MicrophoneIcon className={props.className} />;
+  return <Glyph icon={Mic01Icon} {...props} />;
 }
 
 export function MonitorIcon(props: IconProps) {
-  return <PhosphorMonitor className={props.className} />;
+  return <Glyph icon={ComputerIcon} {...props} />;
 }
 
 export function CloseIcon(props: IconProps) {
-  return <PhosphorX className={props.className} />;
+  return <Glyph icon={Cancel01Icon} {...props} />;
 }
 
 export function ChevronLeftIcon(props: IconProps) {
-  return <CaretLeftIcon className={props.className} />;
+  return <Glyph icon={ChevronLeftGlyph} {...props} />;
 }
 
 export function ChevronRightIcon(props: IconProps) {
-  return <CaretRightIcon className={props.className} />;
+  return <Glyph icon={ChevronRightGlyph} {...props} />;
 }
 
 export function ChevronDownIcon(props: IconProps) {
-  return <CaretDownIcon className={props.className} />;
+  return <Glyph icon={ChevronDownGlyph} {...props} />;
 }
 
 export function CaretSwapIcon(props: IconProps) {
-  return <CaretUpDownIcon className={props.className} />;
+  return <Glyph icon={ArrowUpDownIcon} {...props} />;
 }
 
 export function CollapseIcon(props: IconProps) {
-  return <CaretLineLeftIcon className={props.className} />;
+  return <Glyph icon={ArrowLeftToLineIcon} {...props} />;
 }
 
 export function FileIcon(props: IconProps) {
-  return <PhosphorFile className={props.className} />;
+  return <Glyph icon={File01Icon} {...props} />;
 }
 
 export function ImageFileIcon(props: IconProps) {
-  return <PhosphorImage className={props.className} />;
+  return <Glyph icon={Image01Icon} {...props} />;
 }
 
 export function MarkdownFileIcon(props: IconProps) {
-  return <NoteIcon className={props.className} />;
+  return <Glyph icon={Note01Icon} {...props} />;
 }
 
 export function FolderIcon(props: IconProps) {
-  return <FolderNotchIcon className={props.className} />;
+  return <Glyph icon={Folder01Icon} {...props} />;
 }
 
 export function FolderOpenIcon(props: IconProps) {
-  return <FolderNotchOpenIcon className={props.className} />;
+  return <Glyph icon={FolderOpenGlyph} {...props} />;
 }
 
 export function ImportIcon(props: IconProps) {
-  return <TrayArrowDownIcon className={props.className} />;
+  return <Glyph icon={InboxDownloadIcon} {...props} />;
 }
 
 export function FileKindIcon(props: { name: string; className?: string }) {
@@ -136,51 +177,114 @@ export function FileKindIcon(props: { name: string; className?: string }) {
 }
 
 export function MoreIcon(props: IconProps) {
-  return <DotsThreeIcon className={props.className} />;
+  return <Glyph icon={MoreHorizontalIcon} {...props} />;
 }
 
 export function CopyIcon(props: IconProps) {
-  return <CopySimpleIcon className={props.className} />;
+  return <Glyph icon={Copy01Icon} {...props} />;
 }
 
 export function DownloadIcon(props: IconProps) {
-  return <DownloadSimpleIcon className={props.className} />;
+  return <Glyph icon={Download01Icon} {...props} />;
 }
 
 export function UploadIcon(props: IconProps) {
-  return <UploadSimpleIcon className={props.className} />;
+  return <Glyph icon={Upload01Icon} {...props} />;
 }
 
 export function PinIcon(props: IconProps & { weight?: "regular" | "fill" }) {
-  return <PushPinIcon className={props.className} weight={props.weight} />;
+  const { weight, ...rest } = props;
+  return (
+    <Glyph
+      icon={PinGlyph}
+      strokeWidth={weight === "fill" ? 2 : 1.5}
+      {...rest}
+    />
+  );
 }
 
 export function TrashIcon(props: IconProps) {
-  return <TrashSimpleIcon className={props.className} />;
+  return <Glyph icon={Delete02Icon} {...props} />;
 }
 
 export function FilterIcon(props: IconProps) {
-  return <FunnelIcon className={props.className} />;
+  return <Glyph icon={FilterGlyph} {...props} />;
 }
 
 export function GearIcon(props: IconProps) {
-  return <PhosphorGear className={props.className} />;
+  return <Glyph icon={Settings01Icon} {...props} />;
 }
 
 export function DoubleChevronIcon(props: IconProps) {
-  return <CaretDoubleRightIcon className={props.className} />;
+  return <Glyph icon={ArrowRightDoubleIcon} {...props} />;
 }
 
 export function CheckIcon(props: IconProps) {
-  return <PhosphorCheck className={props.className} />;
+  return <Glyph icon={Tick01Icon} {...props} />;
 }
 
 export function SignOutIcon(props: IconProps) {
-  return <PhosphorSignOut className={props.className} />;
+  return <Glyph icon={Logout01Icon} {...props} />;
 }
 
 export function GitHubIcon(props: IconProps) {
-  return <GithubLogoIcon className={props.className} />;
+  return <Glyph icon={GithubIcon} {...props} />;
+}
+
+export function ArrowUpIcon(props: IconProps) {
+  return <Glyph icon={ArrowUp01Icon} {...props} />;
+}
+
+export function ArrowDownIcon(props: IconProps) {
+  return <Glyph icon={ArrowDown01Icon} {...props} />;
+}
+
+export function ReloadIcon(props: IconProps) {
+  return <Glyph icon={ArrowReloadHorizontalIcon} {...props} />;
+}
+
+export function PencilIcon(props: IconProps) {
+  return <Glyph icon={PencilEdit01Icon} {...props} />;
+}
+
+export function SquareIcon(props: IconProps) {
+  return <Glyph icon={SquareGlyph} {...props} />;
+}
+
+export function WarningCircleIcon(props: IconProps) {
+  return <Glyph icon={AlertCircleIcon} {...props} />;
+}
+
+export function XCircleIcon(props: IconProps) {
+  return <Glyph icon={CancelCircleIcon} {...props} />;
+}
+
+export function SpinnerIcon(props: IconProps) {
+  return <Glyph icon={Loading03Icon} {...props} />;
+}
+
+export function ImageBrokenIcon(props: IconProps) {
+  return <Glyph icon={ImageNotFoundIcon} {...props} />;
+}
+
+export function ShieldWarningIcon(props: IconProps) {
+  return <Glyph icon={ShieldAlertIcon} {...props} />;
+}
+
+export function FileTextIcon(props: IconProps) {
+  return <Glyph icon={Note01Icon} {...props} />;
+}
+
+export function FileAudioIcon(props: IconProps) {
+  return <Glyph icon={FileAudioGlyph} {...props} />;
+}
+
+export function FileVideoIcon(props: IconProps) {
+  return <Glyph icon={Video01Icon} {...props} />;
+}
+
+export function CodeFileIcon(props: IconProps) {
+  return <Glyph icon={SourceCodeIcon} {...props} />;
 }
 
 export function GoogleIcon(props: IconProps) {

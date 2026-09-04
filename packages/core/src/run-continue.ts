@@ -98,7 +98,7 @@ export const HISTORY_EXECUTE_HINT =
 
 export function mcpExecuteHint(name: string): string {
   const safe = name.trim() || "mcp";
-  return `\`${safe}\` — connected office MCP. \`await codemode.search("${safe}")\` then \`await ${safe}.<method>(args)\`.`;
+  return `\`${safe}\` — connected workspace MCP. \`await ${safe}.<method>(args)\`. \`await codemode.describe("${safe}")\` lists methods. Do not use search to notice it.`;
 }
 
 export function withOfficeExecuteDescription(

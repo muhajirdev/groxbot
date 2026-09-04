@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { officeUserMessageSender } from "@/lib/office-sender";
 import { parseRoomSpeaker } from "@groxbot/core/browser";
+import { isOfficeLearnedMessage } from "@groxbot/contracts";
 import { isVisibleChatMessage } from "@/lib/chat-messages";
 import { isWaitingForAssistantTurn } from "@/lib/thread-waiting";
 import { cn } from "@/lib/utils";
@@ -42,19 +43,19 @@ import {
   useAuiState,
 } from "@assistant-ui/react";
 import {
-  ArrowClockwiseIcon,
   ArrowDownIcon,
   ArrowUpIcon,
-  CaretLeftIcon,
-  CaretRightIcon,
   CheckIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   CopyIcon,
-  DotsThreeIcon,
-  DownloadSimpleIcon,
-  MicrophoneIcon,
-  PencilSimpleIcon,
+  DownloadIcon,
+  MicIcon,
+  MoreIcon,
+  PencilIcon,
+  ReloadIcon,
   SquareIcon,
-} from "@phosphor-icons/react";
+} from "@/components/Icons";
 import {
   createContext,
   useContext,
@@ -308,7 +309,7 @@ const ComposerAction: FC = () => {
       <div className="flex items-center gap-1.5">
         <AuiIf condition={(s) => s.thread.capabilities.dictation}>
           <AuiIf condition={(s) => s.composer.dictation == null}>
-            <ComposerPrimitive.Dictate render={<TooltipIconButton tooltip="Voice input" side="bottom" type="button" variant="ghost" size="icon" className="aui-composer-dictate text-muted-foreground hover:text-foreground size-7 rounded-full" aria-label="Start voice input" />}><MicrophoneIcon className="aui-composer-dictate-icon size-4" /></ComposerPrimitive.Dictate>
+            <ComposerPrimitive.Dictate render={<TooltipIconButton tooltip="Voice input" side="bottom" type="button" variant="ghost" size="icon" className="aui-composer-dictate text-muted-foreground hover:text-foreground size-7 rounded-full" aria-label="Start voice input" />}><MicIcon className="aui-composer-dictate-icon size-4" /></ComposerPrimitive.Dictate>
           </AuiIf>
           <AuiIf condition={(s) => s.composer.dictation != null}>
             <ComposerPrimitive.StopDictation render={<TooltipIconButton tooltip="Stop dictation" side="bottom" type="button" variant="ghost" size="icon" className="aui-composer-stop-dictation text-destructive size-7 rounded-full" aria-label="Stop voice input" />}><SquareIcon className="aui-composer-stop-dictation-icon size-3.5 animate-pulse fill-current" /></ComposerPrimitive.StopDictation>
@@ -365,10 +366,34 @@ const AssistantMessage: FC = () => {
   const speakerName = useAuiState(
     (s) => parseRoomSpeaker(s.message.metadata)?.name ?? "",
   );
+  const learned = useAuiState((s) => isOfficeLearnedMessage(s.message));
 
   const ACTION_BAR_PT = "pt-1.5";
   // Keep the action bar inside the contained root's paint box, then cancel its reserved space in flow.
   const ACTION_BAR_HEIGHT = `min-h-7.5 ${ACTION_BAR_PT}`;
+
+  if (learned) {
+    return (
+      <MessagePrimitive.Root
+        data-slot="office-learned"
+        data-role="assistant"
+        className="fade-in slide-in-from-bottom-1 animate-in relative duration-150"
+      >
+        <div className="office-learned px-2 py-2">
+          <span className="office-learned-kicker">Filed</span>
+          <MessagePrimitive.Parts>
+            {({ part }) =>
+              part.type === "text" ? (
+                <div className="office-learned-body">
+                  <MarkdownText />
+                </div>
+              ) : null
+            }
+          </MessagePrimitive.Parts>
+        </div>
+      </MessagePrimitive.Root>
+    );
+  }
 
   return (
     <MessagePrimitive.Root
@@ -476,16 +501,16 @@ const AssistantActionBar: FC = () => {
                     </AuiIf><AuiIf condition={(s) => !s.message.isCopied}>
                       <CopyIcon className="animate-in zoom-in-75 fade-in duration-150" />
                     </AuiIf></ActionBarPrimitive.Copy>
-      <ActionBarPrimitive.Reload render={<TooltipIconButton tooltip="Refresh" />}><ArrowClockwiseIcon /></ActionBarPrimitive.Reload>
+      <ActionBarPrimitive.Reload render={<TooltipIconButton tooltip="Refresh" />}><ReloadIcon /></ActionBarPrimitive.Reload>
       <ActionBarMorePrimitive.Root>
-        <ActionBarMorePrimitive.Trigger render={<TooltipIconButton tooltip="More" className="data-[state=open]:bg-accent" />}><DotsThreeIcon /></ActionBarMorePrimitive.Trigger>
+        <ActionBarMorePrimitive.Trigger render={<TooltipIconButton tooltip="More" className="data-[state=open]:bg-accent" />}><MoreIcon /></ActionBarMorePrimitive.Trigger>
         <ActionBarMorePrimitive.Content
           side="bottom"
           align="start"
           sideOffset={6}
           className="aui-action-bar-more-content popover-popup z-50 min-w-[8rem] rounded-[10px] border border-line bg-card p-1 text-ink outline-none"
         >
-          <ActionBarPrimitive.ExportMarkdown render={<ActionBarMorePrimitive.Item className="aui-action-bar-more-item flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-ink outline-none select-none data-[highlighted]:bg-hover hover:bg-hover" />}><DownloadSimpleIcon className="size-3.5 text-muted" />Export as Markdown
+          <ActionBarPrimitive.ExportMarkdown render={<ActionBarMorePrimitive.Item className="aui-action-bar-more-item flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-ink outline-none select-none data-[highlighted]:bg-hover hover:bg-hover" />}><DownloadIcon className="size-3.5 text-muted" />Export as Markdown
                               </ActionBarPrimitive.ExportMarkdown>
         </ActionBarMorePrimitive.Content>
       </ActionBarMorePrimitive.Root>
@@ -578,7 +603,7 @@ const UserActionBar: FC = () => {
       autohide="not-last"
       className="aui-user-action-bar-root flex flex-col items-end"
     >
-      <ActionBarPrimitive.Edit render={<TooltipIconButton tooltip="Edit" className="aui-user-action-edit" />}><PencilSimpleIcon /></ActionBarPrimitive.Edit>
+      <ActionBarPrimitive.Edit render={<TooltipIconButton tooltip="Edit" className="aui-user-action-edit" />}><PencilIcon /></ActionBarPrimitive.Edit>
     </ActionBarPrimitive.Root>
   );
 };
@@ -618,11 +643,11 @@ const BranchPicker: FC<BranchPickerPrimitive.Root.Props> = ({
       )}
       {...rest}
     >
-      <BranchPickerPrimitive.Previous render={<TooltipIconButton tooltip="Previous" />}><CaretLeftIcon /></BranchPickerPrimitive.Previous>
+      <BranchPickerPrimitive.Previous render={<TooltipIconButton tooltip="Previous" />}><ChevronLeftIcon /></BranchPickerPrimitive.Previous>
       <span className="aui-branch-picker-state font-medium">
         <BranchPickerPrimitive.Number /> / <BranchPickerPrimitive.Count />
       </span>
-      <BranchPickerPrimitive.Next render={<TooltipIconButton tooltip="Next" />}><CaretRightIcon /></BranchPickerPrimitive.Next>
+      <BranchPickerPrimitive.Next render={<TooltipIconButton tooltip="Next" />}><ChevronRightIcon /></BranchPickerPrimitive.Next>
     </BranchPickerPrimitive.Root>
   );
 };

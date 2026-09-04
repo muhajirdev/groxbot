@@ -168,15 +168,11 @@ export function PluginsModal(props: {
     const name = mcpName.trim();
     const url = mcpUrl.trim();
     if (!name || !url) return;
-    if (!props.botId) {
-      setError("Open a teammate first, then connect this MCP.");
-      return;
-    }
     setError("");
     setBusy("mcp-add");
     try {
       const result = await client.mcp.add({
-        botId: props.botId,
+        ...(props.botId ? { botId: props.botId } : {}),
         name,
         url,
       });
@@ -199,14 +195,13 @@ export function PluginsModal(props: {
   }
 
   async function connectRemoteMcp(id: string) {
-    if (!props.botId) {
-      setError("Open a teammate first, then connect this MCP.");
-      return;
-    }
     setError("");
     setBusy(id);
     try {
-      const result = await client.mcp.connect({ id, botId: props.botId });
+      const result = await client.mcp.connect({
+        id,
+        ...(props.botId ? { botId: props.botId } : {}),
+      });
       mcpCollection.utils.writeUpsert(result.connection);
       if (result.redirectUrl) {
         window.open(
@@ -385,7 +380,6 @@ export function PluginsModal(props: {
                 name={mcpName}
                 url={mcpUrl}
                 busy={busy === "mcp-add"}
-                botId={props.botId}
                 onToggle={() => setAdvancedOpen((open) => !open)}
                 onName={setMcpName}
                 onUrl={setMcpUrl}
@@ -523,7 +517,6 @@ function AdvancedMcpForm(props: {
   name: string;
   url: string;
   busy: boolean;
-  botId?: string;
   onToggle: () => void;
   onName: (value: string) => void;
   onUrl: (value: string) => void;
@@ -571,11 +564,6 @@ function AdvancedMcpForm(props: {
               </button>
             </div>
           </div>
-          {!props.botId ? (
-            <p className="muted m-0 text-xs">
-              Open a teammate to finish connecting.
-            </p>
-          ) : null}
         </form>
       ) : null}
     </section>

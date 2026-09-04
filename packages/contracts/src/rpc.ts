@@ -24,6 +24,7 @@ import {
   MAX_COMPUTER_WRITE_BYTES,
   McpConnectionSchema,
   McpConnectResultSchema,
+  McpProbeResultSchema,
   MemoryDocumentSchema,
   MeSchema,
   MoveBotInput,
@@ -172,18 +173,19 @@ export const appContract = oc.router({
     add: oc
       .input(
         z.object({
-          botId: Id,
+          botId: Id.optional(),
           name: z.string().min(1).max(80),
           url: z.string().min(8).max(500),
         }),
       )
       .output(McpConnectResultSchema),
     connect: oc
-      .input(z.object({ id: Id, botId: Id }))
+      .input(z.object({ id: Id, botId: Id.optional() }))
       .output(McpConnectResultSchema),
     remove: oc
       .input(z.object({ id: Id }))
       .output(z.object({ ok: z.literal(true) })),
+    probe: oc.input(z.object({ id: Id })).output(McpProbeResultSchema),
   },
   routines: {
     list: oc.input(botId).output(z.array(RoutineSchema)),

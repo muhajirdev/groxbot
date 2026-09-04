@@ -139,6 +139,12 @@ describe("office chrome", () => {
     );
   });
 
+  it("paints a filed review as a Filed note, not a chat bubble", () => {
+    expect(threadAui).toMatch(/data-slot="office-learned"/);
+    expect(threadAui).toMatch(/>Filed</);
+    expect(css).toMatch(/\.office-learned-kicker\s*\{[^}]*color:\s*var\(--accent\)/s);
+  });
+
   it("keeps waiting chrome off the message scope", () => {
     const waiting = threadAui.slice(
       threadAui.indexOf('data-slot="aui_assistant-waiting"'),
