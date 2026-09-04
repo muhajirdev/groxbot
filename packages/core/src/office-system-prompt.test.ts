@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { OFFICE_CODE_TOOL_NAME } from "./execute-imports.js";
+import { SKILL_TOOL_NAME } from "./office-skill.js";
 import {
   buildOfficeSystemPrompt,
   officeCanReadSkills,
@@ -32,6 +33,15 @@ describe("buildOfficeSystemPrompt", () => {
     expect(prompt).not.toMatch(/This turn only has set_context/);
   });
 
+  it("tells the teammate /learn authors a skill", () => {
+    const prompt = buildOfficeSystemPrompt({
+      identity,
+      tools: [{ name: SKILL_TOOL_NAME }],
+    });
+    expect(prompt).toMatch(/\/learn a source or workflow authors one/);
+    expect(prompt).toMatch(/\/skill:name loads it for this turn/);
+  });
+
   it("omits a tool that is not in the catalog", () => {
     const prompt = buildOfficeSystemPrompt({
       identity,
@@ -54,8 +64,8 @@ describe("buildOfficeSystemPrompt", () => {
     });
     expect(prompt).toMatch(/workspace MCP/);
     expect(prompt).toContain(officeMcpGuideline(["mimpimu"]));
-    expect(prompt).toMatch(/codemode\.describe\("mimpimu"\)/);
-    expect(prompt).not.toMatch(/codemode\.search\("mimpimu"\)/);
+    expect(prompt).toMatch(/codemode\.describe\("mimpimu\.<method>"\)/);
+    expect(prompt).not.toMatch(/codemode\.describe\("mimpimu"\)/);
   });
 
   it("omits workspace MCP on the intro turn", () => {

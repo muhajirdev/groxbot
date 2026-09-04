@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchOfficeSkills } from "./knowledge-slash";
+import { matchOfficeLearn, matchOfficeSkills } from "./knowledge-slash";
 
 const skills = [
   { name: "weekly-update", description: "Five-bullet Monday." },
@@ -27,5 +27,20 @@ describe("matchOfficeSkills", () => {
 
   it("hides once the composer has more than a slash token", () => {
     expect(matchOfficeSkills("/weekly-update please", skills)).toEqual([]);
+  });
+});
+
+describe("matchOfficeLearn", () => {
+  it("offers /learn on a bare slash and /le", () => {
+    expect(matchOfficeLearn("/")).toBe(true);
+    expect(matchOfficeLearn("/le")).toBe(true);
+    expect(matchOfficeLearn("/learn")).toBe(true);
+  });
+
+  it("hides once a topic or a skill token is underway", () => {
+    expect(matchOfficeLearn("/learn the docs")).toBe(false);
+    expect(matchOfficeLearn("/skill:week")).toBe(false);
+    expect(matchOfficeLearn("/weekly")).toBe(false);
+    expect(matchOfficeLearn("learn")).toBe(false);
   });
 });

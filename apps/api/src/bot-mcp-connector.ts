@@ -23,7 +23,7 @@ export class WorkspaceMcpConnector extends McpConnector {
     const slug = this.name();
     return (
       this.connection.instructions ||
-      `Workspace MCP “${this.serverName}”. Call await ${slug}.<method>(args). Use await codemode.describe("${slug}") for methods — search does not list this connector.`
+      `Workspace MCP “${this.serverName}”. Call await ${slug}.<method>(args). Search, then describe("${slug}.method") — not the whole connector.`
     );
   }
 

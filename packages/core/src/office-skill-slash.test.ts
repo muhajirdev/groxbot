@@ -4,8 +4,10 @@ import {
   applyOfficeSkillsToSystem,
   formatAvailableSkillsXml,
   lastUserText,
+  parseOfficeLearnSlash,
   parseOfficeSkillSlash,
   withForcedSkillContent,
+  withOfficeLearnContent,
   withOfficeSkillCatalog,
 } from "./office-skill-slash.js";
 
@@ -41,6 +43,25 @@ describe("parseOfficeSkillSlash", () => {
     expect(parseOfficeSkillSlash("/")).toBeNull();
     expect(parseOfficeSkillSlash("/skill")).toBeNull();
     expect(parseOfficeSkillSlash("please /agreements")).toBeNull();
+    expect(parseOfficeSkillSlash("/learn the staging deploy")).toBeNull();
+  });
+});
+
+describe("parseOfficeLearnSlash", () => {
+  it("reads /learn and the topic", () => {
+    expect(parseOfficeLearnSlash("/learn")).toEqual({ topic: "" });
+    expect(parseOfficeLearnSlash("/learn https://docs.example.com/api")).toEqual(
+      { topic: "https://docs.example.com/api" },
+    );
+    expect(parseOfficeLearnSlash("/learn how I just deployed staging")).toEqual({
+      topic: "how I just deployed staging",
+    });
+  });
+
+  it("does not steal /learning-plan or ordinary chat", () => {
+    expect(parseOfficeLearnSlash("/learning-plan")).toBeNull();
+    expect(parseOfficeLearnSlash("learn this")).toBeNull();
+    expect(parseOfficeLearnSlash("/skill:learn")).toBeNull();
   });
 });
 
@@ -131,5 +152,27 @@ describe("applyOfficeSkillsToSystem", () => {
       canReadSkills: false,
     });
     expect(next).toBe("You are Reja.");
+  });
+
+  it("injects /learn authoring rules and the topic", () => {
+    const next = applyOfficeSkillsToSystem({
+      system: "You are Reja.",
+      messages: [
+        { role: "user", content: "/learn https://docs.example.com/api" },
+      ],
+      catalog: [skill],
+    });
+    expect(next).toContain("<learn>");
+    expect(next).toContain("Topic: https://docs.example.com/api");
+    expect(next).toContain("Existing skills: agreements");
+    expect(next).toContain("skill_manage");
+    expect(next).toContain("skills/<name>/references/");
+    expect(next).not.toContain("<skill_content");
+  });
+
+  it("asks when /learn has no topic", () => {
+    const next = withOfficeLearnContent("You are Reja.", "", []);
+    expect(next).toContain("Topic: (none — ask what to learn)");
+    expect(next).toContain("Existing skills: (none)");
   });
 });

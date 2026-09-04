@@ -1,7 +1,7 @@
 import { useAui, useAuiState } from "@assistant-ui/react-native";
 import { useQuery } from "@tanstack/react-query";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { matchOfficeSkills, officeSkills } from "../lib/knowledge-tree";
+import { matchOfficeLearn, matchOfficeSkills, officeSkills } from "../lib/knowledge-tree";
 import { orpc } from "../lib/orpc";
 import { colors } from "../theme";
 
@@ -12,13 +12,26 @@ export function OfficeSkillSlash() {
     ...orpc.knowledge.list.queryOptions(),
     enabled: value.trimStart().startsWith("/"),
   });
+  const learn = matchOfficeLearn(value);
   const hits = matchOfficeSkills(
     value,
     officeSkills(listing.data?.entries ?? []),
   ).slice(0, 8);
-  if (hits.length === 0) return null;
+  if (!learn && hits.length === 0) return null;
   return (
     <View style={styles.list} accessibilityRole="list">
+      {learn ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => aui.composer.setText("/learn ")}
+          style={styles.item}
+        >
+          <Text style={styles.name}>/learn</Text>
+          <Text style={styles.desc} numberOfLines={1}>
+            Turn a source or workflow into a skill.
+          </Text>
+        </Pressable>
+      ) : null}
       {hits.map((skill) => (
         <Pressable
           key={skill.name}

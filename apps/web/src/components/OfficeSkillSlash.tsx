@@ -1,6 +1,6 @@
 import { unstable_useComposerInput } from "@assistant-ui/react";
 import { useQuery } from "@tanstack/react-query";
-import { matchOfficeSkills } from "../lib/knowledge-slash";
+import { matchOfficeLearn, matchOfficeSkills } from "../lib/knowledge-slash";
 import { officeSkills } from "../lib/knowledge-tree";
 import { orpc } from "../lib/orpc";
 import { OFFICE_MESSAGES_GC_TIME } from "../lib/office-messages";
@@ -15,17 +15,33 @@ export function OfficeSkillSlash() {
     enabled: value.trimStart().startsWith("/"),
     gcTime: OFFICE_MESSAGES_GC_TIME,
   });
+  const learn = matchOfficeLearn(value);
   const hits = matchOfficeSkills(
     value,
     officeSkills(listing.data?.entries ?? []),
   ).slice(0, MAX_HITS);
-  if (hits.length === 0) return null;
+  if (!learn && hits.length === 0) return null;
   return (
     <ul
       className="skill-slash popover-popup popover-mount rounded-[10px] border border-line bg-card"
       role="listbox"
       aria-label="Office skills"
     >
+      {learn ? (
+        <li>
+          <button
+            className="skill-slash-item"
+            type="button"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => setText("/learn ")}
+          >
+            <span className="skill-slash-name">/learn</span>
+            <span className="skill-slash-desc">
+              Turn a source or workflow into a skill.
+            </span>
+          </button>
+        </li>
+      ) : null}
       {hits.map((skill) => (
         <li key={skill.name}>
           <button

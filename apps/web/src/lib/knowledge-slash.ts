@@ -1,3 +1,13 @@
+export function matchOfficeLearn(query: string): boolean {
+  const trimmed = query.trim();
+  if (!trimmed.startsWith("/")) return false;
+  if (/\s/.test(trimmed.slice(1))) return false;
+  const needle = trimmed.slice(1).toLowerCase();
+  if (!needle || needle === "skill" || needle === "skill:") return true;
+  if (needle.startsWith("skill:")) return false;
+  return "learn".startsWith(needle);
+}
+
 export function matchOfficeSkills(
   query: string,
   skills: readonly { name: string; description: string }[],

@@ -105,8 +105,8 @@ describe("withOfficeExecuteDescription", () => {
       mcp: ["mimpimu"],
     });
     expect(next).toContain(mcpExecuteHint("mimpimu"));
-    expect(next).toMatch(/codemode\.describe\("mimpimu"\)/);
-    expect(next).not.toMatch(/codemode\.search\("mimpimu"\)/);
+    expect(next).toMatch(/codemode\.describe\("mimpimu\.<method>"\)/);
+    expect(next).not.toMatch(/codemode\.describe\("mimpimu"\)/);
     expect(next).not.toMatch(/^- `mimpimu`$/m);
   });
 });

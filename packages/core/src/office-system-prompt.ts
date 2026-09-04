@@ -70,7 +70,7 @@ export const OFFICE_TOOL_PROMPT: Record<string, OfficeToolPromptContribution> = 
     snippet:
       "Create or patch a SKILL.md in the office library at skills/<name>/SKILL.md.",
     guidelines: [
-      "Reusable how-to is a skill. Patch an existing skill before creating one. YAML name + description required. /skill:name loads it for this turn.",
+      "Reusable how-to is a skill. Patch an existing skill before creating one. YAML name + description required. /skill:name loads it for this turn. /learn a source or workflow authors one.",
     ],
   },
   room_list: { snippet: "List papers in this room. Not your computer." },
@@ -113,7 +113,7 @@ export function officeMcpGuideline(names: readonly string[]): string | null {
   if (listed.length === 0) return null;
   const ticks = listed.map((name) => `\`${name}\``).join(", ");
   const first = listed[0]!;
-  return `Workspace MCP inside code: ${ticks}. Call \`await ${first}.<method>(args)\`. Not a top-level tool. Use \`await codemode.describe("${first}")\` for methods — search does not list connector names.`;
+  return `Workspace MCP inside code: ${ticks}. Call \`await ${first}.<method>(args)\`. Not a top-level tool. Search for methods, then \`await codemode.describe("${first}.<method>")\` — do not describe the whole connector.`;
 }
 
 export function buildOfficeSystemPrompt(opts: {

@@ -20,6 +20,8 @@ After ~15 settled UI tool parts, the actor runs an idle snapshot Pi turn (same e
 
 Live turns already get the same rule: file, then a short message with the path. Do not announce a write that did not happen. Do not auto-extract chat into notes.
 
+`/learn` is a user slash, not a second ingest engine. The last user `/learn …` injects authoring rules into the system prompt for that turn. The agent gathers with tools it already has (`fetch_url`, `knowledge.search` / `read`, computer `read`, `history.search`), then `skill_manage` (patch first) and `knowledge.write` under `skills/<name>/references/` for a large source. Re-running `/learn` on the same topic folds into the existing skill.
+
 ## Ranker
 
 | | |

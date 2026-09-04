@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchOfficeSkills, officeSkills } from "./knowledge-tree";
+import { matchOfficeLearn, matchOfficeSkills, officeSkills } from "./knowledge-tree";
 
 describe("officeSkills", () => {
   it("reads SKILL.md playbooks from the library tree", () => {
@@ -24,5 +24,13 @@ describe("matchOfficeSkills", () => {
     expect(matchOfficeSkills("/di", skills)).toEqual(skills);
     expect(matchOfficeSkills("digest", skills)).toEqual([]);
     expect(matchOfficeSkills("/nope", skills)).toEqual([]);
+  });
+});
+
+describe("matchOfficeLearn", () => {
+  it("offers /learn on a bare slash", () => {
+    expect(matchOfficeLearn("/")).toBe(true);
+    expect(matchOfficeLearn("/learn")).toBe(true);
+    expect(matchOfficeLearn("/learn the docs")).toBe(false);
   });
 });
