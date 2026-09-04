@@ -23,6 +23,7 @@ export * from "./plugin-connections.js";
 export * from "./poke.js";
 export * from "./present.js";
 export * from "./routines.js";
+export * from "./rooms.js";
 export * from "./run-continue.js";
 export * from "./run-state.js";
 export * from "./secret-box.js";

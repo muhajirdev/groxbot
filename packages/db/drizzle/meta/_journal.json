@@ -29,6 +29,13 @@
       "when": 1788412878275,
       "tag": "0003_curved_chronomancer",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788500777217,
+      "tag": "0004_funny_solo",
+      "breakpoints": true
     }
   ]
 }

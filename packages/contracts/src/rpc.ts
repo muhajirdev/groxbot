@@ -2,12 +2,13 @@ import { eventIterator, oc } from "@orpc/contract";
 import * as z from "zod";
 import {
   AccountSchema,
+  ActivateWorkspaceInput,
   BotSchema,
   ComputerDownloadSchema,
   ComputerFileSchema,
   ComputerListSchema,
   CreateBotInput,
-  ActivateWorkspaceInput,
+  CreateRoomInput,
   CreateWorkspaceInput,
   GuestConnectSchema,
   GuestStatusSchema,
@@ -28,6 +29,7 @@ import {
   PluginConnectResultSchema,
   PluginStatusSchema,
   PokeThreadSchema,
+  RoomSchema,
   RoutineSchema,
   ToolkitSlug,
   UpdateAccountInput,
@@ -93,6 +95,11 @@ export const appContract = oc.router({
     pin: oc.input(botId).output(BotSchema),
     unpin: oc.input(botId).output(BotSchema),
     delete: oc.input(botId).output(z.object({ ok: z.literal(true) })),
+  },
+  rooms: {
+    list: oc.output(z.array(RoomSchema)),
+    get: oc.input(z.object({ roomId: Id })).output(RoomSchema),
+    create: oc.input(CreateRoomInput).output(RoomSchema),
   },
   threads: {
     subscribe: oc

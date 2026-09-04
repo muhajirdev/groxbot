@@ -56,6 +56,35 @@ export const UpdateBotInput = z.object({
   model: z.string().max(200).optional(),
 });
 
+/** Place, not a person. Transcript lives on RoomActor. */
+export const RoomMemberSchema = z.object({
+  botId: Id,
+  name: z.string(),
+  title: z.string(),
+  avatarColor: z.string(),
+  avatarShape: AvatarShape,
+  archivedAt: z.string().nullable(),
+});
+export type RoomMember = z.infer<typeof RoomMemberSchema>;
+
+export const RoomSchema = z.object({
+  id: Id,
+  workspaceId: Id,
+  name: z.string(),
+  members: z.array(RoomMemberSchema),
+  lastPreview: z.string(),
+  lastAt: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type Room = z.infer<typeof RoomSchema>;
+
+export const CreateRoomInput = z.object({
+  id: Id.max(64).optional(),
+  name: z.string().min(1).max(80),
+  memberBotIds: z.array(Id).min(1).max(32),
+});
+
 /** Sidebar chrome. Identity still lives on the App Durable Object + chat card. */
 export const WorkspaceAppSchema = z.object({
   id: Id,
