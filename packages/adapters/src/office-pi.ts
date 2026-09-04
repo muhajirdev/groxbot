@@ -137,6 +137,10 @@ export function applyOfficeAgentEvent(
   return draft;
 }
 
+function isSettledToolState(state: unknown): boolean {
+  return state === "output-available" || state === "output-error";
+}
+
 function applyAssistantEvent(
   draft: OfficeDraft,
   event: {
@@ -243,7 +247,15 @@ function upsertToolPart(
     ...(input.errorText ? { errorText: input.errorText } : {}),
   };
   if (index >= 0) {
-    parts[index] = { ...parts[index], ...next };
+    const prev = parts[index];
+    if (isSettledToolState(prev?.state) && !isSettledToolState(input.state)) {
+      parts[index] = {
+        ...prev,
+        ...(input.input !== undefined ? { input: input.input } : {}),
+      };
+    } else {
+      parts[index] = { ...prev, ...next };
+    }
   } else {
     parts.push(next);
   }

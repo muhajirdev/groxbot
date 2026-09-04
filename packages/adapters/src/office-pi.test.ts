@@ -106,6 +106,47 @@ describe("applyOfficeAgentEvent", () => {
       ],
     });
   });
+
+  it("does not reopen a finished tool on turn_end", () => {
+    let draft = emptyOfficeDraft("a1");
+    draft = applyOfficeAgentEvent(draft, {
+      type: "tool_execution_start",
+      toolCallId: "call_1",
+      toolName: "list",
+      args: { path: "/workspace" },
+    });
+    draft = applyOfficeAgentEvent(draft, {
+      type: "tool_execution_end",
+      toolCallId: "call_1",
+      toolName: "list",
+      result: { entries: [] },
+      isError: false,
+    });
+    draft = applyOfficeAgentEvent(draft, {
+      type: "turn_end",
+      message: {
+        role: "assistant",
+        content: [
+          {
+            type: "toolCall",
+            id: "call_1",
+            name: "list",
+            arguments: { path: "/workspace" },
+          },
+        ],
+      },
+    } as unknown as AgentEvent);
+    expect(officeDraftMessage(draft).parts).toEqual([
+      {
+        type: "tool-list",
+        toolCallId: "call_1",
+        toolName: "list",
+        state: "output-available",
+        input: { path: "/workspace" },
+        output: { entries: [] },
+      },
+    ]);
+  });
 });
 
 describe("Worker barrel", () => {
