@@ -117,6 +117,7 @@ describe("Computer Worker shell wiring", () => {
     expect(wrangler).not.toMatch(/"deleted_classes"/);
     expect(wrangler).not.toMatch(/"experimental"/);
     expect(readSrc("worker.ts")).toMatch(/RoomActor as BotActor/);
+    expect(readSrc("worker.ts")).toMatch(/probeBotMcp/);
   });
 
   it("does not depend on @cloudflare/shell", () => {

@@ -1,4 +1,4 @@
-import type { PluginConnection } from "@groxbot/contracts";
+import type { McpProbeResult, PluginConnection } from "@groxbot/contracts";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as WebBrowser from "expo-web-browser";
@@ -37,6 +37,7 @@ export function PluginsScreen({ navigation, route }: Props) {
   const [mcpName, setMcpName] = useState("");
   const [mcpUrl, setMcpUrl] = useState("");
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [probes, setProbes] = useState<Record<string, McpProbeResult>>({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -191,17 +192,55 @@ export function PluginsScreen({ navigation, route }: Props) {
                 {mcpHostLabel(row.url)}
                 {row.status === "connected" ? " · Connected" : ""}
               </Text>
-              <Button
-                label="Remove"
-                tone="danger"
-                onPress={() => {
-                  void client.mcp.remove({ id: row.id }).then(() =>
-                    queryClient.invalidateQueries({
-                      queryKey: orpc.mcp.list.key(),
-                    }),
-                  );
-                }}
-              />
+              {probes[row.id] ? (
+                <Text
+                  style={probes[row.id]?.ok ? styles.meta : styles.error}
+                >
+                  {probes[row.id]?.ok
+                    ? probes[row.id]!.tools.length
+                      ? `${probes[row.id]!.tools.length} tools`
+                      : "Live, no tools yet"
+                    : probes[row.id]?.error}
+                </Text>
+              ) : null}
+              <View style={styles.row}>
+                {row.status === "connected" ? (
+                  <Button
+                    label={busy === `probe:${row.id}` ? "Testing…" : "Test"}
+                    tone="ghost"
+                    busy={busy === `probe:${row.id}`}
+                    onPress={() => {
+                      setError("");
+                      setBusy(`probe:${row.id}`);
+                      void client.mcp
+                        .probe({ id: row.id })
+                        .then((result) => {
+                          setProbes((prev) => ({ ...prev, [row.id]: result }));
+                        })
+                        .catch((caught) => {
+                          setError(userFacingError(caught, "Could not test MCP"));
+                        })
+                        .finally(() => setBusy(null));
+                    }}
+                  />
+                ) : null}
+                <Button
+                  label="Remove"
+                  tone="danger"
+                  onPress={() => {
+                    void client.mcp.remove({ id: row.id }).then(() => {
+                      setProbes((prev) => {
+                        const next = { ...prev };
+                        delete next[row.id];
+                        return next;
+                      });
+                      return queryClient.invalidateQueries({
+                        queryKey: orpc.mcp.list.key(),
+                      });
+                    });
+                  }}
+                />
+              </View>
             </View>
           ))
         : null}

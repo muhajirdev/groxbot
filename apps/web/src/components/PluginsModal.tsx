@@ -1,4 +1,4 @@
-import type { McpConnection, PluginConnection } from "@groxbot/contracts";
+import type { McpConnection, McpProbeResult, PluginConnection } from "@groxbot/contracts";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -10,6 +10,7 @@ import {
   groupVisiblePlugins,
   matchesMcpQuery,
   mcpHostLabel,
+  mcpProbeSummary,
   pluginGridColumns,
   pluginListRows,
   type PluginTab,
@@ -43,6 +44,7 @@ export function PluginsModal(props: {
   const [mcpName, setMcpName] = useState("");
   const [mcpUrl, setMcpUrl] = useState("");
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [probes, setProbes] = useState<Record<string, McpProbeResult>>({});
   const listRef = useRef<HTMLDivElement>(null);
   const [columns, setColumns] = useState(3);
   const connectionsQuery = useLiveQuery((q) =>
@@ -223,8 +225,27 @@ export function PluginsModal(props: {
     try {
       await client.mcp.remove({ id });
       mcpCollection.utils.writeDelete([id]);
+      setProbes((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
     } catch (caught) {
       setError(userFacingError(caught, "Could not remove MCP"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function probeRemoteMcp(id: string) {
+    setError("");
+    setBusy(`probe:${id}`);
+    try {
+      const result = await client.mcp.probe({ id });
+      setProbes((prev) => ({ ...prev, [id]: result }));
+      void mcpCollection.utils.refetch();
+    } catch (caught) {
+      setError(userFacingError(caught, "Could not test MCP"));
     } finally {
       setBusy(null);
     }
@@ -366,8 +387,11 @@ export function PluginsModal(props: {
                     <McpServerCard
                       key={row.id}
                       row={row}
+                      probe={probes[row.id]}
                       busy={busy === row.id}
+                      probing={busy === `probe:${row.id}`}
                       onConnect={() => void connectRemoteMcp(row.id)}
+                      onProbe={() => void probeRemoteMcp(row.id)}
                       onRemove={() => void removeRemoteMcp(row.id)}
                     />
                   ))}
@@ -462,32 +486,52 @@ function PluginToolkitCard(props: {
 
 function McpServerCard(props: {
   row: McpConnection;
+  probe?: McpProbeResult;
   busy: boolean;
+  probing: boolean;
   onConnect: () => void;
+  onProbe: () => void;
   onRemove: () => void;
 }) {
   const live = props.row.status === "connected";
   const host = mcpHostLabel(props.row.url);
-  const detail =
-    props.row.status === "error" && props.row.lastError
+  const detail = props.probe
+    ? mcpProbeSummary(props.probe, host)
+    : props.row.status === "error" && props.row.lastError
       ? props.row.lastError
       : host;
   return (
-    <article className="flex items-center justify-between gap-2.5 rounded-[14px] bg-card-2 p-3">
-      <div className="flex min-w-0 items-center gap-2.5">
+    <article className="flex items-start justify-between gap-2.5 rounded-[14px] bg-card-2 p-3">
+      <div className="flex min-w-0 items-start gap-2.5">
         <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-hover text-ink">
           <PlugIcon className="size-5" />
         </span>
         <div className="min-w-0">
           <strong className="mb-0.5 block truncate">{props.row.name}</strong>
-          <p className="muted m-0 truncate text-xs" title={props.row.url}>
+          <p
+            className={cn(
+              "m-0 text-xs",
+              props.probe && !props.probe.ok ? "text-danger" : "muted truncate",
+            )}
+            title={props.row.url}
+          >
             {detail}
           </p>
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1">
         {live ? (
-          <span className="ok">Connected</span>
+          <>
+            <span className="ok">Connected</span>
+            <button
+              className="mini"
+              type="button"
+              disabled={props.busy || props.probing}
+              onClick={props.onProbe}
+            >
+              {props.probing ? "Testing…" : "Test"}
+            </button>
+          </>
         ) : (
           <button
             className="mini"
@@ -502,7 +546,7 @@ function McpServerCard(props: {
           className="icon-btn"
           type="button"
           aria-label={`Remove ${props.row.name}`}
-          disabled={props.busy}
+          disabled={props.busy || props.probing}
           onClick={props.onRemove}
         >
           <TrashIcon />

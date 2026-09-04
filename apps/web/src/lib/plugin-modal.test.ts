@@ -4,6 +4,8 @@ import {
   groupVisiblePlugins,
   matchesMcpQuery,
   mcpHostLabel,
+  mcpNeedsReconnect,
+  mcpProbeSummary,
   pluginGridColumns,
   pluginListRows,
   visiblePluginCards,
@@ -131,5 +133,45 @@ describe("mcp display", () => {
     expect(matchesMcpQuery("linear", "https://mimpi.mu/api/mcp", "hub")).toBe(
       false,
     );
+  });
+
+  it("summarizes a live MCP probe for the Installed card", () => {
+    expect(
+      mcpProbeSummary(
+        { ok: true, tools: ["list_dreams", "get_user"], error: null },
+        "mimpi.mu",
+      ),
+    ).toBe("2 tools · list_dreams, get_user");
+    expect(
+      mcpProbeSummary({ ok: true, tools: [], error: null }, "mimpi.mu"),
+    ).toBe("mimpi.mu · live, no tools yet");
+    expect(
+      mcpProbeSummary(
+        {
+          ok: false,
+          tools: [],
+          error: "Catalog says connected, but the live client is not answering.",
+        },
+        "mimpi.mu",
+      ),
+    ).toBe("Catalog says connected, but the live client is not answering.");
+  });
+
+  it("reconnects when the catalog is green but the host is gone", () => {
+    expect(
+      mcpNeedsReconnect({ status: "connected", hostBotId: null }),
+    ).toBe(true);
+    expect(
+      mcpNeedsReconnect(
+        { status: "connected", hostBotId: "bot-1" },
+        { ok: false },
+      ),
+    ).toBe(true);
+    expect(
+      mcpNeedsReconnect(
+        { status: "connected", hostBotId: "bot-1" },
+        { ok: true },
+      ),
+    ).toBe(false);
   });
 });

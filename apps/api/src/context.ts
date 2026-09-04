@@ -70,7 +70,7 @@ export interface RpcContext {
       botId: string,
       workspaceId: string,
       serverId: string,
-    ): Promise<{ tools?: unknown[] }>;
+    ): Promise<unknown[]>;
   };
   /** Wipe this bot’s Durable Object. Optional in local tests. */
   forgetBot?: (botId: string) => Promise<void>;

@@ -96,6 +96,9 @@ describe("oRPC", () => {
     await expect(client.mcp.list()).rejects.toMatchObject({
       code: "UNAUTHORIZED",
     });
+    await expect(client.mcp.probe({ id: "mcp_1" })).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
   });
 
   it("reports whether Composio is configured", () => {

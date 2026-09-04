@@ -15,7 +15,7 @@ import {
 import { ORPCError } from "@orpc/server";
 import { getMcpHostBot } from "./bots.js";
 import type { RpcContext } from "./context.js";
-import { requireActor } from "./session.js";
+import { requireActor, type Actor } from "./session.js";
 
 function mapMcpError(error: unknown): never {
   if (error instanceof McpError) {
@@ -30,6 +30,17 @@ function mapMcpError(error: unknown): never {
 
 function callbackHost(env: RpcContext["env"]): string {
   return (env.apiUrl ?? env.webOrigin).replace(/\/$/, "");
+}
+
+async function ensureMcpHost(
+  context: RpcContext,
+  actor: Actor,
+  row: McpConnection,
+): Promise<string> {
+  if (row.hostBotId) return row.hostBotId;
+  const bot = await getMcpHostBot(context, actor);
+  await saveMcpConnection(context.db, row.id, { hostBotId: bot.id });
+  return bot.id;
 }
 
 export async function listMcp(context: RpcContext): Promise<McpConnection[]> {
@@ -130,31 +141,29 @@ export async function probeMcp(
   id: string,
 ): Promise<McpProbeResult> {
   const actor = await requireActor(context);
-  const row = await getMcpConnection(context.db, actor.workspaceId, id);
-  if (!row) {
-    throw new ORPCError("NOT_FOUND", {
-      message: "Add the MCP server first.",
-    });
-  }
-  if (!row.hostBotId) {
-    return {
-      ok: false,
-      tools: [],
-      error: "Connect this server first.",
-    };
-  }
-  if (!context.mcp?.probe) {
-    throw new McpError("Remote MCP is only available on the Cloudflare API.");
-  }
   try {
-    const tools = await context.mcp.probe(
-      row.hostBotId,
-      actor.workspaceId,
-      row.id,
-    );
-    return { ok: true, tools: mcpToolNames(tools), error: null };
+    const row = await getMcpConnection(context.db, actor.workspaceId, id);
+    if (!row) {
+      throw new ORPCError("NOT_FOUND", {
+        message: "Add the MCP server first.",
+      });
+    }
+    if (!context.mcp?.probe) {
+      throw new McpError("Remote MCP is only available on the Cloudflare API.");
+    }
+    const hostBotId = await ensureMcpHost(context, actor, row);
+    try {
+      const tools = await context.mcp.probe(
+        hostBotId,
+        actor.workspaceId,
+        row.id,
+      );
+      return { ok: true, tools: mcpToolNames(tools), error: null };
+    } catch (error) {
+      return { ok: false, tools: [], error: mcpProbeError(error) };
+    }
   } catch (error) {
-    return { ok: false, tools: [], error: mcpProbeError(error) };
+    mapMcpError(error);
   }
 }
 

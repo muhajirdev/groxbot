@@ -72,6 +72,26 @@ export function mcpHostLabel(url: string): string {
   }
 }
 
+export function mcpProbeSummary(
+  probe: { ok: boolean; tools: readonly string[]; error: string | null },
+  fallback: string,
+): string {
+  if (!probe.ok) return probe.error?.trim() || "Not answering";
+  if (probe.tools.length === 0) return `${fallback} · live, no tools yet`;
+  const shown = probe.tools.slice(0, 3).join(", ");
+  const more = probe.tools.length > 3 ? ` +${probe.tools.length - 3}` : "";
+  const noun = probe.tools.length === 1 ? "tool" : "tools";
+  return `${probe.tools.length} ${noun} · ${shown}${more}`;
+}
+
+export function mcpNeedsReconnect(
+  row: { status: string; hostBotId: string | null },
+  probe?: { ok: boolean } | null,
+): boolean {
+  if (row.status !== "connected") return false;
+  return !row.hostBotId || probe?.ok === false;
+}
+
 export function pluginGridColumns(
   width: number,
   minCard = 200,
