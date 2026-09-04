@@ -9,6 +9,7 @@ import { iso } from "./threads.js";
 
 export const ROOM_KIND_HOME = "home";
 export const ROOM_KIND_BOARD = "board";
+export const ROOM_TURN_JOB = "room.turn";
 
 export class RoomError extends Error {
   constructor(message: string) {
