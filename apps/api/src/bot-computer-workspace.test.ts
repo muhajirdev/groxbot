@@ -15,6 +15,15 @@ describe("Computer Worker shell wiring", () => {
     expect(computerWorkerShell().defaultBackend).toBe("worker-shell");
   });
 
+  it("derives person vs group from homeRoomId, not rooms.kind", () => {
+    const home = readSrc("bot-actor.ts");
+    const room = readSrc("room-actor.ts");
+    expect(home).toMatch(/isPersonRoom/);
+    expect(room).not.toMatch(/parseRoomKind/);
+    expect(room).not.toMatch(/storage\.put\("kind"/);
+    expect(room).toMatch(/enqueueOnActor\(this\.env\.ROOM_ACTOR, homeRoomId/);
+  });
+
   it("constructs Computer with WorkerShellBackend, not Think bash", () => {
     const actor = readSrc("bot-actor.ts");
     const factory = readSrc("bot-computer-workspace.ts");

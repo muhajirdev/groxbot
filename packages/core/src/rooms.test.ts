@@ -107,9 +107,9 @@ describe("roomWakeJob", () => {
 
 describe("isListedGroupRoom", () => {
   it("hides rooms that are someone’s homeRoomId", () => {
-    expect(isListedGroupRoom("home-steve", ["home-steve", "home-hormozi"])).toBe(
-      false,
-    );
+    expect(
+      isListedGroupRoom("home-steve", ["home-steve", "home-hormozi"]),
+    ).toBe(false);
     expect(isListedGroupRoom("standup", ["home-steve", "home-hormozi"])).toBe(
       true,
     );
