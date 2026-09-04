@@ -36,8 +36,8 @@ export function Landing(props: { startUrl: string }) {
           </h1>
           <p className="lede hero-tagline">{TAGLINE}.</p>
           <p className="thesis">
-            Like Grok Bot, for the whole team. If OpenClaw is for your personal
-            use, Groxbot is for the office.
+            Like Grok Bot, for the whole team. If OpenClaw or Hermes is for your
+            personal use, Groxbot is for the office.
           </p>
           <div className="row">
             <a className="btn lg" href={props.startUrl}>
@@ -70,7 +70,8 @@ export function Landing(props: { startUrl: string }) {
         </section>
 
         <section className="band versus-band" aria-label="Where Groxbot sits">
-          <h2>Solo is a laptop. Together is the office.</h2>
+          <p className="kicker">If you already know these</p>
+          <h2>OpenClaw, Hermes, and Grok Bot.</h2>
           <div className="versus">
             {COMPARE.map((item) => (
               <article
@@ -107,8 +108,9 @@ export function Landing(props: { startUrl: string }) {
         <section className="chapter">
           <h2>The whole team sits in the same office.</h2>
           <p className="lede">
-            OpenClaw is one person and a laptop. Groxbot is named teammates, each
-            with a computer, and a thread anyone on the team can open.
+            OpenClaw or Hermes is one person and a laptop. Groxbot is named
+            teammates, each with a computer, and a thread anyone on the team can
+            open.
           </p>
         </section>
 

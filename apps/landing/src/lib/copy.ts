@@ -118,7 +118,7 @@ export function demoLogo(slug: string): string {
 
 export const COMPARE = [
   {
-    name: "OpenClaw",
+    name: "OpenClaw / Hermes",
     kicker: "Personal",
     line: "An agent on your machine. Capable, and yours alone.",
     ours: false,
@@ -145,6 +145,10 @@ export const FAQS = [
   {
     q: "How is this different from OpenClaw?",
     a: "OpenClaw is a personal agent on your machine. Groxbot is the office: named teammates, each with a computer, Postgres for team data, and a messaging UI the whole company can sit in.",
+  },
+  {
+    q: "How is this different from Hermes?",
+    a: "Hermes is a personal agent on your machine, like OpenClaw. Groxbot is the office. Hermes can dial out as a guest runtime if you turn that on — off by default.",
   },
   {
     q: "Do I need a workflow builder?",
