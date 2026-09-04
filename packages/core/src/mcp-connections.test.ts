@@ -230,4 +230,27 @@ describe("mcp connections", () => {
       lastError: "Authentication failed",
     });
   });
+
+  it("lists MCP tool names from a live tools payload", () => {
+    expect(
+      mcpToolNames([
+        { name: "list_dreams" },
+        { name: "  " },
+        { description: "no name" },
+        "skip",
+      ]),
+    ).toEqual(["list_dreams"]);
+  });
+
+  it("explains a catalog-only MCP that is not answering", () => {
+    expect(mcpProbeError(new Error("MCP is not connected."))).toBe(
+      "Catalog says connected, but the live client is not answering.",
+    );
+    expect(mcpProbeError(new Error("mcp 404"))).toBe(
+      "Catalog says connected, but the live client is not answering.",
+    );
+    expect(mcpProbeError(new Error("upstream timeout"))).toBe(
+      "upstream timeout",
+    );
+  });
 });

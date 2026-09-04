@@ -32,6 +32,22 @@ export async function removeBotMcp(
   await callBotMcp(actors, botId, "/mcp/remove", { serverId });
 }
 
+export async function probeBotMcp(
+  actors: ActorBinding,
+  hostRoomId: string,
+  workspaceId: string,
+  serverId: string,
+): Promise<unknown[]> {
+  const payload = await callHostMcp<{ tools?: unknown[] }>(
+    actors,
+    hostRoomId,
+    workspaceId,
+    "/mcp/tools",
+    { serverId },
+  );
+  return Array.isArray(payload.tools) ? payload.tools : [];
+}
+
 export async function oauthBotMcp(
   actors: ActorBinding,
   botId: string,

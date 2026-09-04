@@ -1,4 +1,4 @@
-import type { McpConnection, McpConnectResult } from "@groxbot/contracts";
+import type { McpConnection, McpConnectResult, McpProbeResult } from "@groxbot/contracts";
 import {
   addMcpConnection,
   getMcpConnection,
@@ -6,6 +6,8 @@ import {
   listMcpConnections,
   McpError,
   mcpOauthServerId,
+  mcpProbeError,
+  mcpToolNames,
   removeMcpConnection,
   saveMcpConnection,
   mcpServerId,
