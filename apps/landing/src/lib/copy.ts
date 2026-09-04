@@ -132,7 +132,7 @@ export const COMPARE = [
   {
     name: "Groxbot",
     kicker: "The office",
-    line: "The same idea, for the team. Shared knowledge. Source on GitHub.",
+    line: "Named teammates. Shared knowledge. Source on GitHub.",
     ours: true,
   },
 ] as const;
@@ -202,19 +202,26 @@ export const THESES = [
     id: "together",
     kicker: "Together",
     title: "AI is better together.",
-    lede: "OpenClaw or Hermes is one person and a laptop. Groxbot is named teammates, each with a computer, and a thread anyone on the team can open.",
+    lede: "OpenClaw or Hermes: one person, one laptop. Groxbot: named teammates, one office.",
   },
   {
     id: "adopt",
     kicker: "Adoption",
     title: "The best way to get your team to adopt AI is to track it.",
-    lede: "A personal agent hides on a laptop. Who is putting Bots to work is on the board. That’s how the rest of the team starts.",
+    lede: "A personal agent hides. Put Bots on the board. That’s how the rest of the team starts.",
   },
   {
     id: "knowledge",
     kicker: "Knowledge",
     title: "The company’s knowledge base should evolve from group chats.",
-    lede: "What you decide in a thread is filed into shared office knowledge — how we work, voice, constraints. Skills live with the workspace, not in one chat. The organization improves; you do not re-explain it every Monday.",
+    lede: "File what lasts from the thread. Skills live with the office, not one chat. Monday doesn’t start from zero.",
+  },
+  {
+    id: "phone",
+    kicker: "Phone",
+    title: "You should be able to work from your phone.",
+    lede: "Shut the laptop. The computer stays in the cloud. The thread is still yours.",
+    why: "Ideas come anytime, anywhere. Execution is no longer the bottleneck — agents do the work. What matters now is good decisions and good ideas.",
   },
 ] as const;
 

@@ -825,7 +825,8 @@ img.avatar {
 #enterprise,
 #together,
 #adopt,
-#knowledge {
+#knowledge,
+#phone {
   scroll-margin-top: 72px;
 }
 
@@ -850,6 +851,25 @@ img.avatar {
 .thesis-section > .lede {
   max-width: 36rem;
   margin-bottom: 28px;
+}
+
+.thesis-proof {
+  margin: 0 0 32px;
+  padding: 28px 20px 18px;
+  background: #141414;
+  border-radius: 24px;
+}
+
+.thesis-section > .kicker.why {
+  margin-bottom: 8px;
+}
+
+.thesis-why {
+  max-width: 36rem;
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--ink) 88%, var(--muted));
 }
 
 .models-line {

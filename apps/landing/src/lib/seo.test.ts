@@ -163,11 +163,15 @@ describe("llms discovery", () => {
       "together",
       "adopt",
       "knowledge",
+      "phone",
     ]);
     expect(THESES.map((item) => item.title)).toEqual([
       "AI is better together.",
       "The best way to get your team to adopt AI is to track it.",
       "The company’s knowledge base should evolve from group chats.",
+      "You should be able to work from your phone.",
     ]);
+    expect(THESES[3]?.why).toMatch(/anytime, anywhere/);
+    expect(THESES[3]?.why).toMatch(/good decisions and good ideas/);
   });
 });
