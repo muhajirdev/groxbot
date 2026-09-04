@@ -66,6 +66,6 @@ Poke (pair thread in Postgres) stays as agent-to-agent off to the side. A panel 
 
 ## v1
 
-Still one home office per bot. Do not ship `RoomActor` until 1:1 + computer work. When we do: `rooms.create` + members + `send({ roomId, text, targetBotId? })`, UI keyed on `roomId`, computer keyed on `botId`.
+Still one home office per bot. Board UI is `/$workspaceSlug/room/$roomId`. Computer pane is `focusedBotId` (search `bot`). `rooms.create` + members; send is Cap’n Web `/rooms/:roomId/rpc`. The place (`RoomActor`) never runs the model; it enqueues `room.turn` on the named `BotActor`.
 
 Scripted tests: `poke Lookout: …` still covers pair wake. Group tests send to a room and assert which `botId`s ran.

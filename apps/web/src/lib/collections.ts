@@ -1,4 +1,10 @@
-import type { Bot, McpConnection, PluginConnection, WorkspaceApp } from "@groxbot/contracts";
+import type {
+  Bot,
+  McpConnection,
+  PluginConnection,
+  Room,
+  WorkspaceApp,
+} from "@groxbot/contracts";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
 import {
   createCollection,
@@ -6,8 +12,9 @@ import {
 } from "@tanstack/react-db";
 import { overlayBotList } from "./bot-preview";
 import { orpc, queryClient } from "./orpc";
+import { clearRoomMessages, overlayRoomList } from "./room-messages";
 import { client } from "./rpc";
-import { THINK_MESSAGES_GC_TIME, clearThinkMessages } from "./think-messages";
+import { clearThinkMessages, THINK_MESSAGES_GC_TIME } from "./think-messages";
 import { clearPersistedThinkCache } from "./think-persist";
 import { clearCachedWorkspace } from "./workspace-switcher";
 
@@ -43,6 +50,24 @@ export const botsCollection = createCollection(
 
 export function peekBots(): Bot[] {
   return [...botsCollection.values()];
+}
+
+export const roomsCollection = createCollection(
+  queryCollectionOptions<Room>({
+    id: "rooms",
+    queryClient,
+    queryKey: orpc.rooms.list.queryOptions().queryKey,
+    queryFn: async () => overlayRoomList(await client.rooms.list()),
+    getKey: (room) => room.id,
+    staleTime: 30_000,
+    gcTime: THINK_MESSAGES_GC_TIME,
+    retry: false,
+    refetchOnWindowFocus: false,
+  }),
+);
+
+export function peekRooms(): Room[] {
+  return [...roomsCollection.values()];
 }
 
 export const appsCollection = createCollection(
@@ -91,6 +116,10 @@ export function upsertBot(bot: Bot): void {
   botsCollection.utils.writeUpsert(bot);
 }
 
+export function upsertRoom(room: Room): void {
+  roomsCollection.utils.writeUpsert(room);
+}
+
 function dropSyncedKeys<TKey extends string | number>(collection: {
   keys(): IterableIterator<TKey>;
   utils: { writeDelete: (keys: TKey | TKey[]) => void };
@@ -124,11 +153,13 @@ export function patchBot(id: string, patch: Partial<Omit<Bot, "id">>): void {
 
 export function clearThreadStore(): void {
   clearThinkMessages();
+  clearRoomMessages();
   clearCachedWorkspace();
   void clearPersistedThinkCache();
   const metaKeys = [...threadMetaCollection.keys()];
   if (metaKeys.length > 0) threadMetaCollection.delete(metaKeys);
   dropSyncedKeys(botsCollection);
+  dropSyncedKeys(roomsCollection);
   dropSyncedKeys(appsCollection);
   dropSyncedKeys(pluginsCollection);
   dropSyncedKeys(mcpCollection);

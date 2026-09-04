@@ -27,9 +27,12 @@ describe("officeSearch", () => {
     });
   });
 
-  it("drops unknown panes", () => {
-    expect(officeSearch({ pane: "nope" })).toEqual({});
-    expect(officeSearch(undefined)).toEqual({});
+  it("keeps a focused teammate on room desks", () => {
+    expect(officeSearch({ bot: "steve" })).toEqual({ bot: "steve" });
+    expect(officeSearch({ pane: "computer", bot: "steve" })).toEqual({
+      pane: "computer",
+      bot: "steve",
+    });
   });
 
   it("reuses the same object for closed / settings / computer", () => {

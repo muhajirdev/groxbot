@@ -10,6 +10,7 @@ Source of truth is never the browser:
 |---|---|
 | Team, bots, members, models | Postgres |
 | Office chat | DO SQLite `office_chat` on `BotActor`, streamed over Cap’n Web |
+| Board / room chat | DO SQLite `room_chat` on `RoomActor`, streamed over Cap’n Web |
 | This bot’s files | `@cloudflare/computer` `Workspace` on `BotActor` |
 | Office knowledge | R2 `{workspaceId}/…` |
 
@@ -29,7 +30,7 @@ IndexedDB  groxbot-query-cache   (idb-keyval, throttle 1s)
 QueryClient  apps/web/src/lib/orpc.ts
      ▲  same queryKey
 TanStack DB  apps/web/src/lib/collections.ts
-     │  query collections: bots, apps, plugins, mcp
+     │  query collections: bots, rooms, apps, plugins, mcp
      └  local-only: thread-meta  (RAM, not persisted)
 localStorage / sessionStorage    prefs + workspace name + invite
 ```
@@ -56,12 +57,14 @@ Catalog collections set `gcTime` to `THINK_MESSAGES_GC_TIME` (7 days) so rows ou
 
 ## What IndexedDB keeps
 
-`shouldDehydrateThinkQuery` — **success only**. Key `groxbot-query-cache`. `maxAge` = 7 days. `THINK_CACHE_BUSTER` (`"3"` today): bump this when the dehydrated shape is incompatible; it wipes every browser cache.
+`shouldDehydrateThinkQuery` — **success only**. Key `groxbot-query-cache`. `maxAge` = 7 days. `THINK_CACHE_BUSTER` (`"4"` today): bump this when the dehydrated shape is incompatible; it wipes every browser cache.
 
 | Query | Why |
 |---|---|
 | `["think-messages", botId]` | Last office transcript per bot. Seeded into `useOfficeChat`. Written with `setThinkMessages`, not a `queryFn`. |
+| `["room-messages", roomId]` | Last board log per room. Seeded into `useRoomChat`. Do not key this by `botId`. |
 | `bots.list` | Roster. Query collection. Last line overlaid from the office transcript cache so a refetch that sends `""` does not blank the sidebar. |
+| `rooms.list` | Board catalog. Query collection. Last line overlaid from the room transcript cache. |
 | `apps.list` | Live app cards. Query collection. |
 | `plugins.list` / `mcp.list` | Connectors. Query collections. Refetch on window focus. |
 | `knowledge.list` | Office tree. `useQuery` only (no collection). |

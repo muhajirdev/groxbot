@@ -20,6 +20,18 @@ describe("query persist", () => {
     ).toBe(true);
     expect(
       shouldDehydrateThinkQuery({
+        queryKey: ["room-messages", "room-1"],
+        state: { status: "success" },
+      }),
+    ).toBe(true);
+    expect(
+      shouldDehydrateThinkQuery({
+        queryKey: orpc.rooms.list.queryOptions().queryKey,
+        state: { status: "success" },
+      }),
+    ).toBe(true);
+    expect(
+      shouldDehydrateThinkQuery({
         queryKey: orpc.bots.list.queryOptions().queryKey,
         state: { status: "success" },
       }),

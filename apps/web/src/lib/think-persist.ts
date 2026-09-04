@@ -3,13 +3,15 @@ import { persistQueryClient } from "@tanstack/query-persist-client-core";
 import { del, get, set } from "idb-keyval";
 import { hydrateBotPreviews } from "./bot-preview";
 import { orpc, queryClient } from "./orpc";
+import { hydrateRoomPreviews, ROOM_MESSAGES_ROOT } from "./room-messages";
 import { THINK_MESSAGES_GC_TIME, THINK_MESSAGES_ROOT } from "./think-messages";
 
 export const THINK_CACHE_KEY = "groxbot-query-cache";
-export const THINK_CACHE_BUSTER = "3";
+export const THINK_CACHE_BUSTER = "4";
 
 const CATALOG_KEYS = new Set([
   JSON.stringify(orpc.bots.list.queryOptions().queryKey),
+  JSON.stringify(orpc.rooms.list.queryOptions().queryKey),
   JSON.stringify(orpc.apps.list.queryOptions().queryKey),
   JSON.stringify(orpc.plugins.list.queryOptions().queryKey),
   JSON.stringify(orpc.mcp.list.queryOptions().queryKey),
@@ -30,6 +32,7 @@ export function shouldDehydrateThinkQuery(query: {
 }): boolean {
   if (query.state.status !== "success") return false;
   if (query.queryKey[0] === THINK_MESSAGES_ROOT) return true;
+  if (query.queryKey[0] === ROOM_MESSAGES_ROOT) return true;
   if (isComputerListQueryKey(query.queryKey)) return true;
   return CATALOG_KEYS.has(JSON.stringify(query.queryKey));
 }
@@ -40,7 +43,11 @@ function queryKeyWithoutBot(queryKey: readonly unknown[]): string {
     if (!value || typeof value !== "object" || !("botId" in value)) {
       return value;
     }
-    const { botId: _botId, path: _path, ...rest } = value as {
+    const {
+      botId: _botId,
+      path: _path,
+      ...rest
+    } = value as {
       botId?: unknown;
       path?: unknown;
     } & Record<string, unknown>;
@@ -89,4 +96,5 @@ if (persistOptions) {
     console.warn("query persist unavailable", error);
   });
   hydrateBotPreviews();
+  hydrateRoomPreviews();
 }
