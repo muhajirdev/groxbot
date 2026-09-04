@@ -6,6 +6,7 @@ import {
   officeChatShouldRun,
   officeChatText,
   parseOfficeChatMessages,
+  settleOfficeToolParts,
   stringifyToolOutput,
   toolNameFromPart,
   upsertOfficeChatMessage,
@@ -118,5 +119,55 @@ describe("tool parts", () => {
     ).toBe("execute");
     expect(toolNameFromPart({ type: "text", text: "hi" })).toBeNull();
     expect(stringifyToolOutput({ ok: true })).toBe('{"ok":true}');
+  });
+
+  it("settles unfinished tools and keeps completed ones", () => {
+    expect(
+      settleOfficeToolParts(
+        [
+          { type: "text", text: "Hi" },
+          {
+            type: "tool-list",
+            toolCallId: "a",
+            state: "output-available",
+            output: { entries: [] },
+          },
+          {
+            type: "tool-exec",
+            toolCallId: "b",
+            state: "input-available",
+            input: { command: "ls" },
+          },
+          {
+            type: "tool-write",
+            toolCallId: "c",
+            state: "input-available",
+            approval: { id: "appr-1" },
+          },
+        ],
+        "Cancelled.",
+      ),
+    ).toEqual([
+      { type: "text", text: "Hi" },
+      {
+        type: "tool-list",
+        toolCallId: "a",
+        state: "output-available",
+        output: { entries: [] },
+      },
+      {
+        type: "tool-exec",
+        toolCallId: "b",
+        state: "output-error",
+        input: { command: "ls" },
+        errorText: "Cancelled.",
+      },
+      {
+        type: "tool-write",
+        toolCallId: "c",
+        state: "input-available",
+        approval: { id: "appr-1" },
+      },
+    ]);
   });
 });

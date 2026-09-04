@@ -25,15 +25,15 @@ export function computerWorkerShell(): ComputerWorkerShell {
 }
 
 /**
- * Computer file tools use `ls`. Alias `list` so the office catalog has one
- * directory tool.
+ * Computer file tools use `ls`. Office chat exposes one directory tool: `list`.
  */
 export function withComputerOfficeTools<T extends Record<string, unknown>>(
   computerTools: T,
 ): T {
   const ls = computerTools.ls;
   if (ls === undefined) return computerTools;
-  return { ...computerTools, list: ls };
+  const { ls: _ls, ...rest } = computerTools;
+  return { ...rest, list: ls } as T;
 }
 
 export type ComputerFsDirent = {

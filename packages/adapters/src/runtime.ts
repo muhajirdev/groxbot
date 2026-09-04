@@ -14,6 +14,7 @@ export {
   officeDraftMessage,
   officeLogToPiMessages,
   openObjectParameters,
+  settleOfficeDraft,
 } from "./office-pi.js";
 export { PiAgentRuntime } from "./pi-runtime.js";
 export {

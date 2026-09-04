@@ -31,6 +31,7 @@ export {
   officeDraftMessage,
   officeLogToPiMessages,
   openObjectParameters,
+  settleOfficeDraft,
 } from "./office-pi.js";
 export {
   createGatewayStreamFn,
