@@ -1,4 +1,4 @@
-import { GROXBOT_EMAIL } from "@groxbot/seo";
+import { GROXBOT_EMAIL, GROXBOT_TAGLINE } from "@groxbot/seo";
 
 export const CONTACT_EMAIL = GROXBOT_EMAIL;
 export const CONTACT_MAILTO = `mailto:${CONTACT_EMAIL}`;
@@ -118,7 +118,7 @@ export function demoLogo(slug: string): string {
 
 export const COMPARE = [
   {
-    name: "OpenClaw",
+    name: "OpenClaw / Hermes",
     kicker: "Personal",
     line: "An agent on your machine. Capable, and yours alone.",
     ours: false,
@@ -132,7 +132,7 @@ export const COMPARE = [
   {
     name: "Groxbot",
     kicker: "The office",
-    line: "The same idea, for the team. Shared knowledge. Source on GitHub.",
+    line: "Named teammates. Shared knowledge. Source on GitHub.",
     ours: true,
   },
 ] as const;
@@ -140,11 +140,15 @@ export const COMPARE = [
 export const FAQS = [
   {
     q: "How is this different from Grok Bot?",
-    a: "Same motion: create a Bot, message it, grant access as needed. Groxbot is for the team — named teammates, each with a computer, live docs from chat — and you can run the source yourself.",
+    a: `Same motion: create a Bot, message it, grant access as needed. Groxbot is for the team — ${GROXBOT_TAGLINE}. Named teammates, each with a computer, live docs from chat — and you can run the source yourself.`,
   },
   {
     q: "How is this different from OpenClaw?",
     a: "OpenClaw is a personal agent on your machine. Groxbot is the office: named teammates, each with a computer, Postgres for team data, and a messaging UI the whole company can sit in.",
+  },
+  {
+    q: "How is this different from Hermes?",
+    a: "Hermes is a personal agent on your machine, like OpenClaw. Groxbot is the office. Hermes can dial out as a guest runtime if you turn that on — off by default.",
   },
   {
     q: "Do I need a workflow builder?",
@@ -190,8 +194,36 @@ export const FAQS = [
 
 export const SOURCE_REPO = "https://github.com/muhajirdev/groxbot";
 export const MAC_DOWNLOAD_URL = `${SOURCE_REPO}/releases`;
-export const FOOTER_BLURB =
-  "Named teammates like Grok Bot, for the whole team. Fair-code.";
+export const TAGLINE = GROXBOT_TAGLINE;
+export const FOOTER_BLURB = `${GROXBOT_TAGLINE}. For the whole team. Fair-code.`;
+
+export const THESES = [
+  {
+    id: "together",
+    kicker: "Together",
+    title: "AI is better together.",
+    lede: "OpenClaw or Hermes: one person, one laptop. Groxbot: named teammates, one office.",
+  },
+  {
+    id: "adopt",
+    kicker: "Adoption",
+    title: "The best way to get your team to adopt AI is to track it.",
+    lede: "A personal agent hides. Put Bots on the board. That’s how the rest of the team starts.",
+  },
+  {
+    id: "knowledge",
+    kicker: "Knowledge",
+    title: "The company’s knowledge base should evolve from group chats.",
+    lede: "File what lasts from the thread. Skills live with the office, not one chat. Monday doesn’t start from zero.",
+  },
+  {
+    id: "phone",
+    kicker: "Phone",
+    title: "You should be able to work from your phone.",
+    lede: "Shut the laptop. The computer stays in the cloud. The thread is still yours.",
+    why: "Ideas come anytime, anywhere. Execution is no longer the bottleneck — agents do the work. What matters now is good decisions and good ideas.",
+  },
+] as const;
 
 export const HOME_MODELS = [
   {
@@ -234,3 +266,19 @@ export const HOME_ADOPTION = [
   { ...PEOPLE.you, role: "Lead", tasks: 1240, label: "1,240" },
   { ...PEOPLE.rahul, role: "Scout", tasks: 980, label: "980" },
 ] as const;
+
+export const HOME_KNOWLEDGE = {
+  thread: [
+    "Maya: Ship Thursday. No jargon. Hold for me.",
+    "Chief: Queued. Nothing live until you look.",
+    "Jules: Same voice on the outbound recap.",
+  ],
+  files: [
+    { path: "how-we-work/voice.md", note: "No jargon. Hold for Maya." },
+    { path: "how-we-work/owners.md", note: "Outbound recaps: Jules." },
+    {
+      path: "skills/linkedin-teardown/SKILL.md",
+      note: "Draft, queue, don’t publish.",
+    },
+  ],
+} as const;

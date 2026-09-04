@@ -287,6 +287,16 @@ h3 {
   font-size: 20px;
 }
 
+.hero-home .lede.hero-tagline {
+  margin-bottom: 12px;
+  max-width: none;
+  font-size: clamp(22px, 3.2vw, 30px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
 .thesis {
   font-family: var(--sans);
   font-weight: 400;
@@ -812,12 +822,54 @@ img.avatar {
 #how,
 #jobs,
 #faq,
-#enterprise {
+#enterprise,
+#together,
+#adopt,
+#knowledge,
+#phone {
   scroll-margin-top: 72px;
 }
 
 .versus-band h2 {
-  max-width: 22ch;
+  max-width: 28ch;
+}
+
+.thesis-section {
+  padding: 64px 0 28px;
+}
+
+.thesis-section > .kicker {
+  margin-bottom: 10px;
+}
+
+.thesis-section > h2 {
+  max-width: 18ch;
+  font-size: clamp(28px, 4.2vw, 44px);
+  margin-bottom: 14px;
+}
+
+.thesis-section > .lede {
+  max-width: 36rem;
+  margin-bottom: 28px;
+}
+
+.thesis-proof {
+  margin: 0 0 32px;
+  padding: 28px 20px 18px;
+  background: #141414;
+  border-radius: 24px;
+}
+
+.thesis-section > .kicker.why {
+  margin-bottom: 8px;
+}
+
+.thesis-why {
+  max-width: 36rem;
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--ink) 88%, var(--muted));
 }
 
 .models-line {
@@ -857,7 +909,7 @@ img.avatar {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0;
-  margin-top: 28px;
+  margin-top: 8px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   overflow: hidden;
@@ -1319,6 +1371,7 @@ img.avatar {
 
 .adopt h2 {
   font-size: clamp(28px, 4.2vw, 44px);
+  max-width: 20ch;
   margin-bottom: 14px;
 }
 
@@ -2160,6 +2213,10 @@ a.chip.on .chip-count,
   .chapter {
     padding: 40px 0 20px;
     text-align: left;
+  }
+
+  .thesis-section {
+    padding: 40px 0 20px;
   }
 
   .chapter h2,

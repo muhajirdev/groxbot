@@ -8,8 +8,11 @@ import {
   demoLogo,
   FAQS,
   HOME_ADOPTION,
+  HOME_KNOWLEDGE,
   HOME_MODELS,
   SOURCE_REPO,
+  TAGLINE,
+  THESES,
 } from "../lib/copy";
 import { HOME_INTEGRATIONS } from "../lib/teasers";
 import { DemoThread } from "./DemoThread";
@@ -33,9 +36,10 @@ export function Landing(props: { startUrl: string }) {
             />
             <span>Groxbot</span>
           </h1>
-          <p className="lede">Like Grok Bot, for the whole team.</p>
+          <p className="lede hero-tagline">{TAGLINE}.</p>
           <p className="thesis">
-            If OpenClaw is for your personal use, Groxbot is for the office.
+            Like Grok Bot, for the team. OpenClaw and Hermes are personal.
+            Groxbot is the office.
           </p>
           <div className="row">
             <a className="btn lg" href={props.startUrl}>
@@ -67,8 +71,14 @@ export function Landing(props: { startUrl: string }) {
           </ul>
         </section>
 
-        <section className="band versus-band" aria-label="Where Groxbot sits">
-          <h2>One is solo. One is locked. This is the office.</h2>
+        <section
+          id="together"
+          className="thesis-section"
+          aria-labelledby="thesis-together"
+        >
+          <p className="kicker">{THESES[0].kicker}</p>
+          <h2 id="thesis-together">{THESES[0].title}</h2>
+          <p className="lede">{THESES[0].lede}</p>
           <div className="versus">
             {COMPARE.map((item) => (
               <article
@@ -83,138 +93,11 @@ export function Landing(props: { startUrl: string }) {
           </div>
         </section>
 
-        <section id="how" className="statement">
-          <div className="statement-copy">
-            <h2>Message Bots like teammates</h2>
-            <p className="lede tight">
-              Give work the way you would a coworker. Each Bot is a contact —
-              name, optional job, one thread. They take the task, keep the
-              context, and come back when they need approval.
-            </p>
-          </div>
-          <div className="statement-face" aria-hidden>
-            <MascotMark
-              name="Groxbot"
-              color="#e45c9a"
-              shape="circle"
-              size="lg"
-            />
-          </div>
-        </section>
-
-        <section className="chapter">
-          <h2>The whole team sits in the same office.</h2>
-          <p className="lede">
-            OpenClaw is one person and a laptop. Groxbot is named teammates, each
-            with a computer, and a thread anyone on the team can open.
-          </p>
-        </section>
-
-        <section className="tiles" aria-label="How the office works">
-          <article className="tile">
-            <h3>A computer you can ignore</h3>
-            <p>
-              Hire a teammate and they already have a computer. Open it from the
-              thread. Work continues if you close the pane.
-            </p>
-            <div className="tile-stage">
-              <div className="mini-pane">
-                <div className="mini-pane-head">
-                  Computer
-                  <span className="status-pill">
-                    <i /> Working
-                  </span>
-                </div>
-                <p className="mini-pane-screen">
-                  Files land here. You can leave this open or not.
-                </p>
-              </div>
-            </div>
-          </article>
-          <article className="tile">
-            <h3>Built into the bot</h3>
-            <p>
-              Not a second product and not a shared desk you pick at hire. Each
-              Bot is one Durable Object. The computer is that actor’s workspace.
-            </p>
-            <div className="tile-stage">
-              <div className="desk-split">
-                <div className="desk-card on">
-                  <span className="kicker">Bot</span>
-                  <strong>Bot actor</strong>
-                  <span>Named by botId</span>
-                </div>
-                <div className="desk-card">
-                  <span className="kicker">Computer</span>
-                  <strong>Workspace</strong>
-                  <span>Already theirs</span>
-                </div>
-              </div>
-            </div>
-          </article>
-          <article className="tile wide">
-            <h3>Works from anywhere</h3>
-            <p>
-              Shut the laptop. Open the thread on your phone. The Bot’s computer
-              lives in the cloud — not on your machine — so the work does not
-              stop when you do.
-            </p>
-            <div className="tile-stage">
-              <div className="handoff-scene" aria-hidden>
-                <div className="device laptop">
-                  <div className="laptop-screen">Lid closed</div>
-                  <div className="laptop-base" />
-                  <span>Your laptop</span>
-                </div>
-                <div className="device cloud">
-                  <MascotMark
-                    name="Groxbot"
-                    color="#e45c9a"
-                    shape="circle"
-                    size="md"
-                    mood="working"
-                  />
-                  <span className="status-pill">
-                    <i /> Working
-                  </span>
-                  <span>Cloud computer</span>
-                </div>
-                <div className="device phone">
-                  <div className="phone-notch" />
-                  <div className="phone-screen">
-                    <div className="phone-head">
-                      <MascotMark
-                        name="Outbound"
-                        color="#5b7cff"
-                        shape="circle"
-                        size="xs"
-                        mood="working"
-                      />
-                      Outbound
-                    </div>
-                    <p className="phone-typing">
-                      <i />
-                      <i />
-                      <i />
-                    </p>
-                    <p className="phone-bubble">
-                      Queued the LinkedIn post. Still going.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </article>
-        </section>
-
-        <section className="adopt" aria-label="Track AI adoption in your team">
+        <section id="adopt" className="adopt" aria-labelledby="thesis-adopt">
           <div className="adopt-copy">
-            <p className="kicker">Track AI adoption in your team</p>
-            <h2>They won’t use it if nobody can see it.</h2>
-            <p className="lede tight">
-              A personal agent hides on a laptop. Who is putting Bots to work is
-              on the board. That’s how the rest of the team starts.
-            </p>
+            <p className="kicker">{THESES[1].kicker}</p>
+            <h2 id="thesis-adopt">{THESES[1].title}</h2>
+            <p className="lede tight">{THESES[1].lede}</p>
           </div>
           <ol className="board">
             {HOME_ADOPTION.map((person, index) => {
@@ -242,6 +125,106 @@ export function Landing(props: { startUrl: string }) {
               );
             })}
           </ol>
+        </section>
+
+        <section
+          id="knowledge"
+          className="adopt"
+          aria-labelledby="thesis-knowledge"
+        >
+          <div className="adopt-copy">
+            <p className="kicker">{THESES[2].kicker}</p>
+            <h2 id="thesis-knowledge">{THESES[2].title}</h2>
+            <p className="lede tight">{THESES[2].lede}</p>
+          </div>
+          <div className="know-loop" aria-hidden>
+            <div className="know-col">
+              <p className="kicker">Thread</p>
+              {HOME_KNOWLEDGE.thread.map((line) => (
+                <p key={line} className="know-line">
+                  {line}
+                </p>
+              ))}
+            </div>
+            <div className="know-col on">
+              <p className="kicker">Office knowledge</p>
+              {HOME_KNOWLEDGE.files.map((file) => (
+                <p key={file.path} className="know-file">
+                  <strong>{file.path}</strong>
+                  {file.note}
+                </p>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="phone" className="thesis-section" aria-labelledby="thesis-phone">
+          <p className="kicker">{THESES[3].kicker}</p>
+          <h2 id="thesis-phone">{THESES[3].title}</h2>
+          <p className="lede">{THESES[3].lede}</p>
+          <div className="thesis-proof">
+            <HandoffScene />
+          </div>
+          <p className="kicker why">Why it matters</p>
+          <p className="thesis-why">{THESES[3].why}</p>
+        </section>
+
+        <section id="how" className="statement">
+          <div className="statement-copy">
+            <h2>Message Bots like teammates</h2>
+            <p className="lede tight">
+              Give work like a coworker. They come back when they need you.
+            </p>
+          </div>
+          <div className="statement-face" aria-hidden>
+            <MascotMark
+              name="Groxbot"
+              color="#e45c9a"
+              shape="circle"
+              size="lg"
+            />
+          </div>
+        </section>
+
+        <section className="tiles" aria-label="How the office works">
+          <article className="tile">
+            <h3>A computer you can ignore</h3>
+            <p>
+              Hire a teammate. They already have a computer. Leave the pane
+              open, or don’t.
+            </p>
+            <div className="tile-stage">
+              <div className="mini-pane">
+                <div className="mini-pane-head">
+                  Computer
+                  <span className="status-pill">
+                    <i /> Working
+                  </span>
+                </div>
+                <p className="mini-pane-screen">
+                  Files land here. You can leave this open or not.
+                </p>
+              </div>
+            </div>
+          </article>
+          <article className="tile">
+            <h3>Built into the bot</h3>
+            <p>Not a second product. The computer is built in.</p>
+            <div className="tile-stage">
+              <div className="desk-split">
+                <div className="desk-card on">
+                  <span className="kicker">Bot</span>
+                  <strong>Bot actor</strong>
+                  <span>Named by botId</span>
+                </div>
+                <div className="desk-card">
+                  <span className="kicker">Computer</span>
+                  <strong>Workspace</strong>
+                  <span>Already theirs</span>
+                </div>
+              </div>
+            </div>
+          </article>
         </section>
 
         <DemoShowcase />
@@ -337,8 +320,7 @@ export function Landing(props: { startUrl: string }) {
           <p className="kicker">Hire the first one</p>
           <h2>Hire your first Chief of Staff.</h2>
           <p className="lede tight">
-            The job everyone starts with. Name it, open the thread, give it a
-            real task — then hire specialists.
+            Name it. Open the thread. Give it a real task.
           </p>
           <a className="btn lg" href={props.startUrl}>
             Get started
@@ -357,7 +339,7 @@ function DemoShowcase() {
       <div className="demo-copy">
         <h2>Watch a Bot actually do the work.</h2>
         <p className="lede tight">
-          One message. LinkedIn, Instagram, Drive, Notion. Pick a demo.
+          One message. LinkedIn, Instagram, Drive, Notion.
         </p>
         <div className="demo-list">
           {DEMOS.map((demo) => (
@@ -391,5 +373,51 @@ function DemoShowcase() {
       </div>
       <DemoThread demo={active} />
     </section>
+  );
+}
+
+function HandoffScene() {
+  return (
+    <div className="handoff-scene" aria-hidden>
+      <div className="device laptop">
+        <div className="laptop-screen">Lid closed</div>
+        <div className="laptop-base" />
+        <span>Your laptop</span>
+      </div>
+      <div className="device cloud">
+        <MascotMark
+          name="Groxbot"
+          color="#e45c9a"
+          shape="circle"
+          size="md"
+          mood="working"
+        />
+        <span className="status-pill">
+          <i /> Working
+        </span>
+        <span>Cloud computer</span>
+      </div>
+      <div className="device phone">
+        <div className="phone-notch" />
+        <div className="phone-screen">
+          <div className="phone-head">
+            <MascotMark
+              name="Outbound"
+              color="#5b7cff"
+              shape="circle"
+              size="xs"
+              mood="working"
+            />
+            Outbound
+          </div>
+          <p className="phone-typing">
+            <i />
+            <i />
+            <i />
+          </p>
+          <p className="phone-bubble">Queued the LinkedIn post. Still going.</p>
+        </div>
+      </div>
+    </div>
   );
 }

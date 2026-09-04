@@ -10,6 +10,7 @@ export {
   GROXBOT_EMAIL,
   GROXBOT_NAME,
   GROXBOT_SUMMARY,
+  GROXBOT_TAGLINE,
   GROXBOT_VERSION,
   originsFromWeb,
   stagingOrigins,

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { INDIE_INTEGRATIONS } from "../data/indie-integrations";
 import { USE_CASES } from "../data/use-cases";
 import { categoryFamily } from "./category-copy";
+import { FOOTER_BLURB, TAGLINE, THESES } from "./copy";
 import { DISCOVERY_SITEMAP_PATHS, landingLlmsTxt } from "./discovery";
 import {
   computerIntegrations,
@@ -14,9 +15,10 @@ import {
   relatedIntegrations,
   searchIntegrations,
 } from "./integrations";
-import { canonicalUrl } from "./site";
+import { canonicalUrl, DEFAULT_DESCRIPTION, DEFAULT_TITLE } from "./site";
 import { sitemapEntries, sitemapXml } from "./sitemap";
 import { slugify } from "./slug";
+
 describe("slugify", () => {
   it("turns categories into url slugs", () => {
     expect(slugify("developer tools")).toBe("developer-tools");
@@ -104,7 +106,6 @@ describe("use cases", () => {
       }
     }
   });
-
 });
 
 describe("sitemap", () => {
@@ -147,5 +148,30 @@ describe("llms discovery", () => {
     expect(txt).toContain("/identity.json");
     expect(txt).toContain("/use-cases/");
     expect(txt).toContain("/press");
+  });
+
+  it("leads public copy with AI is better together", () => {
+    expect(TAGLINE).toBe("AI is better together");
+    expect(DEFAULT_TITLE).toBe("Groxbot — AI is better together");
+    expect(DEFAULT_DESCRIPTION).toMatch(/^AI is better together\./);
+    expect(FOOTER_BLURB).toMatch(/^AI is better together\./);
+    expect(landingLlmsTxt()).toContain("AI is better together");
+  });
+
+  it("gives each landing thesis its own section headline", () => {
+    expect(THESES.map((item) => item.id)).toEqual([
+      "together",
+      "adopt",
+      "knowledge",
+      "phone",
+    ]);
+    expect(THESES.map((item) => item.title)).toEqual([
+      "AI is better together.",
+      "The best way to get your team to adopt AI is to track it.",
+      "The company’s knowledge base should evolve from group chats.",
+      "You should be able to work from your phone.",
+    ]);
+    expect(THESES[3]?.why).toMatch(/anytime, anywhere/);
+    expect(THESES[3]?.why).toMatch(/good decisions and good ideas/);
   });
 });
