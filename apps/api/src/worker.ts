@@ -1,14 +1,14 @@
-/** Product API: Cloudflare Worker + Neon HTTP + Durable Object BotActor. */
+/** Product API: Cloudflare Worker + Neon HTTP + Durable Object RoomActor. */
 import { officeUserFromActor, withOfficeUserRequest } from "@groxbot/contracts";
 import { createSkillImportHttp } from "@groxbot/core";
 import { bots } from "@groxbot/db";
 import { createNeonHttpDb } from "@groxbot/db/neon";
 import { ORPCError } from "@orpc/server";
 import { routeAgentRequest } from "agents";
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { createApp } from "./app.js";
 import { AppRuntime, DurableObjectAppStore } from "./app-runtime-do.js";
-import { BotActor, type WorkerEnv } from "./bot-actor.js";
+import { type WorkerEnv } from "./bot-actor.js";
 import {
   destroyBotActor,
   downloadBotComputer,
@@ -16,9 +16,8 @@ import {
   readBotComputer,
   writeBotComputer,
 } from "./bot-computer.js";
-import { enqueueOnBot } from "./bot-enqueue.js";
+import { enqueueOnActor } from "./bot-enqueue.js";
 import { addBotMcp, oauthBotMcp, removeBotMcp } from "./bot-mcp.js";
-import { connectBotOffice } from "./bot-office-rpc.js";
 import {
   createBotRoutine,
   listBotRoutines,
@@ -36,9 +35,9 @@ import { actorForAgentBot, requireActor } from "./session.js";
 
 export { CodemodeRuntime } from "@cloudflare/codemode";
 export { WorkspaceServiceProxy } from "@cloudflare/computer";
-export { AppRuntime, BotActor, RoomActor };
+export { AppRuntime, RoomActor };
 
-/** `/agents/{binding}/{botId}` — instance name is the bot id. */
+/** `/agents/{binding}/{name}` — instance name is the home room id. */
 function agentInstanceName(pathname: string): string | null {
   const parts = pathname.split("/").filter(Boolean);
   if (parts[0] !== "agents" || parts.length < 3) return null;
@@ -47,6 +46,18 @@ function agentInstanceName(pathname: string): string | null {
   } catch {
     return parts[2] ?? null;
   }
+}
+
+async function homeRoomName(
+  db: ReturnType<typeof createNeonHttpDb>["db"],
+  botId: string,
+): Promise<string> {
+  const [bot] = await db
+    .select({ homeRoomId: bots.homeRoomId })
+    .from(bots)
+    .where(eq(bots.id, botId))
+    .limit(1);
+  return bot?.homeRoomId || botId;
 }
 
 function agentCors(request: Request, origins: string[]): HeadersInit | true {
@@ -65,25 +76,33 @@ export default {
     const loaded = productEnv(env);
     const { db, close } = createNeonHttpDb(loaded.databaseUrl);
     const apps = new DurableObjectAppStore(env.APP_RUNTIME);
+    const onHome = (botId: string) => homeRoomName(db, botId);
     const handles = createApp(loaded, {
       db,
       close,
-      enqueue: (job) => enqueueOnBot(env.BOT_ACTOR, job),
+      enqueue: async (job) =>
+        enqueueOnActor(env.ROOM_ACTOR, await onHome(job.botId), job),
       initApp: (appId, templateId, opts) => apps.init(appId, templateId, opts),
       connectApp: (appId, request, workspaceId) =>
         apps.connect(appId, request, workspaceId),
-      connectBot: (botId, request, workspaceId) =>
-        connectBotOffice(env.BOT_ACTOR, botId, request, workspaceId),
       connectRoom: (roomId, request, workspaceId) =>
         connectRoom(env.ROOM_ACTOR, roomId, request, workspaceId),
       initRoom: (roomId, opts) => initRoomActor(env.ROOM_ACTOR, roomId, opts),
       computer: {
-        list: (botId, path) => listBotComputer(env.BOT_ACTOR, botId, path),
-        read: (botId, path) => readBotComputer(env.BOT_ACTOR, botId, path),
-        download: (botId, path) =>
-          downloadBotComputer(env.BOT_ACTOR, botId, path),
-        write: (botId, filename, content, mediaType) =>
-          writeBotComputer(env.BOT_ACTOR, botId, filename, content, mediaType),
+        list: async (botId, path) =>
+          listBotComputer(env.ROOM_ACTOR, await onHome(botId), path),
+        read: async (botId, path) =>
+          readBotComputer(env.ROOM_ACTOR, await onHome(botId), path),
+        download: async (botId, path) =>
+          downloadBotComputer(env.ROOM_ACTOR, await onHome(botId), path),
+        write: async (botId, filename, content, mediaType) =>
+          writeBotComputer(
+            env.ROOM_ACTOR,
+            await onHome(botId),
+            filename,
+            content,
+            mediaType,
+          ),
       },
       knowledge: env.KNOWLEDGE
         ? knowledgeAccess(
@@ -93,21 +112,28 @@ export default {
         : undefined,
       avatars: env.KNOWLEDGE ? r2KnowledgeDisk(env.KNOWLEDGE) : undefined,
       routines: {
-        list: (botId) => listBotRoutines(env.BOT_ACTOR, botId),
-        create: (botId, input) => createBotRoutine(env.BOT_ACTOR, botId, input),
-        pause: (botId, id) => pauseBotRoutine(env.BOT_ACTOR, botId, id),
-        resume: (botId, id) => resumeBotRoutine(env.BOT_ACTOR, botId, id),
-        remove: (botId, id) => removeBotRoutine(env.BOT_ACTOR, botId, id),
-        suspend: (botId, suspended) =>
-          suspendBotRoutines(env.BOT_ACTOR, botId, suspended),
+        list: async (botId) =>
+          listBotRoutines(env.ROOM_ACTOR, await onHome(botId)),
+        create: async (botId, input) =>
+          createBotRoutine(env.ROOM_ACTOR, await onHome(botId), input),
+        pause: async (botId, id) =>
+          pauseBotRoutine(env.ROOM_ACTOR, await onHome(botId), id),
+        resume: async (botId, id) =>
+          resumeBotRoutine(env.ROOM_ACTOR, await onHome(botId), id),
+        remove: async (botId, id) =>
+          removeBotRoutine(env.ROOM_ACTOR, await onHome(botId), id),
+        suspend: async (botId, suspended) =>
+          suspendBotRoutines(env.ROOM_ACTOR, await onHome(botId), suspended),
       },
       mcp: {
-        add: (botId, input) => addBotMcp(env.BOT_ACTOR, botId, input),
-        remove: (botId, serverId) =>
-          removeBotMcp(env.BOT_ACTOR, botId, serverId),
-        oauth: (botId, request) => oauthBotMcp(env.BOT_ACTOR, botId, request),
+        add: async (botId, input) =>
+          addBotMcp(env.ROOM_ACTOR, await onHome(botId), input),
+        remove: async (botId, serverId) =>
+          removeBotMcp(env.ROOM_ACTOR, await onHome(botId), serverId),
+        oauth: async (botId, request) =>
+          oauthBotMcp(env.ROOM_ACTOR, await onHome(botId), request),
       },
-      forgetBot: (botId) => destroyBotActor(env.BOT_ACTOR, botId),
+      forgetBot: (homeRoomId) => destroyBotActor(env.ROOM_ACTOR, homeRoomId),
       email: env.EMAIL,
     });
 
@@ -142,7 +168,7 @@ export default {
               .from(bots)
               .where(
                 and(
-                  eq(bots.id, botId),
+                  or(eq(bots.id, botId), eq(bots.homeRoomId, botId)),
                   eq(bots.workspaceId, actor.workspaceId),
                 ),
               )

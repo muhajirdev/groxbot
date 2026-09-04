@@ -1,16 +1,24 @@
 # Rooms
 
-The bot is the **person**. A panel is a **place**. Those must not share one Durable Object.
+The bot is the **person**. A panel is a **place**. They share one Durable Object **class**, not one instance.
 
-## Why the office primitive is wrong for a group
+## One class, two kinds
 
-`BotActor` extends Agents `Agent`. Cap’n Web `/bots/:botId/rpc` treats that actor as the transcript. That is correct for Maya’s 1:1 office. It is the wrong object for “Steve, Hormozi, and Alexander at one table”:
+`RoomActor` extends Agents `Agent`. Instance name is always `roomId`. Postgres `rooms.kind` is `'home' | 'board'`. `bots.homeRoomId` is that person’s home `rooms.id`.
 
-- `office_chat` / one queue is many turns **on one agent**, not many agents in one conversation.
-- One DO is one queue. If the room *were* the person, the whole table would serialize and share one computer.
-- Putting the panel in Steve’s SQLite makes Hormozi a guest in Steve’s head.
+| Instance | Role | Model? | Files |
+|---|---|---|---|
+| Home room | the person | yes — soul, Pi, queue | that bot’s computer |
+| Board room | the table | **no** | board papers |
 
-So: do not point group chat at `BotActor`. Do not name `BotActor` by `roomId`. Do not use Cloudflare Session as the room catalog. Do not add D1.
+- Cap’n Web is one path: `/rooms/:roomId/rpc`. There is no `/bots/:botId/rpc`.
+- Conversation URL is `/$slug/room/$roomId`. 1:1 is `/$slug/room/$homeRoomId`. Old `/bot/$botId` bookmarks redirect.
+- Cache key is `roomId`. Computer pane stays `focusedBotId`.
+- Hire creates the bot, a home room, and inits that `RoomActor`.
+- Board members still join by `botId`. Wake target is that bot’s **home room id**.
+- Board never runs Pi. It enqueues onto the target’s home `RoomActor`.
+
+Do not bring back a `BotActor` class. Do not name the person instance by `botId`. Do not put Pi on the board instance. Do not use Cloudflare Session as the office catalog. Do not add D1.
 
 ## Cloudflare OS uses Pi. That does not make Pi the room.
 
@@ -19,53 +27,37 @@ So: do not point group chat at `BotActor`. Do not name `BotActor` by `roomId`. D
 - The durable is `OverseerDurableObject` — **the workspace (place)**. Chats are `chatId` rows on that DO. Gadgets are other DOs. Users are other DOs.
 - Pi is not a Durable Object. Each turn rebuilds an in-memory `AgentContext` from the Overseer chat log, then calls `runAgentLoopContinue`. They **rejected** Pi’s stateful `Agent` class. Resume replays the log; the API token is re-fetched from the user DO (not stored on the turn record).
 - One coding agent for the desk, Code Mode, sequential tools, 30-step cap. `AgentSpawner` still calls back into the same Overseer. Not a panel of named people with their own computers.
-- They migrated **off Vercel AI SDK** onto Pi. OS already had a custom `AiChatMessage` log and a frontend they refused to touch (`plans/pi-impl.md`: “frontend: zero changes”).
 
-Groxbot uses Pi as the loop on the **person**:
+Groxbot uses Pi as the loop on the **person-shaped home room**:
 
-- **BotActor** is the v1 office person: Agents `Agent`, Computer `Workspace` + Worker shell, DO SQLite `office_chat`, assistant-ui over Cap’n Web (`/bots/:botId/rpc`).
+- **Home `RoomActor`** is the office person: Agents `Agent`, Computer `Workspace` + Worker shell, DO SQLite `office_chat`, assistant-ui over Cap’n Web (`/rooms/:homeRoomId/rpc`).
 - **Pi** is the turn engine: `runAgentLoopContinue({ systemPrompt, messages })`. Soul is the stable system-prompt prefix (Steve and Hormozi must not share that prefix). The room/office log is the suffix. Hosted REST / poke / guest turns use the same loop.
-- Do **not** put the model on `RoomActor` (that would serialize the table and share one computer). Do **not** use Pi’s stateful `Agent` class as the room. The OS lesson for a panel is the Overseer shape: **place owns the log; the loop is a guest on the person.**
-
-## Two durables
+- **Board `RoomActor`** owns the shared log, members, floor, and websockets. It does **not** run the model. The OS lesson for a panel is the Overseer shape: **place owns the log; the loop is a guest on the person.**
 
 ```
-RoomActor [name = roomId]     not the person, not Pi
-  members, floor, ordered log, hibernated websockets
-  wakes bots; never runs the model itself
-
-BotActor  [name = botId]      Agent + Pi + Computer
-  computer, soul, queue, routines, office_chat
-  one turn when the room calls
+RoomActor  [name = homeRoomId]   kind=home   Agent + Pi + Computer
+RoomActor  [name = roomId]       kind=board  log, members, floor; wakes home rooms
 ```
 
 | Object | Durable? | Key | Model? |
 |---|---|---|---|
-| Bot (person) | yes — `BotActor` | `botId` | yes — Pi |
-| Room (place) | yes — `RoomActor` | `roomId` | **no** |
+| Bot (person) | yes — home `RoomActor` | `homeRoomId` (DO), `botId` (roster) | yes — Pi |
+| Room (place) | yes — board `RoomActor` | `roomId` | **no** |
 | Membership / listing | Postgres | workspace | no |
-| Computer | built into the bot | `botId` | `@cloudflare/computer` `Workspace` |
+| Computer | built into the home room | `botId` oRPC → home instance | `@cloudflare/computer` `Workspace` |
 
-`RoomActor` is a coordinator, the same job as `AppRuntime` for a doc: one writer, one log, many subscribers. It is **not** a bot doing impressions.
-
-Postgres lists rooms and members (team data). The live transcript and “who has the floor” live on `RoomActor` (DO SQLite), with `seq` as the order. Same pattern as poke’s ordered log, but the hot object is the room, not a pair of bots.
+Postgres lists rooms and members (team data). The live transcript and “who has the floor” live on that `RoomActor` (DO SQLite), with `seq` as the order.
 
 ## A turn
 
-You speak in the room. The room decides who wakes (`@Steve`, go-around, or fail closed if several members and no target). It enqueues **that** `BotActor`. Steve reads a slice of the room log, runs an owned Pi turn with **his** soul as `systemPrompt`, streams a reply **back to the room**. The product transcript is the room. Steve’s `office_chat` stays v1 office working memory, not the panel catalog.
+You speak in the board. The board decides who wakes (`@Steve`, go-around, or fail closed if several members and no target). It enqueues **that** home `RoomActor`. Steve reads a slice of the board log, runs an owned Pi turn with **his** soul as `systemPrompt`, streams a reply **back to the board**. The product transcript is the board. Steve’s `office_chat` stays 1:1 working memory, not the panel catalog.
 
-Steve and Hormozi can run at once (two actors). One bot in two rooms still queues on that bot. Nested poke-style waits must not re-enter the caller’s queue.
+Steve and Hormozi can run at once (two home instances). One bot in two boards still queues on that home room. Nested poke-style waits must not re-enter the caller’s queue.
 
-Computer pane: `focusedBotId`. The room has no screen.
-
-## Office, later
-
-Maya’s office becomes a room with one member. Same send path as a panel. Until that ships, v1 office stays Pi-on-`BotActor`. Do not grow a second transcript model; the target is one room type.
-
-Poke (pair thread in Postgres) stays as agent-to-agent off to the side. A panel is not a poke.
+Computer pane: `focusedBotId`. The board has no screen — papers live on the board instance.
 
 ## v1
 
-Still one home office per bot. Board UI is `/$workspaceSlug/room/$roomId`. Computer pane is `focusedBotId` (search `bot`). `rooms.create` + members; send is Cap’n Web `/rooms/:roomId/rpc`. The place (`RoomActor`) never runs the model; it enqueues `room.turn` on the named `BotActor`.
+1:1 office is already a home room with one member. Same URL and Cap’n Web path as a board. Poke (pair thread in Postgres) stays as agent-to-agent off to the side. A panel is not a poke.
 
-Scripted tests: `poke Lookout: …` still covers pair wake. Group tests send to a room and assert which `botId`s ran.
+Scripted tests: `poke Lookout: …` still covers pair wake. Group tests send to a room and assert which `botId`s ran — wakeup is addressed by `homeRoomId`.

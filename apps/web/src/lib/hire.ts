@@ -28,6 +28,7 @@ export function draftCreatedBot(input: {
   workspaceId: string;
   name: string;
   avatarColor: string;
+  homeRoomId?: string;
 }): Bot {
   const now = new Date().toISOString();
   return {
@@ -41,6 +42,7 @@ export function draftCreatedBot(input: {
     avatarShape: "circle",
     parentBotId: null,
     threadId: input.id,
+    homeRoomId: input.homeRoomId ?? input.id,
     guestKind: "off",
     guestOnline: false,
     model: "",

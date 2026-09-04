@@ -36,6 +36,13 @@
       "when": 1788500777217,
       "tag": "0004_funny_solo",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788505489884,
+      "tag": "0005_woozy_zzzax",
+      "breakpoints": true
     }
   ]
 }

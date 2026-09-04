@@ -25,7 +25,7 @@ export const Route = createFileRoute("/_authed/onboarding")({
     if (first && me.workspaceSlug) {
       throw redirect({
         to: OFFICE_TO,
-        params: officeParams(me.workspaceSlug, first.id),
+        params: officeParams(me.workspaceSlug, first.homeRoomId || first.id),
       });
     }
   },

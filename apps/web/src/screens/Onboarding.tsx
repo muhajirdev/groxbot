@@ -283,7 +283,7 @@ export function Onboarding(props: { invite?: string }) {
         }
         await navigate({
           to: OFFICE_TO,
-          params: officeParams(me.workspaceSlug, first.id),
+          params: officeParams(me.workspaceSlug, first.homeRoomId || first.id),
           viewTransition: true,
         });
         return;
@@ -391,7 +391,7 @@ export function Onboarding(props: { invite?: string }) {
       }
       await navigate({
         to: OFFICE_TO,
-        params: officeParams(me.workspaceSlug, bot.id),
+        params: officeParams(me.workspaceSlug, bot.homeRoomId || bot.id),
         viewTransition: true,
       });
     } catch (caught) {

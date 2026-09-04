@@ -4,17 +4,27 @@ import {
   OFFICE_WORKSPACE_HEADER,
   parseOfficeChatMessages,
 } from "@groxbot/core";
+import { getAgentByName } from "agents";
 import { newWorkersRpcResponse, RpcTarget } from "capnweb";
 import type { OfficeChatSubscriber } from "./bot-office-rpc.js";
-import type { RoomActor } from "./room-actor.js";
 
 export { OFFICE_WORKSPACE_HEADER };
 
 export type RoomChatSubscriber = OfficeChatSubscriber;
 
+type RoomChatActor = {
+  subscribeRoom(subscriber: RoomChatSubscriber): Promise<void>;
+  runRoom(
+    messages: ReturnType<typeof parseOfficeChatMessages>,
+    user: OfficeUserMeta | null,
+    opts: { targetBotId?: string },
+  ): Promise<void>;
+  stopRoom(): Promise<void>;
+};
+
 export class RoomChatHost extends RpcTarget {
   constructor(
-    private readonly actor: RoomActor,
+    private readonly actor: RoomChatActor,
     private readonly user: OfficeUserMeta | null,
   ) {
     super();
@@ -46,7 +56,7 @@ function readTargetBotId(value: unknown): string | undefined {
 }
 
 export function roomRpcResponse(
-  actor: RoomActor,
+  actor: RoomChatActor,
   request: Request,
   user: OfficeUserMeta | null,
 ): Response | Promise<Response> {
@@ -58,20 +68,19 @@ export function roomRpcResponse(
 
 type RoomNamespace = DurableObjectNamespace;
 
-function roomStub(ns: RoomNamespace, roomId: string) {
-  return ns.get(ns.idFromName(roomId));
-}
-
 export async function initRoomActor(
   ns: RoomNamespace,
   roomId: string,
   opts: {
     workspaceId: string;
     name: string;
-    members: Array<{ id: string; name: string }>;
+    kind?: "home" | "board";
+    botId?: string;
+    members: Array<{ id: string; name: string; homeRoomId?: string }>;
   },
 ): Promise<void> {
-  const response = await roomStub(ns, roomId).fetch(
+  const stub = await getAgentByName(ns, roomId);
+  const response = await stub.fetch(
     new Request("https://groxbot.internal/init", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -89,9 +98,10 @@ export async function connectRoom(
   request: Request,
   workspaceId: string,
 ): Promise<Response> {
+  const stub = await getAgentByName(ns, roomId);
   const headers = new Headers(request.headers);
   headers.set(OFFICE_WORKSPACE_HEADER, workspaceId);
-  return roomStub(ns, roomId).fetch(new Request(request, { headers }));
+  return stub.fetch(new Request(request, { headers }));
 }
 
 export async function postRoomTurn(
@@ -101,7 +111,8 @@ export async function postRoomTurn(
   path: "stream" | "complete" | "error" | "abort",
   body: Record<string, unknown>,
 ): Promise<void> {
-  const response = await roomStub(ns, roomId).fetch(
+  const stub = await getAgentByName(ns, roomId);
+  const response = await stub.fetch(
     new Request(`https://groxbot.internal/turns/${path}`, {
       method: "POST",
       headers: {
@@ -123,7 +134,8 @@ export async function boardFileOp(
   path: "list" | "read" | "write",
   body: Record<string, unknown>,
 ): Promise<unknown> {
-  const response = await roomStub(ns, roomId).fetch(
+  const stub = await getAgentByName(ns, roomId);
+  const response = await stub.fetch(
     new Request(`https://groxbot.internal/files/${path}`, {
       method: "POST",
       headers: {

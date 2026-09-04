@@ -14,13 +14,11 @@ UI: copy Grok Bot simplicity — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). R
           |
           +---- Neon  (team: auth, bots, threads, messages, skills)
           |
-          +---- BotActor [name = botId]     <-- Agent + Pi office + Computer
-          |       queue / schedule / one turn
-          |       office_chat SQLite + Cap’n Web /bots/:botId/rpc
+          +---- RoomActor [name = roomId]   <-- home: Agent + Pi + Computer
+          |       kind=home: queue / schedule / one turn
+          |       office_chat SQLite + Cap’n Web /rooms/:roomId/rpc
           |       computer = @cloudflare/computer Workspace + Worker shell
-          |
-          +---- RoomActor [name = roomId]   <-- later, not the person
-          |       members, floor, room log, websockets
+          |       kind=board: members, floor, room log; wakes home rooms
           |
           '---- AppRuntime [name = appId]   <-- not the person
                   document + Gadget facet
@@ -29,28 +27,28 @@ UI: copy Grok Bot simplicity — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). R
 
 | Thing | Key | What it is |
 | --- | --- | --- |
-| Bot | `botId` | The person. One Agents Durable Object. Pi runs the turn. |
-| Room | `roomId` | The place (later). Own Durable Object; does **not** run the model. v1 office is Pi-on-bot. |
+| Bot | `botId` | The person. Roster/soul/computer oRPC key. Home `RoomActor` is named `homeRoomId`. Pi runs the turn. |
+| Room | `roomId` | The place. Same Durable Object class; board kind does **not** run the model. 1:1 is a home room. |
 | Thread | Postgres `threadId` | v1 poke / guest. Listing + membership. |
-| Office log | that bot | DO SQLite `office_chat`. |
+| Office log | that home room | DO SQLite `office_chat`. |
 | App | `appId` | Live doc. Own Durable Object. |
-| Computer | `botId` | Built into the bot. `@cloudflare/computer` `Workspace` + Worker shell on `BotActor`. Sell it. Not a second Durable Object. |
+| Computer | `botId` | Built into the home room. `@cloudflare/computer` `Workspace` + Worker shell on `RoomActor`. Sell it. Not a second Durable Object. |
 
 ## Locked
 
-- **Durable person = bot = `BotActor`.** `getAgentByName(env.BOT_ACTOR, botId)`. Never name this actor a `roomId`.
-- **Durable place = room (later), not the person.** `RoomActor` coordinates the log, members, floor, and websockets. See [docs/rooms-plan.md](./docs/rooms-plan.md).
-- **Office log on the bot.** DO SQLite `office_chat`. v1 is **one** home office. A poke is still a Postgres thread that enqueues onto that bot. Do not use a session catalog as the office. Pi is the **loop** (`runAgentLoopContinue`); it does not replace the person Durable Object or the later room Durable Object.
+- **Durable person = home `RoomActor`.** `getAgentByName(env.ROOM_ACTOR, homeRoomId)`. Do not name this instance `botId`. Do not bring back `BotActor`.
+- **Durable place = board `RoomActor`.** Same class, `kind=board`. Coordinates the log, members, floor, and websockets. Never runs Pi. See [docs/rooms-plan.md](./docs/rooms-plan.md).
+- **Office log on the home room.** DO SQLite `office_chat`. v1 is **one** home office per bot. A poke is still a Postgres thread that enqueues onto that home room. Do not use a session catalog as the office. Pi is the **loop** (`runAgentLoopContinue`); it does not replace the person instance or run on the board.
 - **Each app has its own Durable Object.** Talk → chat card → Open. Listing from cards, not a Postgres apps table.
-- **Computer is the bot.** Each teammate has a computer (`@cloudflare/computer` `Workspace` on `BotActor`, Worker shell for bash). Sell that. No `computers` table, no shared vs isolated hire, no takeover, no `computer.sleep`, no Computer DO.
-- **Postgres** is the team catalog (auth, bots, threads, messages, skills). Office UI is assistant-ui over Cap’n Web (`/bots/:botId/rpc`).
-- **One queue per bot.** Two humans in one office share it. Two bots in a poke are two queues.
+- **Computer is the bot.** Each teammate has a computer (`@cloudflare/computer` `Workspace` on the home `RoomActor`, Worker shell for bash). Sell that. No `computers` table, no shared vs isolated hire, no takeover, no `computer.sleep`, no Computer DO.
+- **Postgres** is the team catalog (auth, bots, threads, messages, skills). Office UI is assistant-ui over Cap’n Web (`/rooms/:roomId/rpc`).
+- **One queue per home room.** Two humans in one office share it. Two bots in a poke are two queues.
 - Product is **Cloudflare Workers** + Neon.
 
 ## Wake a bot
 
 - `run.continue` — user messaged (that bot’s queue)
-- Routines — Agents `this.schedule` on `BotActor`. The office UI and Code Mode `routines` connector call `schedule` / `listSchedules` / `cancelSchedule`; the callback appends a user row and starts a Pi turn.
+- Routines — Agents `this.schedule` on the home `RoomActor`. The office UI and Code Mode `routines` connector call `schedule` / `listSchedules` / `cancelSchedule`; the callback appends a user row and starts a Pi turn.
 
 Do not run the brain from Worker Cron Triggers. Do not store routine clocks in Postgres.
 
@@ -63,7 +61,7 @@ createApp(env, { db, enqueue, initApp, email })
 createWakeHandlers({ db, runtime, enqueue, bindRuntime, pluginTools })
 ```
 
-`enqueue` is `getAgentByName` + Agents `queue` / `schedule` (or a test function). `initApp` is the `AppRuntime` stub. `email` is `env.EMAIL`. Hosted models bind `env.AI` in `BotActor` boot.
+`enqueue` is `getAgentByName` + Agents `queue` / `schedule` (or a test function). `initApp` is the `AppRuntime` stub. `email` is `env.EMAIL`. Hosted models bind `env.AI` in home `RoomActor` boot.
 
 ## One deployment
 
@@ -72,7 +70,7 @@ createWakeHandlers({ db, runtime, enqueue, bindRuntime, pluginTools })
 | Marketing | `apps/landing` |
 | Office SPA | `apps/web` |
 | API | `apps/api` + Neon HTTP. Local: `wrangler dev` |
-| Brain | Pi `runAgentLoopContinue` on `BotActor` for v1 office and owned arrays (poke / guest / REST). Tests: `ScriptedAgentRuntime` |
+| Brain | Pi `runAgentLoopContinue` on the home `RoomActor` for v1 office and owned arrays (poke / guest / REST). Tests: `ScriptedAgentRuntime` |
 | Apps | `AppRuntime` per `appId` |
 | Data | Neon Postgres |
 | Auth email | Worker `EMAIL` (`send_email`) |

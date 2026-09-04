@@ -36,6 +36,7 @@ describe("draftCreatedBot", () => {
       avatarColor: "#e45c9a",
     });
     expect(bot.threadId).toBe("bot-1");
+    expect(bot.homeRoomId).toBe("bot-1");
     expect(bot.guestKind).toBe("off");
   });
 });

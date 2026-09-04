@@ -76,27 +76,31 @@ describe("roomWakeJob", () => {
       roomId: "board",
       roomName: "Board",
       members: [
-        { id: "steve", name: "Steve" },
-        { id: "hormozi", name: "Hormozi" },
+        { id: "steve", name: "Steve", homeRoomId: "home-steve" },
+        { id: "hormozi", name: "Hormozi", homeRoomId: "home-hormozi" },
       ],
       messages: [],
       targetBotId: "steve",
+      targetHomeRoomId: "home-steve",
     });
     const hormoziJob = roomWakeJob({
       roomId: "board",
       roomName: "Board",
       members: [
-        { id: "steve", name: "Steve" },
-        { id: "hormozi", name: "Hormozi" },
+        { id: "steve", name: "Steve", homeRoomId: "home-steve" },
+        { id: "hormozi", name: "Hormozi", homeRoomId: "home-hormozi" },
       ],
       messages: [],
       targetBotId: "hormozi",
+      targetHomeRoomId: "home-hormozi",
     });
     expect(steveJob.name).toBe("room.turn");
     expect(steveJob.botId).toBe("steve");
     expect(hormoziJob.botId).toBe("hormozi");
     expect(steveJob.botId).not.toBe(hormoziJob.botId);
     expect(steveJob.payload.roomId).toBe("board");
+    expect(steveJob.payload.homeRoomId).toBe("home-steve");
+    expect(hormoziJob.payload.homeRoomId).toBe("home-hormozi");
   });
 });
 

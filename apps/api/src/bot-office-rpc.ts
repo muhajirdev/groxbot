@@ -5,7 +5,7 @@ import {
 } from "@groxbot/core";
 import { getAgentByName } from "agents";
 import { newWorkersRpcResponse, RpcTarget } from "capnweb";
-import type { BotActor } from "./bot-actor.js";
+import type { RoomHome } from "./bot-actor.js";
 
 export { OFFICE_WORKSPACE_HEADER };
 
@@ -21,7 +21,7 @@ export type OfficeChatSubscriber = {
 
 export class OfficeChatHost extends RpcTarget {
   constructor(
-    private readonly actor: BotActor,
+    private readonly actor: RoomHome,
     private readonly user: OfficeUserMeta | null,
   ) {
     super();
@@ -41,7 +41,7 @@ export class OfficeChatHost extends RpcTarget {
 }
 
 export function officeRpcResponse(
-  actor: BotActor,
+  actor: RoomHome,
   request: Request,
   user: OfficeUserMeta | null,
 ): Response | Promise<Response> {

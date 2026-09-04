@@ -60,6 +60,7 @@ export function toBotDto(
     avatarShape: shape.success ? shape.data : "circle",
     parentBotId: bot.parentBotId,
     threadId,
+    homeRoomId: bot.homeRoomId ?? "",
     guestKind: guestKind.success ? guestKind.data : "off",
     guestOnline: extras?.online ?? false,
     model: bot.model ?? "",

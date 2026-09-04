@@ -21,21 +21,21 @@ import { patchBot } from "../lib/collections";
 import { createWorkspaceAttachmentAdapter } from "../lib/computer-attachment";
 import { composerBannerError } from "../lib/errors";
 import { FIRST_TASK } from "../lib/jobs";
+import { peekOfficeMessages, setOfficeMessages } from "../lib/office-messages";
 import { orpc, queryClient } from "../lib/orpc";
 import {
   seedOutgoingUserMessage,
   textFromOutgoingPayload,
 } from "../lib/outgoing-user-message";
 import { client } from "../lib/rpc";
-import { peekOfficeMessages, setOfficeMessages } from "../lib/office-messages";
-import { patchThreadMeta, OFFICE_WORKING } from "../lib/thread-cache";
+import { OFFICE_WORKING, patchThreadMeta } from "../lib/thread-cache";
 import { useOfficeChat } from "../lib/use-office-chat";
 import { cn } from "../lib/utils";
 import { Button } from "../ui";
 import { PresentToolUI } from "./PresentToolUI";
 
-function rememberPreview(botId: string, messages: UIMessage[]) {
-  setOfficeMessages(botId, messages);
+function rememberPreview(botId: string, roomId: string, messages: UIMessage[]) {
+  setOfficeMessages(roomId, messages);
   const preview = lastOfficePreview(messages);
   if (!preview) return;
   patchBot(botId, { lastPreview: preview });
@@ -54,6 +54,7 @@ const THREAD_COMPONENTS = { Welcome: OfficeWelcome };
 
 export const KeptOfficeThread = memo(function KeptOfficeThread(props: {
   botId: string;
+  roomId?: string;
   botName: string;
   archived: boolean;
   needsModel: boolean;
@@ -78,6 +79,7 @@ export const KeptOfficeThread = memo(function KeptOfficeThread(props: {
   return (
     <OfficeThread
       botId={props.botId}
+      roomId={props.roomId}
       botName={props.botName}
       archived={props.archived}
       needsModel={props.needsModel}
@@ -98,6 +100,7 @@ export const KeptOfficeThread = memo(function KeptOfficeThread(props: {
 
 export function OfficeThread(props: {
   botId: string;
+  roomId?: string;
   botName: string;
   archived: boolean;
   needsModel: boolean;
@@ -150,6 +153,7 @@ export function OfficeThread(props: {
     >
       <OfficeThreadRuntime
         botId={props.botId}
+        roomId={props.roomId}
         botName={props.botName}
         archived={props.archived}
         needsModel={props.needsModel}
@@ -186,6 +190,7 @@ export function OfficeThread(props: {
 
 const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
   botId: string;
+  roomId?: string;
   botName: string;
   archived: boolean;
   needsModel: boolean;
@@ -216,11 +221,12 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
   });
   const senderRef = useRef(sender);
   senderRef.current = sender;
-  const seed = useRef(peekOfficeMessages(props.botId) ?? []).current;
+  const chatId = props.roomId || props.botId;
+  const seed = useRef(peekOfficeMessages(chatId) ?? []).current;
   const opening = Boolean(props.opening);
 
   const chat = useOfficeChat({
-    botId: props.botId,
+    botId: chatId,
     enabled: !opening,
     seed,
   });
@@ -356,16 +362,16 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
 
   useEffect(() => {
     if (wasBusy.current && !busy) {
-      rememberPreview(props.botId, messagesRef.current);
+      rememberPreview(props.botId, chatId, messagesRef.current);
     }
     wasBusy.current = busy;
-  }, [busy, props.botId]);
+  }, [busy, chatId, props.botId]);
 
   useEffect(() => {
     return () => {
-      rememberPreview(props.botId, messagesRef.current);
+      rememberPreview(props.botId, chatId, messagesRef.current);
     };
-  }, [props.botId]);
+  }, [chatId, props.botId]);
 
   const banner = composerBannerError({
     inFlight,

@@ -37,10 +37,6 @@
 	"durable_objects": {
 		"bindings": [
 			{
-				"name": "BOT_ACTOR",
-				"class_name": "BotActor"
-			},
-			{
 				"name": "APP_RUNTIME",
 				"class_name": "AppRuntime"
 			},
@@ -72,6 +68,12 @@
 			"tag": "v3",
 			"new_sqlite_classes": [
 				"RoomActor"
+			]
+		},
+		{
+			"tag": "v4",
+			"deleted_classes": [
+				"BotActor"
 			]
 		}
 	],

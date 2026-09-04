@@ -3,12 +3,13 @@ import { getAgentByName } from "agents";
 
 type ActorBinding = DurableObjectNamespace;
 
-/** Address the BotActor Durable Object. Cloudflare is the mailbox. */
-export async function enqueueOnBot(
+/** Address a RoomActor instance (home room id). Cloudflare is the mailbox. */
+export async function enqueueOnActor(
   actors: ActorBinding,
+  instanceName: string,
   job: WakeupJob,
 ): Promise<void> {
-  const stub = await getAgentByName(actors, job.botId);
+  const stub = await getAgentByName(actors, instanceName);
   const response = await stub.fetch(
     new Request("https://groxbot.internal/wakeup", {
       method: "POST",
@@ -25,4 +26,12 @@ export async function enqueueOnBot(
   if (!response.ok) {
     throw new Error(`wakeup ${response.status}`);
   }
+}
+
+/** @deprecated Use enqueueOnActor with the home room id. */
+export async function enqueueOnBot(
+  actors: ActorBinding,
+  job: WakeupJob,
+): Promise<void> {
+  return enqueueOnActor(actors, job.botId, job);
 }

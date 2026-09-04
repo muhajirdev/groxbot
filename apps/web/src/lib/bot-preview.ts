@@ -1,6 +1,6 @@
 import type { Bot } from "@groxbot/contracts";
-import { orpc, queryClient } from "./orpc";
 import { officePreviewsFromCache } from "./office-messages";
+import { orpc, queryClient } from "./orpc";
 
 /**
  * Office chat lives in IndexedDB, not Postgres.
@@ -15,6 +15,7 @@ export function mergeBotList(
   let changed = false;
   const next = server.map((bot) => {
     const lastPreview =
+      officePreviews.get(bot.homeRoomId) ||
       officePreviews.get(bot.id) ||
       bot.lastPreview ||
       cachedById.get(bot.id)?.lastPreview ||

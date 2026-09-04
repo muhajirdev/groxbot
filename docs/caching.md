@@ -9,9 +9,9 @@ Source of truth is never the browser:
 | Data | Truth |
 |---|---|
 | Team, bots, members, models | Postgres |
-| Office chat | DO SQLite `office_chat` on `BotActor`, streamed over Cap’n Web |
-| Board / room chat | DO SQLite `room_chat` on `RoomActor`, streamed over Cap’n Web |
-| This bot’s files | `@cloudflare/computer` `Workspace` on `BotActor` |
+| Office chat | DO SQLite `office_chat` on the home `RoomActor`, streamed over Cap’n Web |
+| Board / room chat | DO SQLite `room_chat` on the board `RoomActor`, streamed over Cap’n Web |
+| This bot’s files | `@cloudflare/computer` `Workspace` on the home `RoomActor` |
 | Office knowledge | R2 `{workspaceId}/…` |
 
 R2 `_search/index.json` and `_links/index.json` are **Worker snapshots**, not this cache. See [knowledge-search.md](./knowledge-search.md).
@@ -57,7 +57,7 @@ Catalog collections set `gcTime` to `OFFICE_MESSAGES_GC_TIME` (7 days) so rows o
 
 ## What IndexedDB keeps
 
-`shouldDehydrateOfficeQuery` — **success only**. Key `groxbot-query-cache`. `maxAge` = 7 days. `OFFICE_CACHE_BUSTER` (`"5"` today): bump this when the dehydrated shape is incompatible; it wipes every browser cache.
+`shouldDehydrateOfficeQuery` — **success only**. Key `groxbot-query-cache`. `maxAge` = 7 days. `OFFICE_CACHE_BUSTER` (`"6"` today): bump this when the dehydrated shape is incompatible; it wipes every browser cache.
 
 | Query | Why |
 |---|---|

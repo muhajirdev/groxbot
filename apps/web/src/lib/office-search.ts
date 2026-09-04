@@ -3,7 +3,7 @@ import { parseKnowledgeHref } from "./knowledge-link";
 export const DESK_PANES = ["settings", "computer", "app", "knowledge"] as const;
 export type DeskPane = (typeof DESK_PANES)[number];
 
-/** Desk on `/$workspaceSlug/bot/$botId` or `/$workspaceSlug/room/$roomId`. */
+/** Desk on `/$workspaceSlug/room/$roomId`. */
 export type OfficeSearch = {
   pane?: DeskPane;
   app?: string;

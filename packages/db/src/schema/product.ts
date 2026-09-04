@@ -42,6 +42,10 @@ export const bots = pgTable(
       (): AnyPgColumn => threads.id,
       { onDelete: "set null" },
     ),
+    /** Person-shaped RoomActor (kind=home). Instance name is this id, not bots.id. */
+    homeRoomId: text("home_room_id").references((): AnyPgColumn => rooms.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -49,7 +53,10 @@ export const bots = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [uniqueIndex("bots_home_thread_id_unique").on(t.homeThreadId)],
+  (t) => [
+    uniqueIndex("bots_home_thread_id_unique").on(t.homeThreadId),
+    uniqueIndex("bots_home_room_id_unique").on(t.homeRoomId),
+  ],
 );
 
 export const threads = pgTable(
@@ -403,6 +410,8 @@ export const rooms = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    /** home = that person’s 1:1 desk. board = a table. Same RoomActor class. */
+    kind: text("kind").notNull().default("board"),
     createdByUserId: text("created_by_user_id")
       .notNull()
       .references(() => user.id),

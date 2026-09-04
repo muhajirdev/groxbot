@@ -1,13 +1,17 @@
-import { afterEach, describe, expect, it } from "vitest";
 import type { Bot } from "@groxbot/contracts";
-import { hydrateBotPreviews, mergeBotList, overlayBotList } from "./bot-preview";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  hydrateBotPreviews,
+  mergeBotList,
+  overlayBotList,
+} from "./bot-preview";
 import { draftCreatedBot } from "./hire";
-import { orpc, queryClient } from "./orpc";
 import {
   clearOfficeMessages,
-  setOfficeMessages,
   officePreviewsFromCache,
+  setOfficeMessages,
 } from "./office-messages";
+import { orpc, queryClient } from "./orpc";
 
 const botsKey = orpc.bots.list.queryOptions().queryKey;
 
@@ -79,6 +83,24 @@ describe("overlayBotList", () => {
     expect(overlayBotList([bot("bot-1", "")])[0]?.lastPreview).toBe(
       "can you book the room",
     );
+  });
+
+  it("fills an empty list row from persisted office messages keyed by home room", () => {
+    setOfficeMessages("home-1", [
+      {
+        id: "m1",
+        role: "user",
+        parts: [{ type: "text", text: "can you book the room" }],
+      },
+    ]);
+    expect(
+      overlayBotList([
+        {
+          ...bot("bot-1", ""),
+          homeRoomId: "home-1",
+        },
+      ])[0]?.lastPreview,
+    ).toBe("can you book the room");
   });
 });
 

@@ -54,7 +54,9 @@ export async function createWorkspaceRoom(
       members: room.members.map((row) => ({
         id: row.botId,
         name: row.name,
+        homeRoomId: row.homeRoomId,
       })),
+      kind: "board",
     });
   }
   return room;

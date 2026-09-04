@@ -7,7 +7,8 @@ import type { OfficeChatMessage } from "./office-chat.js";
 import { officeChatText, parseOfficeChatMessages } from "./office-chat.js";
 import { iso } from "./threads.js";
 
-export const ROOM_TURN_JOB = "room.turn";
+export const ROOM_KIND_HOME = "home";
+export const ROOM_KIND_BOARD = "board";
 
 export class RoomError extends Error {
   constructor(message: string) {
@@ -19,6 +20,7 @@ export class RoomError extends Error {
 export type RoomSeat = {
   id: string;
   name: string;
+  homeRoomId?: string;
   title?: string;
   archivedAt?: Date | string | null;
 };
@@ -91,9 +93,10 @@ This log is the shared table, not your private office. Speak as yourself. Do not
 export function roomWakeJob(input: {
   roomId: string;
   roomName: string;
-  members: Array<{ id: string; name: string }>;
+  members: Array<{ id: string; name: string; homeRoomId?: string }>;
   messages: OfficeChatMessage[];
   targetBotId: string;
+  targetHomeRoomId: string;
 }): WakeupJob {
   return {
     botId: input.targetBotId,
@@ -103,6 +106,7 @@ export function roomWakeJob(input: {
       roomName: input.roomName,
       members: input.members,
       messages: input.messages,
+      homeRoomId: input.targetHomeRoomId,
     },
   };
 }
@@ -137,10 +141,12 @@ export function toRoomMemberDto(row: {
   avatarColor: string;
   avatarShape: string;
   archivedAt: Date | null;
+  homeRoomId: string | null;
 }): RoomMember {
   const shape = AvatarShape.safeParse(row.avatarShape);
   return {
     botId: row.id,
+    homeRoomId: row.homeRoomId ?? "",
     name: row.name,
     title: row.title,
     avatarColor: row.avatarColor,
@@ -162,6 +168,7 @@ export function toRoomDto(
     id: room.id,
     workspaceId: room.workspaceId,
     name: room.name,
+    kind: room.kind === ROOM_KIND_HOME ? "home" : "board",
     members,
     lastPreview: extras?.lastPreview ?? "",
     lastAt,
@@ -178,6 +185,7 @@ export async function createRoom(
     name: string;
     memberBotIds: string[];
     id?: string;
+    kind?: "home" | "board";
   },
 ): Promise<Room> {
   const name = input.name.trim();
@@ -186,6 +194,7 @@ export async function createRoom(
   if (memberBotIds.length === 0) {
     throw new RoomError("Seat at least one teammate.");
   }
+  const kind = input.kind === ROOM_KIND_HOME ? ROOM_KIND_HOME : ROOM_KIND_BOARD;
   const seated = await db
     .select({
       id: bots.id,
@@ -194,6 +203,7 @@ export async function createRoom(
       avatarColor: bots.avatarColor,
       avatarShape: bots.avatarShape,
       archivedAt: bots.archivedAt,
+      homeRoomId: bots.homeRoomId,
     })
     .from(bots)
     .where(
@@ -208,6 +218,9 @@ export async function createRoom(
     if (!bot)
       throw new RoomError("Every seat must be a teammate in this office.");
     if (bot.archivedAt) throw new RoomError(`${bot.name} is archived.`);
+    if (kind === ROOM_KIND_BOARD && !bot.homeRoomId) {
+      throw new RoomError(`${bot.name} has no home room yet.`);
+    }
   }
   const id = input.id?.trim() || newId();
   const [room] = await db
@@ -216,6 +229,7 @@ export async function createRoom(
       id,
       workspaceId: input.workspaceId,
       name,
+      kind,
       createdByUserId: input.userId,
     })
     .returning();
@@ -231,7 +245,15 @@ export async function createRoom(
     room,
     memberBotIds.flatMap((botId) => {
       const bot = byId.get(botId);
-      return bot ? [toRoomMemberDto(bot)] : [];
+      return bot
+        ? [
+            toRoomMemberDto({
+              ...bot,
+              homeRoomId:
+                kind === ROOM_KIND_HOME ? id : (bot.homeRoomId ?? ""),
+            }),
+          ]
+        : [];
     }),
   );
 }
@@ -243,7 +265,9 @@ export async function listRooms(
   const rows = await db
     .select()
     .from(rooms)
-    .where(eq(rooms.workspaceId, workspaceId))
+    .where(
+      and(eq(rooms.workspaceId, workspaceId), eq(rooms.kind, ROOM_KIND_BOARD)),
+    )
     .orderBy(desc(rooms.updatedAt));
   if (rows.length === 0) return [];
   const seats = await db
@@ -255,6 +279,7 @@ export async function listRooms(
       avatarColor: bots.avatarColor,
       avatarShape: bots.avatarShape,
       archivedAt: bots.archivedAt,
+      homeRoomId: bots.homeRoomId,
     })
     .from(roomMembers)
     .innerJoin(bots, eq(bots.id, roomMembers.botId))
@@ -292,6 +317,7 @@ export async function getRoom(
       avatarColor: bots.avatarColor,
       avatarShape: bots.avatarShape,
       archivedAt: bots.archivedAt,
+      homeRoomId: bots.homeRoomId,
     })
     .from(roomMembers)
     .innerJoin(bots, eq(bots.id, roomMembers.botId))
@@ -302,6 +328,7 @@ export async function getRoom(
 export function liveRoomSeats(room: Pick<Room, "members">): RoomSeat[] {
   return room.members.map((row) => ({
     id: row.botId,
+    homeRoomId: row.homeRoomId,
     name: row.name,
     title: row.title,
     archivedAt: row.archivedAt,

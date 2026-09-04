@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { AVATAR_COLORS } from "./jobs";
 import {
   draftCreatedBot,
   NEW_BOT_NAME,
   nextAvatarColor,
   nextHireName,
 } from "./hire";
+import { AVATAR_COLORS } from "./jobs";
 
 describe("nextHireName", () => {
   it("starts at New Bot", () => {
@@ -15,9 +15,9 @@ describe("nextHireName", () => {
 
   it("increments when New Bot is taken", () => {
     expect(nextHireName([{ name: NEW_BOT_NAME }])).toBe("New Bot 2");
-    expect(
-      nextHireName([{ name: NEW_BOT_NAME }, { name: "New Bot 2" }]),
-    ).toBe("New Bot 3");
+    expect(nextHireName([{ name: NEW_BOT_NAME }, { name: "New Bot 2" }])).toBe(
+      "New Bot 3",
+    );
   });
 });
 
@@ -40,6 +40,7 @@ describe("draftCreatedBot", () => {
     });
     expect(bot.id).toBe("bot-1");
     expect(bot.threadId).toBe("bot-1");
+    expect(bot.homeRoomId).toBe("bot-1");
     expect(bot.guestKind).toBe("off");
     expect(bot.archivedAt).toBeNull();
     expect(bot.pinnedAt).toBeNull();

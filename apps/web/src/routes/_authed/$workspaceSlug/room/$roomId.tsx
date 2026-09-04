@@ -17,16 +17,18 @@ export const Route = createFileRoute("/_authed/$workspaceSlug/room/$roomId")({
       }
     }
     const rooms = peekRooms();
-    if (!rooms.some((room) => room.id === params.roomId)) {
-      const bots = await loadBotsForRoute();
-      const first = firstLiveBot(bots);
-      if (!first) throw redirect({ to: "/onboarding", search: {} });
-      throw redirect({
-        to: OFFICE_TO,
-        params: officeParams(params.workspaceSlug, first.id),
-      });
-    }
-    return rooms;
+    if (rooms.some((room) => room.id === params.roomId)) return rooms;
+    const bots = await loadBotsForRoute();
+    if (bots.some((bot) => bot.homeRoomId === params.roomId)) return rooms;
+    const first = firstLiveBot(bots);
+    if (!first) throw redirect({ to: "/onboarding", search: {} });
+    throw redirect({
+      to: OFFICE_TO,
+      params: officeParams(
+        params.workspaceSlug,
+        first.homeRoomId || first.id,
+      ),
+    });
   },
   component: RoomPage,
 });

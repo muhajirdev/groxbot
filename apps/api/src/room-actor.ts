@@ -1,5 +1,4 @@
-/** Cloudflare-only. Excluded from `tsc`. Place Durable Object — never runs the model. */
-import { DurableObject } from "cloudflare:workers";
+/** Cloudflare-only. Excluded from `tsc`. One RoomActor class: home (person) or board (place). */
 import {
   officeUserFromHeaders,
   stampIncomingOfficeUser,
@@ -18,13 +17,13 @@ import {
   roomWakeJob,
   sanitizeComputerPath,
 } from "@groxbot/core";
-import type { WorkerEnv } from "./bot-actor.js";
-import { enqueueOnBot } from "./bot-enqueue.js";
+import { RoomHome, type WorkerEnv } from "./bot-actor.js";
+import { enqueueOnActor } from "./bot-enqueue.js";
 import { type RoomChatSubscriber, roomRpcResponse } from "./room-rpc.js";
 
-type RoomMemberRow = { id: string; name: string };
+type RoomMemberRow = { id: string; name: string; homeRoomId?: string };
 
-export class RoomActor extends DurableObject<WorkerEnv> {
+export class RoomActor extends RoomHome {
   private subscribers = new Set<RoomChatSubscriber>();
   private status: "ready" | "submitted" | "streaming" | "error" = "ready";
   private error = "";
@@ -50,45 +49,61 @@ export class RoomActor extends DurableObject<WorkerEnv> {
     });
   }
 
+  async onStart(): Promise<void> {
+    const kind = (await this.ctx.storage.get<string>("kind")) || "";
+    if (kind === "board") {
+      const stored = await this.ctx.storage.get<string>("workspaceId");
+      if (typeof stored === "string" && stored && !this.officeId) {
+        this.officeId = stored;
+      }
+      return;
+    }
+    await super.onStart();
+  }
+
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
-    if (request.headers.get("Upgrade") === "websocket") {
-      const claimed = request.headers.get(OFFICE_WORKSPACE_HEADER);
-      const workspaceId = await this.workspaceId();
-      if (!workspaceId || claimed !== workspaceId) {
-        return new Response("Forbidden", { status: 403 });
-      }
-      return roomRpcResponse(
-        this,
-        request,
-        officeUserFromHeaders(request.headers),
-      );
-    }
+    const kind = (await this.ctx.storage.get<string>("kind")) || "";
     if (request.method === "POST" && url.pathname === "/init") {
       return this.handleInit(request);
     }
-    if (request.method === "POST" && url.pathname === "/turns/stream") {
-      return this.handleTurnStream(request);
+    if (kind === "board") {
+      if (request.headers.get("Upgrade") === "websocket") {
+        const claimed = request.headers.get(OFFICE_WORKSPACE_HEADER);
+        const workspaceId = await this.workspaceId();
+        if (!workspaceId || claimed !== workspaceId) {
+          return new Response("Forbidden", { status: 403 });
+        }
+        return roomRpcResponse(
+          this,
+          request,
+          officeUserFromHeaders(request.headers),
+        );
+      }
+      if (request.method === "POST" && url.pathname === "/turns/stream") {
+        return this.handleTurnStream(request);
+      }
+      if (request.method === "POST" && url.pathname === "/turns/complete") {
+        return this.handleTurnComplete(request);
+      }
+      if (request.method === "POST" && url.pathname === "/turns/error") {
+        return this.handleTurnError(request);
+      }
+      if (request.method === "POST" && url.pathname === "/turns/abort") {
+        return this.handleTurnAbort(request);
+      }
+      if (request.method === "POST" && url.pathname === "/files/list") {
+        return this.handleFilesList(request);
+      }
+      if (request.method === "POST" && url.pathname === "/files/read") {
+        return this.handleFilesRead(request);
+      }
+      if (request.method === "POST" && url.pathname === "/files/write") {
+        return this.handleFilesWrite(request);
+      }
+      return new Response("Not found", { status: 404 });
     }
-    if (request.method === "POST" && url.pathname === "/turns/complete") {
-      return this.handleTurnComplete(request);
-    }
-    if (request.method === "POST" && url.pathname === "/turns/error") {
-      return this.handleTurnError(request);
-    }
-    if (request.method === "POST" && url.pathname === "/turns/abort") {
-      return this.handleTurnAbort(request);
-    }
-    if (request.method === "POST" && url.pathname === "/files/list") {
-      return this.handleFilesList(request);
-    }
-    if (request.method === "POST" && url.pathname === "/files/read") {
-      return this.handleFilesRead(request);
-    }
-    if (request.method === "POST" && url.pathname === "/files/write") {
-      return this.handleFilesWrite(request);
-    }
-    return new Response("Not found", { status: 404 });
+    return super.fetch(request);
   }
 
   async subscribeRoom(subscriber: RoomChatSubscriber): Promise<void> {
@@ -158,14 +173,16 @@ export class RoomActor extends DurableObject<WorkerEnv> {
       await this.broadcastStatus();
       return;
     }
+    const homeRoomId = target.homeRoomId || target.id;
     const job = roomWakeJob({
       roomId,
       roomName: (await this.ctx.storage.get<string>("name")) || "Room",
       members,
       messages: stamped,
       targetBotId: target.id,
+      targetHomeRoomId: homeRoomId,
     });
-    await enqueueOnBot(this.env.BOT_ACTOR, job);
+    await enqueueOnActor(this.env.ROOM_ACTOR, homeRoomId, job);
   }
 
   async stopRoom(): Promise<void> {
@@ -178,7 +195,10 @@ export class RoomActor extends DurableObject<WorkerEnv> {
     await this.ctx.storage.delete("floorBotId");
     await this.broadcastStatus();
     if (!floor) return;
-    await enqueueOnBot(this.env.BOT_ACTOR, {
+    const seated = await this.members();
+    const homeRoomId =
+      seated.find((row) => row.id === floor)?.homeRoomId || floor;
+    await enqueueOnActor(this.env.ROOM_ACTOR, homeRoomId, {
       botId: floor,
       name: "run.abort",
       payload: {},
@@ -190,6 +210,8 @@ export class RoomActor extends DurableObject<WorkerEnv> {
       roomId?: unknown;
       workspaceId?: unknown;
       name?: unknown;
+      kind?: unknown;
+      botId?: unknown;
       members?: unknown;
     };
     const roomId = typeof body.roomId === "string" ? body.roomId.trim() : "";
@@ -202,20 +224,37 @@ export class RoomActor extends DurableObject<WorkerEnv> {
         { status: 400 },
       );
     }
+    const kind = body.kind === "home" ? "home" : "board";
     const members = Array.isArray(body.members)
       ? body.members.flatMap((row) => {
           if (!row || typeof row !== "object" || Array.isArray(row)) return [];
-          const item = row as { id?: unknown; name?: unknown };
+          const item = row as {
+            id?: unknown;
+            name?: unknown;
+            homeRoomId?: unknown;
+          };
           const id = typeof item.id === "string" ? item.id.trim() : "";
           const memberName =
             typeof item.name === "string" ? item.name.trim() : "";
-          return id && memberName ? [{ id, name: memberName }] : [];
+          const homeRoomId =
+            typeof item.homeRoomId === "string" ? item.homeRoomId.trim() : "";
+          return id && memberName ? [{ id, name: memberName, homeRoomId }] : [];
         })
       : [];
     await this.ctx.storage.put("roomId", roomId);
     await this.ctx.storage.put("workspaceId", workspaceId);
     await this.ctx.storage.put("name", name);
+    await this.ctx.storage.put("kind", kind);
     await this.ctx.storage.put("members", members);
+    if (kind === "home") {
+      const botId = typeof body.botId === "string" ? body.botId.trim() : "";
+      if (botId) {
+        this.personId = botId;
+        await this.ctx.storage.put("botId", botId);
+      }
+      this.officeId = workspaceId;
+      await this.ctx.storage.put("officeId", workspaceId);
+    }
     return Response.json({ ok: true });
   }
 

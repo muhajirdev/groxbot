@@ -41,6 +41,7 @@ import {
   MCP_OAUTH_SETTLE_MS,
   mcpCatalogStatusFromLive,
   mcpConnectionIsExecutable,
+  mcpServerId,
   mcpServersForExecute,
   newId,
   OFFICE_GENERATION_STORAGE,
@@ -57,22 +58,18 @@ import {
   parseRoomTurnPayload,
   patchComputerWorkspace,
   prepareRoutineCreate,
+  ROOM_TURN_JOB,
   RoutineError,
   RoutineNotFoundError,
   RoutineScheduleError,
   readComputerFile,
   resolveRunModel,
-  ROOM_TURN_JOB,
   roomTurnSystem,
-  RoutineError,
-  RoutineNotFoundError,
-  RoutineScheduleError,
   type StoredRoutine,
   saveMcpConnection,
   shouldEnqueueOfficeReview,
   soulOverlayFromWrite,
   teammatePrompt,
-  mcpServerId,
   toRoutineDto,
   withComputerOfficeTools,
   withOfficeExecuteDescription,
@@ -84,10 +81,13 @@ import { Agent } from "agents";
 import { AgentContextProvider } from "agents/experimental/memory/session";
 import type { ToolSet } from "ai";
 import { tool } from "ai";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { createBotComputer } from "./bot-computer-workspace.js";
-import { createBundlingExecutor, createOfficeExecuteTool } from "./bot-execute.js";
+import {
+  createBundlingExecutor,
+  createOfficeExecuteTool,
+} from "./bot-execute.js";
 import { KnowledgeConnector } from "./bot-knowledge.js";
 import { bindToMarkdown, createPageTools } from "./bot-markdown.js";
 import { WorkspaceMcpConnector } from "./bot-mcp-connector.js";
@@ -125,7 +125,6 @@ export interface WorkerEnv {
   COMPOSIO_API_KEY?: string;
   EMAIL?: SendEmailBinding;
   AI?: WorkersAiBinding;
-  BOT_ACTOR: DurableObjectNamespace;
   APP_RUNTIME: DurableObjectNamespace;
   ROOM_ACTOR: DurableObjectNamespace;
   LOADER: unknown;
@@ -245,11 +244,12 @@ function storedRoutine(
   };
 }
 
-export class BotActor extends Agent<WorkerEnv> {
+export class RoomHome extends Agent<WorkerEnv> {
   computer = createBotComputer({
     storage: this.ctx.storage,
     loader: this.env.LOADER,
     ctx: this.ctx,
+    binding: "ROOM_ACTOR",
   });
   /** Computer VFS — Code Mode execute and the office pane share this tree. */
   workspace = diskFromComputerFs(this.computer.fs);
@@ -258,7 +258,9 @@ export class BotActor extends Agent<WorkerEnv> {
   private turnEnv: RuntimeSource = {};
   private botLoaded = false;
   private botLoading: Promise<void> | null = null;
-  private officeId = "";
+  protected officeId = "";
+  /** Product bot id. DO instance name is the home room id. */
+  protected personId = "";
   /** Claimed a due review; other waitUntil callbacks should not start another. */
   private reviewQueued = false;
   /** Office review turn in flight. */
@@ -487,7 +489,7 @@ export class BotActor extends Agent<WorkerEnv> {
     const model = piCompletionsModel(gatewayRequestModel(this.turnModel));
     const streamFn = createGatewayStreamFn(loadGatewayConfig(this.turnEnv), {
       workspaceId: this.officeId,
-      botId: this.name,
+      botId: this.botKey(),
     });
     const system = await this.officeSystemPrompt(messages);
     try {
@@ -577,14 +579,15 @@ export class BotActor extends Agent<WorkerEnv> {
     const model = piCompletionsModel(gatewayRequestModel(this.turnModel));
     const streamFn = createGatewayStreamFn(loadGatewayConfig(this.turnEnv), {
       workspaceId,
-      botId: this.name,
+      botId: this.botKey(),
     });
     const overlay = (await this.soulOverlay.get()) ?? "";
     const memory = (await this.memoryBlock.get()) ?? "";
     let soul = composeSoul(this.soulPrompt, overlay);
     if (memory.trim()) soul = `${soul}\n\nMemory:\n${memory.trim()}`;
     const selfName =
-      payload.members.find((row) => row.id === this.name)?.name ?? this.name;
+      payload.members.find((row) => row.id === this.botKey())?.name ??
+      this.botKey();
     const system = roomTurnSystem(soul, {
       name: payload.roomName,
       selfName,
@@ -805,6 +808,10 @@ export class BotActor extends Agent<WorkerEnv> {
     await this.botLoading;
   }
 
+  private botKey(): string {
+    return this.personId || this.name;
+  }
+
   private async loadBot(): Promise<void> {
     const env = productEnv(this.env);
     const source = agentRuntimeSource(env);
@@ -812,11 +819,13 @@ export class BotActor extends Agent<WorkerEnv> {
     const [bot] = await db
       .select()
       .from(bots)
-      .where(eq(bots.id, this.name))
+      .where(or(eq(bots.homeRoomId, this.name), eq(bots.id, this.name)))
       .limit(1);
     if (!bot) return;
+    this.personId = bot.id;
     this.officeId = bot.workspaceId;
     await this.ctx.storage.put("officeId", bot.workspaceId);
+    await this.ctx.storage.put("botId", bot.id);
     const overlay = await resolveRunModel(
       db,
       bot,
@@ -1045,7 +1054,7 @@ export class BotActor extends Agent<WorkerEnv> {
     const parked = await this.parkedRoutines();
     const rows: Routine[] = live.map((row) =>
       toRoutineDto(
-        this.name,
+        this.botKey(),
         storedRoutine(row.id, row.payload, true),
         isoUnixSeconds(row.time),
       ),
@@ -1053,7 +1062,7 @@ export class BotActor extends Agent<WorkerEnv> {
     for (const [id, payload] of Object.entries(parked)) {
       if (live.some((row) => row.id === id)) continue;
       rows.push(
-        toRoutineDto(this.name, storedRoutine(id, payload, false), null),
+        toRoutineDto(this.botKey(), storedRoutine(id, payload, false), null),
       );
     }
     return rows;
@@ -1069,11 +1078,15 @@ export class BotActor extends Agent<WorkerEnv> {
     if (await this.routinesSuspended()) {
       const id = newId();
       await this.putParkedRoutine(id, { ...payload, fireOnUnarchive: true });
-      return toRoutineDto(this.name, storedRoutine(id, payload, true), null);
+      return toRoutineDto(
+        this.botKey(),
+        storedRoutine(id, payload, true),
+        null,
+      );
     }
     const row = await this.armRoutine(payload);
     return toRoutineDto(
-      this.name,
+      this.botKey(),
       storedRoutine(row.id, payload, true),
       isoUnixSeconds(row.time),
     );
@@ -1088,14 +1101,14 @@ export class BotActor extends Agent<WorkerEnv> {
       });
       await this.cancelSchedule(id);
       return toRoutineDto(
-        this.name,
+        this.botKey(),
         storedRoutine(id, live.payload, false),
         null,
       );
     }
     const parked = (await this.parkedRoutines())[id];
     if (!parked) throw new RoutineNotFoundError();
-    return toRoutineDto(this.name, storedRoutine(id, parked, false), null);
+    return toRoutineDto(this.botKey(), storedRoutine(id, parked, false), null);
   }
 
   async resumeRoutine(id: string): Promise<Routine> {
@@ -1104,7 +1117,7 @@ export class BotActor extends Agent<WorkerEnv> {
       const live = await this.liveRoutineById(id);
       if (live) {
         return toRoutineDto(
-          this.name,
+          this.botKey(),
           storedRoutine(live.id, live.payload, true),
           isoUnixSeconds(live.time),
         );
@@ -1118,7 +1131,7 @@ export class BotActor extends Agent<WorkerEnv> {
     const row = await this.armRoutine(payload);
     await this.deleteParkedRoutine(id);
     return toRoutineDto(
-      this.name,
+      this.botKey(),
       storedRoutine(row.id, payload, true),
       isoUnixSeconds(row.time),
     );

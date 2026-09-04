@@ -30,21 +30,24 @@ export function agentSocketHost(origin = apiOrigin()): {
   };
 }
 
-export function officeRpcUrl(botId: string, origin = apiOrigin()): string {
+export function officeRpcUrl(roomId: string, origin = apiOrigin()): string {
   const http = origin.replace(/\/$/, "");
   const ws = http.replace(/^http:/, "ws:").replace(/^https:/, "wss:");
-  return `${ws}/bots/${encodeURIComponent(botId)}/rpc`;
+  return `${ws}/rooms/${encodeURIComponent(roomId)}/rpc`;
 }
 
-export function agentMessagesUrl(botId: string, origin = apiOrigin()): string {
+export function agentMessagesUrl(roomId: string, origin = apiOrigin()): string {
   const prefix = origin.replace(/\/$/, "");
-  return `${prefix}/agents/bot-actor/${encodeURIComponent(botId)}/get-messages`;
+  return `${prefix}/agents/room-actor/${encodeURIComponent(roomId)}/get-messages`;
 }
 
-export function agentWebSocketUrl(botId: string, origin = apiOrigin()): string {
+export function agentWebSocketUrl(
+  roomId: string,
+  origin = apiOrigin(),
+): string {
   const { host, secure } = agentSocketHost(origin);
   const scheme = secure ? "wss" : "ws";
-  return `${scheme}://${host}/agents/bot-actor/${encodeURIComponent(botId)}`;
+  return `${scheme}://${host}/agents/room-actor/${encodeURIComponent(roomId)}`;
 }
 
 /** Office SPA thread. Live docs / slides / sheets still open here. */

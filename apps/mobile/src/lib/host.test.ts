@@ -39,14 +39,14 @@ describe("agentSocketHost", () => {
 });
 
 describe("Agent URLs", () => {
-  it("names the BotActor instance after botId", () => {
-    expect(agentMessagesUrl("bot_1")).toBe(
-      "http://127.0.0.1:3100/agents/bot-actor/bot_1/get-messages",
+  it("names the RoomActor instance after roomId", () => {
+    expect(agentMessagesUrl("room_1")).toBe(
+      "http://127.0.0.1:3100/agents/room-actor/room_1/get-messages",
     );
-    expect(agentWebSocketUrl("bot_1")).toBe(
-      "ws://127.0.0.1:3100/agents/bot-actor/bot_1",
+    expect(agentWebSocketUrl("room_1")).toBe(
+      "ws://127.0.0.1:3100/agents/room-actor/room_1",
     );
-    expect(officeRpcUrl("bot_1")).toBe("ws://127.0.0.1:3100/bots/bot_1/rpc");
+    expect(officeRpcUrl("room_1")).toBe("ws://127.0.0.1:3100/rooms/room_1/rpc");
   });
 });
 

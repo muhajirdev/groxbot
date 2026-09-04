@@ -1,8 +1,8 @@
 import { apiOrigin } from "./host";
 
-/** WebSocket to this bot's office chat Durable Object (Cap'n Web). */
-export function officeRpcUrl(botId: string): string {
+/** WebSocket to this conversation’s RoomActor (home or board). */
+export function officeRpcUrl(roomId: string): string {
   const http = apiOrigin().replace(/\/$/, "");
   const ws = http.replace(/^http:/, "ws:").replace(/^https:/, "wss:");
-  return `${ws}/bots/${encodeURIComponent(botId)}/rpc`;
+  return `${ws}/rooms/${encodeURIComponent(roomId)}/rpc`;
 }

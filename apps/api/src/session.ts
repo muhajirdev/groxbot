@@ -2,7 +2,7 @@ import { WORKSPACE_ID_HEADER } from "@groxbot/contracts";
 import { isWorkspaceMember, publishedProfileImage } from "@groxbot/core";
 import { bots, deploymentSettings, organization, user } from "@groxbot/db";
 import { ORPCError } from "@orpc/server";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import type { RpcContext } from "./context.js";
 
 export interface Actor {
@@ -152,7 +152,7 @@ export async function actorForAgentBot(
     const [bot] = await context.db
       .select({ workspaceId: bots.workspaceId })
       .from(bots)
-      .where(eq(bots.id, botId))
+      .where(or(eq(bots.id, botId), eq(bots.homeRoomId, botId)))
       .limit(1);
     workspaceId = bot?.workspaceId ?? null;
   } catch {

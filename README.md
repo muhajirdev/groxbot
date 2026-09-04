@@ -11,12 +11,12 @@ Early scaffold: contracts, Neon Postgres (team data), one Durable Object per bot
 - TypeScript, pnpm, Hono, React, Vite, TanStack Router
 - **oRPC** — one contract for web, desktop, and mobile
 - Postgres + Drizzle — workspaces, threads, skills (Neon on Cloudflare)
-- **One queue per bot** — Durable Object `BotActor`
+- **One queue per home room** — Durable Object `RoomActor` (kind=home)
 - Hosted brains: Pi on that actor (tests: ScriptedAgentRuntime)
-- **Routines** — Agents `this.schedule` on `BotActor`. Office UI and `routines.*` oRPC talk to that actor.
+- **Routines** — Agents `this.schedule` on the home `RoomActor`. Office UI and `routines.*` oRPC talk to that actor.
 - Better Auth (magic-link email, Google, GitHub)
 - **Cloudflare first:** Workers (landing, web, API) + Neon. Local = `wrangler dev` + Vite
-- **Computer** — built into each bot (`@cloudflare/computer` Workspace on `BotActor`). Not a second table or DO.
+- **Computer** — built into each bot (`@cloudflare/computer` Workspace on that bot’s home `RoomActor`). Not a second table or DO.
 - **Apps** — docs / slides / sheets as `AppRuntime` Durable Objects
 - Plugins: Composio (optional)
 - UI: **web first** (Grok Bot-simple) — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). Desktop = Electron around web. Mobile = Expo (`pnpm dev:mobile`).
@@ -107,7 +107,7 @@ Mobile (Expo):
 pnpm dev:mobile
 ```
 
-The phone is the same office: roster, assistant-ui thread (Cap’n Web `/bots/:botId/rpc` + `useAISDKRuntime` — markdown, copy/edit/retry, branches, attachments, follow-ups), this bot’s computer, knowledge (library + graph), plugins, and settings. Live docs / slides / sheets still open in the web office.
+The phone is the same office: roster, assistant-ui thread (Cap’n Web `/rooms/:roomId/rpc` + `useAISDKRuntime` — markdown, copy/edit/retry, branches, attachments, follow-ups), this bot’s computer, knowledge (library + graph), plugins, and settings. Live docs / slides / sheets still open in the web office.
 
 On a device, set `EXPO_PUBLIC_API_URL` to this machine’s LAN address (`http://192.168.x.x:3100`) and `EXPO_PUBLIC_WEB_URL` to the office (`http://192.168.x.x:5173`). Magic-link and Google callbacks use the `groxbot://` scheme. Live docs / slides / sheets still open in the web office.
 

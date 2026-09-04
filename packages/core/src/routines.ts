@@ -1,4 +1,4 @@
-/** This bot’s recurring jobs. Agents `this.schedule` on BotActor — not a product table. */
+/** This bot’s recurring jobs. Agents `this.schedule` on the home RoomActor — not a product table. */
 
 import type { Routine } from "@groxbot/contracts";
 import { newId } from "./ids.js";

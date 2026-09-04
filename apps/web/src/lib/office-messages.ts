@@ -9,19 +9,19 @@ const OFFICE_MESSAGES_KEY = [OFFICE_MESSAGES_ROOT] as const;
 /** Keep restored threads for the IndexedDB persist window. */
 export const OFFICE_MESSAGES_GC_TIME = 7 * 24 * 60 * 60 * 1000;
 
-/** Durable Object instance name: `bots.id`, same as Cap’n Web `/bots/:botId/rpc`. */
-export function officeBotId(botId: string): string {
-  const id = botId.trim();
+/** Durable Object instance name: home `roomId`, same as Cap’n Web `/rooms/:roomId/rpc`. */
+export function officeBotId(roomId: string): string {
+  const id = roomId.trim();
   if (!id) throw new Error("office bot id required");
   return id;
 }
 
-export function officeMessagesKey(botId: string) {
-  return [...OFFICE_MESSAGES_KEY, officeBotId(botId)] as const;
+export function officeMessagesKey(roomId: string) {
+  return [...OFFICE_MESSAGES_KEY, officeBotId(roomId)] as const;
 }
 
-export function peekOfficeMessages(botId: string): UIMessage[] | undefined {
-  return queryClient.getQueryData(officeMessagesKey(botId));
+export function peekOfficeMessages(roomId: string): UIMessage[] | undefined {
+  return queryClient.getQueryData(officeMessagesKey(roomId));
 }
 
 export function officePreviewsFromCache(): Map<string, string> {
@@ -37,14 +37,15 @@ export function officePreviewsFromCache(): Map<string, string> {
   return out;
 }
 
-function writeRosterPreview(botId: string, preview: string): void {
+function writeRosterPreview(roomId: string, preview: string): void {
   if (!preview) return;
   const key = orpc.bots.list.queryOptions().queryKey;
   queryClient.setQueryData<Bot[]>(key, (current) => {
     if (!current) return current;
     let changed = false;
     const next = current.map((bot) => {
-      if (bot.id !== botId || bot.lastPreview === preview) return bot;
+      const match = bot.homeRoomId === roomId || bot.id === roomId;
+      if (!match || bot.lastPreview === preview) return bot;
       changed = true;
       return { ...bot, lastPreview: preview };
     });
@@ -52,13 +53,13 @@ function writeRosterPreview(botId: string, preview: string): void {
   });
 }
 
-export function setOfficeMessages(botId: string, messages: UIMessage[]) {
-  queryClient.setQueryData(officeMessagesKey(botId), messages);
-  writeRosterPreview(botId, lastOfficePreview(messages));
+export function setOfficeMessages(roomId: string, messages: UIMessage[]) {
+  queryClient.setQueryData(officeMessagesKey(roomId), messages);
+  writeRosterPreview(roomId, lastOfficePreview(messages));
 }
 
-export function forgetOfficeMessages(botId: string) {
-  queryClient.removeQueries({ queryKey: officeMessagesKey(botId) });
+export function forgetOfficeMessages(roomId: string) {
+  queryClient.removeQueries({ queryKey: officeMessagesKey(roomId) });
 }
 
 export function clearOfficeMessages() {

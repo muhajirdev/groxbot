@@ -20,6 +20,7 @@ export const BotSchema = z.object({
   avatarShape: AvatarShape,
   parentBotId: Id.nullable(),
   threadId: Id,
+  homeRoomId: Id,
   guestKind: GuestKind,
   guestOnline: z.boolean(),
   /** Empty = workspace default model. */
@@ -43,6 +44,8 @@ export const CreateBotInput = z.object({
   instructions: z.string().max(20000).default(""),
   avatarColor: z.string().max(32).default("#5b7cff"),
   avatarShape: AvatarShape.default("circle"),
+  /** Client-generated home RoomActor id so 1:1 can open at /room/$homeRoomId. */
+  homeRoomId: Id.max(64).optional(),
 });
 
 export const UpdateBotInput = z.object({
@@ -57,8 +60,12 @@ export const UpdateBotInput = z.object({
 });
 
 /** Place, not a person. Transcript lives on RoomActor. */
+export const RoomKind = z.enum(["home", "board"]);
+export type RoomKind = z.infer<typeof RoomKind>;
+
 export const RoomMemberSchema = z.object({
   botId: Id,
+  homeRoomId: Id,
   name: z.string(),
   title: z.string(),
   avatarColor: z.string(),
@@ -71,6 +78,7 @@ export const RoomSchema = z.object({
   id: Id,
   workspaceId: Id,
   name: z.string(),
+  kind: RoomKind,
   members: z.array(RoomMemberSchema),
   lastPreview: z.string(),
   lastAt: z.string(),

@@ -2,12 +2,15 @@ import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persi
 import { persistQueryClient } from "@tanstack/query-persist-client-core";
 import { del, get, set } from "idb-keyval";
 import { hydrateBotPreviews } from "./bot-preview";
+import {
+  OFFICE_MESSAGES_GC_TIME,
+  OFFICE_MESSAGES_ROOT,
+} from "./office-messages";
 import { orpc, queryClient } from "./orpc";
 import { hydrateRoomPreviews, ROOM_MESSAGES_ROOT } from "./room-messages";
-import { OFFICE_MESSAGES_GC_TIME, OFFICE_MESSAGES_ROOT } from "./office-messages";
 
 export const OFFICE_CACHE_KEY = "groxbot-query-cache";
-export const OFFICE_CACHE_BUSTER = "5";
+export const OFFICE_CACHE_BUSTER = "6";
 
 const CATALOG_KEYS = new Set([
   JSON.stringify(orpc.bots.list.queryOptions().queryKey),

@@ -20,7 +20,9 @@ describe("Computer Worker shell wiring", () => {
     const factory = readSrc("bot-computer-workspace.ts");
     expect(factory).toMatch(/WorkerShellBackend/);
     expect(factory).toMatch(/COMPUTER_SHELL_BACKEND/);
-    expect(actor).toMatch(/export class BotActor extends Agent/);
+    expect(actor).toMatch(/export class RoomHome extends Agent/);
+    expect(actor).not.toMatch(/export class BotActor/);
+    expect(actor).toMatch(/binding: "ROOM_ACTOR"/);
     expect(actor).not.toMatch(/extends Think/);
     expect(actor).toMatch(/createBotComputer\(/);
     expect(actor).toMatch(/createAITools\(/);

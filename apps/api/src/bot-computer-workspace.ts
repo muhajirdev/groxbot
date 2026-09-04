@@ -23,7 +23,7 @@ export function createBotComputer(opts: {
         id: COMPUTER_SHELL_BACKEND,
         loader: opts.loader as WorkerShellLoader,
         workspace: {
-          binding: opts.binding ?? "BOT_ACTOR",
+          binding: opts.binding ?? "ROOM_ACTOR",
           id: opts.ctx.id.toString(),
         },
         ctx: opts.ctx,
