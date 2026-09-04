@@ -1,6 +1,6 @@
 import { type ThreadMeta, threadMetaCollection } from "./collections";
 
-export const THINK_WORKING = "working…";
+export const OFFICE_WORKING = "working…";
 
 export function readCursor(botId: string): number {
   return threadMetaCollection.get(botId)?.cursor ?? -1;

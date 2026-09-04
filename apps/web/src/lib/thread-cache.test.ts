@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { threadMetaCollection } from "./collections";
 import {
-  THINK_WORKING,
+  OFFICE_WORKING,
   dropThreadMeta,
   ensureThreadMeta,
   patchThreadMeta,
@@ -20,10 +20,10 @@ describe("threadMeta", () => {
   });
 
   it("patches working and opening", () => {
-    patchThreadMeta("bot-1", { opening: true, working: THINK_WORKING });
+    patchThreadMeta("bot-1", { opening: true, working: OFFICE_WORKING });
     expect(readThreadMeta("bot-1")).toMatchObject({
       opening: true,
-      working: THINK_WORKING,
+      working: OFFICE_WORKING,
     });
     patchThreadMeta("bot-1", { opening: false, working: "" });
     expect(readThreadMeta("bot-1")).toMatchObject({

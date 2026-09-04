@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   McpError,
   mcpCatalogIds,
-  mcpCatalogStatusFromThink,
+  mcpCatalogStatusFromLive,
   mcpOauthServerId,
   mcpServersForExecute,
   parseMcpName,
   parseMcpUrl,
-  thinkMcpServerId,
+  mcpServerId,
   toMcpDto,
 } from "./mcp-connections.js";
 
@@ -52,7 +52,7 @@ describe("mcp connections", () => {
     expect(mcpOauthServerId(undefined)).toBe("");
   });
 
-  it("maps Think’s id- prefix back to a UUID catalog row", () => {
+  it("maps Agents’ id- prefix back to a UUID catalog row", () => {
     expect(mcpCatalogIds("id-5729b24b-c968-4504-925a-ae9451f326cc")).toEqual([
       "id-5729b24b-c968-4504-925a-ae9451f326cc",
       "5729b24b-c968-4504-925a-ae9451f326cc",
@@ -63,13 +63,13 @@ describe("mcp connections", () => {
   });
 
   it("prefixes digit UUIDs the way Agents normalizeServerId does", () => {
-    expect(thinkMcpServerId("5729b24b-c968-4504-925a-ae9451f326cc")).toBe(
+    expect(mcpServerId("5729b24b-c968-4504-925a-ae9451f326cc")).toBe(
       "id-5729b24b-c968-4504-925a-ae9451f326cc",
     );
-    expect(thinkMcpServerId("mcp-11111111-1111-4111-8111-111111111111")).toBe(
+    expect(mcpServerId("mcp-11111111-1111-4111-8111-111111111111")).toBe(
       "mcp-11111111-1111-4111-8111-111111111111",
     );
-    expect(thinkMcpServerId("a729b24b-c968-4504-925a-ae9451f326cc")).toBe(
+    expect(mcpServerId("a729b24b-c968-4504-925a-ae9451f326cc")).toBe(
       "a729b24b-c968-4504-925a-ae9451f326cc",
     );
   });
@@ -101,7 +101,7 @@ describe("mcp connections", () => {
     });
   });
 
-  it("exposes live Think MCP sessions, not just catalog-ready rows", () => {
+  it("exposes live MCP sessions, not just catalog-ready rows", () => {
     expect(
       mcpServersForExecute(
         {
@@ -164,24 +164,24 @@ describe("mcp connections", () => {
     ]);
   });
 
-  it("maps Think live state onto the Plugins badge", () => {
-    expect(mcpCatalogStatusFromThink("ready", true)).toEqual({
+  it("maps live MCP state onto the Plugins badge", () => {
+    expect(mcpCatalogStatusFromLive("ready", true)).toEqual({
       status: "connected",
       lastError: null,
     });
-    expect(mcpCatalogStatusFromThink("connected", true)).toEqual({
+    expect(mcpCatalogStatusFromLive("connected", true)).toEqual({
       status: "connected",
       lastError: null,
     });
-    expect(mcpCatalogStatusFromThink("authenticating", true)).toEqual({
+    expect(mcpCatalogStatusFromLive("authenticating", true)).toEqual({
       status: "connecting",
       lastError: null,
     });
-    expect(mcpCatalogStatusFromThink("failed", true)).toEqual({
+    expect(mcpCatalogStatusFromLive("failed", true)).toEqual({
       status: "error",
       lastError: "MCP connection failed after OAuth.",
     });
-    expect(mcpCatalogStatusFromThink("ready", false)).toEqual({
+    expect(mcpCatalogStatusFromLive("ready", false)).toEqual({
       status: "error",
       lastError: "Authentication failed",
     });

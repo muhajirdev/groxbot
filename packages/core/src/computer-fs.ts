@@ -1,10 +1,6 @@
-/** Adapt @cloudflare/computer `workspace.fs` to Think’s WorkspaceLike / ComputerDisk. */
+/** Adapt `@cloudflare/computer` `workspace.fs` to the office ComputerDisk. */
 
-import {
-  type ComputerDisk,
-  listComputerEntries,
-  THINK_WORKSPACE_TABLE,
-} from "./computer.js";
+import { listComputerEntries } from "./computer.js";
 
 export const COMPUTER_DISK_FLAG = "computer.disk";
 export const COMPUTER_DISK_DOFS = "dofs";
@@ -29,8 +25,8 @@ export function computerWorkerShell(): ComputerWorkerShell {
 }
 
 /**
- * Computer file tools use `ls`. Think still injects `list` first.
- * Alias so the office catalog has one directory tool.
+ * Computer file tools use `ls`. Alias `list` so the office catalog has one
+ * directory tool.
  */
 export function withComputerOfficeTools<T extends Record<string, unknown>>(
   computerTools: T,
@@ -78,11 +74,11 @@ export type ComputerFs = {
 export type ComputerWorkspaceDisk = {
   readFile(path: string): Promise<string | null>;
   readFileBytes(path: string): Promise<Uint8Array | null>;
-  glob(pattern: string): Promise<ThinkFileInfo[]>;
+  glob(pattern: string): Promise<DiskFileInfo[]>;
   readDir(
     dir: string,
     opts?: { limit?: number; offset?: number },
-  ): Promise<ThinkFileInfo[]>;
+  ): Promise<DiskFileInfo[]>;
   writeFile(path: string, content: string): Promise<void>;
   writeFileBytes(path: string, content: Uint8Array): Promise<void>;
   mkdir(path: string, opts?: { recursive?: boolean }): Promise<void>;
@@ -90,10 +86,10 @@ export type ComputerWorkspaceDisk = {
     path: string,
     opts?: { recursive?: boolean; force?: boolean },
   ): Promise<void>;
-  stat(path: string): Promise<ThinkFileInfo | null>;
+  stat(path: string): Promise<DiskFileInfo | null>;
 };
 
-type ThinkFileInfo = {
+type DiskFileInfo = {
   path: string;
   name: string;
   type: "file" | "directory";
@@ -103,14 +99,9 @@ type ThinkFileInfo = {
   updatedAt: number;
 };
 
-type SqlExec = {
-  exec(query: string): unknown;
-};
-
 const textEncoder = new TextEncoder();
-const textDecoder = new TextDecoder();
 
-/** Think/office paths are relative; Computer VFS paths are absolute. */
+/** Office paths are relative; Computer VFS paths are absolute. */
 export function computerAbsolutePath(path: string): string {
   const trimmed = path.trim();
   if (!trimmed || trimmed === "." || trimmed === "/") return "/";
@@ -231,110 +222,6 @@ export function diskFromComputerFs(fs: ComputerFs): ComputerWorkspaceDisk {
   };
 }
 
-export async function copyThinkWorkspaceToComputer(opts: {
-  sql: SqlExec;
-  disk: ComputerDisk;
-}): Promise<"copied" | "empty" | "already"> {
-  const listed = await listComputerEntries(opts.disk);
-  if (listed.entries.some((row) => row.kind === "file")) return "already";
-  const rows = thinkWorkspaceRows(opts.sql);
-  if (rows.length === 0) return "empty";
-  const ordered = [...rows].sort(
-    (a, b) => a.path.split("/").length - b.path.split("/").length,
-  );
-  for (const row of ordered) {
-    const path = computerRelativePath(row.path);
-    if (!path) continue;
-    if (row.type === "directory") {
-      await opts.disk.mkdir?.(path, { recursive: true });
-      continue;
-    }
-    if (row.type !== "file") continue;
-    const bytes = thinkRowBytes(row);
-    if (opts.disk.writeFileBytes) {
-      await opts.disk.writeFileBytes(path, bytes);
-    } else if (opts.disk.writeFile) {
-      await opts.disk.writeFile(path, textDecoder.decode(bytes));
-    }
-  }
-  return "copied";
-}
-
-function thinkWorkspaceRows(sql: SqlExec): ThinkRow[] {
-  try {
-    const cursor = sql.exec(
-      `SELECT path, type, content, content_encoding FROM ${THINK_WORKSPACE_TABLE} WHERE path != '/'`,
-    );
-    return asRows(cursor)
-      .map(asThinkRow)
-      .filter((row): row is ThinkRow => row !== null);
-  } catch {
-    return [];
-  }
-}
-
-type ThinkRow = {
-  path: string;
-  type: string;
-  content: string | null;
-  content_encoding: string | null;
-};
-
-function asThinkRow(row: Record<string, unknown>): ThinkRow | null {
-  const path = typeof row.path === "string" ? row.path : "";
-  if (!path) return null;
-  return {
-    path,
-    type: typeof row.type === "string" ? row.type : "file",
-    content: typeof row.content === "string" ? row.content : null,
-    content_encoding:
-      typeof row.content_encoding === "string" ? row.content_encoding : null,
-  };
-}
-
-function thinkRowBytes(row: ThinkRow): Uint8Array {
-  const content = row.content ?? "";
-  if (row.content_encoding === "base64" && content) {
-    return decodeBase64(content);
-  }
-  return textEncoder.encode(content);
-}
-
-function asRows(cursor: unknown): Record<string, unknown>[] {
-  if (!cursor) return [];
-  if (
-    typeof cursor === "object" &&
-    "toArray" in cursor &&
-    typeof cursor.toArray === "function"
-  ) {
-    const rows = cursor.toArray() as unknown;
-    return Array.isArray(rows)
-      ? rows.filter(isRecord)
-      : [];
-  }
-  if (typeof cursor === "object" && Symbol.iterator in cursor) {
-    return [...(cursor as Iterable<unknown>)].filter(isRecord);
-  }
-  return [];
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function decodeBase64(content: string): Uint8Array {
-  const buffer = (
-    globalThis as {
-      Buffer?: { from(data: string, enc: string): Uint8Array };
-    }
-  ).Buffer;
-  if (buffer) return new Uint8Array(buffer.from(content, "base64"));
-  const binary = atob(content);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
-
 async function bytesFromFs(fs: ComputerFs, path: string): Promise<Uint8Array> {
   const raw = await fs.readFile(path);
   if (typeof raw === "string") return textEncoder.encode(raw);
@@ -437,7 +324,7 @@ function globRe(pattern: string): RegExp {
 async function matchByWalk(
   disk: ComputerWorkspaceDisk,
   pattern: string,
-): Promise<ThinkFileInfo[]> {
+): Promise<DiskFileInfo[]> {
   const re = globRe(computerRelativePath(computerAbsolutePath(pattern)));
   const listed = await listComputerEntries(disk);
   return listed.entries
@@ -458,7 +345,7 @@ function toInfo(input: {
   directory: boolean;
   size: number;
   mtime?: number;
-}): ThinkFileInfo {
+}): DiskFileInfo {
   const mtime = input.mtime ?? 0;
   return {
     path: input.path,

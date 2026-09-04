@@ -35,7 +35,7 @@ import {
 } from "../lib/knowledge-upload";
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
-import { THINK_MESSAGES_GC_TIME } from "../lib/think-messages";
+import { OFFICE_MESSAGES_GC_TIME } from "../lib/office-messages";
 import { Button, cn, Field, Input, Textarea } from "../ui";
 import {
   ChevronDownIcon,
@@ -308,11 +308,11 @@ function useKnowledgeWorkspace(initialPath: string | null) {
   const [localFiles, setLocalFiles] = useState<Record<string, File>>({});
   const listQuery = useQuery({
     ...orpc.knowledge.list.queryOptions(),
-    gcTime: THINK_MESSAGES_GC_TIME,
+    gcTime: OFFICE_MESSAGES_GC_TIME,
   });
   const graphQuery = useQuery({
     ...orpc.knowledge.graph.queryOptions(),
-    gcTime: THINK_MESSAGES_GC_TIME,
+    gcTime: OFFICE_MESSAGES_GC_TIME,
   });
   const graphIndex = useMemo(
     () =>

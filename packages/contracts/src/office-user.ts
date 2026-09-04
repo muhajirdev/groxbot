@@ -1,6 +1,6 @@
 import { isOfficeReviewUserMessage } from "./office-review.js";
 
-/** Who sent an office Think message. Lives on UIMessage.metadata.user. */
+/** Who sent an office message. Lives on UIMessage.metadata.user. */
 
 export type OfficeUserMeta = {
   userId: string;
@@ -137,7 +137,7 @@ export function stampOfficeUser<
 }
 
 /**
- * Stamp identity at Think intake. New user rows get the connected human.
+ * Stamp identity at office intake. New user rows get the connected human.
  * Existing rows keep the stored sender so a later turn cannot rewrite history.
  * Office-review triggers are not a human — leave them unlabeled.
  */

@@ -32,7 +32,7 @@ UI: copy Grok Bot simplicity — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). R
 | Bot | `botId` | The person. One Agents Durable Object. Pi runs the turn. |
 | Room | `roomId` | The place (later). Own Durable Object; does **not** run the model. v1 office is Pi-on-bot. |
 | Thread | Postgres `threadId` | v1 poke / guest. Listing + membership. |
-| Office log | that bot | DO SQLite `office_chat`. Not a Think Session. |
+| Office log | that bot | DO SQLite `office_chat`. |
 | App | `appId` | Live doc. Own Durable Object. |
 | Computer | `botId` | Built into the bot. `@cloudflare/computer` `Workspace` + Worker shell on `BotActor`. Sell it. Not a second Durable Object. |
 
@@ -40,10 +40,10 @@ UI: copy Grok Bot simplicity — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). R
 
 - **Durable person = bot = `BotActor`.** `getAgentByName(env.BOT_ACTOR, botId)`. Never name this actor a `roomId`.
 - **Durable place = room (later), not the person.** `RoomActor` coordinates the log, members, floor, and websockets. See [docs/rooms-plan.md](./docs/rooms-plan.md).
-- **Office log on the bot.** DO SQLite `office_chat`. v1 is **one** home office. A poke is still a Postgres thread that enqueues onto that bot. Do not use a Think Session as the catalog. Pi is the **loop** (`runAgentLoopContinue`); it does not replace the person Durable Object or the later room Durable Object.
+- **Office log on the bot.** DO SQLite `office_chat`. v1 is **one** home office. A poke is still a Postgres thread that enqueues onto that bot. Do not use a session catalog as the office. Pi is the **loop** (`runAgentLoopContinue`); it does not replace the person Durable Object or the later room Durable Object.
 - **Each app has its own Durable Object.** Talk → chat card → Open. Listing from cards, not a Postgres apps table.
 - **Computer is the bot.** Each teammate has a computer (`@cloudflare/computer` `Workspace` on `BotActor`, Worker shell for bash). Sell that. No `computers` table, no shared vs isolated hire, no takeover, no `computer.sleep`, no Computer DO.
-- **Postgres** is the team catalog (auth, bots, threads, messages, skills). Office UI is assistant-ui over Cap’n Web (`/bots/:botId/rpc`), not Think’s `useAgentChat`.
+- **Postgres** is the team catalog (auth, bots, threads, messages, skills). Office UI is assistant-ui over Cap’n Web (`/bots/:botId/rpc`).
 - **One queue per bot.** Two humans in one office share it. Two bots in a poke are two queues.
 - Product is **Cloudflare Workers** + Neon.
 
@@ -82,4 +82,4 @@ Clients share **one oRPC contract**. Desktop loads the web app. Expo later.
 
 ## Out of v1
 
-A separate Computer Durable Object / `computers` table, `SessionManager`, custom `SessionProvider` / `PostgresSessionProvider` as the office catalog, gadgets, gatekeepers, Rivet/agentOS as a deploy target, Think `chat()` / `useAgentChat` as the office loop, Polar billing. Group rooms: [docs/rooms-plan.md](./docs/rooms-plan.md) (`RoomActor` coordinator, not the model on the room).
+A separate Computer Durable Object / `computers` table, `SessionManager`, custom `SessionProvider` / `PostgresSessionProvider` as the office catalog, gadgets, gatekeepers, Rivet/agentOS as a deploy target, Polar billing. Group rooms: [docs/rooms-plan.md](./docs/rooms-plan.md) (`RoomActor` coordinator, not the model on the room).

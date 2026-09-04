@@ -1,6 +1,3 @@
-/** Public GET allowlist for Think `fetch_url`. Loopback and private nets stay blocked. */
-export const PUBLIC_FETCH_ALLOWLIST = ["https://**", "http://**"] as const;
-
 export type MarkdownBytes = {
   name: string;
   mimeType: string;

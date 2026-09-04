@@ -141,7 +141,7 @@ export async function requireActor(context: RpcContext): Promise<Actor> {
   };
 }
 
-/** Think handshake: the bot row is the tenant, not the session's last-used org. */
+/** Actor handshake: the bot row is the tenant, not the session's last-used org. */
 export async function actorForAgentBot(
   context: RpcContext,
   botId: string,

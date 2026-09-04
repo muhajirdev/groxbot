@@ -435,7 +435,7 @@ function asEntry(item: unknown, parent: string): ComputerEntry | null {
         ? row.kind
         : "file";
   const size = typeof row.size === "number" ? row.size : undefined;
-  // Think's write tool mkdir()s a relative file path, then writeFile() stores
+  // A write that mkdir()s a relative file path, then writeFile() stores
   // bytes without flipping type — so a "directory" can hold file content.
   const kind: ComputerEntry["kind"] =
     (type === "directory" || type === "dir") && !(size && size > 0)
@@ -497,7 +497,7 @@ const MEDIA_TYPES: Record<string, string> = {
 
 const patchedWorkspaces = new WeakSet<object>();
 
-/** Last path segment looks like a file Think's write tool should not mkdir. */
+/** Last path segment looks like a file the write tool should not mkdir. */
 export function computerPathLooksLikeFile(path: string): boolean {
   const file =
     path.replace(/^\/+/u, "").split("/").filter(Boolean).at(-1) ?? "";
@@ -508,7 +508,7 @@ export function computerPathLooksLikeFile(path: string): boolean {
 }
 
 /**
- * Think's write tool does `path.replace(/\/[^/]+$/, "")` for the parent.
+ * The write tool does `path.replace(/\/[^/]+$/, "")` for the parent.
  * On `essay-car.md` that is the file itself, so it mkdir()s a directory,
  * then writeFile() stores bytes without flipping `type` to file.
  */
@@ -543,22 +543,6 @@ export function patchComputerWorkspace<T extends ComputerDisk>(disk: T): T {
   }
 
   return disk;
-}
-
-/** Think Workspace SQLite table (default namespace). */
-export const THINK_WORKSPACE_TABLE = "cf_workspace_default";
-
-/** Directory rows that already hold file bytes become files so list/read work. */
-export function healThinkWorkspaceFileRows(sql: {
-  exec(query: string): unknown;
-}): void {
-  try {
-    sql.exec(
-      `UPDATE ${THINK_WORKSPACE_TABLE} SET type = 'file' WHERE type = 'directory' AND size > 0`,
-    );
-  } catch {
-    // Fresh actor — table does not exist yet.
-  }
 }
 
 async function replaceDirectoryAt(

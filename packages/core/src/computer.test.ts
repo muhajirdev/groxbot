@@ -6,7 +6,6 @@ import {
   decodeComputerBytes,
   downloadComputerFile,
   encodeComputerBytes,
-  healThinkWorkspaceFileRows,
   hostedChatMessages,
   listComputerEntries,
   MAX_COMPUTER_ENTRIES,
@@ -376,7 +375,7 @@ describe("hostedChatMessages", () => {
 });
 
 /** Mimics Cloudflare Workspace: writeFile updates content but not directory type. */
-class ThinkWriteBugDisk implements ComputerDisk {
+class DirectoryWriteBugDisk implements ComputerDisk {
   readonly rows = new Map<
     string,
     { type: "file" | "directory"; content: string }
@@ -435,7 +434,7 @@ describe("computerPathLooksLikeFile", () => {
 
 describe("patchComputerWorkspace", () => {
   it("does not mkdir a relative file path, then writes a real file", async () => {
-    const disk = new ThinkWriteBugDisk();
+    const disk = new DirectoryWriteBugDisk();
     patchComputerWorkspace(disk);
     await disk.mkdir?.("essay-car.md", { recursive: true });
     await disk.writeFile?.("essay-car.md", "# Cars");
@@ -456,7 +455,7 @@ describe("patchComputerWorkspace", () => {
   });
 
   it("replaces a leftover directory so writeFile is readable", async () => {
-    const disk = new ThinkWriteBugDisk();
+    const disk = new DirectoryWriteBugDisk();
     await disk.mkdir("essay-car.md");
     await disk.writeFile("essay-car.md", "# Cars");
     await expect(readComputerFile(disk, "essay-car.md")).rejects.toThrow(
@@ -469,28 +468,5 @@ describe("patchComputerWorkspace", () => {
         content: "# Cars",
       },
     );
-  });
-});
-
-describe("healThinkWorkspaceFileRows", () => {
-  it("updates directory rows that already hold bytes", () => {
-    const ran: string[] = [];
-    healThinkWorkspaceFileRows({
-      exec(query) {
-        ran.push(query);
-      },
-    });
-    expect(ran[0]).toMatch(/SET type = 'file'/);
-    expect(ran[0]).toMatch(/type = 'directory' AND size > 0/);
-  });
-
-  it("swallows a missing table", () => {
-    expect(() =>
-      healThinkWorkspaceFileRows({
-        exec() {
-          throw new Error("no such table: cf_workspace_default");
-        },
-      }),
-    ).not.toThrow();
   });
 });

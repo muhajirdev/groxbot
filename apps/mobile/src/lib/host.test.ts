@@ -38,7 +38,7 @@ describe("agentSocketHost", () => {
   });
 });
 
-describe("Think URLs", () => {
+describe("Agent URLs", () => {
   it("names the BotActor instance after botId", () => {
     expect(agentMessagesUrl("bot_1")).toBe(
       "http://127.0.0.1:3100/agents/bot-actor/bot_1/get-messages",

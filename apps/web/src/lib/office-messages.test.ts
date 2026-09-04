@@ -2,59 +2,59 @@ import { afterEach, describe, expect, it } from "vitest";
 import { draftCreatedBot } from "./hire";
 import { orpc, queryClient } from "./orpc";
 import {
-  clearThinkMessages,
-  forgetThinkMessages,
-  peekThinkMessages,
-  setThinkMessages,
-  thinkAgentId,
-  thinkMessagesKey,
-  thinkPreviewsFromCache,
-} from "./think-messages";
+  clearOfficeMessages,
+  forgetOfficeMessages,
+  peekOfficeMessages,
+  setOfficeMessages,
+  officeBotId,
+  officeMessagesKey,
+  officePreviewsFromCache,
+} from "./office-messages";
 
 const botId = "bot-cache-test";
 const botsKey = orpc.bots.list.queryOptions().queryKey;
 
 afterEach(() => {
-  clearThinkMessages();
+  clearOfficeMessages();
   queryClient.removeQueries({ queryKey: botsKey });
 });
 
-describe("thinkAgentId", () => {
+describe("officeBotId", () => {
   it("is the Durable Object instance name", () => {
-    expect(thinkAgentId("  bot-1  ")).toBe("bot-1");
+    expect(officeBotId("  bot-1  ")).toBe("bot-1");
   });
 
   it("rejects an empty id", () => {
-    expect(() => thinkAgentId(" ")).toThrow(/think agent id/);
+    expect(() => officeBotId(" ")).toThrow(/office bot id/);
   });
 });
 
-describe("think messages cache", () => {
+describe("office messages cache", () => {
   it("round-trips messages in the query client", () => {
-    expect(peekThinkMessages(botId)).toBeUndefined();
+    expect(peekOfficeMessages(botId)).toBeUndefined();
     const messages = [
       { id: "m1", role: "user" as const, parts: [{ type: "text" as const, text: "hi" }] },
     ];
-    setThinkMessages(botId, messages);
-    expect(peekThinkMessages(botId)).toEqual(messages);
-    expect(queryClient.getQueryData(thinkMessagesKey(botId))).toEqual(messages);
+    setOfficeMessages(botId, messages);
+    expect(peekOfficeMessages(botId)).toEqual(messages);
+    expect(queryClient.getQueryData(officeMessagesKey(botId))).toEqual(messages);
   });
 
   it("treats an empty thread as cached", () => {
-    setThinkMessages(botId, []);
-    expect(peekThinkMessages(botId)).toEqual([]);
+    setOfficeMessages(botId, []);
+    expect(peekOfficeMessages(botId)).toEqual([]);
   });
 
   it("forgets one bot without clearing others", () => {
-    setThinkMessages(botId, [
+    setOfficeMessages(botId, [
       { id: "m1", role: "user" as const, parts: [{ type: "text" as const, text: "hi" }] },
     ]);
-    setThinkMessages("bot-keep", [
+    setOfficeMessages("bot-keep", [
       { id: "m2", role: "user" as const, parts: [{ type: "text" as const, text: "stay" }] },
     ]);
-    forgetThinkMessages(botId);
-    expect(peekThinkMessages(botId)).toBeUndefined();
-    expect(peekThinkMessages("bot-keep")).toEqual([
+    forgetOfficeMessages(botId);
+    expect(peekOfficeMessages(botId)).toBeUndefined();
+    expect(peekOfficeMessages("bot-keep")).toEqual([
       { id: "m2", role: "user" as const, parts: [{ type: "text" as const, text: "stay" }] },
     ]);
   });
@@ -68,10 +68,10 @@ describe("think messages cache", () => {
         avatarColor: "#e45c9a",
       }),
     ]);
-    setThinkMessages(botId, [
+    setOfficeMessages(botId, [
       { id: "m1", role: "user" as const, parts: [{ type: "text" as const, text: "Booked the room" }] },
     ]);
-    expect(thinkPreviewsFromCache().get(botId)).toBe("Booked the room");
+    expect(officePreviewsFromCache().get(botId)).toBe("Booked the room");
     expect(queryClient.getQueryData(botsKey)).toEqual([
       expect.objectContaining({ id: botId, lastPreview: "Booked the room" }),
     ]);

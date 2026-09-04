@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { appCardsFromThinkMessage } from "./app-cards";
+import { appCardsFromOfficeMessage } from "./app-cards";
 
-describe("appCardsFromThinkMessage", () => {
-  it("reads a stamped app part from the Think transcript", () => {
+describe("appCardsFromOfficeMessage", () => {
+  it("reads a stamped app part from the office transcript", () => {
     expect(
-      appCardsFromThinkMessage({
+      appCardsFromOfficeMessage({
         id: "m1",
         role: "assistant",
         parts: [

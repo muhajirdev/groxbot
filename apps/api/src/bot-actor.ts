@@ -1,6 +1,5 @@
 /** Cloudflare-only. Excluded from `tsc`. Disk is Computer; office chat is Pi over Cap'n Web. */
 import { createAITools } from "@cloudflare/computer/tools";
-import { createExecuteTool } from "@cloudflare/think/tools/execute";
 import type { WorkersAiBinding } from "@groxbot/adapters/edge";
 import {
   applyOfficeAgentEvent,
@@ -24,14 +23,11 @@ import {
 import {
   applyOfficeReviewTurn,
   assistantTurnSettled,
-  COMPUTER_DISK_DOFS,
-  COMPUTER_DISK_FLAG,
   ComputerFileError,
   ComputerPathError,
   ComputerWriteError,
   composeSoul,
   computerWorkerShell,
-  copyThinkWorkspaceToComputer,
   countUiToolParts,
   DEFAULT_ROUTINE_TIMEZONE,
   decodeComputerBytes,
@@ -40,11 +36,10 @@ import {
   emptyOfficeReviewCounters,
   encryptionSecret,
   formatRoutinePrompt,
-  healThinkWorkspaceFileRows,
   isoUnixSeconds,
   listComputerEntries,
   MCP_OAUTH_SETTLE_MS,
-  mcpCatalogStatusFromThink,
+  mcpCatalogStatusFromLive,
   mcpConnectionIsExecutable,
   mcpServersForExecute,
   newId,
@@ -77,7 +72,7 @@ import {
   shouldEnqueueOfficeReview,
   soulOverlayFromWrite,
   teammatePrompt,
-  thinkMcpServerId,
+  mcpServerId,
   toRoutineDto,
   withComputerOfficeTools,
   withOfficeExecuteDescription,
@@ -92,7 +87,7 @@ import { tool } from "ai";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { createBotComputer } from "./bot-computer-workspace.js";
-import { createBundlingExecutor } from "./bot-execute.js";
+import { createBundlingExecutor, createOfficeExecuteTool } from "./bot-execute.js";
 import { KnowledgeConnector } from "./bot-knowledge.js";
 import { bindToMarkdown, createPageTools } from "./bot-markdown.js";
 import { WorkspaceMcpConnector } from "./bot-mcp-connector.js";
@@ -298,9 +293,12 @@ export class BotActor extends Agent<WorkerEnv> {
       convert: bindToMarkdown(this.env.AI),
     });
     const connectors = this.executeConnectors();
-    const execute = createExecuteTool(this, {
+    const execute = createOfficeExecuteTool({
+      ctx: this.ctx,
       executor: createBundlingExecutor(this.env.LOADER, { timeout: 120_000 }),
-      session: { mode: "reuse", key: this.name },
+      fs: this.computer.fs as Parameters<
+        typeof createOfficeExecuteTool
+      >[0]["fs"],
       tools: pageTools,
       connectors,
     });
@@ -838,18 +836,6 @@ export class BotActor extends Agent<WorkerEnv> {
 
   private async healComputerFiles() {
     patchComputerWorkspace(this.workspace);
-    healThinkWorkspaceFileRows(this.ctx.storage.sql);
-    await this.ensureComputerDisk();
-  }
-
-  private async ensureComputerDisk() {
-    const flag = await this.ctx.storage.get<string>(COMPUTER_DISK_FLAG);
-    if (flag === COMPUTER_DISK_DOFS) return;
-    await copyThinkWorkspaceToComputer({
-      sql: this.ctx.storage.sql,
-      disk: this.workspace,
-    });
-    await this.ctx.storage.put(COMPUTER_DISK_FLAG, COMPUTER_DISK_DOFS);
   }
 
   private async handleWorkspaceList(request: Request): Promise<Response> {
@@ -1356,7 +1342,7 @@ export class BotActor extends Agent<WorkerEnv> {
     }
     try {
       const result = await this.addMcpServer(name, url, {
-        id: thinkMcpServerId(serverId),
+        id: mcpServerId(serverId),
         callbackHost,
         callbackPath: "api/mcp/oauth",
       });
@@ -1382,7 +1368,7 @@ export class BotActor extends Agent<WorkerEnv> {
       return Response.json({ error: "MCP server missing." }, { status: 400 });
     }
     try {
-      await this.removeMcpServer(thinkMcpServerId(serverId));
+      await this.removeMcpServer(mcpServerId(serverId));
       return Response.json({ ok: true });
     } catch (error) {
       console.error("bot actor mcp remove", this.name, error);
@@ -1420,7 +1406,7 @@ export class BotActor extends Agent<WorkerEnv> {
     const live = this.mcp.mcpConnections[result.serverId] as
       | { connectionState?: string; connectionError?: string | null }
       | undefined;
-    const catalog = mcpCatalogStatusFromThink(
+    const catalog = mcpCatalogStatusFromLive(
       live?.connectionState,
       result.authSuccess,
     );

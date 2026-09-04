@@ -23,7 +23,7 @@ So: do not point group chat at `BotActor`. Do not name `BotActor` by `roomId`. D
 
 Groxbot uses Pi as the loop on the **person**:
 
-- **BotActor** is the v1 office person: Agents `Agent` (not Think), Computer `Workspace` + Worker shell, DO SQLite `office_chat`, assistant-ui over Cap’n Web (`/bots/:botId/rpc`).
+- **BotActor** is the v1 office person: Agents `Agent`, Computer `Workspace` + Worker shell, DO SQLite `office_chat`, assistant-ui over Cap’n Web (`/bots/:botId/rpc`).
 - **Pi** is the turn engine: `runAgentLoopContinue({ systemPrompt, messages })`. Soul is the stable system-prompt prefix (Steve and Hormozi must not share that prefix). The room/office log is the suffix. Hosted REST / poke / guest turns use the same loop.
 - Do **not** put the model on `RoomActor` (that would serialize the table and share one computer). Do **not** use Pi’s stateful `Agent` class as the room. The OS lesson for a panel is the Overseer shape: **place owns the log; the loop is a guest on the person.**
 

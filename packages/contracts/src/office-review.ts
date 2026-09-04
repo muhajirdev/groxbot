@@ -1,4 +1,4 @@
-/** Hidden Think trigger for post-turn office filing. Not a human sender. */
+/** Hidden trigger for post-turn office filing. Not a human sender. */
 
 export const OFFICE_REVIEW_SOURCE = "office-review";
 export const OFFICE_REVIEW_SKIP = "Skip";

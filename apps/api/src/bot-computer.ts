@@ -52,7 +52,7 @@ export async function writeBotComputer(
   });
 }
 
-/** Wipe Think SQLite for this botId. Storage is gone even if the stub stays. */
+/** Wipe this bot’s Durable Object SQLite. Storage is gone even if the stub stays. */
 export async function destroyBotActor(
   actors: ActorBinding,
   botId: string,

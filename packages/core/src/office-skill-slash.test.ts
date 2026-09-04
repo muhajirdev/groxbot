@@ -60,7 +60,7 @@ describe("catalogHasSkill", () => {
     "- weekly-update: Five-bullet Monday.",
   ].join("\n");
 
-  it("matches Think's catalog bullets", () => {
+  it("matches skill catalog bullets", () => {
     expect(catalogHasSkill(catalog, "agreements")).toBe(true);
     expect(catalogHasSkill(catalog, "missing")).toBe(false);
   });

@@ -89,7 +89,7 @@ Hono’s `@polar-sh/hono` (`Checkout`, `CustomerPortal`, `Webhooks`) is closer t
 
 ## Recommended shape
 
-Same pattern as `WakeupDriver`: a port, a fake, a Polar adapter. Polar SDK stays in the API (and maybe worker for ingest). **Think / `BotActor` must not import `@polar-sh/sdk`.**
+Same pattern as `WakeupDriver`: a port, a fake, a Polar adapter. Polar SDK stays in the API (and maybe worker for ingest). **`BotActor` must not import `@polar-sh/sdk`.**
 
 ```
 Web / desktop / mobile
@@ -163,7 +163,7 @@ Keep Polar out of the Better Auth client. Add to `packages/contracts`:
 | --- | --- |
 | `apps/api` | Yes: checkout, portal, webhooks, entitlement reads |
 | `apps/worker` | Optional: ingest `computer_minutes` when a sandbox stops / idle-sleep fires |
-| Think / `BotActor` | **No** |
+| `BotActor` | **No** |
 | `apps/web` | No secrets. Redirects to Polar-hosted checkout/portal URLs from oRPC |
 
 ## What to sell (product, not Polar objects)
@@ -181,7 +181,7 @@ Hosted groxbot.com (strawman — pricing TBD):
 Meters that match our costs:
 
 - **`computer_minutes`** — hosted bot computers (`@cloudflare/computer` `Workspace` on `BotActor`). Polar [delta-time ingestion](https://polar.sh/docs/features/usage-based-billing/ingestion-strategies/delta-time-strategy) is the right *idea*; implement with `events.ingest` from the worker on computer stop, `externalCustomerId = workspaceId`, metadata `{ deltaTime, botId }`. Do not trust the browser.
-- **`hosted_tokens`** — only if we sell model access. Polar’s [LLM strategy](https://polar.sh/docs/features/usage-based-billing/ingestion-strategies/llm-strategy) wraps Vercel AI SDK. We use Think / Workers AI. Ingest after a run from the worker (`inputTokens`, `outputTokens`, `model`). Never meter BYOK keys.
+- **`hosted_tokens`** — only if we sell model access. Polar’s [LLM strategy](https://polar.sh/docs/features/usage-based-billing/ingestion-strategies/llm-strategy) wraps Vercel AI SDK. We use Pi / Workers AI. Ingest after a run from the worker (`inputTokens`, `outputTokens`, `model`). Never meter BYOK keys.
 
 Usage is billed on a **subscription** (Polar meters attach to subscription products). Unit price is linear; Polar volume pricing for meters is still “coming soon.” Put included allowance in Polar [credits](https://polar.sh/docs/features/usage-based-billing/credits) / credited units, or a monthly cap on the metered price.
 
@@ -240,7 +240,7 @@ Do not ingest from `apps/web`. Polar’s usage plugin client endpoint is unsafe 
 - **Self-host footgun** — Polar plugin on `createAuth` would try to create customers without a token. Keep Polar out of `packages/auth`.
 - **MoR tradeoffs** — Polar is the seller; we cannot reclaim inbound VAT. Fees are higher than raw Stripe. Fine for an OSS-hosted cloud.
 - **Seller country** — payouts need Stripe Connect Express in [supported countries](https://polar.sh/docs/merchant-of-record/supported-countries). Customers can pay from most places except US-sanctioned countries.
-- **Think ≠ AI SDK** — do not take the Polar LLM wrapper as-is.
+- **Pi ≠ Polar LLM wrapper** — do not take the Polar LLM wrapper as-is.
 
 ## Implementation order (when we build it)
 

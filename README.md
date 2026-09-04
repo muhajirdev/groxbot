@@ -4,15 +4,15 @@ Source-available **Grok Bot** — Grok, then grox. Teammates with a real compute
 
 Packages live under `@groxbot/*`.
 
-Early scaffold: contracts, Neon Postgres (team data), one Think Durable Object per bot, Cloudflare Workers for landing + office + API. Live apps (docs / slides / sheets) next to chat. Self-host later.
+Early scaffold: contracts, Neon Postgres (team data), one Durable Object per bot, Cloudflare Workers for landing + office + API. Live apps (docs / slides / sheets) next to chat. Self-host later.
 
 ## Stack (locked)
 
 - TypeScript, pnpm, Hono, React, Vite, TanStack Router
 - **oRPC** — one contract for web, desktop, and mobile
 - Postgres + Drizzle — workspaces, threads, skills (Neon on Cloudflare)
-- **One queue per bot** — Durable Object `BotActor` (Think)
-- Hosted brains: Think office on that actor; Pi for owned-message turns (tests: ScriptedAgentRuntime)
+- **One queue per bot** — Durable Object `BotActor`
+- Hosted brains: Pi on that actor (tests: ScriptedAgentRuntime)
 - **Routines** — Agents `this.schedule` on `BotActor`. Office UI and `routines.*` oRPC talk to that actor.
 - Better Auth (magic-link email, Google, GitHub)
 - **Cloudflare first:** Workers (landing, web, API) + Neon. Local = `wrangler dev` + Vite

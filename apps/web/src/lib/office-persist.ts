@@ -4,10 +4,10 @@ import { del, get, set } from "idb-keyval";
 import { hydrateBotPreviews } from "./bot-preview";
 import { orpc, queryClient } from "./orpc";
 import { hydrateRoomPreviews, ROOM_MESSAGES_ROOT } from "./room-messages";
-import { THINK_MESSAGES_GC_TIME, THINK_MESSAGES_ROOT } from "./think-messages";
+import { OFFICE_MESSAGES_GC_TIME, OFFICE_MESSAGES_ROOT } from "./office-messages";
 
-export const THINK_CACHE_KEY = "groxbot-query-cache";
-export const THINK_CACHE_BUSTER = "4";
+export const OFFICE_CACHE_KEY = "groxbot-query-cache";
+export const OFFICE_CACHE_BUSTER = "5";
 
 const CATALOG_KEYS = new Set([
   JSON.stringify(orpc.bots.list.queryOptions().queryKey),
@@ -26,12 +26,12 @@ export function isComputerListQueryKey(queryKey: readonly unknown[]): boolean {
   return queryKeyWithoutBot(queryKey) === COMPUTER_LIST_KEY_PREFIX;
 }
 
-export function shouldDehydrateThinkQuery(query: {
+export function shouldDehydrateOfficeQuery(query: {
   queryKey: readonly unknown[];
   state: { status: string };
 }): boolean {
   if (query.state.status !== "success") return false;
-  if (query.queryKey[0] === THINK_MESSAGES_ROOT) return true;
+  if (query.queryKey[0] === OFFICE_MESSAGES_ROOT) return true;
   if (query.queryKey[0] === ROOM_MESSAGES_ROOT) return true;
   if (isComputerListQueryKey(query.queryKey)) return true;
   return CATALOG_KEYS.has(JSON.stringify(query.queryKey));
@@ -66,7 +66,7 @@ const persister = indexedDbAvailable()
         setItem: (key, value) => set(key, value),
         removeItem: (key) => del(key),
       },
-      key: THINK_CACHE_KEY,
+      key: OFFICE_CACHE_KEY,
       throttleTime: 1000,
     })
   : null;
@@ -75,18 +75,18 @@ const persistOptions = persister
   ? {
       queryClient,
       persister,
-      maxAge: THINK_MESSAGES_GC_TIME,
-      buster: THINK_CACHE_BUSTER,
-      dehydrateOptions: { shouldDehydrateQuery: shouldDehydrateThinkQuery },
+      maxAge: OFFICE_MESSAGES_GC_TIME,
+      buster: OFFICE_CACHE_BUSTER,
+      dehydrateOptions: { shouldDehydrateQuery: shouldDehydrateOfficeQuery },
     }
   : null;
 
-export async function clearPersistedThinkCache(): Promise<void> {
+export async function clearPersistedOfficeCache(): Promise<void> {
   if (!persister) return;
   await persister.removeClient();
 }
 
-export function thinkCacheEnabled(): boolean {
+export function officeCacheEnabled(): boolean {
   return persister !== null;
 }
 

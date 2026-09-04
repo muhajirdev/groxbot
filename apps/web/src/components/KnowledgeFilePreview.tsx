@@ -21,7 +21,7 @@ import {
   splitKnowledgeMarkdown,
 } from "../lib/knowledge-markdown";
 import { orpc } from "../lib/orpc";
-import { THINK_MESSAGES_GC_TIME } from "../lib/think-messages";
+import { OFFICE_MESSAGES_GC_TIME } from "../lib/office-messages";
 import { ChatMarkdown } from "./ChatMarkdown";
 
 export function KnowledgeFilePreview(props: {
@@ -73,7 +73,7 @@ function RemoteFilePreview(props: {
     }),
     enabled: props.source === "read",
     staleTime: 60_000,
-    gcTime: THINK_MESSAGES_GC_TIME,
+    gcTime: OFFICE_MESSAGES_GC_TIME,
   });
   const fileQuery = useQuery({
     ...orpc.knowledge.download.queryOptions({
@@ -81,7 +81,7 @@ function RemoteFilePreview(props: {
     }),
     enabled: props.source === "download",
     staleTime: 60_000,
-    gcTime: THINK_MESSAGES_GC_TIME,
+    gcTime: OFFICE_MESSAGES_GC_TIME,
   });
   const loading =
     props.source !== "none" &&

@@ -35,7 +35,7 @@ export interface RpcContext {
   knowledge?: KnowledgeAccess;
   /** Profile photos. Same R2 bucket as knowledge, `_avatars/` prefix — not the office tree. */
   avatars?: KnowledgeDisk;
-  /** Recurring jobs on this bot’s Think actor. Optional in local tests. */
+  /** Recurring jobs on this bot’s actor. Optional in local tests. */
   routines?: {
     list(botId: string): Promise<Routine[]>;
     create(
@@ -50,7 +50,7 @@ export interface RpcContext {
     pause(botId: string, id: string): Promise<Routine>;
     resume(botId: string, id: string): Promise<Routine>;
     remove(botId: string, id: string): Promise<void>;
-    /** Archive side-effect: Think stops firing without wiping the catalog. */
+    /** Archive side-effect: the actor stops firing without wiping the catalog. */
     suspend?(botId: string, suspended: boolean): Promise<void>;
   };
   /** Live MCP client on a bot actor. Optional in local tests. */
@@ -67,7 +67,7 @@ export interface RpcContext {
     remove(botId: string, serverId: string): Promise<void>;
     oauth(botId: string, request: Request): Promise<Response>;
   };
-  /** Wipe this bot’s Think Durable Object. Optional in local tests. */
+  /** Wipe this bot’s Durable Object. Optional in local tests. */
   forgetBot?: (botId: string) => Promise<void>;
   headers?: Headers;
 }

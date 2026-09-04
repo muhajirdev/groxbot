@@ -16,7 +16,7 @@ import {
   useState,
 } from "react";
 import { Thread } from "@/components/assistant-ui/elements/thread.aui";
-import { lastThinkPreview } from "../lib/chat-messages";
+import { lastOfficePreview } from "../lib/chat-messages";
 import { composerBannerError } from "../lib/errors";
 import { FIRST_TASK } from "../lib/jobs";
 import {
@@ -24,14 +24,14 @@ import {
   textFromOutgoingPayload,
 } from "../lib/outgoing-user-message";
 import { peekRoomMessages, setRoomMessages } from "../lib/room-messages";
-import { patchThreadMeta, THINK_WORKING } from "../lib/thread-cache";
+import { patchThreadMeta, OFFICE_WORKING } from "../lib/thread-cache";
 import { useRoomChat } from "../lib/use-room-chat";
 import { cn } from "../lib/utils";
 import { PresentToolUI } from "./PresentToolUI";
 
 function rememberPreview(roomId: string, messages: UIMessage[]) {
   setRoomMessages(roomId, messages);
-  lastThinkPreview(messages);
+  lastOfficePreview(messages);
 }
 
 function RoomWelcome() {
@@ -228,7 +228,7 @@ const RoomThreadRuntime = memo(function RoomThreadRuntime(props: {
       const abort = new AbortController();
       abortSendRef.current = abort;
       setPending(true);
-      patchThreadMeta(roomIdRef.current, { working: THINK_WORKING });
+      patchThreadMeta(roomIdRef.current, { working: OFFICE_WORKING });
 
       const seededId = crypto.randomUUID();
       const seeded = seedOutgoingUserMessage(labeled, seededId);
@@ -289,7 +289,7 @@ const RoomThreadRuntime = memo(function RoomThreadRuntime(props: {
 
   useEffect(() => {
     patchThreadMeta(props.roomId, {
-      working: inFlight ? THINK_WORKING : "",
+      working: inFlight ? OFFICE_WORKING : "",
     });
     return () => {
       patchThreadMeta(props.roomId, { working: "" });

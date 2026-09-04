@@ -5,7 +5,7 @@ import {
   coalesceAssistantMessages,
   collapseTextParts,
   isVisibleChatMessage,
-  lastThinkPreview,
+  lastOfficePreview,
   splitQueuedFollowUps,
   textFromMessage,
   usedTools,
@@ -105,10 +105,10 @@ describe("usedTools", () => {
   });
 });
 
-describe("lastThinkPreview", () => {
+describe("lastOfficePreview", () => {
   it("uses the latest non-empty text", () => {
     expect(
-      lastThinkPreview([
+      lastOfficePreview([
         user("u1", "hello there"),
         assistant("a1", "  got it  "),
       ]),
@@ -117,7 +117,7 @@ describe("lastThinkPreview", () => {
 
   it("ignores the hidden inbox path note", () => {
     expect(
-      lastThinkPreview([
+      lastOfficePreview([
         {
           id: "u1",
           role: "user",
@@ -138,7 +138,7 @@ describe("lastThinkPreview", () => {
 
   it("ignores the old saved-as sentence", () => {
     expect(
-      lastThinkPreview([
+      lastOfficePreview([
         {
           id: "u1",
           role: "user",
@@ -156,7 +156,7 @@ describe("lastThinkPreview", () => {
 
   it("uses a present card title when the assistant has no text", () => {
     expect(
-      lastThinkPreview([
+      lastOfficePreview([
         {
           id: "a1",
           role: "assistant",
@@ -176,7 +176,7 @@ describe("lastThinkPreview", () => {
 
   it("skips a hidden office-review nudge and a Skip", () => {
     expect(
-      lastThinkPreview([
+      lastOfficePreview([
         assistant("a1", "Filed skills/weekly-update/SKILL.md"),
         {
           id: "u-review",

@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
-  applyThinkChunk,
-  applyThinkSocketMessage,
-  lastThinkPreview,
-  parseThinkMessages,
-  thinkSendBody,
-  userThinkMessage,
-} from "./think";
+  applyOfficeChunk,
+  applyOfficeSocketMessage,
+  lastOfficePreview,
+  parseOfficeMessages,
+  officeSendBody,
+  userOfficeMessage,
+} from "./office-messages";
 
-describe("parseThinkMessages", () => {
+describe("parseOfficeMessages", () => {
   it("keeps user and assistant rows", () => {
-    const rows = parseThinkMessages([
+    const rows = parseOfficeMessages([
       {
         id: "u1",
         role: "user",
@@ -19,12 +19,12 @@ describe("parseThinkMessages", () => {
       { id: "skip", role: "tool" },
     ]);
     expect(rows).toHaveLength(1);
-    expect(lastThinkPreview(rows)).toBe("hello");
+    expect(lastOfficePreview(rows)).toBe("hello");
   });
 
   it("previews a present card when the assistant has no text", () => {
     expect(
-      lastThinkPreview([
+      lastOfficePreview([
         {
           id: "a1",
           role: "assistant",
@@ -40,44 +40,44 @@ describe("parseThinkMessages", () => {
   });
 });
 
-describe("applyThinkChunk", () => {
+describe("applyOfficeChunk", () => {
   it("appends text-delta onto the live assistant turn", () => {
-    const started = applyThinkChunk([], {
+    const started = applyOfficeChunk([], {
       type: "start",
       messageId: "a1",
     });
-    const next = applyThinkChunk(started, {
+    const next = applyOfficeChunk(started, {
       type: "text-delta",
       messageId: "a1",
       delta: "Hi",
     });
-    expect(lastThinkPreview(next)).toBe("Hi");
+    expect(lastOfficePreview(next)).toBe("Hi");
   });
 });
 
-describe("applyThinkSocketMessage", () => {
+describe("applyOfficeSocketMessage", () => {
   it("applies a stream body and clears streaming when done", () => {
-    const first = applyThinkSocketMessage([], {
+    const first = applyOfficeSocketMessage([], {
       type: "cf_agent_use_chat_response",
       id: "r1",
       body: JSON.stringify({ type: "text-delta", delta: "ok" }),
       done: false,
     });
     expect(first.streaming).toBe(true);
-    const done = applyThinkSocketMessage(first.messages, {
+    const done = applyOfficeSocketMessage(first.messages, {
       type: "cf_agent_use_chat_response",
       id: "r1",
       done: true,
     });
     expect(done.streaming).toBe(false);
-    expect(lastThinkPreview(done.messages)).toBe("ok");
+    expect(lastOfficePreview(done.messages)).toBe("ok");
   });
 });
 
-describe("thinkSendBody", () => {
+describe("officeSendBody", () => {
   it("wraps messages for CF_AGENT_USE_CHAT_REQUEST", () => {
     const payload = JSON.parse(
-      thinkSendBody([userThinkMessage({ text: "hi" })]),
+      officeSendBody([userOfficeMessage({ text: "hi" })]),
     ) as { trigger: string; messages: unknown[] };
     expect(payload.trigger).toBe("submit-message");
     expect(payload.messages).toHaveLength(1);

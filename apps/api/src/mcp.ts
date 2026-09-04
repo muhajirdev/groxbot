@@ -8,7 +8,7 @@ import {
   mcpOauthServerId,
   removeMcpConnection,
   saveMcpConnection,
-  thinkMcpServerId,
+  mcpServerId,
 } from "@groxbot/core";
 import { ORPCError } from "@orpc/server";
 import { getBotThread } from "./bots.js";
@@ -114,7 +114,7 @@ export async function removeMcp(context: RpcContext, id: string) {
     const row = await getMcpConnection(context.db, actor.workspaceId, id);
     if (row?.hostBotId && context.mcp) {
       try {
-        await context.mcp.remove(row.hostBotId, thinkMcpServerId(row.id));
+        await context.mcp.remove(row.hostBotId, mcpServerId(row.id));
       } catch {
         // Catalog still goes away if the actor is already gone.
       }

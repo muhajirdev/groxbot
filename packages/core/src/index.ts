@@ -22,6 +22,7 @@ export * from "./pi-turn.js";
 export * from "./plugin-connections.js";
 export * from "./poke.js";
 export * from "./present.js";
+export * from "./public-fetch.js";
 export * from "./routines.js";
 export * from "./rooms.js";
 export * from "./run-continue.js";

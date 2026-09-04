@@ -14,8 +14,8 @@ import { overlayBotList } from "./bot-preview";
 import { orpc, queryClient } from "./orpc";
 import { clearRoomMessages, overlayRoomList } from "./room-messages";
 import { client } from "./rpc";
-import { clearThinkMessages, THINK_MESSAGES_GC_TIME } from "./think-messages";
-import { clearPersistedThinkCache } from "./think-persist";
+import { clearOfficeMessages, OFFICE_MESSAGES_GC_TIME } from "./office-messages";
+import { clearPersistedOfficeCache } from "./office-persist";
 import { clearCachedWorkspace } from "./workspace-switcher";
 
 export type ThreadMeta = {
@@ -23,7 +23,7 @@ export type ThreadMeta = {
   cursor: number;
   working: string;
   error: string;
-  /** Catalog insert still in flight — delay the Think socket. */
+  /** Catalog insert still in flight — delay the office socket. */
   opening: boolean;
 };
 
@@ -42,7 +42,7 @@ export const botsCollection = createCollection(
     queryFn: async () => overlayBotList(await client.bots.list()),
     getKey: (bot) => bot.id,
     staleTime: 30_000,
-    gcTime: THINK_MESSAGES_GC_TIME,
+    gcTime: OFFICE_MESSAGES_GC_TIME,
     retry: false,
     refetchOnWindowFocus: false,
   }),
@@ -60,7 +60,7 @@ export const roomsCollection = createCollection(
     queryFn: async () => overlayRoomList(await client.rooms.list()),
     getKey: (room) => room.id,
     staleTime: 30_000,
-    gcTime: THINK_MESSAGES_GC_TIME,
+    gcTime: OFFICE_MESSAGES_GC_TIME,
     retry: false,
     refetchOnWindowFocus: false,
   }),
@@ -78,7 +78,7 @@ export const appsCollection = createCollection(
     queryFn: () => client.apps.list(),
     getKey: (app) => app.id,
     staleTime: 15_000,
-    gcTime: THINK_MESSAGES_GC_TIME,
+    gcTime: OFFICE_MESSAGES_GC_TIME,
     retry: false,
     refetchOnWindowFocus: false,
   }),
@@ -92,7 +92,7 @@ export const mcpCollection = createCollection(
     queryFn: () => client.mcp.list(),
     getKey: (item) => item.id,
     staleTime: 15_000,
-    gcTime: THINK_MESSAGES_GC_TIME,
+    gcTime: OFFICE_MESSAGES_GC_TIME,
     retry: false,
     refetchOnWindowFocus: true,
   }),
@@ -106,7 +106,7 @@ export const pluginsCollection = createCollection(
     queryFn: () => client.plugins.list(),
     getKey: (item) => item.id,
     staleTime: 15_000,
-    gcTime: THINK_MESSAGES_GC_TIME,
+    gcTime: OFFICE_MESSAGES_GC_TIME,
     retry: false,
     refetchOnWindowFocus: true,
   }),
@@ -152,10 +152,10 @@ export function patchBot(id: string, patch: Partial<Omit<Bot, "id">>): void {
 }
 
 export function clearThreadStore(): void {
-  clearThinkMessages();
+  clearOfficeMessages();
   clearRoomMessages();
   clearCachedWorkspace();
-  void clearPersistedThinkCache();
+  void clearPersistedOfficeCache();
   const metaKeys = [...threadMetaCollection.keys()];
   if (metaKeys.length > 0) threadMetaCollection.delete(metaKeys);
   dropSyncedKeys(botsCollection);

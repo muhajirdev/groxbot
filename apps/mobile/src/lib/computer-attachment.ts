@@ -2,7 +2,7 @@ import {
   MAX_COMPUTER_ATTACHMENTS,
   MAX_COMPUTER_WRITE_BYTES,
 } from "@groxbot/contracts";
-import { isComputerFileNote } from "./think";
+import { isComputerFileNote } from "./office-messages";
 
 export { isComputerFileNote };
 

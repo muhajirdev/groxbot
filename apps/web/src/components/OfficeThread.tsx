@@ -16,7 +16,7 @@ import {
   useState,
 } from "react";
 import { Thread } from "@/components/assistant-ui/elements/thread.aui";
-import { lastThinkPreview } from "../lib/chat-messages";
+import { lastOfficePreview } from "../lib/chat-messages";
 import { patchBot } from "../lib/collections";
 import { createWorkspaceAttachmentAdapter } from "../lib/computer-attachment";
 import { composerBannerError } from "../lib/errors";
@@ -27,21 +27,21 @@ import {
   textFromOutgoingPayload,
 } from "../lib/outgoing-user-message";
 import { client } from "../lib/rpc";
-import { peekThinkMessages, setThinkMessages } from "../lib/think-messages";
-import { patchThreadMeta, THINK_WORKING } from "../lib/thread-cache";
+import { peekOfficeMessages, setOfficeMessages } from "../lib/office-messages";
+import { patchThreadMeta, OFFICE_WORKING } from "../lib/thread-cache";
 import { useOfficeChat } from "../lib/use-office-chat";
 import { cn } from "../lib/utils";
 import { Button } from "../ui";
 import { PresentToolUI } from "./PresentToolUI";
 
 function rememberPreview(botId: string, messages: UIMessage[]) {
-  setThinkMessages(botId, messages);
-  const preview = lastThinkPreview(messages);
+  setOfficeMessages(botId, messages);
+  const preview = lastOfficePreview(messages);
   if (!preview) return;
   patchBot(botId, { lastPreview: preview });
 }
 
-function ThinkWelcome() {
+function OfficeWelcome() {
   return (
     <p className="px-1 text-left text-[13px] leading-normal text-muted-foreground">
       First message is a real task. A good handoff has an outcome, sources, and
@@ -50,9 +50,9 @@ function ThinkWelcome() {
   );
 }
 
-const THREAD_COMPONENTS = { Welcome: ThinkWelcome };
+const THREAD_COMPONENTS = { Welcome: OfficeWelcome };
 
-export const KeptThinkThread = memo(function KeptThinkThread(props: {
+export const KeptOfficeThread = memo(function KeptOfficeThread(props: {
   botId: string;
   botName: string;
   archived: boolean;
@@ -76,7 +76,7 @@ export const KeptThinkThread = memo(function KeptThinkThread(props: {
     props.onUnarchive(props.botId);
   }, [props.botId, props.onUnarchive]);
   return (
-    <ThinkThread
+    <OfficeThread
       botId={props.botId}
       botName={props.botName}
       archived={props.archived}
@@ -96,7 +96,7 @@ export const KeptThinkThread = memo(function KeptThinkThread(props: {
   );
 });
 
-export function ThinkThread(props: {
+export function OfficeThread(props: {
   botId: string;
   botName: string;
   archived: boolean;
@@ -148,7 +148,7 @@ export function ThinkThread(props: {
       )}
       aria-hidden={!active}
     >
-      <ThinkThreadRuntime
+      <OfficeThreadRuntime
         botId={props.botId}
         botName={props.botName}
         archived={props.archived}
@@ -184,7 +184,7 @@ export function ThinkThread(props: {
   );
 }
 
-const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
+const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
   botId: string;
   botName: string;
   archived: boolean;
@@ -216,7 +216,7 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
   });
   const senderRef = useRef(sender);
   senderRef.current = sender;
-  const seed = useRef(peekThinkMessages(props.botId) ?? []).current;
+  const seed = useRef(peekOfficeMessages(props.botId) ?? []).current;
   const opening = Boolean(props.opening);
 
   const chat = useOfficeChat({
@@ -267,7 +267,7 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
       const abort = new AbortController();
       abortSendRef.current = abort;
       setPending(true);
-      patchThreadMeta(botIdRef.current, { working: THINK_WORKING });
+      patchThreadMeta(botIdRef.current, { working: OFFICE_WORKING });
 
       const seededId = crypto.randomUUID();
       const seeded = seedOutgoingUserMessage(labeled, seededId);
@@ -347,7 +347,7 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
 
   useEffect(() => {
     patchThreadMeta(props.botId, {
-      working: inFlight ? THINK_WORKING : "",
+      working: inFlight ? OFFICE_WORKING : "",
     });
     return () => {
       patchThreadMeta(props.botId, { working: "" });

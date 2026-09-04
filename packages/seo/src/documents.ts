@@ -200,7 +200,7 @@ Do NOT use:
 2. Explain once: self-hostable Grok Bot — Grok, then grox
 3. A Bot is a teammate (contact), not a workflow node
 4. Computer means that bot’s workspace, not a second product and not the LLM
-5. Each bot is one Think Durable Object with one Think Session in v1; the computer is built in
+5. Each bot is one Durable Object (`BotActor`) with one office thread in v1; the computer is built in
 6. Do not call the product an agent builder, copilot IDE, or Discord
 
 ## Brand Voice
@@ -257,7 +257,7 @@ URL: [${GROXBOT_NAME}](${web}/)
 ---
 
 Q: What is a Bot?
-A: A Bot is a contact: name, title, description, avatar, one office thread. One Durable Object (Think) runs that bot (serial). Threads are sessions on that actor. The computer is built into the bot.
+A: A Bot is a contact: name, title, description, avatar, one office thread. One Durable Object (`BotActor`) runs that bot (serial). The computer is built into the bot.
 
 ---
 
@@ -376,7 +376,7 @@ pnpm db:migrate
 pnpm dev
 \`\`\`
 
-- Web: http://127.0.0.1:5173 (Vite; browser calls :3100 for API / auth / Think)
+- Web: http://127.0.0.1:5173 (Vite; browser calls :3100 for API / auth / office RPC)
 - API Worker: http://127.0.0.1:3100/health (wrangler dev)
 - oRPC: http://127.0.0.1:3100/rpc
 

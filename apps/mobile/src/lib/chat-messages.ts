@@ -1,6 +1,6 @@
 import type { UIMessage } from "ai";
-import { lastThinkPreview, parseThinkMessages } from "./think";
+import { lastOfficePreview, parseOfficeMessages } from "./office-messages";
 
 export function lastUiPreview(messages: UIMessage[]): string {
-  return lastThinkPreview(parseThinkMessages(messages));
+  return lastOfficePreview(parseOfficeMessages(messages));
 }

@@ -27,7 +27,19 @@ describe("Computer Worker shell wiring", () => {
     expect(actor).toMatch(/computerWorkerShell\(\)/);
     expect(actor).toMatch(/__getWorkspaceStub/);
     expect(actor).not.toMatch(/from "@cloudflare\/shell"/);
+    expect(actor).not.toMatch(/from "@cloudflare\/think"/);
+    expect(actor).toMatch(/createOfficeExecuteTool\(/);
     expect(actor).not.toMatch(/workspaceBash/);
+  });
+
+  it("builds execute from Code Mode, not Think", () => {
+    const execute = readSrc("bot-execute.ts");
+    const markdown = readSrc("bot-markdown.ts");
+    expect(execute).toMatch(/createCodemodeRuntime/);
+    expect(execute).toMatch(/stateConnector/);
+    expect(execute).not.toMatch(/@cloudflare\/think/);
+    expect(markdown).toMatch(/runPublicFetch/);
+    expect(markdown).not.toMatch(/@cloudflare\/think/);
   });
 
   it("exports WorkspaceServiceProxy for the shell HOST", () => {

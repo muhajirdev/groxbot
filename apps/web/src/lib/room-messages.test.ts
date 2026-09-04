@@ -26,6 +26,6 @@ describe("room messages cache", () => {
       },
     ]);
     expect(peekRoomMessages(roomId)?.[0]?.id).toBe("m1");
-    expect(queryClient.getQueryData(["think-messages", roomId])).toBeUndefined();
+    expect(queryClient.getQueryData(["office-messages", roomId])).toBeUndefined();
   });
 });

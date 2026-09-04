@@ -53,7 +53,7 @@ function hasFilePart(message: UIMessage): boolean {
 }
 
 /** Latest visible line for the sidebar — not used to reorder the list. */
-export function lastThinkPreview(messages: UIMessage[]): string {
+export function lastOfficePreview(messages: UIMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
     const row = messages[i];
     if (!row) continue;

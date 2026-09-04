@@ -9,7 +9,7 @@ import { newId } from "./ids.js";
 import { iso } from "./threads.js";
 
 /** Agents `normalizeServerId` truncates to this length. */
-const THINK_MCP_SERVER_ID_MAX = 64;
+const MCP_SERVER_ID_MAX = 64;
 
 export class McpError extends Error {
   constructor(message: string) {
@@ -229,7 +229,7 @@ export function mcpCatalogIds(serverId: string): string[] {
 }
 
 /** Same rules as Agents `normalizeServerId` for MCP client storage keys. */
-export function thinkMcpServerId(input: string): string {
+export function mcpServerId(input: string): string {
   let id = input
     .trim()
     .toLowerCase()
@@ -239,13 +239,13 @@ export function thinkMcpServerId(input: string): string {
   if (id.length === 0 || !/^[a-z]/.test(id)) {
     id = `id-${id}`.replace(/-+$/g, "");
   }
-  if (id.length > THINK_MCP_SERVER_ID_MAX) {
-    id = id.slice(0, THINK_MCP_SERVER_ID_MAX).replace(/-+$/g, "");
+  if (id.length > MCP_SERVER_ID_MAX) {
+    id = id.slice(0, MCP_SERVER_ID_MAX).replace(/-+$/g, "");
   }
   return id;
 }
 
-/** Think MCP states that can expose tools inside execute. */
+/** Agents MCP states that can expose tools inside execute. */
 export const MCP_EXECUTE_STATES = new Set([
   "ready",
   "connected",
@@ -265,7 +265,7 @@ export type McpLiveConnection = {
   name?: string;
 };
 
-export type McpThinkServer = {
+export type McpLiveServer = {
   name?: string;
   state?: string;
 };
@@ -275,11 +275,11 @@ export function mcpConnectionIsExecutable(state: string | undefined): boolean {
 }
 
 /**
- * Pick live Think MCP sessions for Code Mode. Catalog `connected` is OAuth
+ * Pick live Agents MCP sessions for Code Mode. Catalog `connected` is OAuth
  * only — execute needs an in-memory client that is past authenticating.
  */
 export function mcpServersForExecute(
-  servers: Record<string, McpThinkServer>,
+  servers: Record<string, McpLiveServer>,
   connections: Record<string, McpLiveConnection | undefined>,
 ): McpExecuteServer[] {
   const used = new Set<string>();
@@ -299,8 +299,8 @@ export function mcpServersForExecute(
   return out;
 }
 
-/** Map Think’s live MCP state onto the workspace catalog badge. */
-export function mcpCatalogStatusFromThink(
+/** Map live Agents MCP state onto the workspace catalog badge. */
+export function mcpCatalogStatusFromLive(
   connectionState: string | undefined,
   authSuccess: boolean,
 ): { status: PluginStatus; lastError: string | null } {

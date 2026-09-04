@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  PUBLIC_FETCH_ALLOWLIST,
   isMarkdownName,
   markdownFileName,
   mimeTypeForMarkdownName,
@@ -8,6 +7,7 @@ import {
   runToMarkdown,
   type MarkdownDisk,
 } from "./markdown.js";
+import { PUBLIC_FETCH_ALLOWLIST } from "./public-fetch.js";
 
 class MemoryDisk implements MarkdownDisk {
   constructor(

@@ -1,13 +1,19 @@
 /** Cloudflare-only. Bundles npm imports before Code Mode execute. */
 import {
+  createCodemodeRuntime,
   DynamicWorkerExecutor,
+  type CodemodeConnector,
   type Executor,
   type ExecuteOptions,
   type ExecuteResult,
   type ResolvedProvider,
 } from "@cloudflare/codemode";
+import { toolSetConnector } from "@cloudflare/codemode/ai";
 import { createWorker } from "@cloudflare/worker-bundler";
+import { createWorkspaceStateBackend } from "@cloudflare/shell";
+import { stateConnector } from "@cloudflare/shell/workers";
 import { splitExecuteNpmImports } from "@groxbot/core";
+import type { Tool, ToolSet } from "ai";
 
 type LoaderWorker = {
   getEntrypoint: () => {
@@ -141,4 +147,33 @@ export function createBundlingExecutor(
       }
     },
   };
+}
+
+type WorkspaceFsLike = Parameters<typeof createWorkspaceStateBackend>[0];
+
+/** Code Mode execute — `state.*` is this computer, plus office connectors. */
+export function createOfficeExecuteTool(opts: {
+  ctx: DurableObjectState;
+  executor: Executor;
+  fs: WorkspaceFsLike;
+  tools?: ToolSet;
+  connectors?: CodemodeConnector[];
+  name?: string;
+}): Tool {
+  const connectors: CodemodeConnector[] = [
+    stateConnector(opts.ctx, createWorkspaceStateBackend(opts.fs)),
+  ];
+  if (opts.tools && Object.keys(opts.tools).length > 0) {
+    connectors.push(
+      toolSetConnector(opts.ctx, { name: "tools", tools: opts.tools }),
+    );
+  }
+  if (opts.connectors) connectors.push(...opts.connectors);
+  const runtime = createCodemodeRuntime({
+    ctx: opts.ctx,
+    executor: opts.executor,
+    connectors,
+    name: opts.name ?? "execute",
+  });
+  return runtime.tool() as Tool;
 }

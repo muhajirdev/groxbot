@@ -1,4 +1,4 @@
-/** Office home-thread log. Durable rows are JSON UIMessages, not a Think Session. */
+/** Office home-thread log. Durable rows are JSON UIMessages. */
 
 export const OFFICE_CHAT_STATUSES = [
   "ready",

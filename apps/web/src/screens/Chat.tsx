@@ -47,7 +47,7 @@ import { KnowledgeLibrary, KnowledgePeek } from "../components/KnowledgePlace";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { PluginsModal } from "../components/PluginsModal";
 import { KeptRoomThread } from "../components/RoomThread";
-import { KeptThinkThread } from "../components/ThinkThread";
+import { KeptOfficeThread } from "../components/OfficeThread";
 import { ThreadList } from "../components/ThreadList";
 import { WorkspaceSwitcher } from "../components/WorkspaceSwitcher";
 import { APP_KIND_COLOR, APP_KIND_LABEL } from "../lib/app-kind";
@@ -100,11 +100,11 @@ import {
 } from "../lib/sidebar";
 import { applyTheme, readTheme, type Theme } from "../lib/theme";
 import {
-  dropThinkKeepAlive,
-  rememberThinkKeepAlive,
-  sameThinkKeepAlive,
-} from "../lib/think-keepalive";
-import { forgetThinkMessages, setThinkMessages } from "../lib/think-messages";
+  dropOfficeKeepAlive,
+  rememberOfficeKeepAlive,
+  sameOfficeKeepAlive,
+} from "../lib/office-keepalive";
+import { forgetOfficeMessages, setOfficeMessages } from "../lib/office-messages";
 import {
   dropThreadMeta,
   ensureThreadMeta,
@@ -312,13 +312,13 @@ export function Chat(props: {
     threadId: string;
     peerName: string;
   } | null>(null);
-  const stopThink = useRef<(() => void) | null>(null);
+  const stopOffice = useRef<(() => void) | null>(null);
   const hiring = useRef(false);
   const [pokeMessages, setPokeMessages] = useState<ThreadMessage[]>([]);
-  const [thinkKeepAlive, setThinkKeepAlive] = useState<string[]>(() =>
+  const [officeKeepAlive, setOfficeKeepAlive] = useState<string[]>(() =>
     props.botId ? [props.botId] : [],
   );
-  const thinkLruRef = useRef<string[]>(props.botId ? [props.botId] : []);
+  const officeLruRef = useRef<string[]>(props.botId ? [props.botId] : []);
   const [roomKeepAlive, setRoomKeepAlive] = useState<string[]>(() =>
     props.roomId ? [props.roomId] : [],
   );
@@ -334,14 +334,14 @@ export function Chat(props: {
     isRoom ? item.id === focusedBotId : item.id === props.botId,
   );
   const activeId = isRoom ? props.roomId : bot?.id;
-  const mountedThinkIds = useMemo(() => {
-    if (isRoom || !bot?.id) return thinkKeepAlive;
-    return rememberThinkKeepAlive(thinkKeepAlive, thinkLruRef.current, bot.id)
+  const mountedOfficeIds = useMemo(() => {
+    if (isRoom || !bot?.id) return officeKeepAlive;
+    return rememberOfficeKeepAlive(officeKeepAlive, officeLruRef.current, bot.id)
       .mounted;
-  }, [bot?.id, isRoom, thinkKeepAlive]);
+  }, [bot?.id, isRoom, officeKeepAlive]);
   const mountedRoomIds = useMemo(() => {
     if (!props.roomId) return roomKeepAlive;
-    return rememberThinkKeepAlive(
+    return rememberOfficeKeepAlive(
       roomKeepAlive,
       roomLruRef.current,
       props.roomId,
@@ -464,34 +464,34 @@ export function Chat(props: {
 
   useEffect(() => {
     if (isRoom || !bot?.id) return;
-    const next = rememberThinkKeepAlive(
-      thinkKeepAlive,
-      thinkLruRef.current,
+    const next = rememberOfficeKeepAlive(
+      officeKeepAlive,
+      officeLruRef.current,
       bot.id,
     );
-    thinkLruRef.current = next.lru;
-    setThinkKeepAlive((prev) =>
-      sameThinkKeepAlive(prev, next.mounted) ? prev : next.mounted,
+    officeLruRef.current = next.lru;
+    setOfficeKeepAlive((prev) =>
+      sameOfficeKeepAlive(prev, next.mounted) ? prev : next.mounted,
     );
-  }, [bot?.id, isRoom, thinkKeepAlive]);
+  }, [bot?.id, isRoom, officeKeepAlive]);
 
   useEffect(() => {
     if (!props.roomId) return;
-    const next = rememberThinkKeepAlive(
+    const next = rememberOfficeKeepAlive(
       roomKeepAlive,
       roomLruRef.current,
       props.roomId,
     );
     roomLruRef.current = next.lru;
     setRoomKeepAlive((prev) =>
-      sameThinkKeepAlive(prev, next.mounted) ? prev : next.mounted,
+      sameOfficeKeepAlive(prev, next.mounted) ? prev : next.mounted,
     );
   }, [props.roomId, roomKeepAlive]);
 
   useEffect(() => {
     const live = new Set(bots.map((item) => item.id));
-    thinkLruRef.current = thinkLruRef.current.filter((id) => live.has(id));
-    setThinkKeepAlive((prev) => {
+    officeLruRef.current = officeLruRef.current.filter((id) => live.has(id));
+    setOfficeKeepAlive((prev) => {
       const next = prev.filter((id) => live.has(id));
       return next.length === prev.length ? prev : next;
     });
@@ -550,12 +550,12 @@ export function Chat(props: {
   async function deleteTeammate(botId: string) {
     const snapshot = peekBots().find((item) => item.id === botId);
     if (!snapshot) return;
-    const keepAlive = thinkKeepAlive;
-    const lru = [...thinkLruRef.current];
+    const keepAlive = officeKeepAlive;
+    const lru = [...officeLruRef.current];
     const currentId = props.botId;
 
-    setThinkKeepAlive((prev) => dropThinkKeepAlive(prev, botId));
-    thinkLruRef.current = dropThinkKeepAlive(thinkLruRef.current, botId);
+    setOfficeKeepAlive((prev) => dropOfficeKeepAlive(prev, botId));
+    officeLruRef.current = dropOfficeKeepAlive(officeLruRef.current, botId);
     removeBot(botId);
 
     const nextId = currentId
@@ -572,14 +572,14 @@ export function Chat(props: {
     try {
       await client.bots.delete({ botId });
       dropThreadMeta(botId);
-      forgetThinkMessages(botId);
+      forgetOfficeMessages(botId);
       void appsCollection.utils.refetch();
       await leave;
     } catch (caught: unknown) {
       await leave;
       cacheBot(snapshot);
-      setThinkKeepAlive(keepAlive);
-      thinkLruRef.current = lru;
+      setOfficeKeepAlive(keepAlive);
+      officeLruRef.current = lru;
       patchThreadMeta(botId, {
         error: userFacingError(caught, "Could not delete"),
       });
@@ -636,7 +636,7 @@ export function Chat(props: {
       });
       try {
         await cacheCreatedBot(draft);
-        setThinkMessages(id, []);
+        setOfficeMessages(id, []);
         patchThreadMeta(id, { opening: true });
         void goToBot(id, deskClosed());
         const created = await client.bots.create({
@@ -1166,7 +1166,7 @@ export function Chat(props: {
                     <Button
                       variant="mini"
                       type="button"
-                      onClick={() => stopThink.current?.()}
+                      onClick={() => stopOffice.current?.()}
                     >
                       Stop now
                     </Button>
@@ -1281,14 +1281,14 @@ export function Chat(props: {
                         }
                         error={itemError}
                         onNeedsModel={onNeedsModel}
-                        stopRef={stopThink}
+                        stopRef={stopOffice}
                       />
                     );
                   })}
                 </div>
               ) : bot ? (
                 <div className="relative flex min-h-0 flex-1 flex-col">
-                  {mountedThinkIds.map((id) => {
+                  {mountedOfficeIds.map((id) => {
                     const item = bots.find((row) => row.id === id);
                     if (!item) return null;
                     const isActive = item.id === bot.id;
@@ -1298,7 +1298,7 @@ export function Chat(props: {
                       ? error
                       : (itemMeta?.error ?? "");
                     return (
-                      <KeptThinkThread
+                      <KeptOfficeThread
                         key={item.id}
                         botId={item.id}
                         botName={item.name}
@@ -1317,7 +1317,7 @@ export function Chat(props: {
                         error={itemError}
                         onNeedsModel={onNeedsModel}
                         onUnarchive={onUnarchiveBot}
-                        stopRef={stopThink}
+                        stopRef={stopOffice}
                       />
                     );
                   })}

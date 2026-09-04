@@ -1,6 +1,6 @@
 import type { Room } from "@groxbot/contracts";
 import type { UIMessage } from "ai";
-import { lastThinkPreview } from "./chat-messages";
+import { lastOfficePreview } from "./chat-messages";
 import { orpc, queryClient } from "./orpc";
 
 export const ROOM_MESSAGES_ROOT = "room-messages" as const;
@@ -23,7 +23,7 @@ export function roomPreviewsFromCache(): Map<string, string> {
   })) {
     const id = key[1];
     if (typeof id !== "string" || !data) continue;
-    const preview = lastThinkPreview(data);
+    const preview = lastOfficePreview(data);
     if (preview) out.set(id, preview);
   }
   return out;
@@ -46,7 +46,7 @@ function writeRosterPreview(roomId: string, preview: string): void {
 
 export function setRoomMessages(roomId: string, messages: UIMessage[]) {
   queryClient.setQueryData(roomMessagesKey(roomId), messages);
-  writeRosterPreview(roomId, lastThinkPreview(messages));
+  writeRosterPreview(roomId, lastOfficePreview(messages));
 }
 
 export function forgetRoomMessages(roomId: string) {

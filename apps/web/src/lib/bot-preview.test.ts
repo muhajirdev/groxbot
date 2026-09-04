@@ -4,10 +4,10 @@ import { hydrateBotPreviews, mergeBotList, overlayBotList } from "./bot-preview"
 import { draftCreatedBot } from "./hire";
 import { orpc, queryClient } from "./orpc";
 import {
-  clearThinkMessages,
-  setThinkMessages,
-  thinkPreviewsFromCache,
-} from "./think-messages";
+  clearOfficeMessages,
+  setOfficeMessages,
+  officePreviewsFromCache,
+} from "./office-messages";
 
 const botsKey = orpc.bots.list.queryOptions().queryKey;
 
@@ -25,7 +25,7 @@ function bot(id: string, lastPreview: string, title = ""): Bot {
 }
 
 afterEach(() => {
-  clearThinkMessages();
+  clearOfficeMessages();
   queryClient.removeQueries({ queryKey: botsKey });
 });
 
@@ -38,16 +38,16 @@ describe("mergeBotList", () => {
     );
   });
 
-  it("prefers the cached Think thread over the roster snapshot", () => {
+  it("prefers the cached office thread over the roster snapshot", () => {
     const server = [bot("bot-1", "")];
     const cached = [bot("bot-1", "older line")];
-    const think = new Map([["bot-1", "Latest reply"]]);
-    expect(mergeBotList(server, cached, think)[0]?.lastPreview).toBe(
+    const office = new Map([["bot-1", "Latest reply"]]);
+    expect(mergeBotList(server, cached, office)[0]?.lastPreview).toBe(
       "Latest reply",
     );
   });
 
-  it("keeps a Postgres preview when there is no Think cache", () => {
+  it("keeps a Postgres preview when there is no office cache", () => {
     const server = [bot("bot-1", "From poke")];
     expect(mergeBotList(server, undefined, new Map())[0]?.lastPreview).toBe(
       "From poke",
@@ -68,8 +68,8 @@ describe("mergeBotList", () => {
 });
 
 describe("overlayBotList", () => {
-  it("fills an empty list row from persisted Think messages", () => {
-    setThinkMessages("bot-1", [
+  it("fills an empty list row from persisted office messages", () => {
+    setOfficeMessages("bot-1", [
       {
         id: "m1",
         role: "user",
@@ -83,8 +83,8 @@ describe("overlayBotList", () => {
 });
 
 describe("hydrateBotPreviews", () => {
-  it("writes Think previews onto a restored roster", () => {
-    setThinkMessages("bot-1", [
+  it("writes office previews onto a restored roster", () => {
+    setOfficeMessages("bot-1", [
       {
         id: "m1",
         role: "assistant",
@@ -96,6 +96,6 @@ describe("hydrateBotPreviews", () => {
     expect(queryClient.getQueryData<Bot[]>(botsKey)?.[0]?.lastPreview).toBe(
       "Booked for 3pm",
     );
-    expect(thinkPreviewsFromCache().get("bot-1")).toBe("Booked for 3pm");
+    expect(officePreviewsFromCache().get("bot-1")).toBe("Booked for 3pm");
   });
 });

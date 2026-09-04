@@ -6,7 +6,6 @@ import {
   computerAbsolutePath,
   computerRelativePath,
   computerWorkerShell,
-  copyThinkWorkspaceToComputer,
   diskFromComputerFs,
   withComputerOfficeTools,
 } from "./computer-fs.js";
@@ -148,7 +147,7 @@ function globRe(pattern: string): RegExp {
 }
 
 describe("computerAbsolutePath", () => {
-  it("prefixes Think-style relative paths", () => {
+  it("prefixes relative office paths", () => {
     expect(computerAbsolutePath("inbox/a.md")).toBe("/inbox/a.md");
     expect(computerAbsolutePath("/inbox/a.md")).toBe("/inbox/a.md");
     expect(computerAbsolutePath("")).toBe("/");
@@ -197,72 +196,8 @@ describe("diskFromComputerFs", () => {
   });
 });
 
-describe("copyThinkWorkspaceToComputer", () => {
-  it("copies shell table rows onto the Computer disk", async () => {
-    const fs = new MemoryComputerFs();
-    const disk = diskFromComputerFs(fs);
-    const sql = {
-      exec() {
-        return [
-          {
-            path: "/inbox",
-            type: "directory",
-            content: null,
-            content_encoding: "utf8",
-          },
-          {
-            path: "/inbox/note.md",
-            type: "file",
-            content: "saved",
-            content_encoding: "utf8",
-          },
-        ];
-      },
-    };
-    await expect(copyThinkWorkspaceToComputer({ sql, disk })).resolves.toBe(
-      "copied",
-    );
-    await expect(disk.readFile("inbox/note.md")).resolves.toBe("saved");
-  });
-
-  it("skips when the Computer disk already has files", async () => {
-    const fs = new MemoryComputerFs();
-    const disk = diskFromComputerFs(fs);
-    await disk.writeFile("keep.md", "new");
-    const sql = {
-      exec() {
-        return [
-          {
-            path: "/old.md",
-            type: "file",
-            content: "old",
-            content_encoding: "utf8",
-          },
-        ];
-      },
-    };
-    await expect(copyThinkWorkspaceToComputer({ sql, disk })).resolves.toBe(
-      "already",
-    );
-    await expect(disk.readFile("old.md")).resolves.toBeNull();
-    await expect(disk.readFile("keep.md")).resolves.toBe("new");
-  });
-
-  it("treats a missing Think table as empty", async () => {
-    const disk = diskFromComputerFs(new MemoryComputerFs());
-    const sql = {
-      exec() {
-        throw new Error("no such table: cf_workspace_default");
-      },
-    };
-    await expect(copyThinkWorkspaceToComputer({ sql, disk })).resolves.toBe(
-      "empty",
-    );
-  });
-});
-
 describe("withComputerOfficeTools", () => {
-  it("aliases ls onto Think’s list name", () => {
+  it("aliases ls onto list", () => {
     const ls = { description: "list files" };
     expect(withComputerOfficeTools({ ls, exec: true })).toEqual({
       ls,

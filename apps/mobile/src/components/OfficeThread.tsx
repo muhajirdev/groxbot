@@ -31,7 +31,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { appCardsFromThinkMessage } from "../lib/app-cards";
+import { appCardsFromOfficeMessage } from "../lib/app-cards";
 import { createWorkspaceAttachmentAdapter } from "../lib/attachment-adapter";
 import { sessionCookie } from "../lib/auth";
 import { lastUiPreview } from "../lib/chat-messages";
@@ -57,7 +57,7 @@ async function copyToClipboard(text: string) {
   if (!didCopy) throw new Error("Clipboard write failed");
 }
 
-export function ThinkThread(props: {
+export function OfficeThread(props: {
   botId: string;
   botName: string;
   archived: boolean;
@@ -71,7 +71,7 @@ export function ThinkThread(props: {
   const [error, setError] = useState("");
   return (
     <View style={styles.fill}>
-      <ThinkThreadRuntime
+      <OfficeThreadRuntime
         botId={props.botId}
         botName={props.botName}
         archived={props.archived}
@@ -98,7 +98,7 @@ export function ThinkThread(props: {
   );
 }
 
-function ThinkThreadRuntime(props: {
+function OfficeThreadRuntime(props: {
   botId: string;
   botName: string;
   archived: boolean;
@@ -440,7 +440,7 @@ function AssistantMessage(props: { botId: string; botName: string }) {
         )}
         renderReasoning={({ part }) => <Reasoning text={part.text} />}
       />
-      <ThinkAppCards botId={props.botId} />
+      <OfficeAppCards botId={props.botId} />
       <ErrorPrimitive.Root style={styles.errorBox}>
         <ErrorPrimitive.Message style={styles.errorText} />
       </ErrorPrimitive.Root>
@@ -509,9 +509,9 @@ function PartFile(props: { name?: string; mimeType?: string }) {
   );
 }
 
-function ThinkAppCards(props: { botId: string }) {
+function OfficeAppCards(props: { botId: string }) {
   const parts = useAuiState((s) => s.message.parts);
-  const cards = appCardsFromThinkMessage({
+  const cards = appCardsFromOfficeMessage({
     id: "msg",
     role: "assistant",
     parts: (parts ?? []) as never,
