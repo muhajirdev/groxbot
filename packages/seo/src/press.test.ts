@@ -23,6 +23,9 @@ describe("press kit", () => {
     expect(pressFacts(origins).some((fact) => fact.label === "License")).toBe(
       true,
     );
+    expect(pressFacts(origins).some((fact) => fact.label === "Tagline")).toBe(
+      true,
+    );
   });
 
   it("is a discovery document", () => {

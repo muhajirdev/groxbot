@@ -1,4 +1,4 @@
-import { GROXBOT_EMAIL } from "@groxbot/seo";
+import { GROXBOT_EMAIL, GROXBOT_TAGLINE } from "@groxbot/seo";
 import { canonicalUrl, landingOrigin, SITE_NAME } from "./site";
 import type { Integration } from "./integrations";
 import type { UseCase } from "../data/use-cases";
@@ -22,8 +22,7 @@ export function softwareJsonLd(): Record<string, unknown> {
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
     url: landingOrigin(),
-    description:
-      "Like Grok Bot, for the team. Named teammates with a real computer. If OpenClaw is for personal use, Groxbot is the office. Self-hostable.",
+    description: `${GROXBOT_TAGLINE}. Like Grok Bot, for the team. Named teammates with a real computer. If OpenClaw is for personal use, Groxbot is the office. Self-hostable.`,
     offers: {
       "@type": "Offer",
       price: "0",

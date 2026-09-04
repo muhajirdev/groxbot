@@ -1,4 +1,4 @@
-import { GROXBOT_EMAIL } from "@groxbot/seo";
+import { GROXBOT_EMAIL, GROXBOT_TAGLINE } from "@groxbot/seo";
 
 export const CONTACT_EMAIL = GROXBOT_EMAIL;
 export const CONTACT_MAILTO = `mailto:${CONTACT_EMAIL}`;
@@ -140,7 +140,7 @@ export const COMPARE = [
 export const FAQS = [
   {
     q: "How is this different from Grok Bot?",
-    a: "Same motion: create a Bot, message it, grant access as needed. Groxbot is for the team — named teammates, each with a computer, live docs from chat — and you can run the source yourself.",
+    a: `Same motion: create a Bot, message it, grant access as needed. Groxbot is for the team — ${GROXBOT_TAGLINE}. Named teammates, each with a computer, live docs from chat — and you can run the source yourself.`,
   },
   {
     q: "How is this different from OpenClaw?",
@@ -190,8 +190,8 @@ export const FAQS = [
 
 export const SOURCE_REPO = "https://github.com/muhajirdev/groxbot";
 export const MAC_DOWNLOAD_URL = `${SOURCE_REPO}/releases`;
-export const FOOTER_BLURB =
-  "Named teammates like Grok Bot, for the whole team. Fair-code.";
+export const TAGLINE = GROXBOT_TAGLINE;
+export const FOOTER_BLURB = `${GROXBOT_TAGLINE}. For the whole team. Fair-code.`;
 
 export const HOME_MODELS = [
   {

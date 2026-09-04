@@ -10,6 +10,7 @@ import {
   HOME_ADOPTION,
   HOME_MODELS,
   SOURCE_REPO,
+  TAGLINE,
 } from "../lib/copy";
 import { HOME_INTEGRATIONS } from "../lib/teasers";
 import { DemoThread } from "./DemoThread";
@@ -33,9 +34,10 @@ export function Landing(props: { startUrl: string }) {
             />
             <span>Groxbot</span>
           </h1>
-          <p className="lede">Like Grok Bot, for the whole team.</p>
+          <p className="lede hero-tagline">{TAGLINE}.</p>
           <p className="thesis">
-            If OpenClaw is for your personal use, Groxbot is for the office.
+            Like Grok Bot, for the whole team. If OpenClaw is for your personal
+            use, Groxbot is for the office.
           </p>
           <div className="row">
             <a className="btn lg" href={props.startUrl}>
@@ -68,7 +70,7 @@ export function Landing(props: { startUrl: string }) {
         </section>
 
         <section className="band versus-band" aria-label="Where Groxbot sits">
-          <h2>One is solo. One is locked. This is the office.</h2>
+          <h2>Solo is a laptop. Together is the office.</h2>
           <div className="versus">
             {COMPARE.map((item) => (
               <article

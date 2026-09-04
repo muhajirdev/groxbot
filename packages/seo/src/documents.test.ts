@@ -2,6 +2,7 @@ import { CLOUD_LANDING_ORIGIN } from "@groxbot/contracts";
 import { describe, expect, it } from "vitest";
 import {
   aiJson,
+  brandTxt,
   developerAiTxt,
   faqAiTxt,
   identityJson,
@@ -10,7 +11,7 @@ import {
   robotsTxt,
   sitemapXml,
 } from "./documents.js";
-import { cloudOrigins, GROXBOT_STACK, GROXBOT_SUMMARY, originsFromWeb } from "./identity.js";
+import { cloudOrigins, GROXBOT_STACK, GROXBOT_SUMMARY, GROXBOT_TAGLINE, originsFromWeb } from "./identity.js";
 
 const origins = cloudOrigins();
 
@@ -65,11 +66,19 @@ describe("discovery documents", () => {
 
   it("sells a computer as built into the bot, not a separate desk", () => {
     expect(GROXBOT_SUMMARY).toMatch(/real computer/i);
+    expect(GROXBOT_SUMMARY).toMatch(/AI is better together/);
     expect(GROXBOT_STACK.join("\n")).toMatch(/Cloudflare Computer workspace/i);
     const faq = faqAiTxt(origins);
     expect(faq).toMatch(/What is a computer/i);
     expect(faq).toMatch(/not a second Durable Object/i);
     expect(faq).not.toMatch(/There is no Computer product/);
     expect(llmsTxt(origins)).toMatch(/Each bot has a computer/i);
+  });
+
+  it("uses AI is better together as the product tagline", () => {
+    expect(GROXBOT_TAGLINE).toBe("AI is better together");
+    expect(llmsTxt(origins)).toContain(GROXBOT_TAGLINE);
+    expect(brandTxt(origins)).toContain(`## Tagline\n\n${GROXBOT_TAGLINE}`);
+    expect(faqAiTxt(origins)).toContain(GROXBOT_TAGLINE);
   });
 });
