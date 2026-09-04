@@ -23,6 +23,7 @@ describe("Computer Worker shell wiring", () => {
     expect(room).not.toMatch(/storage\.put\("kind"/);
     expect(room).toMatch(/runGuestTurn/);
     expect(room).toMatch(/personDoorContext/);
+    expect(room).toMatch(/buildOfficeSystemPrompt/);
     expect(room).not.toMatch(/enqueueOnActor\(this\.env\.ROOM_ACTOR, homeRoomId/);
     expect(home).toMatch(/\/door\/context/);
     expect(home).toMatch(/handleDoorTool/);
@@ -44,10 +45,14 @@ describe("Computer Worker shell wiring", () => {
     expect(actor).toMatch(/__getWorkspaceStub/);
     expect(actor).not.toMatch(/@cloudflare\/shell/);
     expect(actor).not.toMatch(/from "@cloudflare\/think"/);
-    expect(actor).toMatch(/createPageAgentTools\(/);
+    expect(actor).toMatch(/parseTinyfishKeys/);
+    expect(actor).toMatch(/TinyfishKeyPool/);
     expect(actor).toMatch(/createSkillTool\(/);
     expect(actor).toMatch(/applyOfficeSkillsToSystem/);
     expect(actor).toMatch(/loadOfficeSkillCatalog/);
+    expect(actor).toMatch(/buildOfficeSystemPrompt/);
+    expect(actor).toMatch(/officeIntroTurnTools/);
+    expect(actor).toMatch(/lastOfficeUserIsIntro/);
     expect(actor).not.toMatch(/hasActivateSkill/);
     expect(actor).not.toMatch(/activate_skill/);
     expect(readSrc("bot-skill.ts")).toMatch(/SKILL_TOOL_NAME/);
@@ -56,6 +61,8 @@ describe("Computer Worker shell wiring", () => {
     expect(actor).not.toMatch(/officeToolSet/);
     expect(actor).not.toMatch(/workspaceBash/);
     expect(actor).toMatch(/sqliteSessionStore|DurableSessionStorage/);
+    expect(actor).toMatch(/HistoryConnector/);
+    expect(actor).toMatch(/officeHistorySearch/);
     expect(actor).toMatch(/ensureComputerHome/);
     expect(actor).toMatch(/jsonClone/);
     expect(actor).not.toMatch(/writeOfficeLog\(/);
@@ -75,6 +82,12 @@ describe("Computer Worker shell wiring", () => {
     expect(execute).not.toMatch(/@cloudflare\/shell/);
     expect(execute).not.toMatch(/@cloudflare\/think/);
     expect(markdown).toMatch(/runPublicFetch/);
+    expect(markdown).toMatch(/runTinyfishSearch/);
+    expect(markdown).toMatch(/web_search/);
+    expect(execute).toMatch(/bindOfficeExecuteTool/);
+    expect(readSrc("bot-office-tools.ts")).toMatch(/OFFICE_CODE_TOOL_NAME/);
+    expect(readSrc("bot-office-tools.ts")).toMatch(/executeCodeFromInput/);
+    expect(readSrc("bot-office-tools.ts")).toMatch(/~standard/);
     expect(markdown).not.toMatch(/@cloudflare\/think/);
   });
 

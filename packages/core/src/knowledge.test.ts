@@ -107,8 +107,15 @@ describe("listKnowledge", () => {
     expect(
       listed.entries.find((row) => row.path.endsWith("/SKILL.md")),
     ).toMatchObject({
+      name: "SKILL.md",
       title: "weekly-update",
       description: "Five bullets.",
+    });
+    expect(
+      listed.entries.find((row) => row.path === "how-we-work/constraints.md"),
+    ).toMatchObject({
+      name: "constraints.md",
+      title: "constraints.md",
     });
     expect(
       listed.entries.find((row) => row.path === "brief.pdf")?.encoding,
@@ -154,6 +161,7 @@ describe("write and read", () => {
       OFFICE,
       "how-we-work/constraints.md",
     );
+    expect(note.title).toBe("constraints.md");
     expect(note.content).toBe("Never send mail without approval.");
   });
 
@@ -339,7 +347,11 @@ describe("nestKnowledgeTree", () => {
     expect(tree[0]?.children[0]?.path).toBe("playbooks/weekly-update");
     expect(tree[0]?.children[0]?.children[0]).toMatchObject({
       path: "playbooks/weekly-update/SKILL.md",
+      name: "SKILL.md",
       kind: "file",
+    });
+    expect(tree.find((node) => node.path === "voice.md")).toMatchObject({
+      name: "voice.md",
     });
   });
 });

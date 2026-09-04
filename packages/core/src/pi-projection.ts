@@ -4,8 +4,8 @@
  */
 
 import {
+  isHiddenOfficeUserMessage,
   isOfficeReviewSkip,
-  isOfficeReviewUserMessage,
   presentPreviewFromParts,
 } from "@groxbot/contracts";
 import type {
@@ -101,6 +101,32 @@ function buildToolResultMap(messages: readonly PiBoundMessage[]) {
     });
   }
   return map;
+}
+
+function upsertProjectedToolCall(
+  parts: PiProjectedPart[],
+  next: Extract<PiProjectedPart, { type: "tool-call" }>,
+) {
+  const index = parts.findIndex(
+    (part) => part.type === "tool-call" && part.toolCallId === next.toolCallId,
+  );
+  if (index < 0) {
+    parts.push(next);
+    return;
+  }
+  const prev = parts[index];
+  if (!prev || prev.type !== "tool-call") {
+    parts.push(next);
+    return;
+  }
+  parts[index] = {
+    ...prev,
+    ...next,
+    ...(next.result === undefined && prev.result !== undefined
+      ? { result: prev.result }
+      : {}),
+    ...(next.isError || prev.isError ? { isError: true } : {}),
+  };
 }
 
 function projectUserContent(content: PiUserMessage["content"]): PiProjectedPart[] {
@@ -215,7 +241,7 @@ export function projectPiBoundMessages(
             ...(result !== undefined ? { result } : {}),
             ...(isError ? { isError: true } : {}),
           };
-          group.parts.push(toolCall);
+          upsertProjectedToolCall(group.parts, toolCall);
         }
       }
       if (isLast) flush(true);
@@ -279,7 +305,7 @@ export function usedProjectedTools(message: PiProjectedMessage): boolean {
 }
 
 export function isVisibleProjectedMessage(message: PiProjectedMessage): boolean {
-  if (isOfficeReviewUserMessage({ role: message.role, metadata: message.metadata })) {
+  if (isHiddenOfficeUserMessage({ role: message.role, metadata: message.metadata })) {
     return false;
   }
   if (message.role === "assistant" && isOfficeReviewSkip(projectedText(message))) {

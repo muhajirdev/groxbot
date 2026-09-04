@@ -165,7 +165,7 @@ export function knowledgeSearchDoc(
   content: string | null,
 ): KnowledgeSearchDoc {
   const name = path.split("/").at(-1) ?? path;
-  const fallback = displayName(name);
+  const fallback = name;
   if (content == null) {
     return { path, title: fallback, description: "", text: "" };
   }
@@ -435,10 +435,6 @@ function markdownHeadings(markdown: string): string {
     .map((match) => match[1]?.trim())
     .filter(Boolean)
     .join("\n");
-}
-
-function displayName(name: string): string {
-  return name.replace(/\.md$/iu, "") || name;
 }
 
 function stripIndonesianClitic(token: string): string | null {

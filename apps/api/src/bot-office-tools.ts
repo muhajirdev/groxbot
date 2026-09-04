@@ -1,7 +1,13 @@
 /** Cloudflare-only. Computer AI SDK tools → Pi AgentTools. Drain generators. */
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { openObjectParameters } from "@groxbot/adapters/edge";
-import { jsonClone, resolveAiSdkToolResult, stringifyToolOutput } from "@groxbot/core";
+import {
+  executeCodeFromInput,
+  jsonClone,
+  OFFICE_CODE_TOOL_NAME,
+  resolveAiSdkToolResult,
+  stringifyToolOutput,
+} from "@groxbot/core";
 import { z } from "zod";
 
 type AiTool = {
@@ -39,6 +45,46 @@ export function officeAgentTool(opts: {
       };
     },
   };
+}
+
+const MISSING_EXECUTE_CODE =
+  "code needs `code`: JavaScript for the sandbox (knowledge, routines, tools). `command` is the computer shell — use `shell` for bash.";
+
+type OfficeExecuteRaw = {
+  description?: string;
+  inputSchema?: unknown;
+  parameters?: unknown;
+  execute: (
+    input: unknown,
+    options: { toolCallId: string; abortSignal?: AbortSignal },
+  ) => Promise<unknown>;
+};
+
+/**
+ * Code Mode's Standard Schema is `{ code }`. Models still send `command`
+ * (computer shell). Coerce before the runtime does `code.length`.
+ */
+export function bindOfficeExecuteTool(raw: OfficeExecuteRaw): AgentTool {
+  const execute = raw.execute.bind(raw);
+  const wrapped = aiToolToPi(OFFICE_CODE_TOOL_NAME, {
+    ...raw,
+    execute: async (
+      input: unknown,
+      options: { toolCallId: string; abortSignal?: AbortSignal },
+    ) => {
+      const code = executeCodeFromInput(input);
+      if (!code) {
+        return {
+          status: "error",
+          executionId: "",
+          error: MISSING_EXECUTE_CODE,
+        };
+      }
+      return execute({ code }, options);
+    },
+  });
+  if (!wrapped) throw new Error("Code Mode code tool is missing execute()");
+  return wrapped;
 }
 
 /** Wrap `@cloudflare/computer/tools` `createAITools` (and Code Mode `runtime.tool()`). */
@@ -96,28 +142,55 @@ function jsonSchemaParameters(tool: AiTool): AgentTool["parameters"] {
   return openObjectParameters();
 }
 
-function jsonSchemaFrom(schema: object): Record<string, unknown> | null {
+/** AI SDK / Code Mode Standard Schema → JSON Schema Pi can advertise. */
+export function jsonSchemaFrom(schema: object): Record<string, unknown> | null {
   const record = schema as {
     jsonSchema?: unknown;
+    "~standard"?: { jsonSchema?: unknown };
   };
-  if (record.jsonSchema && typeof record.jsonSchema === "object") {
-    return record.jsonSchema as Record<string, unknown>;
-  }
+  const fromStandard = jsonSchemaFromVendor(record["~standard"]?.jsonSchema);
+  if (fromStandard) return fromStandard;
+  const fromNested = jsonSchemaFromVendor(record.jsonSchema);
+  if (fromNested) return fromNested;
   try {
     const json = z.toJSONSchema(schema as z.ZodType);
-    if (json && typeof json === "object") {
-      return json as Record<string, unknown>;
-    }
+    if (isJsonSchemaDocument(json)) return json;
   } catch {
     // Not a Zod schema, or conversion failed.
   }
   try {
     const raw = JSON.parse(JSON.stringify(schema)) as unknown;
-    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
-      return raw as Record<string, unknown>;
-    }
+    if (isJsonSchemaDocument(raw)) return raw;
   } catch {
     // Symbols / cycles.
   }
   return null;
+}
+
+function jsonSchemaFromVendor(jsonSchema: unknown): Record<string, unknown> | null {
+  if (!jsonSchema || typeof jsonSchema !== "object" || Array.isArray(jsonSchema)) {
+    return null;
+  }
+  const row = jsonSchema as { input?: unknown };
+  if (typeof row.input === "function") {
+    try {
+      const out = row.input({ target: "draft-07" });
+      if (isJsonSchemaDocument(out)) return out;
+    } catch {
+      // Vendor helper threw.
+    }
+  }
+  return isJsonSchemaDocument(jsonSchema) ? jsonSchema : null;
+}
+
+function isJsonSchemaDocument(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const row = value as { type?: unknown; properties?: unknown; $ref?: unknown };
+  return (
+    typeof row.type === "string" ||
+    typeof row.$ref === "string" ||
+    (row.properties !== undefined &&
+      typeof row.properties === "object" &&
+      row.properties !== null)
+  );
 }

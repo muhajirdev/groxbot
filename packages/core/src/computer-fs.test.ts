@@ -6,6 +6,7 @@ import {
   type ComputerFs,
   computerAbsolutePath,
   computerRelativePath,
+  computerVfsPaths,
   computerWorkerShell,
   diskFromComputerFs,
   ensureComputerHome,
@@ -129,7 +130,7 @@ class MemoryComputerFs implements ComputerFs {
   }
 
   private addParents(abs: string) {
-    const parts = computerRelativePath(abs).split("/").filter(Boolean);
+    const parts = abs.split("/").filter(Boolean);
     let cursor = "";
     for (const part of parts.slice(0, -1)) {
       cursor = `${cursor}/${part}`;
@@ -154,6 +155,23 @@ describe("computerAbsolutePath", () => {
     expect(computerAbsolutePath("/inbox/a.md")).toBe("/inbox/a.md");
     expect(computerAbsolutePath("")).toBe("/");
     expect(computerRelativePath("/inbox/a.md")).toBe("inbox/a.md");
+  });
+
+  it("also looks under /workspace for Computer-tool writes", () => {
+    expect(computerVfsPaths("notes.md")).toEqual([
+      "/notes.md",
+      "/workspace/notes.md",
+    ]);
+    expect(computerVfsPaths("/workspace/notes.md")).toEqual([
+      "/workspace/notes.md",
+    ]);
+    expect(computerVfsPaths("workspace/notes.md")).toEqual([
+      "/workspace/notes.md",
+    ]);
+    expect(computerVfsPaths("inbox/a.md")).toEqual([
+      "/inbox/a.md",
+      "/workspace/inbox/a.md",
+    ]);
   });
 });
 
@@ -199,12 +217,17 @@ describe("diskFromComputerFs", () => {
 });
 
 describe("withComputerOfficeTools", () => {
-  it("renames ls to list and does not keep both", () => {
+  it("renames ls to list and exec to shell, and does not keep both", () => {
     const ls = { description: "list files" };
-    expect(withComputerOfficeTools({ ls, exec: true })).toEqual({
-      exec: true,
+    const exec = { description: "old exec" };
+    expect(withComputerOfficeTools({ ls, exec })).toEqual({
       list: ls,
+      shell: {
+        description: expect.stringMatching(/Bash on this computer/),
+      },
     });
+    expect(withComputerOfficeTools({ ls, exec })).not.toHaveProperty("exec");
+    expect(withComputerOfficeTools({ ls, exec })).not.toHaveProperty("ls");
   });
 });
 
@@ -214,6 +237,26 @@ describe("ensureComputerHome", () => {
     await ensureComputerHome(fs);
     expect(fs.dirs.has(COMPUTER_VFS_ROOT)).toBe(true);
     await expect(fs.readdir(COMPUTER_VFS_ROOT)).resolves.toEqual([]);
+  });
+});
+
+describe("desk vs VFS write paths", () => {
+  it("opens notes.md after a Computer write to /workspace/notes.md", async () => {
+    const fs = new MemoryComputerFs();
+    await ensureComputerHome(fs);
+    await fs.writeFile("/workspace/notes.md", "# Notes");
+    const disk = diskFromComputerFs(fs);
+    await expect(readComputerFile(disk, "notes.md")).resolves.toMatchObject({
+      path: "notes.md",
+      content: "# Notes",
+    });
+    await expect(
+      readComputerFile(disk, "/workspace/notes.md"),
+    ).resolves.toMatchObject({
+      content: "# Notes",
+    });
+    const listed = await listComputerEntries(disk);
+    expect(listed.entries.map((row) => row.path)).toContain("workspace/notes.md");
   });
 });
 

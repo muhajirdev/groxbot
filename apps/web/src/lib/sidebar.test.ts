@@ -46,11 +46,24 @@ describe("isPinnedBot", () => {
 });
 
 describe("botMenuItems", () => {
-  it("offers pin and delete, then a named confirm", () => {
+  it("offers pin, archive, and delete, then a named confirm", () => {
     expect(
       botMenuItems({ pinned: false, name: "Piper", phase: "actions" }),
     ).toEqual([
       { id: "pin", label: "Pin" },
+      { id: "archive", label: "Archive" },
+      { id: "delete", label: "Delete", danger: true },
+    ]);
+    expect(
+      botMenuItems({
+        pinned: false,
+        archived: true,
+        name: "Piper",
+        phase: "actions",
+      }),
+    ).toEqual([
+      { id: "pin", label: "Pin" },
+      { id: "archive", label: "Unarchive" },
       { id: "delete", label: "Delete", danger: true },
     ]);
     expect(
@@ -62,6 +75,7 @@ describe("botMenuItems", () => {
       }),
     ).toEqual([
       { id: "pin", label: "Pin" },
+      { id: "archive", label: "Archive" },
       { id: "move", label: "Move to…" },
       { id: "delete", label: "Delete", danger: true },
     ]);

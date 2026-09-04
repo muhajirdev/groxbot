@@ -29,7 +29,7 @@ export function optimisticKnowledgeEntry(
   return {
     path,
     name,
-    title: name.replace(/\.md$/iu, "") || name,
+    title: name,
     description: "",
     size: file.size,
     encoding: kind === "text" || kind === "html" ? "text" : "binary",
@@ -70,7 +70,7 @@ export function seedKnowledgePreview(
     return {
       read: {
         path,
-        title: name.replace(/\.md$/iu, "") || name,
+        title: name,
         description: "",
         content: new TextDecoder().decode(bytes),
         truncated: false,

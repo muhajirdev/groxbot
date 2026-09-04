@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assistantTurnHasVisibleWork,
+  isOfficeHireWaiting,
   isWaitingForAssistantTurn,
 } from "./thread-waiting";
 
@@ -104,6 +105,56 @@ describe("isWaitingForAssistantTurn", () => {
         isRunning: true,
         pending: true,
         lastMessage: assistantText,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("isOfficeHireWaiting", () => {
+  it("is on for a hire before the catalog insert finishes", () => {
+    expect(
+      isOfficeHireWaiting({
+        opening: true,
+        hired: true,
+        connected: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("stays on through the first socket handshake", () => {
+    expect(
+      isOfficeHireWaiting({
+        opening: false,
+        hired: true,
+        connected: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("drops once the desk is connected, or if the socket failed", () => {
+    expect(
+      isOfficeHireWaiting({
+        opening: false,
+        hired: true,
+        connected: true,
+      }),
+    ).toBe(false);
+    expect(
+      isOfficeHireWaiting({
+        opening: false,
+        hired: true,
+        connected: false,
+        failed: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not mark an ordinary empty desk", () => {
+    expect(
+      isOfficeHireWaiting({
+        opening: false,
+        hired: false,
+        connected: false,
       }),
     ).toBe(false);
   });

@@ -18,6 +18,8 @@ import { stampApp } from "./apps.js";
 import type { GuestHub } from "./guest-hub.js";
 import { GuestAgentRuntime } from "./guest-runtime.js";
 import { newId } from "./ids.js";
+import { KNOWLEDGE_MARKDOWN_LINK_HINT } from "./knowledge-links.js";
+import { officeIntroWho } from "./office-intro.js";
 import {
   encryptionSecret,
   type ModelOverlay,
@@ -62,21 +64,14 @@ async function setRunStatus(
 
 export function teammatePrompt(bot: {
   name: string;
-  title?: string | null;
-  description: string;
-  instructions: string;
   modelLabel?: string | null;
 }): string {
-  const job = bot.title?.trim();
-  const who = job ? `${bot.name}, ${job}` : bot.name;
+  const who = officeIntroWho(bot);
   const model = bot.modelLabel?.trim();
   return [
     `You are ${who}, a Groxbot teammate in this office thread.`,
-    bot.description.trim(),
-    bot.instructions.trim(),
-    "This is office chat, not a document. Several humans may write here — user messages are tagged with the sender's name. Keep each reply short — a few sentences. Do the work with tools; don't narrate every step in the thread. For a glanceable result — facts, a short table, a chart — call present with a JSON tree (`$type` plus `children`). Put long notes and drafts in a file on this computer, then present a File with that path (`place` computer). After skill_manage create/patch — present a File with the office path (`place` knowledge). Don't announce a save you didn't make. Markdown is fine for a tight list or a snippet. Do not write an essay, a capability recap, or stacked headings unless they asked.",
-    "This thread is your desk — files and a shell live on this computer. Files the human attaches land in inbox/. Read them from there. You can import npm packages in execute. Read a public page with fetch_url. If the body is HTML, or a PDF/doc on this computer, convert it with to_markdown. Show facts or a short table with present. Do not open a browser just to read a page. Do not unpack binary streams in the shell. Do not send, pay, merge, or delete unless the human clearly asked.",
-    "Learn as you go. Save durable facts with set_context on memory: people, prefs, decisions, dates, owners. Keep it dense. Who you are and how you sound lives in soul — grow it with set_context on soul as this desk teaches you (voice, taste, how you like to work). Keep your name. Longer private notes go in memory.md on this computer. Reusable how-to is a skill — listed in the prompt as name + description. When a task matches, knowledge.read the SKILL.md at that location (inside execute). /skill:name loads it for this turn. Grow skills with skill_manage at skills/<name>/SKILL.md (YAML name + description). Patch an existing skill before creating one. Notes that are not skills stay in the office library — inside execute, knowledge.search then knowledge.read / write. Point at another office file with [constraints](how-we-work/constraints.md) — office-root path, not ../, not [[wikilinks]]. Search first so the path exists. Teammates will not see skills that only live on this computer. Recurring jobs are routines — inside execute, routines.list / create with a schedule like every weekday at 09:00. Pause or remove instead of stacking duplicates. Do not copy the whole thread into memory or a skill.",
+    "This is office chat, not a document. Several humans may write here — user messages are tagged with the sender's name. Keep each reply short — a few sentences. Markdown is fine for a tight list or a snippet. Do not write an essay, a capability recap, or stacked headings unless they asked.",
+    "This thread is your desk. Files the human attaches land in inbox/. Read them from there. Do not send, pay, merge, or delete unless the human clearly asked.",
     "Do not mention how you are hosted. If asked what you are, you are this teammate.",
     model ? `If asked which model you use, say ${model}.` : "",
   ]
@@ -88,11 +83,18 @@ export function teammatePrompt(bot: {
  * Code Mode lists extra connectors as a bare `- \`knowledge\``. Fill that in
  * so the model does not have to `codemode.search` to learn the office library.
  */
+export const OFFICE_CODE_TOOL_PREAMBLE =
+  "JavaScript sandbox. Argument is `code` — not a bash `command`. This is not the computer shell (`shell`). set_context, skill_manage, present, and shell are top-level tools, not globals here.";
+
 export const KNOWLEDGE_EXECUTE_HINT =
-  "`knowledge` — shared office library, not this computer. `await knowledge.search({ query })` then `read` / `write`. Skills (playbooks) use `skill_manage`, not `knowledge.write`.";
+  "`knowledge` — shared office library, not this computer. `await knowledge.search({ query })` then `await knowledge.read({ path })` / `write({ path, content })`. search and read also accept a lone string. Skills (playbooks) use `skill_manage`, not `knowledge.write`. " +
+  KNOWLEDGE_MARKDOWN_LINK_HINT;
 
 export const ROUTINES_EXECUTE_HINT =
-  "`routines` — this bot’s recurring jobs. `await routines.list()` / `create({ name, prompt, schedule })`. Schedules like `every weekday at 09:00`.";
+  "`routines` — this bot’s recurring jobs. `await routines.list()` / `create({ name, prompt, schedule })`. Schedules like `every weekday at 09:00`. Timezone comes from Settings.";
+
+export const HISTORY_EXECUTE_HINT =
+  "`history` — this office thread. `await history.search({ query })` for older turns the live window may have dropped. Not other teammates, not the knowledge library.";
 
 export function mcpExecuteHint(name: string): string {
   const safe = name.trim() || "mcp";
@@ -102,11 +104,13 @@ export function mcpExecuteHint(name: string): string {
 export function withOfficeExecuteDescription(
   description: string,
   hasKnowledge: boolean,
-  extras?: { routines?: boolean; mcp?: string[] },
+  extras?: { routines?: boolean; history?: boolean; mcp?: string[] },
 ): string {
-  let next = description;
+  let next = withOfficeCodePreamble(description);
   if (hasKnowledge)
     next = hintExecuteConnector(next, "knowledge", KNOWLEDGE_EXECUTE_HINT);
+  if (extras?.history)
+    next = hintExecuteConnector(next, "history", HISTORY_EXECUTE_HINT);
   if (extras?.routines)
     next = hintExecuteConnector(next, "routines", ROUTINES_EXECUTE_HINT);
   for (const name of extras?.mcp ?? []) {
@@ -115,6 +119,14 @@ export function withOfficeExecuteDescription(
     next = hintExecuteConnector(next, slug, mcpExecuteHint(slug));
   }
   return next;
+}
+
+function withOfficeCodePreamble(description: string): string {
+  if (description.includes(OFFICE_CODE_TOOL_PREAMBLE)) return description;
+  const body = description.trim();
+  return body
+    ? `${OFFICE_CODE_TOOL_PREAMBLE}\n\n${body}`
+    : OFFICE_CODE_TOOL_PREAMBLE;
 }
 
 function hintExecuteConnector(

@@ -27,6 +27,8 @@ import { peekOfficeMessages, setOfficeMessages } from "../lib/office-messages";
 import { orpc, queryClient } from "../lib/orpc";
 import { client } from "../lib/rpc";
 import { OFFICE_WORKING, patchThreadMeta } from "../lib/thread-cache";
+import { createImmediateSteerQueue } from "../lib/thread-steer-queue";
+import { isOfficeHireWaiting } from "../lib/thread-waiting";
 import { useOfficeChat } from "../lib/use-office-chat";
 import { projectedToThreadMessage } from "../lib/use-pi-thread";
 import { cn } from "../lib/utils";
@@ -238,14 +240,23 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
     onNew,
     isStreaming,
     connectionError,
+    connected,
   } = chat;
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
+  const hiredRef = useRef(opening);
+  hiredRef.current = hiredRef.current || opening;
+  const hireWarm = isOfficeHireWaiting({
+    opening,
+    hired: hiredRef.current,
+    connected,
+    failed: Boolean(connectionError),
+  });
   const busy = status === "submitted" || status === "streaming" || isStreaming;
   const wasBusy = useRef(false);
   const [pending, setPending] = useState(false);
   const abortSendRef = useRef<AbortController | null>(null);
-  const inFlight = busy || pending;
+  const inFlight = busy || pending || hireWarm;
 
   const send = useCallback(
     async (message: Parameters<typeof onNew>[0]) => {
@@ -301,6 +312,13 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
     [onNew],
   );
 
+  const sendRef = useRef(send);
+  sendRef.current = send;
+  const queue = useMemo(
+    () => createImmediateSteerQueue((message) => sendRef.current(message)),
+    [],
+  );
+
   const halt = useCallback(() => {
     abortSendRef.current?.abort();
     return stop();
@@ -327,6 +345,7 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
     isRunning: inFlight,
     onNew: send,
     onCancel: halt,
+    queue,
     adapters: { attachments },
   });
 
@@ -383,7 +402,7 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
             viewerUserId={props.userId}
             viewerImage={props.userImage}
             botName={props.botName}
-            pending={pending}
+            pending={pending || hireWarm}
             components={THREAD_COMPONENTS}
           />
         </div>

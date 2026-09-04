@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   neighborBotId,
+  paletteFilePrefetchPaths,
+  paletteSearchKey,
+  PALETTE_FILE_LIMIT,
   rankPaletteItems,
+  ROSTER_NEXT_HOTKEY,
+  ROSTER_PREV_HOTKEY,
   type PaletteApp,
   type PaletteBot,
+  type PaletteFile,
   type PaletteRoom,
 } from "./command-palette";
 
@@ -38,6 +44,13 @@ const standup: PaletteRoom = {
   name: "Standup",
   lastPreview: "See you at 9",
   memberNames: "Piper Nova",
+};
+
+const voice: PaletteFile = {
+  path: "how-we-work/voice.md",
+  name: "voice.md",
+  title: "Voice",
+  description: "How we sound in writing",
 };
 
 describe("rankPaletteItems", () => {
@@ -115,6 +128,72 @@ describe("rankPaletteItems", () => {
       key: "action:skills",
     });
   });
+
+  it("does not list knowledge files until you type", () => {
+    const rows = rankPaletteItems("", [piper], [brief], [standup], [voice]);
+    expect(rows.some((row) => row.kind === "file")).toBe(false);
+  });
+
+  it("matches knowledge files by name, title, or path", () => {
+    expect(
+      rankPaletteItems("voice", [piper], [brief], [standup], [voice])[0],
+    ).toMatchObject({ kind: "file", key: "file:how-we-work/voice.md" });
+    expect(
+      rankPaletteItems("how-we-work", [piper], [], [], [voice]).some(
+        (row) => row.kind === "file",
+      ),
+    ).toBe(true);
+  });
+
+  it("scopes to files when the query starts with #", () => {
+    const rows = rankPaletteItems("#voice", [piper], [brief], [standup], [voice]);
+    expect(rows.map((row) => row.key)).toEqual(["file:how-we-work/voice.md"]);
+  });
+
+  it("caps knowledge hits so a broad query does not flood the list", () => {
+    const files = Array.from({ length: PALETTE_FILE_LIMIT + 8 }, (_, i) => ({
+      path: `notes/n${i}.md`,
+      name: `n${i}.md`,
+      title: `Note ${i}`,
+      description: "note",
+    }));
+    const rows = rankPaletteItems("note", [piper], [], [], files);
+    expect(rows.filter((row) => row.kind === "file")).toHaveLength(
+      PALETTE_FILE_LIMIT,
+    );
+  });
+});
+
+describe("paletteFilePrefetchPaths", () => {
+  it("warms a small hit list so opening contact.md is already cached", () => {
+    const contact: PaletteFile = {
+      path: "people/contact.md",
+      name: "contact.md",
+      title: "Contact",
+      description: "",
+    };
+    const rows = rankPaletteItems("contact.md", [piper], [], [], [contact]);
+    expect(paletteFilePrefetchPaths(rows, 0)).toEqual(["people/contact.md"]);
+  });
+
+  it("skips binaries and only warms the focused neighborhood on a flood", () => {
+    const files = Array.from({ length: PALETTE_FILE_LIMIT }, (_, i) => ({
+      path: i === 2 ? "shots/hero.png" : `notes/n${i}.md`,
+      name: i === 2 ? "hero.png" : `n${i}.md`,
+      title: i === 2 ? "Hero" : `Note ${i}`,
+      description: "note",
+    }));
+    const rows = rankPaletteItems("note", [piper], [], [], files);
+    const filesOnly = rows.filter((row) => row.kind === "file");
+    const active = filesOnly.findIndex(
+      (row) => row.kind === "file" && row.file.path === "notes/n4.md",
+    );
+    expect(paletteFilePrefetchPaths(filesOnly, active)).toEqual([
+      "notes/n4.md",
+      "notes/n5.md",
+      "notes/n3.md",
+    ]);
+  });
 });
 
 describe("neighborBotId", () => {
@@ -126,5 +205,23 @@ describe("neighborBotId", () => {
   it("starts at an end when the current id is missing", () => {
     expect(neighborBotId(["a", "b"], "gone", 1)).toBe("a");
     expect(neighborBotId(["a", "b"], undefined, -1)).toBe("b");
+  });
+});
+
+describe("roster cycle hotkeys", () => {
+  it("uses option arrows, not bare up/down", () => {
+    expect(ROSTER_NEXT_HOTKEY).toBe("Alt+ArrowDown");
+    expect(ROSTER_PREV_HOTKEY).toBe("Alt+ArrowUp");
+    expect(ROSTER_NEXT_HOTKEY.startsWith("Arrow")).toBe(false);
+    expect(ROSTER_PREV_HOTKEY.startsWith("Arrow")).toBe(false);
+  });
+});
+
+describe("paletteSearchKey", () => {
+  it("closes on Escape instead of treating it as blur", () => {
+    expect(paletteSearchKey("Escape")).toBe("close");
+    expect(paletteSearchKey("Enter")).toBe("run");
+    expect(paletteSearchKey("ArrowDown")).toBe("down");
+    expect(paletteSearchKey("a")).toBeNull();
   });
 });

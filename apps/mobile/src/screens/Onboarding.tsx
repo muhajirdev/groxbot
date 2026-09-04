@@ -80,11 +80,7 @@ export function OnboardingScreen({
   );
   const [step, setStep] = useState(0);
   const [tools, setTools] = useState<string[]>([]);
-  const [name, setName] = useState<string>(FIRST_HIRE.title);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState<string>(
-    FIRST_HIRE.description,
-  );
+  const [name, setName] = useState<string>(FIRST_HIRE);
   const [color, setColor] = useState<string>(AVATAR_COLORS[0]);
   const [shape, setShape] = useState<AvatarShape>("circle");
   const [error, setError] = useState("");
@@ -252,9 +248,6 @@ export function OnboardingScreen({
     try {
       const bot = await client.bots.create({
         name,
-        title,
-        description,
-        instructions: description,
         avatarColor: color,
         avatarShape: shape,
       });
@@ -494,13 +487,11 @@ export function OnboardingScreen({
       <View style={styles.chips}>
         {SUGGESTED_JOBS.map((job) => (
           <Chip
-            key={job.title}
-            label={job.title}
-            selected={name === job.title}
+            key={job}
+            label={job}
+            selected={name === job}
             onPress={() => {
-              setName(job.title);
-              setTitle(job.title);
-              setDescription(job.description);
+              setName(job);
             }}
           />
         ))}
@@ -510,18 +501,6 @@ export function OnboardingScreen({
         value={name}
         onChangeText={setName}
         autoCapitalize="words"
-      />
-      <Field
-        label="Job"
-        value={title}
-        onChangeText={setTitle}
-        autoCapitalize="sentences"
-      />
-      <Field
-        label="How it should work"
-        value={description}
-        onChangeText={setDescription}
-        multiline
       />
       <View style={styles.avatarRow}>
         <Avatar name={name} color={color} shape={shape} size={56} />

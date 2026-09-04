@@ -8,16 +8,27 @@ import {
   useState,
 } from "react";
 import {
+  applySimNodes,
+  createGraphSim,
   fitGraphCamera,
   type GraphCamera,
+  type GraphSim,
   graphCameraScale,
   graphEdgeGeom,
+  graphSimAwake,
+  graphWorldTransform,
+  graphZoomFactor,
+  heatGraphSim,
   indexKnowledgeGraph,
   type KnowledgeGraphNode,
-  knowledgeGraphLinkedIds,
+  knowledgeGraphFocusIds,
   layoutKnowledgeGraph,
   panGraphCamera,
   pickGraphLabels,
+  pinGraphNode,
+  setGraphSimTarget,
+  stepGraphSim,
+  unpinGraphNode,
   worldFromScreen,
   zoomGraphCamera,
 } from "../lib/knowledge-graph";
@@ -30,7 +41,7 @@ export function KnowledgeGraphMap(props: {
   out: number[][];
   selected: string | null;
   files: ReadonlySet<string>;
-  onSelect: (path: string) => void;
+  onSelect: (path: string | null) => void;
   onOpen: (path: string) => void;
 }) {
   const index = useMemo(
@@ -46,14 +57,23 @@ export function KnowledgeGraphMap(props: {
   const [hover, setHover] = useState<string | null>(null);
   const [panning, setPanning] = useState(false);
   const [viewport, setViewport] = useState(EMPTY_VIEW);
-  const [camera, setCamera] = useState<GraphCamera>({
+  const [zoom, setZoom] = useState(1);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const worldRef = useRef<SVGGElement>(null);
+  const sizeObserver = useRef<ResizeObserver | null>(null);
+  const wheelCleanup = useRef<(() => void) | null>(null);
+  const zoomIdle = useRef(0);
+  const cameraRef = useRef<GraphCamera>({
     x: 0,
     y: 0,
     w: EMPTY_VIEW.width,
     h: EMPTY_VIEW.height,
   });
-  const svgRef = useRef<SVGSVGElement>(null);
-  const sizeObserver = useRef<ResizeObserver | null>(null);
+  const viewportRef = useRef(viewport);
+  viewportRef.current = viewport;
+  const simRef = useRef<GraphSim | null>(null);
+  const rafRef = useRef(0);
+  const reduceMotion = useRef(false);
   const canvasDrag = useRef<{
     pointer: number;
     x: number;
@@ -71,13 +91,70 @@ export function KnowledgeGraphMap(props: {
     moved: boolean;
   } | null>(null);
 
+  const kickSim = useCallback(() => {
+    if (rafRef.current || reduceMotion.current) return;
+    const loop = () => {
+      const sim = simRef.current;
+      const dragging = Boolean(nodeDrag.current);
+      if (!sim) {
+        rafRef.current = 0;
+        return;
+      }
+      const ticks = dragging ? 3 : 2;
+      for (let i = 0; i < ticks; i++) stepGraphSim(sim);
+      setNodes((current) => applySimNodes(sim, current));
+      if (!dragging && !graphSimAwake(sim)) {
+        rafRef.current = 0;
+        return;
+      }
+      rafRef.current = requestAnimationFrame(loop);
+    };
+    rafRef.current = requestAnimationFrame(loop);
+  }, []);
+
+  const applyCamera = useCallback(
+    (next: GraphCamera, zoomMode: "idle" | "now" | "hold" = "idle") => {
+      cameraRef.current = next;
+      const vp = viewportRef.current;
+      worldRef.current?.setAttribute(
+        "transform",
+        graphWorldTransform(next, vp),
+      );
+      if (zoomMode === "hold") return;
+      if (zoomIdle.current) window.clearTimeout(zoomIdle.current);
+      zoomIdle.current = 0;
+      if (zoomMode === "now") {
+        const k = graphCameraScale(next, vp);
+        setZoom((current) => (Math.abs(current - k) < 0.01 ? current : k));
+        return;
+      }
+      zoomIdle.current = window.setTimeout(() => {
+        zoomIdle.current = 0;
+        const k = graphCameraScale(cameraRef.current, viewportRef.current);
+        setZoom((current) => (Math.abs(current - k) < 0.01 ? current : k));
+      }, 80);
+    },
+    [],
+  );
+
   useEffect(() => {
+    reduceMotion.current = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    simRef.current = createGraphSim(layout.nodes, layout.edges);
     setNodes(layout.nodes);
-  }, [layout]);
+    kickSim();
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+    };
+  }, [kickSim, layout]);
 
   const attachSvg = useCallback((node: SVGSVGElement | null) => {
     sizeObserver.current?.disconnect();
     sizeObserver.current = null;
+    wheelCleanup.current?.();
+    wheelCleanup.current = null;
     svgRef.current = node;
     if (!node) return;
     const measure = () => {
@@ -94,7 +171,27 @@ export function KnowledgeGraphMap(props: {
     const observer = new ResizeObserver(measure);
     observer.observe(node);
     sizeObserver.current = observer;
-  }, []);
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const rect = node.getBoundingClientRect();
+      const screen = {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+      };
+      const vp = viewportRef.current;
+      const camera = cameraRef.current;
+      applyCamera(
+        zoomGraphCamera(
+          camera,
+          worldFromScreen(camera, screen, vp),
+          graphZoomFactor(event.deltaY),
+          vp,
+        ),
+      );
+    };
+    node.addEventListener("wheel", onWheel, { passive: false });
+    wheelCleanup.current = () => node.removeEventListener("wheel", onWheel);
+  }, [applyCamera]);
 
   const visible = useMemo(
     () => (showIsolates ? nodes : nodes.filter((node) => !node.isolate)),
@@ -105,23 +202,18 @@ export function KnowledgeGraphMap(props: {
     const fitted = showIsolates
       ? layout.nodes
       : layout.nodes.filter((node) => !node.isolate);
-    setCamera(fitGraphCamera(fitted, viewport));
-  }, [layout, showIsolates, viewport]);
+    applyCamera(fitGraphCamera(fitted, viewport), "now");
+  }, [applyCamera, layout, showIsolates, viewport]);
 
   const byId = useMemo(
     () => new Map(visible.map((node) => [node.id, node])),
     [visible],
   );
   const linked = useMemo(
-    () =>
-      props.selected
-        ? knowledgeGraphLinkedIds(index, props.selected)
-        : new Set<number>(),
-    [index, props.selected],
+    () => knowledgeGraphFocusIds(index, hover, props.selected),
+    [hover, index, props.selected],
   );
-  const focusing = Boolean(
-    props.selected && visible.length > 18 && linked.size > 0,
-  );
+  const focusing = linked.size > 0;
   const isolateCount = layout.nodes.filter((node) => node.isolate).length;
   const folders = useMemo(() => {
     const seen = new Map<string, number>();
@@ -132,24 +224,27 @@ export function KnowledgeGraphMap(props: {
     return [...seen.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [visible]);
   const alwaysLabels = useMemo(() => {
-    const ids = new Set<number>();
-    const selectedId = props.selected
-      ? index.byPath.get(props.selected)
-      : undefined;
-    const hoverId = hover ? index.byPath.get(hover) : undefined;
-    if (selectedId != null) ids.add(selectedId);
-    if (hoverId != null) ids.add(hoverId);
+    const ids = new Set<number>(linked);
+    if (ids.size > 16) {
+      ids.clear();
+      const selectedId = props.selected
+        ? index.byPath.get(props.selected)
+        : undefined;
+      const hoverId = hover ? index.byPath.get(hover) : undefined;
+      if (selectedId != null) ids.add(selectedId);
+      if (hoverId != null) ids.add(hoverId);
+    }
     return ids;
-  }, [hover, index, props.selected]);
+  }, [hover, index, linked, props.selected]);
   const labeled = useMemo(() => {
     const candidates = focusing
       ? visible.filter(
           (node) => linked.has(node.id) || alwaysLabels.has(node.id),
         )
       : visible;
-    if (graphCameraScale(camera, viewport) < 0.48) return alwaysLabels;
-    return pickGraphLabels(candidates, alwaysLabels);
-  }, [alwaysLabels, camera, focusing, linked, viewport, visible]);
+    if (zoom < 0.42) return alwaysLabels;
+    return pickGraphLabels(candidates, alwaysLabels, 52, zoom);
+  }, [alwaysLabels, focusing, linked, visible, zoom]);
   const status =
     hover ||
     props.selected ||
@@ -160,22 +255,10 @@ export function KnowledgeGraphMap(props: {
       : `${visible.length} notes`);
 
   useEffect(() => {
-    const svg = svgRef.current;
-    if (!svg) return;
-    const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      const rect = svg.getBoundingClientRect();
-      const screen = {
-        x: event.clientX - rect.left,
-        y: event.clientY - rect.top,
-      };
-      const world = worldFromScreen(camera, screen, viewport);
-      const factor = event.deltaY > 0 ? 0.9 : 1.11;
-      setCamera(zoomGraphCamera(camera, world, factor, viewport));
+    return () => {
+      if (zoomIdle.current) window.clearTimeout(zoomIdle.current);
     };
-    svg.addEventListener("wheel", onWheel, { passive: false });
-    return () => svg.removeEventListener("wheel", onWheel);
-  }, [camera, viewport]);
+  }, []);
 
   if (
     layout.nodes.length === 0 ||
@@ -208,7 +291,9 @@ export function KnowledgeGraphMap(props: {
           <button
             className="knowledge-graph-toggle"
             type="button"
-            onClick={() => setCamera(fitGraphCamera(visible, viewport))}
+            onClick={() =>
+              applyCamera(fitGraphCamera(visible, viewport), "now")
+            }
           >
             Fit
           </button>
@@ -222,38 +307,50 @@ export function KnowledgeGraphMap(props: {
         ) : null}
         <svg
           ref={attachSvg}
-          className={panning ? "panning" : undefined}
-          viewBox={`${camera.x} ${camera.y} ${camera.w} ${camera.h}`}
-          preserveAspectRatio="none"
-          aria-label="Office knowledge links. Scroll to zoom, drag to pan. Double-click opens a note."
+          className={cn(panning && "panning")}
+          viewBox={`0 0 ${viewport.width} ${viewport.height}`}
+          preserveAspectRatio="xMidYMid meet"
+          aria-label="Office knowledge links. Scroll to zoom, drag to pan. Click a note to focus it. Double-click opens it."
           onPointerDown={(event) => {
             if (event.button !== 0 || nodeDrag.current) return;
             canvasDrag.current = {
               pointer: event.pointerId,
               x: event.clientX,
               y: event.clientY,
-              origin: camera,
+              origin: cameraRef.current,
               moved: false,
             };
             event.currentTarget.setPointerCapture(event.pointerId);
           }}
           onPointerMove={(event) => {
+            const camera = cameraRef.current;
             const pin = nodeDrag.current;
             if (pin && pin.pointer === event.pointerId) {
               const dx =
                 ((event.clientX - pin.x) * camera.w) /
-                Math.max(1, viewport.width);
+                Math.max(1, viewportRef.current.width);
               const dy =
                 ((event.clientY - pin.y) * camera.h) /
-                Math.max(1, viewport.height);
+                Math.max(1, viewportRef.current.height);
               if (Math.abs(dx) + Math.abs(dy) > 2) pin.moved = true;
-              setNodes((current) =>
-                current.map((node) =>
-                  node.id === pin.id
-                    ? { ...node, x: pin.origX + dx, y: pin.origY + dy }
-                    : node,
-                ),
-              );
+              const sim = simRef.current;
+              if (sim) {
+                pinGraphNode(sim, pin.id, pin.origX + dx, pin.origY + dy);
+                if (reduceMotion.current) {
+                  setNodes((current) => applySimNodes(sim, current));
+                } else {
+                  if (pin.moved) setGraphSimTarget(sim, 0.42);
+                  kickSim();
+                }
+              } else {
+                setNodes((current) =>
+                  current.map((node) =>
+                    node.id === pin.id
+                      ? { ...node, x: pin.origX + dx, y: pin.origY + dy }
+                      : node,
+                  ),
+                );
+              }
               return;
             }
             const start = canvasDrag.current;
@@ -265,26 +362,45 @@ export function KnowledgeGraphMap(props: {
               setPanning(true);
             }
             if (start.moved) {
-              setCamera(panGraphCamera(start.origin, dx, dy, viewport));
+              applyCamera(
+                panGraphCamera(start.origin, dx, dy, viewportRef.current),
+                "hold",
+              );
             }
           }}
           onPointerUp={(event) => {
-            if (nodeDrag.current?.pointer === event.pointerId) {
+            const pin = nodeDrag.current;
+            if (pin?.pointer === event.pointerId) {
+              const sim = simRef.current;
+              if (sim) {
+                unpinGraphNode(sim, pin.id);
+                setGraphSimTarget(sim, 0);
+                if (pin.moved) {
+                  heatGraphSim(sim, 0.22);
+                  kickSim();
+                }
+              }
               nodeDrag.current = null;
             }
             if (canvasDrag.current?.pointer === event.pointerId) {
+              if (!canvasDrag.current.moved) props.onSelect(null);
               canvasDrag.current = null;
               setPanning(false);
             }
           }}
         >
+          <g
+            ref={worldRef}
+            className="knowledge-graph-world"
+            transform={graphWorldTransform(cameraRef.current, viewport)}
+          >
           {layout.edges.map((edge) => {
             const from = byId.get(edge.from);
             const to = byId.get(edge.to);
             if (!from || !to) return null;
             const hot = linked.has(edge.from) && linked.has(edge.to);
             const faded = focusing && !hot;
-            const geom = graphEdgeGeom(from, to, edge.reciprocal);
+            const geom = graphEdgeGeom(from, to);
             return (
               <g
                 key={`${edge.from}-${edge.to}`}
@@ -294,12 +410,8 @@ export function KnowledgeGraphMap(props: {
                   faded && "faded",
                 )}
               >
-                <path d={geom.d} />
-                <polygon
-                  className="knowledge-graph-arrow"
-                  transform={`translate(${geom.ax} ${geom.ay}) rotate(${geom.angle})`}
-                  points="0,-3.1 8,0 0,3.1"
-                />
+                <path className="knowledge-graph-edge-glow" d={geom.d} />
+                <path className="knowledge-graph-edge-core" d={geom.d} />
               </g>
             );
           })}
@@ -324,6 +436,8 @@ export function KnowledgeGraphMap(props: {
                   origY: node.y,
                   moved: false,
                 };
+                const sim = simRef.current;
+                if (sim) pinGraphNode(sim, node.id, node.x, node.y);
               }}
               onSelect={() => {
                 if (nodeDrag.current?.moved || canvasDrag.current?.moved)
@@ -336,6 +450,7 @@ export function KnowledgeGraphMap(props: {
               }}
             />
           ))}
+          </g>
         </svg>
       </div>
       {folders.length > 1 ? (
@@ -397,12 +512,14 @@ function GraphNode(props: {
       }}
     >
       <title>{props.node.path}</title>
-      {props.selected ? (
-        <circle className="knowledge-graph-glow" r={props.node.r + 7} />
-      ) : null}
-      <circle r={props.selected ? props.node.r + 1.8 : props.node.r} />
+      <circle
+        className="knowledge-graph-hit"
+        r={Math.max(11, props.node.r + 7)}
+      />
+      <circle className="knowledge-graph-glow" r={props.node.r + 6} />
+      <circle className="knowledge-graph-dot" r={props.node.r} />
       {props.labeled ? (
-        <text y={props.node.r + 13} textAnchor="middle">
+        <text y={props.node.r + 12} textAnchor="middle">
           {props.node.label}
         </text>
       ) : null}

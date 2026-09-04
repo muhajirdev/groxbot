@@ -11,6 +11,7 @@ import {
   deskSettings,
   libraryShowsSkills,
   officeSearch,
+  roomDeskSearch,
   toggleDesk,
 } from "./office-search";
 
@@ -48,6 +49,24 @@ describe("desk helpers", () => {
   it("toggles settings and computer closed", () => {
     expect(toggleDesk(deskSettings(), "settings")).toEqual(deskClosed());
     expect(toggleDesk(deskClosed(), "computer")).toEqual(deskComputer());
+  });
+
+  it("keeps a seat only while computer or settings is open", () => {
+    expect(roomDeskSearch(deskComputer(), "hormozi")).toEqual({
+      pane: "computer",
+      bot: "hormozi",
+    });
+    expect(roomDeskSearch(deskSettings(), "hormozi")).toEqual({
+      pane: "settings",
+      bot: "hormozi",
+    });
+    expect(roomDeskSearch(deskClosed(), "hormozi")).toEqual(deskClosed());
+    expect(
+      roomDeskSearch({ pane: "computer", bot: "steve" }, "hormozi"),
+    ).toEqual({
+      pane: "computer",
+      bot: "steve",
+    });
   });
 
   it("opens an app by id", () => {

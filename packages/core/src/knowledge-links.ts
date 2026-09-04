@@ -7,6 +7,9 @@
 
 export const KNOWLEDGE_LINKS_PATH = "_links/index.json";
 export const KNOWLEDGE_LINKS_VERSION = 1;
+/** How the agent should wire office notes when it writes one. */
+export const KNOWLEDGE_MARKDOWN_LINK_HINT =
+  "When you write a knowledge file, link related office notes with [label](path/from/office/root.md) — e.g. [constraints](how-we-work/constraints.md). Not ../, not [[wikilinks]].";
 export const MAX_KNOWLEDGE_LINK_SOURCES = 4_000;
 const MAX_PATH = 240;
 

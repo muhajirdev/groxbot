@@ -1,16 +1,23 @@
 /** Post-turn office filing. Same Pi turn, visible only when knowledge moved. */
 
 import {
+  OFFICE_INTRO_SOURCE,
   OFFICE_REVIEW_SKIP,
   OFFICE_REVIEW_SOURCE,
+  isHiddenOfficeUserMessage,
+  isOfficeIntroUserMessage,
   isOfficeReviewSkip,
   isOfficeReviewSource,
   isOfficeReviewUserMessage,
 } from "@groxbot/contracts";
+import { KNOWLEDGE_MARKDOWN_LINK_HINT } from "./knowledge-links.js";
 
 export {
+  OFFICE_INTRO_SOURCE,
   OFFICE_REVIEW_SKIP,
   OFFICE_REVIEW_SOURCE,
+  isHiddenOfficeUserMessage,
+  isOfficeIntroUserMessage,
   isOfficeReviewSkip,
   isOfficeReviewSource,
   isOfficeReviewUserMessage,
@@ -121,6 +128,7 @@ export function officeReviewUserText(): string {
   return [
     "Office review.",
     "If this stretch taught a reusable how-to, knowledge.search then knowledge.read, then skill_manage patch or create — patch an existing skill first (skills/<name>/SKILL.md).",
+    KNOWLEDGE_MARKDOWN_LINK_HINT,
     "If you filed or updated a file, mention that path in one short line. No recap.",
     `If nothing belongs in the office, reply with exactly ${OFFICE_REVIEW_SKIP}.`,
   ].join(" ");

@@ -1,3 +1,6 @@
+/** Pi-facing Code Mode tool. Runtime facet stays `execute`. Not computer `shell`. */
+export const OFFICE_CODE_TOOL_NAME = "code";
+
 /** Bare npm specifiers the execute sandbox may bundle. Not paths or builtins. */
 const PACKAGE_NAME =
   /^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/;
@@ -59,4 +62,20 @@ export function splitExecuteNpmImports(code: string): ExecuteNpmImports {
     importSource: hoisted.join("\n"),
     dependencies,
   };
+}
+
+/**
+ * Code Mode takes `code` (sandbox JS). Models often send `command` because
+ * computer `shell` uses that name — read either so we don't crash on
+ * `code.length` when `code` is missing.
+ */
+export function executeCodeFromInput(input: unknown): string {
+  if (typeof input === "string") return input.trim();
+  if (!input || typeof input !== "object" || Array.isArray(input)) return "";
+  const row = input as Record<string, unknown>;
+  for (const key of ["code", "command"] as const) {
+    const value = row[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
 }

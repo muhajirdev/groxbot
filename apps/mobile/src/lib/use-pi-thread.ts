@@ -240,7 +240,7 @@ export function usePiThread(options: {
         messages: current.messages.some((row) => row.id === id)
           ? current.messages
           : [...current.messages, optimistic],
-        status: "submitted",
+        status: current.status === "streaming" ? "streaming" : "submitted",
       }));
       try {
         await send({ content, id, metadata });

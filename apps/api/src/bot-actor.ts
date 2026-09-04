@@ -21,6 +21,7 @@ import {
 import {
   HOSTED_STARTER_MODEL,
   labelForModel,
+  OFFICE_INTRO_SOURCE,
   OFFICE_REVIEW_SOURCE,
   officeUserFromHeaders,
   type Routine,
@@ -28,6 +29,8 @@ import {
 } from "@groxbot/contracts";
 import {
   applyOfficeReviewTurn,
+  applyOfficeSkillsToSystem,
+  buildOfficeSystemPrompt,
   ComputerFileError,
   ComputerPathError,
   ComputerWriteError,
@@ -44,7 +47,9 @@ import {
   formatRoutinePrompt,
   isoUnixSeconds,
   jsonClone,
+  lastOfficeUserIsIntro,
   listComputerEntries,
+  loadOfficeSkillCatalog,
   MCP_OAUTH_SETTLE_MS,
   mcpCatalogStatusFromLive,
   mcpConnectionIsExecutable,
@@ -52,15 +57,19 @@ import {
   mcpServersForExecute,
   newId,
   OFFICE_GENERATION_STORAGE,
+  OFFICE_INTRO_STORAGE,
   OFFICE_REVIEW_STORAGE,
   OFFICE_WORKSPACE_HEADER,
   type OfficeChatMessage,
+  type OfficeHistorySearch,
+  officeCanReadSkills,
+  officeIntroTurnTools,
+  officeIntroUserText,
   officeReviewDue,
   officeReviewUserText,
-  applyOfficeSkillsToSystem,
-  loadOfficeSkillCatalog,
   parseOfficeChatMessages,
   parseOfficeReviewCounters,
+  parseTinyfishKeys,
   patchComputerWorkspace,
   piAssistantTurnSettled,
   type PiBoundMessage,
@@ -68,6 +77,9 @@ import {
   type PiOfficeSnapshot,
   type PiSendMessageInput,
   piLogShouldRun,
+  PiSteerQueue,
+  piQueuedUserBound,
+  takePiAssistantDraft,
   prepareRoutineCreate,
   RoutineError,
   RoutineNotFoundError,
@@ -76,9 +88,13 @@ import {
   resolveRunModel,
   type StoredRoutine,
   saveMcpConnection,
+  searchOfficeHistory,
   shouldEnqueueOfficeReview,
+  shouldRunOfficeIntro,
   soulOverlayFromWrite,
   teammatePrompt,
+  TinyfishKeyPool,
+  tinyfishPoolStart,
   toRoutineDto,
   withComputerOfficeTools,
   withOfficeExecuteDescription,
@@ -95,6 +111,7 @@ import {
   createBundlingExecutor,
   createOfficeExecuteTool,
 } from "./bot-execute.js";
+import { HistoryConnector } from "./bot-history.js";
 import { KnowledgeConnector } from "./bot-knowledge.js";
 import { bindToMarkdown, createPageAgentTools } from "./bot-markdown.js";
 import { WorkspaceMcpConnector } from "./bot-mcp-connector.js";
@@ -129,6 +146,8 @@ export interface WorkerEnv {
   GITHUB_CLIENT_ID?: string;
   GITHUB_CLIENT_SECRET?: string;
   COMPOSIO_API_KEY?: string;
+  TINYFISH_API_KEY?: string;
+  TINYFISH_API_KEYS?: string;
   EMAIL?: SendEmailBinding;
   AI?: WorkersAiBinding;
   APP_RUNTIME: DurableObjectNamespace;
@@ -179,6 +198,7 @@ function routineHttpError(error: unknown): Response {
 
 const ROUTINE_CALLBACK = "runScheduledRoutine" as const;
 const PAUSED_ROUTINES_STORAGE = "pausedRoutines";
+const OFFICE_TIMEZONE_STORAGE = "officeTimezone";
 
 type RoutineSchedulePayload = {
   name: string;
@@ -260,6 +280,7 @@ export class RoomHome extends Agent<WorkerEnv> {
   /** Computer VFS — Code Mode execute and the office pane share this tree. */
   workspace = diskFromComputerFs(this.computer.fs);
   private soulPrompt = "You are a helpful teammate.";
+  private hireName = "";
   private turnModel = HOSTED_STARTER_MODEL;
   private turnEnv: RuntimeSource = {};
   private botLoaded = false;
@@ -278,8 +299,10 @@ export class RoomHome extends Agent<WorkerEnv> {
   private officeError = "";
   private officeTurn: AbortController | null = null;
   private officeQueue: Promise<void> = Promise.resolve();
+  private officeSteer = new PiSteerQueue();
   private officeSession: Session | null = null;
   private officeSeq = 0;
+  private tinyfishKeys: TinyfishKeyPool | null = null;
 
   async onStart(): Promise<void> {
     const stored = await this.ctx.storage.get<string>("officeId");
@@ -298,10 +321,22 @@ export class RoomHome extends Agent<WorkerEnv> {
     console.log(`[bot ${this.name}] onStart`);
   }
 
+  private pageTinyfishPool(): TinyfishKeyPool {
+    if (!this.tinyfishKeys) {
+      const keys = parseTinyfishKeys(this.env);
+      this.tinyfishKeys = new TinyfishKeyPool(
+        keys,
+        tinyfishPoolStart(this.name, keys.length),
+      );
+    }
+    return this.tinyfishKeys;
+  }
+
   getAgentTools(): AgentTool[] {
     const page = {
       workspace: this.workspace,
       convert: bindToMarkdown(this.env.AI),
+      tinyfishKeys: this.pageTinyfishPool(),
     };
     const connectors = this.executeConnectors();
     const execute = createOfficeExecuteTool({
@@ -339,7 +374,7 @@ export class RoomHome extends Agent<WorkerEnv> {
         description: withOfficeExecuteDescription(
           typeof execute.description === "string" ? execute.description : "",
           Boolean(this.env.KNOWLEDGE),
-          { routines: true, mcp },
+          { history: true, routines: true, mcp },
         ),
       },
     ];
@@ -435,6 +470,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     const generation =
       (await this.ctx.storage.get<number>(OFFICE_GENERATION_STORAGE)) ?? 0;
     await live.streamGeneration(generation);
+    const startIntro = await this.prepareOfficeIntro();
     const snapshot = jsonClone(await this.officeSnapshot());
     if (snapshot) {
       await live.event({
@@ -446,6 +482,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     }
     if (this.officeError) await live.error(this.officeError);
     await live.status(this.officeStatus);
+    if (startIntro) this.ctx.waitUntil(this.enqueueOfficeTurn());
   }
 
   async officeSnapshot(): Promise<PiOfficeSnapshot> {
@@ -458,7 +495,10 @@ export class RoomHome extends Agent<WorkerEnv> {
           : "running";
     const snapshot: PiOfficeSnapshot = {
       metadata: { id: this.name, status },
-      messages: await this.officeBound(session),
+      messages: [
+        ...(await this.officeBound(session)),
+        ...this.officeSteer.pending().map(piQueuedUserBound),
+      ],
     };
     if (this.officeError) snapshot.lastError = this.officeError;
     return snapshot;
@@ -473,11 +513,33 @@ export class RoomHome extends Agent<WorkerEnv> {
     const existing = (await this.officeBound(session)).find(
       (row) => row.id === id,
     );
+    const running = Boolean(
+      this.officeTurn && !this.officeTurn.signal.aborted,
+    );
     const stamped = stampIncomingOfficeUser(
       { role: "user", metadata: input.metadata },
       user,
       existing,
     );
+    if (running) {
+      this.officeSteer.push({
+        id,
+        content: input.content,
+        metadata: stamped.metadata,
+        timestamp: Date.now(),
+      });
+      await this.broadcastOfficeEvent({
+        type: "message_end",
+        id,
+        message: {
+          role: "user",
+          content: input.content,
+          timestamp: Date.now(),
+        },
+        metadata: stamped.metadata,
+      });
+      return;
+    }
     await appendOfficeUserText(session, {
       id,
       content: input.content,
@@ -499,12 +561,19 @@ export class RoomHome extends Agent<WorkerEnv> {
       await this.broadcastOfficeStatus();
       return;
     }
-    await this.enqueueOfficeTurn();
+    this.ctx.waitUntil(this.enqueueOfficeTurn());
   }
 
   async stopOffice(): Promise<void> {
     this.officeTurn?.abort();
     this.officeTurn = null;
+    const leftover = this.officeSteer.takeAll();
+    if (leftover.length) {
+      const session = await this.ensureOfficeSession();
+      for (const row of leftover) {
+        await appendOfficeUserText(session, row);
+      }
+    }
     this.officeStatus = "ready";
     await this.broadcastOfficeStatus();
   }
@@ -563,13 +632,16 @@ export class RoomHome extends Agent<WorkerEnv> {
       await this.broadcastOfficeStatus();
       return;
     }
-    const assistantId = crypto.randomUUID();
-    let firstAssistant = true;
+    const assistantDraft: { id?: string } = {};
     this.officeStatus = "streaming";
     await this.broadcastOfficeStatus();
     const model = this.turnPiModel();
     const bound = await this.officeBound(session);
-    const system = await this.officeSystemPrompt(bound);
+    const intro = lastOfficeUserIsIntro(bound);
+    const tools = intro
+      ? officeIntroTurnTools(this.getAgentTools())
+      : this.getAgentTools();
+    const system = await this.officeSystemPrompt(bound, tools);
     try {
       const context = await session.buildContext();
       const result = await runPiTurn({
@@ -577,17 +649,38 @@ export class RoomHome extends Agent<WorkerEnv> {
         messages: context.messages,
         model,
         streamFn,
-        tools: this.getAgentTools(),
+        tools,
         signal: abort.signal,
+        getSteeringMessages: () =>
+          intro ? [] : this.officeSteer.drainMessages(),
+        getFollowUpMessages: () =>
+          intro ? [] : this.officeSteer.drainMessages(),
         onEvent: async (event) => {
-          const draftId = firstAssistant ? assistantId : undefined;
-          await persistOfficeSessionEvent(session, event, draftId);
+          const incoming =
+            "message" in event && event.message ? event.message : null;
           if (
-            event.type === "message_end" &&
-            event.message.role === "assistant"
+            incoming?.role === "user" &&
+            (event.type === "message_start" || event.type === "message_end")
           ) {
-            firstAssistant = false;
+            const queued =
+              event.type === "message_end"
+                ? this.officeSteer.takeEmitted()
+                : this.officeSteer.peekEmitted();
+            if (event.type === "message_end" && queued) {
+              await appendOfficeUserText(session, queued);
+            }
+            const cloned = jsonClone(event);
+            if (!cloned) return;
+            await this.broadcastOfficeEvent({
+              ...cloned,
+              ...(queued
+                ? { id: queued.id, metadata: queued.metadata }
+                : {}),
+            });
+            return;
           }
+          const draftId = takePiAssistantDraft(assistantDraft, event);
+          await persistOfficeSessionEvent(session, event, draftId);
           const cloned = jsonClone(event);
           if (!cloned) return;
           await this.broadcastOfficeEvent({
@@ -632,6 +725,13 @@ export class RoomHome extends Agent<WorkerEnv> {
       await this.broadcastOfficeStatus();
     } finally {
       if (this.officeTurn === abort) this.officeTurn = null;
+      const leftover = this.officeSteer.takeAll();
+      for (const row of leftover) {
+        await appendOfficeUserText(session, row);
+      }
+      if (leftover.length && !abort.signal.aborted) {
+        this.ctx.waitUntil(this.enqueueOfficeTurn());
+      }
     }
   }
 
@@ -719,21 +819,25 @@ export class RoomHome extends Agent<WorkerEnv> {
 
   private async officeSystemPrompt(
     messages: PiBoundMessage[],
+    tools: Array<{ name: string; description?: string }>,
   ): Promise<string> {
     const overlay = (await this.soulOverlay.get()) ?? "";
     const memory = (await this.memoryBlock.get()) ?? "";
-    let system = composeSoul(this.soulPrompt, overlay);
-    if (memory.trim()) system = `${system}\n\nMemory:\n${memory.trim()}`;
+    let identity = composeSoul(this.soulPrompt, overlay);
+    if (memory.trim()) identity = `${identity}\n\nMemory:\n${memory.trim()}`;
     return this.withOfficeSkills(
-      system,
+      buildOfficeSystemPrompt({ identity, tools }),
       messages.map((row) => row.message),
+      { canReadSkills: officeCanReadSkills(tools) },
     );
   }
 
   protected async withOfficeSkills(
     system: string,
     messages: readonly unknown[],
+    opts?: { canReadSkills?: boolean },
   ): Promise<string> {
+    if (opts?.canReadSkills === false) return system;
     const disk = this.officeKnowledge();
     const catalog =
       disk && this.officeId
@@ -743,6 +847,7 @@ export class RoomHome extends Agent<WorkerEnv> {
       system,
       messages,
       catalog,
+      canReadSkills: opts?.canReadSkills,
     });
   }
 
@@ -780,6 +885,17 @@ export class RoomHome extends Agent<WorkerEnv> {
       await session.getBranch(),
       await session.getStorage().findEntries("custom"),
     );
+  }
+
+  async officeHistorySearch(
+    query: string,
+    limit?: number,
+  ): Promise<OfficeHistorySearch> {
+    const session = await this.ensureOfficeSession();
+    return searchOfficeHistory(await this.officeBound(session), query, {
+      limit,
+      excludeLastUser: true,
+    });
   }
 
   private readLegacyOfficeChat(): OfficeChatMessage[] {
@@ -929,6 +1045,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     if (!bot) return;
     this.personId = bot.id;
     this.officeId = bot.workspaceId;
+    this.hireName = bot.name;
     await this.ctx.storage.put("officeId", bot.workspaceId);
     await this.ctx.storage.put("botId", bot.id);
     const overlay = await resolveRunModel(
@@ -1058,6 +1175,43 @@ export class RoomHome extends Agent<WorkerEnv> {
     this.ctx.waitUntil(this.maybeRunOfficeReview(result));
   }
 
+  /**
+   * First open after hire: become the named person/role, write soul, greet.
+   * Stamp the hidden user and mark submitted before the snapshot so the
+   * client never paints an idle empty desk first.
+   */
+  private async prepareOfficeIntro(): Promise<boolean> {
+    if (!(await this.isPersonRoom())) return false;
+    if (await this.ctx.storage.get(OFFICE_INTRO_STORAGE)) return false;
+    await this.ensureBotLoaded();
+    if (!this.hireName.trim()) return false;
+    if (!this.turnStreamFn()) return false;
+    const session = await this.ensureOfficeSession();
+    const bound = await this.officeBound(session);
+    if (!shouldRunOfficeIntro(bound)) {
+      await this.ctx.storage.put(OFFICE_INTRO_STORAGE, true);
+      return false;
+    }
+    try {
+      await appendOfficeUserText(session, {
+        id: crypto.randomUUID(),
+        content: officeIntroUserText({
+          name: this.hireName,
+        }),
+        metadata: {
+          source: OFFICE_INTRO_SOURCE,
+          custom: { source: OFFICE_INTRO_SOURCE },
+        },
+      });
+      await this.ctx.storage.put(OFFICE_INTRO_STORAGE, true);
+      this.officeStatus = "submitted";
+      return true;
+    } catch (error) {
+      console.error("bot actor office intro", this.name, error);
+      return false;
+    }
+  }
+
   private async maybeRunOfficeReview(result: {
     status: string;
     continuation?: boolean;
@@ -1181,7 +1335,10 @@ export class RoomHome extends Agent<WorkerEnv> {
     cron: string;
     timezone?: string;
   }): Promise<Routine> {
-    const payload = routinePayloadFromCreate(input);
+    const payload = routinePayloadFromCreate({
+      ...input,
+      timezone: await this.resolveOfficeTimezone(input.timezone),
+    });
     if (await this.routinesSuspended()) {
       const id = newId();
       await this.putParkedRoutine(id, { ...payload, fireOnUnarchive: true });
@@ -1399,14 +1556,31 @@ export class RoomHome extends Agent<WorkerEnv> {
     }
   }
 
+  private async resolveOfficeTimezone(explicit?: string): Promise<string> {
+    const trimmed = explicit?.trim();
+    if (trimmed) {
+      await this.ctx.storage.put(OFFICE_TIMEZONE_STORAGE, trimmed);
+      return trimmed;
+    }
+    const stored = await this.ctx.storage.get<string>(OFFICE_TIMEZONE_STORAGE);
+    if (typeof stored === "string" && stored.trim()) return stored.trim();
+    return DEFAULT_ROUTINE_TIMEZONE;
+  }
+
   private async routinesSuspended(): Promise<boolean> {
     return (await this.ctx.storage.get<boolean>("routinesSuspended")) === true;
   }
 
   private executeConnectors() {
     const connectors: Array<
-      KnowledgeConnector | WorkspaceMcpConnector | RoutinesConnector
-    > = [new RoutinesConnector(this.ctx, this.env, () => this)];
+      | HistoryConnector
+      | KnowledgeConnector
+      | WorkspaceMcpConnector
+      | RoutinesConnector
+    > = [
+      new HistoryConnector(this.ctx, this.env, () => this),
+      new RoutinesConnector(this.ctx, this.env, () => this),
+    ];
     if (this.env.KNOWLEDGE) {
       connectors.push(
         new KnowledgeConnector(

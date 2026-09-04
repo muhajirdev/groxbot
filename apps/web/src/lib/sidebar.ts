@@ -19,6 +19,7 @@ export type BotMenuPhase = "actions" | "confirm-delete" | "move";
 
 export type BotMenuItem =
   | { id: "pin"; label: "Pin" | "Unpin" }
+  | { id: "archive"; label: "Archive" | "Unarchive" }
   | { id: "move"; label: "Move to…" }
   | { id: "move-to"; sectionId: string | null; label: string }
   | { id: "delete"; label: string; danger: true }
@@ -26,6 +27,7 @@ export type BotMenuItem =
 
 export function botMenuItems(input: {
   pinned: boolean;
+  archived?: boolean;
   name: string;
   phase: BotMenuPhase;
   sections?: { id: string; name: string }[];
@@ -48,6 +50,7 @@ export function botMenuItems(input: {
   }
   const items: BotMenuItem[] = [
     { id: "pin", label: input.pinned ? "Unpin" : "Pin" },
+    { id: "archive", label: input.archived ? "Unarchive" : "Archive" },
   ];
   if ((input.sections ?? []).length > 0) {
     items.push({ id: "move", label: "Move to…" });
@@ -68,8 +71,8 @@ export function botMenuBox(
     const n = Math.max(itemCount ?? 1, 1);
     return { width: 196, height: 8 + n * 36 };
   }
-  const extra = (itemCount ?? 2) > 2 ? 36 : 0;
-  return { width: 168, height: 84 + extra };
+  const extra = (itemCount ?? 3) > 3 ? 36 : 0;
+  return { width: 168, height: 120 + extra };
 }
 
 export type SectionMenuPhase = "actions" | "confirm-delete";

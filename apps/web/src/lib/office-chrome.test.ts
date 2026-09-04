@@ -9,6 +9,7 @@ const threadAui = readFileSync(
   join(root, "../components/assistant-ui/elements/thread.aui.tsx"),
   "utf8",
 );
+const chatScreen = readFileSync(join(root, "../screens/Chat.tsx"), "utf8");
 
 function rootBlock(marker: string): string {
   const start = css.indexOf(marker);
@@ -35,12 +36,14 @@ describe("office chrome", () => {
 
   it("keeps a black gutter around one office panel", () => {
     expect(token(dark, "--bg")).toBe("#000000");
+    expect(token(dark, "--bg-side")).toBe("#161616");
     expect(token(dark, "--bg-side")).toBe(token(dark, "--bg-thread"));
     expect(gray(token(dark, "--bg-side"))).toBeGreaterThan(gray(token(dark, "--bg")));
     expect(css).toMatch(/\.chat-side\s*\{[^}]*background:\s*var\(--bg-side\)/s);
   });
 
   it("lifts the light panel off the gray gutter", () => {
+    expect(token(light, "--bg")).toBe("#f2f2f2");
     expect(token(light, "--bg-thread")).toBe("#ffffff");
     expect(token(light, "--bg-side")).toBe(token(light, "--bg-thread"));
     expect(token(light, "--bg-thread")).not.toBe(token(light, "--bg"));
@@ -105,6 +108,14 @@ describe("office chrome", () => {
     expect(css).not.toMatch(
       /\.knowledge-graph-node\.selected circle\s*\{[^}]*fill:\s*var\(--accent\)/s,
     );
+    expect(css).not.toMatch(/knowledge-graph-arrow/);
+  });
+
+  it("lifts the command palette selection off the card", () => {
+    expect(gray(token(dark, "--selected"))).toBe(gray(token(dark, "--card")));
+    expect(css).toMatch(
+      /\.command-palette \[role="option"\]\[aria-selected="true"\]\s*\{[^}]*background:\s*var\(--card-2\)/s,
+    );
   });
 
   it("keeps the teammate list when knowledge is open", () => {
@@ -137,5 +148,38 @@ describe("office chrome", () => {
     expect(threadAui).toMatch(
       /Do not read `s\.message` — this mounts outside Messages/,
     );
+  });
+
+  it("keeps Send available while a turn is running", () => {
+    const actions = threadAui.slice(
+      threadAui.indexOf("const ComposerAction"),
+      threadAui.indexOf("const MessageError"),
+    );
+    expect(actions).toContain("ComposerPrimitive.Send");
+    expect(actions).not.toMatch(
+      /AuiIf condition=\{\(s\) => !s\.thread\.isRunning && !pending\}/,
+    );
+    expect(actions).toContain("Stop now");
+  });
+
+  it("keeps halt on the composer, not the thread head", () => {
+    expect(chatScreen).not.toContain("Stop now");
+    expect(threadAui).toContain("Stop now");
+  });
+
+  it("keeps roster sections as small caps labels", () => {
+    const header = chatScreen.slice(
+      chatScreen.indexOf("const SectionHeader"),
+      chatScreen.indexOf("export function Chat"),
+    );
+    expect(header).toMatch(/text-\[11px\]/);
+    expect(header).toMatch(/uppercase/);
+    expect(header).not.toMatch(/text-\[12px\]/);
+    expect(header).not.toMatch(/text-\[13px\]/);
+  });
+
+  it("aligns the computer bar with the thread head", () => {
+    expect(css).toMatch(/\.pane-head\s*\{[^}]*min-height:\s*45px/s);
+    expect(css).toMatch(/\.thread-head\s*\{[^}]*min-height:\s*45px/s);
   });
 });

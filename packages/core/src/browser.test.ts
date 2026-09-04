@@ -25,9 +25,13 @@ describe("browser entry", () => {
     const files = collect("browser.ts");
     expect([...files.keys()].sort()).toEqual([
       "browser.ts",
+      "ids.ts",
       "office-chat.ts",
       "pi-projection.ts",
       "pi-transcript.ts",
+      "room-speaker.ts",
+      "room-target.ts",
+      "routine-clock.ts",
       "sidebar-roster.ts",
     ]);
     for (const [name, src] of files) {

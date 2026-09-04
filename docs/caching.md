@@ -24,6 +24,7 @@ Canonical feel: **Settings**. Cmd+, opens at once. General is `me` already on th
 | Settings → Updates | `BUILD_REVISION` | Nothing |
 | Settings → Usage & Billing, Models | `models.get` Query cache (same session) | Refetch when stale. Not in IndexedDB — payload includes key status |
 | Roster, rooms, workspace name, apps, connectors, knowledge tree, computer trees | IndexedDB restore before first paint | Background refetch |
+| Knowledge / computer text preview | Query + IndexedDB after idle prefetch, Cmd+K, or first open (text, 64k cap) | Background refetch when stale. Not images, PDFs, or `*.download` |
 | Office / room transcripts | IndexedDB bag + keep-alive | Cap’n Web snapshot |
 | Plugins catalog | IndexedDB after first open | GitHub JSON on a cold miss; virtualized grid |
 | Workspace switcher label | `groxbot.workspace` localStorage hint | Live `me` (not persisted) |
@@ -81,7 +82,7 @@ From `orpc.ts`: `staleTime` 30s, `gcTime` 30m, `retry: false`, `refetchOnWindowF
 
 Auth session (`["auth", "session"]` in `session.ts`) is **memory only**, `staleTime` 5m. Persist explicitly skips it.
 
-Catalog collections set `gcTime` to `OFFICE_MESSAGES_GC_TIME` (7 days) so rows outlive the persist `maxAge`. In-memory-only reads (file bodies, `me`, models) keep the default 30m.
+Catalog collections set `gcTime` to `OFFICE_MESSAGES_GC_TIME` (7 days) so rows outlive the persist `maxAge`. `knowledge.read` / `computer.read` text previews use that same window so persist can keep them. `me` and models stay memory-only at 30m.
 
 ## What IndexedDB keeps
 
@@ -98,6 +99,7 @@ Catalog collections set `gcTime` to `OFFICE_MESSAGES_GC_TIME` (7 days) so rows o
 | `plugins.list` / `mcp.list` | Connectors. Query collections. Refetch on window focus. |
 | `["plugin-catalog"]` | Slim Composio toolkit cards for the Plugins modal. First open fetches GitHub; after that, IndexedDB is the hot cache. Do not bundle the catalog into the web app, and do not prefetch it on boot. |
 | `knowledge.list` | Office tree. `useQuery` only (no collection). |
+| `knowledge.read` / `computer.read` | Text preview bodies only (`encoding: "text"`, cap 64k). Idle prefetch after paint (32, two at a time, skip cache hits). Cmd+K also prefetches the highlighted file. Matcher strips `botId`/`path`. |
 | `computer.list` `{ botId }` | Each teammate’s file tree. Matcher strips `botId`/`path` so every bot’s list shares the procedure. **Not** `computer.download`. |
 
 Writes into a query collection (`writeUpsert` / `writeUpdate` / `writeDelete`) go through QueryClient, then into IDB on the next persist throttle. `patchBot({ lastPreview })` is that path.
@@ -109,7 +111,7 @@ Writes into a query collection (`writeUpsert` / `writeUpdate` / `writeDelete`) g
 | `["auth", "session"]` | Cookie session. Routing. |
 | `orpc.me` | Email, `needsModel`, `needsWorkspace`. Stale `me` would mis-route. |
 | `knowledge.graph` | Derived; cheap GET. |
-| File bodies (`knowledge` / `computer` read + download) | Large; refetch with 60s stale. |
+| `knowledge.download` / `computer.download` | Binary / base64 blobs. Images and PDFs refetch with 60s stale. |
 | `routines.list` | Computer pane. Memory Query is enough for a session; not the office shell. |
 | `models.get`, `workspaces.members` | Settings. Instant from Query after first fetch; do not put key status or member emails in IndexedDB. |
 
@@ -130,6 +132,8 @@ Do not add a collection that is the office catalog. The catalog is `bots.list` p
 `office-keepalive.ts` is **not** a data cache. Chat keeps up to 8 office trees mounted so switching a teammate is a visibility toggle, not a remount. First visit is still cold unless the transcript bag already has a row.
 
 After paint, `scheduleThreadPrefetch` snapshots every other live home and group room in the background (Cap’n Web `snapshot()`, two at a time) and writes `office-messages` / `room-messages`. Skip the open room and any id already in the bag (IndexedDB restore counts). Do not await this in a loader.
+
+Same idle window: `scheduleKnowledgeFilePrefetch` reads the office tree and warms up to 32 text knowledge files (`knowledge.read`), two at a time. Skip binaries, images, PDFs, and anything already in Query (IndexedDB restore counts). Prefer the open library path, then `SKILL.md`, then other markdown. Do not await this in a loader.
 
 ## Sync chrome (localStorage)
 
@@ -184,9 +188,9 @@ If the UI is a **label that must not flash** and the query must not be persisted
 
 ## Do not
 
-- Persist `me`, session, secrets, or downloads.
+- Persist `me`, session, secrets, or downloads (images/PDFs stay Query-only).
 - Hand-write an IndexedDB object store next to `persistQueryClient`.
 - Treat TanStack DB as durable storage. Only query collections ride IDB, and only because they share QueryClient keys.
 - Use persist as the office transcript seed. Reload seed is a snapshot; the actor still owns the log.
-- Raise file-body `gcTime` into the 7-day persist window without adding them to the dehydrate whitelist on purpose.
+- Persist binary `encoding` file reads, or raise download `gcTime` into the 7-day window without adding them to the dehydrate whitelist.
 - Copy this persist onto Expo until mobile has a real IDB story.

@@ -25,6 +25,7 @@ import { insertComposerText } from "../lib/knowledge-slash";
 import {
   coversKnowledgePath,
   filterKnowledgeTree,
+  findKnowledgeNode,
   isOfficeSkillPath,
   type KnowledgeTreeNode,
   nestKnowledgeTree,
@@ -40,14 +41,13 @@ import { client } from "../lib/rpc";
 import { OFFICE_MESSAGES_GC_TIME } from "../lib/office-messages";
 import { Button, cn, Field, Input, Textarea } from "../ui";
 import {
-  ChevronDownIcon,
   CloseIcon,
   DownloadIcon,
-  FileIcon,
-  GitHubIcon,
+  FileKindIcon,
+  FolderIcon,
+  FolderOpenIcon,
   GraphIcon,
-  ImageFileIcon,
-  MarkdownFileIcon,
+  ImportIcon,
   MoreIcon,
   PlusIcon,
   SearchIcon,
@@ -72,6 +72,9 @@ export function KnowledgeLibrary(props: {
 }) {
   const workspace = useKnowledgeWorkspace(props.path ?? null);
   const selected = workspace.selected;
+  const selectedNode = selected
+    ? findKnowledgeNode(workspace.tree, selected)
+    : null;
   const [fileMenu, setFileMenu] = useState<KnowledgeMenuState | null>(null);
 
   useEffect(() => {
@@ -181,7 +184,7 @@ export function KnowledgeLibrary(props: {
               selected={selected}
               files={workspace.files}
               onSelect={(path) => {
-                workspace.pick(path);
+                workspace.highlight(path);
                 props.onPath(path);
               }}
               onOpen={(path) => {
@@ -220,11 +223,20 @@ export function KnowledgeLibrary(props: {
               onDownload={workspace.downloadSelected}
               onRemove={() => void workspace.removeSelected(props.onPath)}
             />
+          ) : selectedNode?.kind === "dir" ? (
+            <FolderPane
+              node={selectedNode}
+              onOpen={(path) => {
+                workspace.openPath(path);
+                props.onPath(path);
+              }}
+              onNew={() => workspace.startDraft(selectedNode.path)}
+            />
           ) : (
             <KnowledgeEmpty>
               {selected && !workspace.files.has(selected)
                 ? "A folder. New file or upload lands here."
-                : "Playbooks, notes, and files for the office. Pick one on the left."}
+                : "Playbooks and notes for this office. Pick one on the left."}
             </KnowledgeEmpty>
           )}
         </section>
@@ -422,6 +434,11 @@ function useKnowledgeWorkspace(initialPath: string | null) {
     setImporting(false);
     setMapOpen(false);
     setSelected(path);
+  }
+
+  function highlight(path: string | null) {
+    setSelected(path);
+    if (path) expandTo(path);
   }
 
   async function refresh(path?: string) {
@@ -628,6 +645,7 @@ function useKnowledgeWorkspace(initialPath: string | null) {
     syncPath,
     openPath,
     pick,
+    highlight,
     saveDraft,
     importSkill,
     removePath,
@@ -674,6 +692,50 @@ function KnowledgeEmpty(props: { children: ReactNode }) {
   return (
     <div className="knowledge-empty">
       <p>{props.children}</p>
+    </div>
+  );
+}
+
+function FolderPane(props: {
+  node: KnowledgeTreeNode;
+  onOpen: (path: string) => void;
+  onNew: () => void;
+}) {
+  const children = props.node.children;
+  return (
+    <div className="knowledge-folder">
+      <div className="knowledge-preview-head">
+        <div>
+          <KnowledgePath path={props.node.path} onOpen={props.onOpen} />
+        </div>
+        <button className="text-btn" type="button" onClick={props.onNew}>
+          New file
+        </button>
+      </div>
+      {children.length === 0 ? (
+        <KnowledgeEmpty>Nothing in this folder yet.</KnowledgeEmpty>
+      ) : (
+        <ul className="knowledge-folder-list">
+          {children.map((child) => (
+            <li key={child.path}>
+              <button
+                type="button"
+                className="knowledge-folder-item"
+                onClick={() => props.onOpen(child.path)}
+              >
+                <span className="knowledge-folder-name">{child.name}</span>
+                {child.kind === "file" && child.description ? (
+                  <span className="knowledge-folder-desc">
+                    {child.description}
+                  </span>
+                ) : child.kind === "dir" ? (
+                  <span className="knowledge-folder-desc">Folder</span>
+                ) : null}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -726,7 +788,7 @@ function KnowledgeNav(props: {
             title="Import playbook"
             onClick={props.onImport}
           >
-            <GitHubIcon />
+            <ImportIcon />
           </button>
           <input
             ref={props.fileRef}
@@ -802,7 +864,7 @@ function KnowledgeMapPane(props: {
   out: number[][];
   selected: string | null;
   files: ReadonlySet<string>;
-  onSelect: (path: string) => void;
+  onSelect: (path: string | null) => void;
   onOpen: (path: string) => void;
 }) {
   if (props.pending) {
@@ -1074,17 +1136,19 @@ function TreeRows(props: {
         >
           {folder ? (
             <button
-              className={cn("explorer-chevron", !open && "closed")}
+              className="explorer-chevron"
               type="button"
               aria-label={
                 open ? `Collapse ${node.name}` : `Expand ${node.name}`
               }
               onClick={() => props.onToggle(node.path)}
             >
-              <ChevronDownIcon />
+              {open ? <FolderOpenIcon /> : <FolderIcon />}
             </button>
           ) : (
-            <FileKindMark name={node.name} />
+            <span className="explorer-mark" aria-hidden>
+              <FileKindIcon name={node.name} />
+            </span>
           )}
           <button
             className="explorer-name"
@@ -1127,29 +1191,6 @@ function TreeRows(props: {
           ))
         : null}
     </>
-  );
-}
-
-function FileKindMark(props: { name: string }) {
-  const kind = computerFileKind(props.name);
-  if (kind === "image") {
-    return (
-      <span className="explorer-mark image" aria-hidden>
-        <ImageFileIcon />
-      </span>
-    );
-  }
-  if (kind === "md") {
-    return (
-      <span className="explorer-mark md" aria-hidden>
-        <MarkdownFileIcon />
-      </span>
-    );
-  }
-  return (
-    <span className={cn("explorer-mark", kind)} aria-hidden>
-      <FileIcon />
-    </span>
   );
 }
 

@@ -2,36 +2,34 @@ import type { Bot, Routine } from "@groxbot/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { saveComputerDownload } from "../lib/computer-download";
-import { computerFileKind } from "../lib/computer-preview";
 import {
   type ComputerTreeNode,
   filterComputerTree,
   nestComputerEntries,
 } from "../lib/computer-tree";
 import { userFacingError } from "../lib/errors";
+import { OFFICE_MESSAGES_GC_TIME } from "../lib/office-messages";
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
-import { OFFICE_MESSAGES_GC_TIME } from "../lib/office-messages";
+import {
+  formatRoutineWhen,
+  officeTimezone,
+} from "../lib/routine-schedule";
 import { Button, Field, Input, ModalShell, Textarea } from "../ui";
 import { ComputerFilePreview } from "./ComputerFilePreview";
+import { RoutineScheduleField } from "./RoutineScheduleField";
 import {
-  ChevronDownIcon,
   CloseIcon,
   DownloadIcon,
-  FileIcon,
+  FileKindIcon,
+  FolderIcon,
+  FolderOpenIcon,
   GearIcon,
-  ImageFileIcon,
-  MarkdownFileIcon,
   SearchIcon,
 } from "./Icons";
 
 const NONE_COLLAPSED = new Set<string>();
-const CRONS = [
-  { label: "Every day at 9:00", value: "every day at 09:00" },
-  { label: "Every night at 22:00", value: "every day at 22:00" },
-  { label: "Weekdays at 9:00", value: "every weekday at 09:00" },
-  { label: "Every 30 minutes", value: "every 30 minutes" },
-] as const;
+const DEFAULT_CRON = "every day at 09:00";
 
 export function ComputerPane(props: {
   bot: Bot;
@@ -44,7 +42,7 @@ export function ComputerPane(props: {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
-  const [cron, setCron] = useState<string>(CRONS[0].value);
+  const [cron, setCron] = useState(DEFAULT_CRON);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [creatingBusy, setCreatingBusy] = useState(false);
   const [error, setError] = useState("");
@@ -198,7 +196,7 @@ export function ComputerPane(props: {
                   <div>
                     <strong>{item.name}</strong>
                     <span className="muted">
-                      {item.cron}
+                      {formatRoutineWhen(item.cron, item.timezone)}
                       {item.active
                         ? item.nextRunAt
                           ? ` · next ${formatNextRun(item.nextRunAt)}`
@@ -286,7 +284,7 @@ export function ComputerPane(props: {
               onClick={() => {
                 setName("");
                 setPrompt("");
-                setCron(CRONS[0].value);
+                setCron(DEFAULT_CRON);
                 setError("");
                 setCreating(true);
               }}
@@ -322,19 +320,11 @@ export function ComputerPane(props: {
               onValueChange={setName}
             />
           </Field>
-          <Field label="Schedule" className="mb-0">
-            <select
-              className="w-full rounded-lg border border-line bg-card px-3 py-2 text-[14px] text-ink outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/40"
-              value={cron}
-              onChange={(e) => setCron(e.target.value)}
-            >
-              {CRONS.map((item) => (
-                <option key={item.value} value={item.value}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <RoutineScheduleField
+            cron={cron}
+            timezone={officeTimezone()}
+            onChange={setCron}
+          />
           <Field label="What to do" className="mb-0">
             <Textarea
               rows={3}
@@ -356,7 +346,9 @@ export function ComputerPane(props: {
             <Button
               className="px-3 py-1.5 text-[13px]"
               type="button"
-              disabled={creatingBusy || !name.trim() || !prompt.trim()}
+              disabled={
+                creatingBusy || !name.trim() || !prompt.trim() || !cron.trim()
+              }
               onClick={() => {
                 setCreatingBusy(true);
                 setError("");
@@ -366,6 +358,7 @@ export function ComputerPane(props: {
                     name,
                     prompt,
                     cron,
+                    timezone: officeTimezone(),
                   })
                   .then(async () => {
                     await queryClient.invalidateQueries({
@@ -425,17 +418,19 @@ function TreeRows(props: {
         >
           {node.kind === "dir" ? (
             <button
-              className={`explorer-chevron${open ? "" : " closed"}`}
+              className="explorer-chevron"
               type="button"
               aria-label={
                 open ? `Collapse ${node.name}` : `Expand ${node.name}`
               }
               onClick={() => props.onToggle(node.path)}
             >
-              <ChevronDownIcon />
+              {open ? <FolderOpenIcon /> : <FolderIcon />}
             </button>
           ) : (
-            <FileKindMark name={node.name} />
+            <span className="explorer-mark" aria-hidden>
+              <FileKindIcon name={node.name} />
+            </span>
           )}
           <button
             className="explorer-name"
@@ -487,28 +482,5 @@ function TreeRows(props: {
           ))
         : null}
     </>
-  );
-}
-
-function FileKindMark(props: { name: string }) {
-  const kind = computerFileKind(props.name);
-  if (kind === "image") {
-    return (
-      <span className="explorer-mark image" aria-hidden>
-        <ImageFileIcon />
-      </span>
-    );
-  }
-  if (kind === "md") {
-    return (
-      <span className="explorer-mark md" aria-hidden>
-        <MarkdownFileIcon />
-      </span>
-    );
-  }
-  return (
-    <span className={`explorer-mark ${kind}`} aria-hidden>
-      <FileIcon />
-    </span>
   );
 }

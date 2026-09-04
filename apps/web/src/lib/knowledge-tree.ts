@@ -38,14 +38,14 @@ export function nestKnowledgeTree(
     for (let i = 0; i < parts.length - 1; i++) {
       const dirPath = parts.slice(0, i + 1).join("/");
       if (dirs.has(dirPath)) continue;
-      const label = displayName(parts[i] ?? dirPath);
+      const label = parts[i] ?? dirPath;
       const node = dirNode(dirPath, label);
       if (i === 0) roots.push(node);
       else dirs.get(parts.slice(0, i).join("/"))?.children.push(node);
     }
     const leaf: KnowledgeTreeNode = {
       path: entry.path,
-      name: displayName(entry.name),
+      name: entry.name,
       kind: "file",
       title: entry.title,
       description: entry.description,
@@ -58,6 +58,18 @@ export function nestKnowledgeTree(
 
   sortTree(roots);
   return roots;
+}
+
+export function findKnowledgeNode(
+  nodes: readonly KnowledgeTreeNode[],
+  path: string,
+): KnowledgeTreeNode | null {
+  for (const node of nodes) {
+    if (node.path === path) return node;
+    const nested = findKnowledgeNode(node.children, path);
+    if (nested) return nested;
+  }
+  return null;
 }
 
 export function filterKnowledgeTree(
@@ -147,10 +159,6 @@ export function officeSkills(
     skills.push({ name, description: row.description });
   }
   return skills;
-}
-
-function displayName(name: string): string {
-  return name.replace(/\.md$/iu, "") || name;
 }
 
 function sortTree(nodes: KnowledgeTreeNode[]) {

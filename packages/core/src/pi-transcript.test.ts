@@ -8,8 +8,11 @@ import {
   parsePiBoundMessage,
   parsePiClientEvent,
   parsePiLogMessages,
+  piAssistantText,
   piLoopMessages,
   piLogShouldRun,
+  piViewMessages,
+  takePiAssistantDraft,
 } from "./pi-transcript.js";
 
 describe("parse Pi wire", () => {
@@ -38,6 +41,7 @@ describe("parse Pi wire", () => {
     });
     expect(user?.role).toBe("user");
     expect(assistant?.role).toBe("assistant");
+    expect(assistant && piAssistantText(assistant)).toBe("ok");
     expect(tool?.role).toBe("toolResult");
     expect(
       parsePiBoundMessage({
@@ -149,6 +153,92 @@ describe("applyPiOfficeEvent", () => {
       status: "done",
       result: { entries: [] },
     });
+  });
+
+  it("drops a streaming overlay after message_end even when ids differ", () => {
+    let view = emptyPiOfficeView("room-1");
+    view = applyPiOfficeEvent(view, {
+      threadId: "room-1",
+      seq: 1,
+      type: "message_update",
+      message: {
+        role: "assistant",
+        content: [
+          { type: "toolCall", id: "c1", name: "list", arguments: { path: "/" } },
+        ],
+        timestamp: 1,
+      },
+    });
+    expect(view.streaming?.id).toBe("stream");
+    view = applyPiOfficeEvent(view, {
+      threadId: "room-1",
+      seq: 2,
+      type: "message_end",
+      id: "a2",
+      message: {
+        role: "assistant",
+        content: [
+          { type: "toolCall", id: "c1", name: "list", arguments: { path: "/" } },
+        ],
+        timestamp: 1,
+        stopReason: "toolUse",
+      },
+    });
+    expect(view.streaming).toBeNull();
+    const visible = piViewMessages(view);
+    expect(visible).toHaveLength(1);
+    expect(visible[0]?.id).toBe("a2");
+  });
+
+  it("tracks who holds the room floor", () => {
+    let view = emptyPiOfficeView("room-1");
+    view = applyPiOfficeEvent(view, {
+      threadId: "room-1",
+      seq: 1,
+      type: "floor",
+      botId: "hormozi",
+    });
+    expect(view.floorBotId).toBe("hormozi");
+    view = applyPiOfficeEvent(view, {
+      threadId: "room-1",
+      seq: 2,
+      type: "floor",
+      botId: "",
+    });
+    expect(view.floorBotId).toBe("");
+  });
+});
+
+describe("takePiAssistantDraft", () => {
+  it("reuses one id for a bubble then mints another after message_end", () => {
+    const draft: { id?: string } = {};
+    const start = takePiAssistantDraft(draft, {
+      type: "message_start",
+      message: { role: "assistant" },
+    });
+    const update = takePiAssistantDraft(draft, {
+      type: "message_update",
+      message: { role: "assistant" },
+    });
+    const end = takePiAssistantDraft(draft, {
+      type: "message_end",
+      message: { role: "assistant" },
+    });
+    expect(start).toBeTruthy();
+    expect(update).toBe(start);
+    expect(end).toBe(start);
+    const next = takePiAssistantDraft(draft, {
+      type: "message_start",
+      message: { role: "assistant" },
+    });
+    expect(next).toBeTruthy();
+    expect(next).not.toBe(start);
+    expect(
+      takePiAssistantDraft(draft, {
+        type: "message_end",
+        message: { role: "toolResult" },
+      }),
+    ).toBeUndefined();
   });
 });
 

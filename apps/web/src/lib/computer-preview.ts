@@ -81,6 +81,11 @@ export function computerPreviewKind(
   return "none";
 }
 
+export function isMarkdownPreview(path: string, mediaType = ""): boolean {
+  if (computerFileKind(path) === "md") return true;
+  return mediaType.trim().toLowerCase() === "text/markdown";
+}
+
 export function computerPreviewSource(
   kind: ComputerPreviewKind,
 ): ComputerPreviewSource {

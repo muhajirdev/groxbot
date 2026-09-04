@@ -18,6 +18,8 @@ import { TooltipIconButton } from "@/components/assistant-ui/elements/tooltip-ic
 import { ThinkingStatus } from "@/components/assistant-ui/elements/spiral-loader";
 import { PersonAvatar } from "@/components/PersonAvatar";
 import { OfficeSkillSlash } from "@/components/OfficeSkillSlash";
+import { RoomMentionMenu } from "@/components/RoomMentionMenu";
+import type { RoomMentionSeat } from "@/lib/room-mention";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { officeUserMessageSender } from "@/lib/office-sender";
@@ -90,6 +92,8 @@ export type ThreadProps = {
   viewerUserId?: string | undefined;
   viewerImage?: string | undefined;
   botName?: string | undefined;
+  /** Seated bots for `@` in a shared room. Empty in 1:1. */
+  mentionSeats?: readonly RoomMentionSeat[] | undefined;
   /** Composer sent; chat status has not reached submitted yet. */
   pending?: boolean | undefined;
 };
@@ -105,6 +109,7 @@ const ThreadChromeContext = createContext({
   viewerUserId: "",
   viewerImage: "",
   botName: "",
+  mentionSeats: [] as readonly RoomMentionSeat[],
   pending: false,
 });
 
@@ -169,6 +174,7 @@ export const Thread: FC<ThreadProps> = ({
   viewerUserId = "",
   viewerImage = "",
   botName = "",
+  mentionSeats = [],
   pending = false,
 }) => {
   return (
@@ -180,6 +186,7 @@ export const Thread: FC<ThreadProps> = ({
           viewerUserId,
           viewerImage,
           botName,
+          mentionSeats,
           pending,
         }}
       >
@@ -233,7 +240,7 @@ const ThreadRoot: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
           >
             <ThreadScrollToBottom />
             <ThreadFollowupSuggestions />
-            <AuiIf condition={isNewChatView}>
+            <AuiIf condition={(s) => isNewChatView(s) && !pending}>
               <Welcome />
             </AuiIf>
             {hideComposer ? null : <Composer autoFocus={autoFocus} />}
@@ -274,10 +281,13 @@ const ThreadWelcome: FC = () => {
 };
 
 const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
-  const { placeholder } = useContext(ThreadChromeContext);
+  const { placeholder, mentionSeats } = useContext(ThreadChromeContext);
   return (
     <ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
       <OfficeSkillSlash />
+      {mentionSeats.length > 0 ? (
+        <RoomMentionMenu seats={mentionSeats} />
+      ) : null}
       <ComposerPrimitive.AttachmentDropzone render={<div data-slot="aui_composer-shell" className="border-border/60 data-[dragging=true]:border-ring focus-within:border-border dark:border-muted-foreground/15 dark:focus-within:border-muted-foreground/30 flex w-full cursor-text flex-col gap-1 rounded-(--composer-radius) border bg-(--composer-bg) p-(--composer-padding) transition-[border-color] data-[dragging=true]:border-dashed data-[dragging=true]:bg-[color-mix(in_oklab,var(--color-accent)_50%,var(--color-background))]" />}><ComposerAttachments /><ComposerPrimitive.Input
                       placeholder={placeholder}
                       className="aui-composer-input caret-primary placeholder:text-muted-foreground/60 max-h-40 min-h-8 w-full resize-none bg-transparent px-2 py-0.5 text-base leading-5 outline-none min-[721px]:text-[14px]"
@@ -304,12 +314,10 @@ const ComposerAction: FC = () => {
             <ComposerPrimitive.StopDictation render={<TooltipIconButton tooltip="Stop dictation" side="bottom" type="button" variant="ghost" size="icon" className="aui-composer-stop-dictation text-destructive size-7 rounded-full" aria-label="Stop voice input" />}><SquareIcon className="aui-composer-stop-dictation-icon size-3.5 animate-pulse fill-current" /></ComposerPrimitive.StopDictation>
           </AuiIf>
         </AuiIf>
-        <AuiIf condition={(s) => !s.thread.isRunning && !pending}>
-          <ComposerPrimitive.Send render={<TooltipIconButton tooltip="Send message" side="bottom" type="button" variant="default" size="icon" className="aui-composer-send size-7 rounded-full bg-accent text-white hover:bg-accent/90" aria-label="Send message" />}><ArrowUpIcon className="aui-composer-send-icon size-4" /></ComposerPrimitive.Send>
-        </AuiIf>
         <AuiIf condition={(s) => s.thread.isRunning || pending}>
-          <ComposerPrimitive.Cancel render={<Button type="button" variant="default" size="icon" className="aui-composer-cancel size-7 rounded-full" aria-label="Stop generating" />}><SquareIcon className="aui-composer-cancel-icon size-3.5 fill-current" /></ComposerPrimitive.Cancel>
+          <ComposerPrimitive.Cancel render={<TooltipIconButton tooltip="Stop now" side="bottom" type="button" variant="ghost" size="icon" className="aui-composer-cancel size-7 rounded-full" aria-label="Stop now" />}><SquareIcon className="aui-composer-cancel-icon size-3.5 fill-current" /></ComposerPrimitive.Cancel>
         </AuiIf>
+        <ComposerPrimitive.Send render={<TooltipIconButton tooltip="Send message" side="bottom" type="button" variant="default" size="icon" className="aui-composer-send size-7 rounded-full bg-accent text-white hover:bg-accent/90" aria-label="Send message" />}><ArrowUpIcon className="aui-composer-send-icon size-4" /></ComposerPrimitive.Send>
       </div>
     </div>
   );
@@ -328,7 +336,13 @@ const MessageError: FC = () => {
 /** Thread-level waiting chrome. Do not read `s.message` — this mounts outside Messages. */
 const AssistantWorkingStatus: FC<{ speaker?: string }> = ({ speaker = "" }) => {
   const { botName } = useContext(ThreadChromeContext);
-  return <ThinkingStatus name={speaker || botName} />;
+  const fromLast = useAuiState((s) => {
+    const last = lastThreadMessage(s);
+    if (!last || last.role !== "assistant") return "";
+    if (last.status?.type !== "running") return "";
+    return parseRoomSpeaker(last.metadata)?.name ?? "";
+  });
+  return <ThinkingStatus name={speaker || fromLast || botName} />;
 };
 
 const AssistantWorkingDots: FC = () => {

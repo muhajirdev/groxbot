@@ -245,7 +245,7 @@ export function mcpServerId(input: string): string {
   return id;
 }
 
-/** Agents MCP states that can expose tools inside execute. */
+/** Agents MCP states that can expose tools inside code. */
 export const MCP_EXECUTE_STATES = new Set([
   "ready",
   "connected",

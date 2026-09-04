@@ -1,5 +1,6 @@
 /** Browser-safe Pi wire types. Do not import `@earendil-works/pi-*` here. */
 
+import { newId } from "./ids.js";
 import {
   type OfficeChatMessage,
   officeChatText,
@@ -104,6 +105,7 @@ export type PiOfficeSnapshot = {
   metadata: { id: string; status: PiThreadStatus };
   messages: PiBoundMessage[];
   lastError?: string;
+  floorBotId?: string;
 };
 
 export type PiSendMessageInput = {
@@ -133,6 +135,7 @@ export type PiOfficeView = {
   error: string;
   generation: number;
   seq: number;
+  floorBotId: string;
 };
 
 export type PiClientEvent = {
@@ -178,6 +181,7 @@ export function emptyPiOfficeView(threadId = ""): PiOfficeView {
     error: "",
     generation: 0,
     seq: 0,
+    floorBotId: "",
   };
 }
 
@@ -245,6 +249,9 @@ export function parsePiOfficeSnapshot(value: unknown): PiOfficeSnapshot | null {
   if (typeof row.lastError === "string" && row.lastError) {
     snapshot.lastError = row.lastError;
   }
+  if (typeof row.floorBotId === "string" && row.floorBotId.trim()) {
+    snapshot.floorBotId = row.floorBotId.trim();
+  }
   return snapshot;
 }
 
@@ -282,6 +289,20 @@ export function piUserText(message: PiAgentMessage): string {
   return content
     .flatMap((part) =>
       part.type === "text" && part.text ? [part.text] : [],
+    )
+    .join("")
+    .trim();
+}
+
+export function piAssistantText(message: PiAgentMessage): string {
+  if (message.role !== "assistant" || !Array.isArray(message.content)) {
+    return "";
+  }
+  return message.content
+    .flatMap((part) =>
+      part && typeof part === "object" && part.type === "text" && part.text
+        ? [part.text]
+        : [],
     )
     .join("")
     .trim();
@@ -336,6 +357,25 @@ export function upsertPiBoundMessage(
   return copy;
 }
 
+export type PiAssistantDraft = { id?: string };
+
+/** Stable id for one assistant bubble. Reset after that message ends so the next tool round does not share it. */
+export function takePiAssistantDraft(
+  draft: PiAssistantDraft,
+  event: { type: string; message?: { role?: string } },
+): string | undefined {
+  const assistant =
+    event.message?.role === "assistant" &&
+    (event.type === "message_start" ||
+      event.type === "message_update" ||
+      event.type === "message_end");
+  if (!assistant) return undefined;
+  if (!draft.id) draft.id = newId();
+  const id = draft.id;
+  if (event.type === "message_end") draft.id = undefined;
+  return id;
+}
+
 export function applyPiOfficeEvent(
   view: PiOfficeView,
   event: PiClientEvent,
@@ -357,6 +397,7 @@ export function applyPiOfficeEvent(
       next.streaming = null;
       next.toolExecutions = {};
       next.error = snapshot.lastError ?? "";
+      next.floorBotId = snapshot.floorBotId ?? "";
       next.status =
         snapshot.metadata.status === "failed"
           ? "error"
@@ -387,7 +428,10 @@ export function applyPiOfficeEvent(
       const row: PiBoundMessage = { id, message };
       if (event.metadata !== undefined) row.metadata = event.metadata;
       next.messages = upsertPiBoundMessage(next.messages, row);
-      if (next.streaming?.id === id) next.streaming = null;
+      // Always drop the overlay. A later tool round has no draft id, so
+      // message_end would otherwise leave `streaming` beside the commit and
+      // the UI would fold two tool-call parts with the same toolCallId.
+      next.streaming = null;
       return next;
     }
     case "tool_execution_start": {
@@ -430,6 +474,11 @@ export function applyPiOfficeEvent(
         next.error = event.error;
         next.status = "error";
       }
+      return next;
+    }
+    case "floor": {
+      next.floorBotId =
+        typeof event.botId === "string" ? event.botId.trim() : "";
       return next;
     }
     default:

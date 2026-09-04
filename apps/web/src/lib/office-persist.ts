@@ -2,6 +2,7 @@ import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persi
 import { persistQueryClient } from "@tanstack/query-persist-client-core";
 import { del, get, set } from "idb-keyval";
 import { hydrateBotPreviews } from "./bot-preview";
+import { isPersistableFileBody } from "./file-cache";
 import {
   OFFICE_MESSAGES_GC_TIME,
   OFFICE_MESSAGES_ROOT,
@@ -32,40 +33,57 @@ const CATALOG_KEYS = new Set([
   JSON.stringify(PLUGIN_CATALOG_KEY),
 ]);
 
-const COMPUTER_LIST_KEY_PREFIX = queryKeyWithoutBot(
+const COMPUTER_LIST_KEY_PREFIX = queryKeyWithoutFileInput(
   orpc.computer.list.queryOptions({ input: { botId: "_" } }).queryKey,
+);
+const COMPUTER_READ_KEY_PREFIX = queryKeyWithoutFileInput(
+  orpc.computer.read.queryOptions({
+    input: { botId: "_", path: "_" },
+  }).queryKey,
+);
+const KNOWLEDGE_READ_KEY_PREFIX = queryKeyWithoutFileInput(
+  orpc.knowledge.read.queryOptions({ input: { path: "_" } }).queryKey,
 );
 
 export function isComputerListQueryKey(queryKey: readonly unknown[]): boolean {
-  return queryKeyWithoutBot(queryKey) === COMPUTER_LIST_KEY_PREFIX;
+  return queryKeyWithoutFileInput(queryKey) === COMPUTER_LIST_KEY_PREFIX;
+}
+
+export function isComputerReadQueryKey(queryKey: readonly unknown[]): boolean {
+  return queryKeyWithoutFileInput(queryKey) === COMPUTER_READ_KEY_PREFIX;
+}
+
+export function isKnowledgeReadQueryKey(queryKey: readonly unknown[]): boolean {
+  return queryKeyWithoutFileInput(queryKey) === KNOWLEDGE_READ_KEY_PREFIX;
 }
 
 export function shouldDehydrateOfficeQuery(query: {
   queryKey: readonly unknown[];
-  state: { status: string };
+  state: { status: string; data?: unknown };
 }): boolean {
   if (query.state.status !== "success") return false;
   if (query.queryKey[0] === OFFICE_MESSAGES_ROOT) return true;
   if (query.queryKey[0] === ROOM_MESSAGES_ROOT) return true;
   if (isComputerListQueryKey(query.queryKey)) return true;
+  if (
+    isKnowledgeReadQueryKey(query.queryKey) ||
+    isComputerReadQueryKey(query.queryKey)
+  ) {
+    return isPersistableFileBody(query.state.data);
+  }
   return CATALOG_KEYS.has(JSON.stringify(query.queryKey));
 }
 
-/** Drop bot-specific input so each teammate’s file tree shares the list procedure. */
-function queryKeyWithoutBot(queryKey: readonly unknown[]): string {
+/** Drop bot/path input so every file of a procedure shares one matcher. */
+function queryKeyWithoutFileInput(queryKey: readonly unknown[]): string {
   return JSON.stringify(queryKey, (_key, value) => {
-    if (!value || typeof value !== "object" || !("botId" in value)) {
-      return value;
-    }
-    const {
-      botId: _botId,
-      path: _path,
-      ...rest
-    } = value as {
-      botId?: unknown;
-      path?: unknown;
-    } & Record<string, unknown>;
-    return { ...rest, botId: "*" };
+    if (!value || typeof value !== "object") return value;
+    const rec = value as Record<string, unknown>;
+    const hasBot = "botId" in rec;
+    const hasPath = "path" in rec;
+    if (!hasBot && !hasPath) return value;
+    const { botId: _botId, path: _path, ...rest } = rec;
+    return hasBot ? { ...rest, botId: "*" } : rest;
   });
 }
 

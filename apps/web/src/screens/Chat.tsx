@@ -84,7 +84,13 @@ import {
   upsertRoom,
   upsertSection,
 } from "../lib/collections";
-import { neighborBotId, type PaletteActionId } from "../lib/command-palette";
+import {
+  neighborBotId,
+  ROSTER_NEXT_HOTKEY,
+  ROSTER_PREV_HOTKEY,
+  type PaletteActionId,
+} from "../lib/command-palette";
+import { saveComputerDownload } from "../lib/computer-download";
 import { userFacingError } from "../lib/errors";
 import { draftCreatedBot, nextAvatarColor } from "../lib/hire";
 import {
@@ -94,6 +100,7 @@ import {
 } from "../lib/office-keepalive";
 import {
   forgetOfficeMessages,
+  OFFICE_MESSAGES_GC_TIME,
   setOfficeMessages,
 } from "../lib/office-messages";
 import { forgetRoomMessages } from "../lib/room-messages";
@@ -111,6 +118,7 @@ import {
   libraryShowsSkills,
   type OfficeSearch,
   officeSearch,
+  roomDeskSearch,
   SKILLS_LIBRARY_PATH,
   toggleDesk,
 } from "../lib/office-search";
@@ -157,10 +165,12 @@ import { applyTheme, readTheme, type Theme } from "../lib/theme";
 import {
   dropThreadMeta,
   ensureThreadMeta,
+  OFFICE_WORKING,
   patchThreadMeta,
   readCursor,
   readThreadMeta,
 } from "../lib/thread-cache";
+import { scheduleKnowledgeFilePrefetch } from "../lib/file-cache";
 import { scheduleThreadPrefetch } from "../lib/thread-prefetch";
 import { formatListTime } from "../lib/time";
 import { Button, cn } from "../ui";
@@ -373,7 +383,7 @@ const SectionHeader = memo(function SectionHeader(props: {
     <div className="group/section relative">
       <button
         type="button"
-        className="flex w-full items-center gap-1.5 rounded-[10px] border-0 bg-transparent px-1.5 py-1.5 text-left text-[12px] text-muted hover:bg-hover"
+        className="flex w-full items-center gap-1.5 rounded-[10px] border-0 bg-transparent px-1.5 py-1 text-left text-[11px] text-muted hover:bg-hover"
         aria-expanded={!props.collapsed}
         onClick={props.onToggle}
         onContextMenu={(event) => {
@@ -387,7 +397,9 @@ const SectionHeader = memo(function SectionHeader(props: {
             props.collapsed && "-rotate-90",
           )}
         />
-        <span className="min-w-0 flex-1 truncate font-medium">{props.name}</span>
+        <span className="min-w-0 flex-1 truncate font-medium tracking-wide uppercase">
+          {props.name}
+        </span>
         <span className="shrink-0 group-hover/section:invisible">
           {props.count}
         </span>
@@ -445,6 +457,10 @@ export function Chat(props: {
   const me = meQuery.data;
   const desk = officeSearch(props.desk);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const knowledgeListQuery = useQuery({
+    ...orpc.knowledge.list.queryOptions(),
+    gcTime: OFFICE_MESSAGES_GC_TIME,
+  });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<"general" | "models">(
     "general",
@@ -631,11 +647,7 @@ export function Chat(props: {
   const setDesk = useCallback(
     (next: OfficeSearch) => {
       if (props.roomId) {
-        const focused = next.bot || focusedBotId;
-        return goToRoom(
-          props.roomId,
-          focused ? officeSearch({ ...next, bot: focused }) : next,
-        );
+        return goToRoom(props.roomId, roomDeskSearch(next, focusedBotId));
       }
       if (props.botId) return goToBot(props.botId, next);
     },
@@ -700,6 +712,13 @@ export function Chat(props: {
     props.roomId,
     rooms,
   ]);
+
+  useEffect(() => {
+    return scheduleKnowledgeFilePrefetch(queryClient, {
+      entries: knowledgeListQuery.data?.entries ?? [],
+      prefer: desk.knowledge,
+    });
+  }, [desk.knowledge, knowledgeListQuery.data, queryClient]);
 
   useEffect(() => {
     if (!rosterOpen) return;
@@ -839,7 +858,7 @@ export function Chat(props: {
   }
 
   const openBotMenu = useCallback((event: MouseEvent, item: Bot) => {
-    const box = botMenuBox("actions", sections.length > 0 ? 3 : 2);
+    const box = botMenuBox("actions", sections.length > 0 ? 4 : 3);
     setSectionMenu(null);
     setRoomMenu(null);
     setBotMenu({
@@ -921,6 +940,28 @@ export function Chat(props: {
     }
   }
 
+  async function toggleArchive(item: Bot) {
+    const previous = item.archivedAt;
+    patchBot(item.id, {
+      archivedAt: previous ? null : new Date().toISOString(),
+    });
+    setBotMenu(null);
+    try {
+      const next = previous
+        ? await client.bots.unarchive({ botId: item.id })
+        : await client.bots.archive({ botId: item.id });
+      await applyArchiveChange(next);
+    } catch (caught: unknown) {
+      patchBot(item.id, { archivedAt: previous });
+      patchThreadMeta(item.id, {
+        error: userFacingError(
+          caught,
+          previous ? "Could not unarchive" : "Could not archive",
+        ),
+      });
+    }
+  }
+
   const hire = useCallback(
     async (name: string) => {
       const trimmed = name.trim();
@@ -941,7 +982,7 @@ export function Chat(props: {
       try {
         await cacheCreatedBot(draft);
         setOfficeMessages(homeRoomId, []);
-        patchThreadMeta(id, { opening: true });
+        patchThreadMeta(id, { opening: true, working: OFFICE_WORKING });
         void goToBot(id, deskClosed());
         const created = await client.bots.create({
           id,
@@ -1239,12 +1280,28 @@ export function Chat(props: {
       },
     },
     {
-      hotkey: "ArrowDown",
+      hotkey: ROSTER_NEXT_HOTKEY,
+      callback: () => cycleBots(1),
+      options: {
+        enabled: !blocking && !desk.library,
+        ignoreInputs: false,
+      },
+    },
+    {
+      hotkey: ROSTER_PREV_HOTKEY,
+      callback: () => cycleBots(-1),
+      options: {
+        enabled: !blocking && !desk.library,
+        ignoreInputs: false,
+      },
+    },
+    {
+      hotkey: "j",
       callback: () => cycleBots(1),
       options: { enabled: !blocking && !desk.library },
     },
     {
-      hotkey: "ArrowUp",
+      hotkey: "k",
       callback: () => cycleBots(-1),
       options: { enabled: !blocking && !desk.library },
     },
@@ -1366,6 +1423,18 @@ export function Chat(props: {
     },
     [setDesk],
   );
+  const downloadComputerFile = useCallback(
+    (path: string) => {
+      if (!bot?.id) return;
+      return client.computer
+        .download({ botId: bot.id, path })
+        .then(saveComputerDownload);
+    },
+    [bot?.id],
+  );
+  const downloadKnowledgeFile = useCallback((path: string) => {
+    return client.knowledge.download({ path }).then(saveComputerDownload);
+  }, []);
   const computerOpenPath =
     computerFile && bot && computerFile.botId === bot.id
       ? computerFile.path
@@ -1386,8 +1455,14 @@ export function Chat(props: {
   const exitingApp = openApp ?? lastApp.current;
 
   return (
-    <ComputerFileOpenProvider onOpen={openComputerFile}>
-      <KnowledgeFileOpenProvider onOpen={openKnowledgeFile}>
+    <ComputerFileOpenProvider
+      onOpen={openComputerFile}
+      onDownload={bot ? downloadComputerFile : undefined}
+    >
+      <KnowledgeFileOpenProvider
+        onOpen={openKnowledgeFile}
+        onDownload={downloadKnowledgeFile}
+      >
         <div
           className={cn(
             "chat-shell relative bg-bg",
@@ -1721,15 +1796,6 @@ export function Chat(props: {
                   </div>
                 )}
                 <div className="no-drag flex shrink-0 items-center gap-1.5">
-                  {working && !pokeView ? (
-                    <Button
-                      variant="mini"
-                      type="button"
-                      onClick={() => stopOffice.current?.()}
-                    >
-                      Stop now
-                    </Button>
-                  ) : null}
                   {bot && !pokeView ? (
                     <>
                       <Button
@@ -1814,17 +1880,20 @@ export function Chat(props: {
                     const itemError = isActive
                       ? error
                       : (itemMeta?.error ?? "");
-                    const explicitTargetId = isActive ? desk.bot : undefined;
-                    const talking = explicitTargetId
-                      ? bots.find((row) => row.id === explicitTargetId)
-                      : undefined;
+                    const members = item.members.map((member) => ({
+                      id: member.botId,
+                      homeRoomId: member.homeRoomId,
+                      name: member.name,
+                      title: member.title,
+                      archivedAt: member.archivedAt,
+                      avatarColor: member.avatarColor,
+                      avatarShape: member.avatarShape,
+                    }));
                     return (
                       <KeptRoomThread
                         key={item.id}
                         roomId={item.id}
-                        roomName={item.name}
-                        targetBotId={explicitTargetId}
-                        targetName={talking?.name}
+                        members={members}
                         active={isActive}
                         needsModel={Boolean(me?.needsModel)}
                         userId={me?.userId}
@@ -1833,9 +1902,7 @@ export function Chat(props: {
                         placeholder={
                           me?.needsModel
                             ? "Add a model key to send"
-                            : talking
-                              ? `Message ${talking.name}`
-                              : `Message ${item.name}`
+                            : `Message ${item.name}`
                         }
                         error={itemError}
                         onNeedsModel={onNeedsModel}
@@ -1923,10 +1990,6 @@ export function Chat(props: {
                   onSaved={async () => {
                     await refreshBots(bot.id);
                   }}
-                  onArchiveChange={applyArchiveChange}
-                  onDeleted={async (bot) => {
-                    await deleteTeammate(bot.id);
-                  }}
                 />
               ) : null}
               {pane.rendered === "computer" && bot ? (
@@ -1997,6 +2060,7 @@ export function Chat(props: {
             bots={[...liveBots, ...archivedBots]}
             rooms={rooms}
             apps={workspaceApps}
+            files={knowledgeListQuery.data?.entries ?? []}
             onClose={() => setPaletteOpen(false)}
             onBot={(botId) => {
               setPaletteOpen(false);
@@ -2012,6 +2076,11 @@ export function Chat(props: {
               setPaletteOpen(false);
               setPokeView(null);
               openDocument({ appId });
+            }}
+            onFile={(path) => {
+              setPaletteOpen(false);
+              setPokeView(null);
+              setDesk(deskLibrary(desk, path));
             }}
             onAction={runPaletteAction}
           />
@@ -2049,6 +2118,7 @@ export function Chat(props: {
             sections={sections.map((row) => ({ id: row.id, name: row.name }))}
             onClose={() => setBotMenu(null)}
             onPin={(bot) => void togglePin(bot)}
+            onArchive={(bot) => void toggleArchive(bot)}
             onMove={(bot, sectionId) => void moveBotToSection(bot, sectionId)}
             onPhase={setBotMenu}
             onDelete={(botId) => void deleteTeammate(botId)}

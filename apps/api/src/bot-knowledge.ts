@@ -1,7 +1,9 @@
 /** Cloudflare-only. Excluded from `tsc`. Office library as a Code Mode connector. */
 import { CodemodeConnector, type ConnectorTools } from "@cloudflare/codemode";
 import {
+  connectorString,
   type KnowledgeDisk,
+  KNOWLEDGE_MARKDOWN_LINK_HINT,
   KnowledgePathError,
   listKnowledge,
   listKnowledgeBacklinks,
@@ -37,7 +39,7 @@ export class KnowledgeConnector extends CodemodeConnector {
       "Shared office knowledge — not this computer.",
       "Search first, then read. Notes and files that are not skills stay here. Reusable how-to is skill_manage (skills/<name>/SKILL.md), not knowledge.write.",
       "After a real write, mention that path in one short line in the thread. Don't announce a save you didn't make.",
-      "Markdown links are office-root paths: [constraints](how-we-work/constraints.md). Not ../, not [[wikilinks]].",
+      KNOWLEDGE_MARKDOWN_LINK_HINT,
     ].join(" ");
   }
 
@@ -45,7 +47,7 @@ export class KnowledgeConnector extends CodemodeConnector {
     return {
       search: {
         description:
-          "Search office knowledge by title, path, and markdown body. Returns ranked hits with snippets — then read the paths you need. truncated means the office has more than 800 files; only those are indexed.",
+          "Search office knowledge by title, path, and markdown body. Call knowledge.search({ query }). A query string is also accepted. Returns ranked hits with snippets — then read the paths you need. truncated means the office has more than 800 files; only those are indexed.",
         inputSchema: {
           type: "object",
           properties: {
@@ -56,7 +58,7 @@ export class KnowledgeConnector extends CodemodeConnector {
         },
         replay: "reexecute",
         execute: async (args) => {
-          const query = stringArg(args, "query");
+          const query = stringArg(args, "query", true);
           const limit = numberArg(args, "limit");
           return searchKnowledge(this.disk, this.workspaceId(), query, limit);
         },
@@ -80,7 +82,7 @@ export class KnowledgeConnector extends CodemodeConnector {
       },
       read: {
         description:
-          "Read one office knowledge file. Path is the full office-root path, e.g. skills/weekly-update/SKILL.md.",
+          "Read one office knowledge file. Call knowledge.read({ path: \"skills/weekly-update/SKILL.md\" }). A path string is also accepted.",
         inputSchema: {
           type: "object",
           properties: { path: PATH },
@@ -91,7 +93,7 @@ export class KnowledgeConnector extends CodemodeConnector {
           const file = await readKnowledge(
             this.disk,
             this.workspaceId(),
-            stringArg(args, "path"),
+            stringArg(args, "path", true),
           );
           return {
             path: file.path,
@@ -127,7 +129,7 @@ export class KnowledgeConnector extends CodemodeConnector {
       },
       write: {
         description:
-          "Save a file to the office knowledge base so every teammate can use it. Not this computer. A folder with SKILL.md (YAML name + description) is a reusable playbook — prefer skills/<name>/. After a successful write, mention that path in one short line in the thread. Link other office files with [label](path/from/office/root.md).",
+          `Save a file to the office knowledge base so every teammate can use it. Not this computer. ${KNOWLEDGE_MARKDOWN_LINK_HINT} A folder with SKILL.md (YAML name + description) is a reusable playbook — prefer skills/<name>/. After a successful write, mention that path in one short line in the thread.`,
         inputSchema: {
           type: "object",
           properties: {
@@ -157,7 +159,7 @@ export class KnowledgeConnector extends CodemodeConnector {
           const sources = await listKnowledgeBacklinks(
             this.disk,
             this.workspaceId(),
-            stringArg(args, "path"),
+            stringArg(args, "path", true),
           );
           return { sources };
         },
@@ -172,7 +174,7 @@ export class KnowledgeConnector extends CodemodeConnector {
         },
         requiresApproval: true,
         execute: async (args) => {
-          const path = stringArg(args, "path");
+          const path = stringArg(args, "path", true);
           await removeKnowledge(this.disk, this.workspaceId(), path);
           return { path };
         },
@@ -187,13 +189,9 @@ export class KnowledgeConnector extends CodemodeConnector {
   }
 }
 
-function stringArg(args: unknown, key: string): string {
-  if (!args || typeof args !== "object" || Array.isArray(args)) {
-    throw new KnowledgePathError();
-  }
-  const value = (args as Record<string, unknown>)[key];
-  if (typeof value !== "string" || !value.trim())
-    throw new KnowledgePathError();
+function stringArg(args: unknown, key: string, positional = false): string {
+  const value = connectorString(args, key, positional);
+  if (!value) throw new KnowledgePathError();
   return value;
 }
 

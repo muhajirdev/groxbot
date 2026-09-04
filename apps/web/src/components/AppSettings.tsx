@@ -10,7 +10,7 @@ import {
   pickerCatalog,
 } from "@groxbot/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { userFacingError } from "../lib/errors";
 import { BUILD_REVISION, shortRevision } from "../lib/build";
 import { orpc } from "../lib/orpc";
@@ -21,10 +21,12 @@ import {
   readAutoReviewRules,
   readHardwareAccel,
   readLocalComputer,
+  readTimezonePref,
   writeAutoReview,
   writeAutoReviewRules,
   writeHardwareAccel,
   writeLocalComputer,
+  writeTimezonePref,
 } from "../lib/prefs";
 import { client } from "../lib/rpc";
 import type { Theme } from "../lib/theme";
@@ -35,6 +37,7 @@ import {
 import { ModalShell } from "../ui";
 import { PersonAvatar } from "./PersonAvatar";
 import { ChevronDownIcon, CloseIcon } from "./Icons";
+import { TimezoneField } from "./TimezoneField";
 
 type Tab = "general" | "models" | "billing" | "updates";
 
@@ -52,13 +55,13 @@ export function AppSettings(props: {
   const [local, setLocal] = useState(readLocalComputer);
   const [review, setReview] = useState(readAutoReview);
   const [rules, setRules] = useState(readAutoReviewRules);
-  const zone = useMemo(
-    () => Intl.DateTimeFormat().resolvedOptions().timeZone,
-    [],
-  );
+  const [timezone, setTimezone] = useState(readTimezonePref);
 
   useEffect(() => {
-    if (props.open) setTab(props.initialTab ?? "general");
+    if (props.open) {
+      setTab(props.initialTab ?? "general");
+      setTimezone(readTimezonePref());
+    }
   }, [props.open, props.initialTab]);
 
   return (
@@ -175,9 +178,16 @@ export function AppSettings(props: {
                   <p className="group-label">Bot</p>
                   <label className="field">
                     <span>Timezone</span>
-                    <select defaultValue="auto">
-                      <option value="auto">Auto-detect ({zone})</option>
-                    </select>
+                    <TimezoneField
+                      value={timezone}
+                      onChange={(value) => {
+                        setTimezone(value);
+                        writeTimezonePref(value);
+                      }}
+                    />
+                    <p className="hint">
+                      Wall-clock routines run in this zone.
+                    </p>
                   </label>
                   <label className="field">
                     <span>Execution on Local Computer</span>

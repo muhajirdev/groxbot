@@ -9,12 +9,23 @@ import {
   safePresentImageSrc,
   sanitizePresentTree,
 } from "@groxbot/contracts";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { z } from "zod";
+import { computerFileKind } from "../lib/computer-preview";
 import { ImageZoom } from "./assistant-ui/elements/image";
-import { useOpenComputerFile, useOpenKnowledgeFile } from "./ChatFileLink";
+import {
+  useDownloadComputerFile,
+  useDownloadKnowledgeFile,
+  useOpenComputerFile,
+  useOpenKnowledgeFile,
+} from "./ChatFileLink";
+import { DownloadIcon, FileKindIcon } from "./Icons";
 
 const image = defaultGenerativeUILibrary.Image;
+
+function PresentFileMark(props: { path: string }) {
+  return <FileKindIcon name={props.path} />;
+}
 
 function PresentFileChip(props: {
   path?: string;
@@ -29,22 +40,53 @@ function PresentFileChip(props: {
       : path.split("/").filter(Boolean).at(-1) || path;
   const openComputer = useOpenComputerFile();
   const openKnowledge = useOpenKnowledgeFile();
+  const downloadComputer = useDownloadComputerFile();
+  const downloadKnowledge = useDownloadKnowledgeFile();
   const open = place === "knowledge" ? openKnowledge : openComputer;
+  const download = place === "knowledge" ? downloadKnowledge : downloadComputer;
+  const [busy, setBusy] = useState(false);
   if (!path) return null;
   return (
-    <button
-      type="button"
-      data-aui="file"
-      data-aui-place={place}
-      title={path}
-      disabled={!open}
-      onClick={() => open?.(path)}
-    >
-      <span data-aui="file-name">{title}</span>
-      <span data-aui="file-place">
-        {place === "knowledge" ? "Knowledge" : "Computer"}
-      </span>
-    </button>
+    <div data-aui="file" data-aui-place={place}>
+      <button
+        type="button"
+        data-aui="file-open"
+        title={path}
+        disabled={!open}
+        onClick={() => open?.(path)}
+      >
+        <span
+          data-aui="file-mark"
+          data-kind={computerFileKind(path)}
+          aria-hidden
+        >
+          <PresentFileMark path={path} />
+        </span>
+        <span data-aui="file-copy">
+          <span data-aui="file-name">{title}</span>
+          <span data-aui="file-place">
+            {place === "knowledge" ? "Knowledge" : "Computer"}
+          </span>
+        </span>
+      </button>
+      {download ? (
+        <button
+          type="button"
+          data-aui="file-download"
+          aria-label={`Download ${title}`}
+          title="Download"
+          disabled={busy}
+          aria-busy={busy}
+          onClick={() => {
+            if (busy) return;
+            setBusy(true);
+            void Promise.resolve(download(path)).finally(() => setBusy(false));
+          }}
+        >
+          <DownloadIcon />
+        </button>
+      ) : null}
+    </div>
   );
 }
 
@@ -52,7 +94,7 @@ const officeLibrary = {
   ...defaultGenerativeUILibrary,
   File: {
     description:
-      "A file on this computer or in the office knowledge library. Click opens it.",
+      "A file on this computer or in the office knowledge library. Click opens it; the download control saves a copy.",
     properties: z.object({
       path: z.string().describe("Office-root path, no .."),
       place: z

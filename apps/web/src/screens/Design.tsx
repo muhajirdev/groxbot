@@ -22,6 +22,7 @@ import {
   ThinkingStatus,
 } from "../components/assistant-ui/elements/spiral-loader";
 import { TooltipIconButton } from "../components/assistant-ui/elements/tooltip-icon-button";
+import { ComputerFileOpenProvider } from "../components/ChatFileLink";
 import { ChatMarkdown } from "../components/ChatMarkdown";
 import { GateSplit, GateWelcome } from "../components/Gate";
 import { KnowledgeMarkdown } from "../components/KnowledgeFilePreview";
@@ -33,7 +34,7 @@ import { TypingDots } from "../components/TypingDots";
 import { Skeleton } from "../components/ui/skeleton";
 import { AVATAR_COLORS, AVATAR_SHAPES, SUGGESTED_JOBS } from "../lib/jobs";
 import { applyTheme, readTheme, type Theme } from "../lib/theme";
-import { Button, Chip, cn, Field, Input, Textarea } from "../ui";
+import { Button, Chip, cn, Field, Input } from "../ui";
 
 const SECTIONS = [
   { id: "onboarding", label: "Onboarding" },
@@ -134,7 +135,7 @@ const THOUGHT =
 export function Design() {
   const [theme, setTheme] = useState<Theme>(readTheme);
   const [graph, setGraph] = useState<string | null>("playbooks/handoff.md");
-  const [job, setJob] = useState<string>(SUGGESTED_JOBS[0]?.title ?? "");
+  const [job, setJob] = useState<string>(SUGGESTED_JOBS[0] ?? "");
 
   return (
     <div className="design-page">
@@ -298,6 +299,40 @@ export function Design() {
                 }}
               />
             </Specimen>
+            <Specimen label="Card + long facts">
+              <PresentSurface
+                tree={{
+                  $type: "Card",
+                  title: "Bryan Johnson — Blueprint / 'Don't Die' Protocol",
+                  children: [
+                    {
+                      $type: "Fact",
+                      label: "Diet",
+                      value:
+                        "~1,977 kcal/day vegan, 3 meals (6am, 7am, 11am) — eating window ends ~noon",
+                    },
+                    {
+                      $type: "Fact",
+                      label: "Sleep",
+                      value:
+                        "Same time every night (~8:30pm), wind-down routine, no screens/alcohol — his #1 pillar",
+                    },
+                    {
+                      $type: "Fact",
+                      label: "Exercise",
+                      value:
+                        "~25 min daily (strength + zone-2) plus sauna 20 min and red-light therapy",
+                    },
+                    {
+                      $type: "Fact",
+                      label: "Rx stack",
+                      value:
+                        "Thyroid meds, metformin (cycled), tadalafil 5mg, acarbose, oral minoxidil, Repatha",
+                    },
+                  ],
+                }}
+              />
+            </Specimen>
             <Specimen label="Table">
               <PresentSurface
                 tree={{
@@ -317,13 +352,18 @@ export function Design() {
               />
             </Specimen>
             <Specimen label="File">
-              <PresentSurface
-                tree={{
-                  $type: "File",
-                  path: "notes/q3.md",
-                  place: "computer",
-                }}
-              />
+              <ComputerFileOpenProvider
+                onOpen={() => undefined}
+                onDownload={() => undefined}
+              >
+                <PresentSurface
+                  tree={{
+                    $type: "File",
+                    path: "notes/q3.md",
+                    place: "computer",
+                  }}
+                />
+              </ComputerFileOpenProvider>
             </Specimen>
             <Specimen label="Image">
               <PresentSurface
@@ -484,7 +524,7 @@ export function Design() {
           <Section
             id="composer"
             title="Composer"
-            lede="Send while idle. Square stop while a turn is running."
+            lede="Send while it is working redirects. Square stop now halts."
           >
             <Specimen label="Idle">
               <ComposerMock running={false} />
@@ -561,11 +601,11 @@ export function Design() {
               <div className="row wrap">
                 {SUGGESTED_JOBS.map((item) => (
                   <Chip
-                    key={item.title}
-                    selected={job === item.title}
-                    onClick={() => setJob(item.title)}
+                    key={item}
+                    selected={job === item}
+                    onClick={() => setJob(item)}
                   >
-                    {item.title}
+                    {item}
                   </Chip>
                 ))}
               </div>
@@ -573,12 +613,6 @@ export function Design() {
             <Specimen label="Fields">
               <Field label="Name">
                 <Input defaultValue="Chief" />
-              </Field>
-              <Field label="Handoff" hint="Outcome, sources, when to stop.">
-                <Textarea
-                  defaultValue={SUGGESTED_JOBS[0]?.description}
-                  rows={3}
-                />
               </Field>
             </Specimen>
           </Section>
@@ -618,7 +652,7 @@ export function Design() {
                 </div>
               </div>
             </Specimen>
-            <Specimen label="Graph" hint="click a node">
+            <Specimen label="Graph" hint="hover, drag, scroll">
               <div className="design-graph">
                 <KnowledgeGraphMap
                   paths={GRAPH_PATHS}
@@ -793,32 +827,31 @@ function ComposerMock(props: { running: boolean }) {
       <p className="min-h-8 px-2 py-0.5 text-[14px] leading-5 text-muted">
         Message Chief
       </p>
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-end gap-1.5">
         {props.running ? (
           <TooltipIconButton
-            tooltip="Stop generating"
+            tooltip="Stop now"
             side="bottom"
             type="button"
-            variant="default"
+            variant="ghost"
             size="icon"
             className="size-7 rounded-full"
-            aria-label="Stop generating"
+            aria-label="Stop now"
           >
             <SquareIcon className="size-3.5 fill-current" />
           </TooltipIconButton>
-        ) : (
-          <TooltipIconButton
-            tooltip="Send message"
-            side="bottom"
-            type="button"
-            variant="default"
-            size="icon"
-            className="size-7 rounded-full bg-accent text-white hover:bg-accent/90"
-            aria-label="Send message"
-          >
-            <ArrowUpIcon className="size-4" />
-          </TooltipIconButton>
-        )}
+        ) : null}
+        <TooltipIconButton
+          tooltip="Send message"
+          side="bottom"
+          type="button"
+          variant="default"
+          size="icon"
+          className="size-7 rounded-full bg-accent text-white hover:bg-accent/90"
+          aria-label="Send message"
+        >
+          <ArrowUpIcon className="size-4" />
+        </TooltipIconButton>
       </div>
     </div>
   );

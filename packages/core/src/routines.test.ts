@@ -4,10 +4,12 @@ import {
   createStoredRoutine,
   isIntervalSchedule,
   MemoryRoutineStore,
+  parseRoutineClock,
   parseRoutineSchedule,
   RoutineNotFoundError,
   RoutineScheduleError,
   toRoutineDto,
+  wallClockToUtcCron,
 } from "./routines.js";
 
 describe("parseRoutineSchedule", () => {
@@ -68,6 +70,25 @@ describe("parseRoutineSchedule", () => {
     });
   });
 
+  it("reads 12-hour clocks", () => {
+    expect(parseRoutineSchedule("every day at 9:00 AM")).toEqual({
+      kind: "wall-clock",
+      schedule: "every day at 09:00",
+      timezone: "UTC",
+    });
+    expect(parseRoutineSchedule("every weekday at 12:30 am")).toEqual({
+      kind: "wall-clock",
+      schedule: "every weekday at 00:30",
+      timezone: "UTC",
+    });
+    expect(parseRoutineSchedule("every week on monday at 9pm")).toEqual({
+      kind: "wall-clock",
+      schedule: "every week on monday at 21:00",
+      timezone: "UTC",
+    });
+    expect(parseRoutineClock("12:00 PM")).toBe("12:00");
+  });
+
   it("rejects junk", () => {
     expect(() => parseRoutineSchedule("tomorrow")).toThrow(
       RoutineScheduleError,
@@ -126,6 +147,31 @@ describe("createStoredRoutine", () => {
       kind: "cron",
       cron: "30 8 * * 1",
     });
+  });
+
+  it("shifts wall-clock times into UTC for the given zone", () => {
+    const winter = new Date("2024-01-15T12:00:00Z");
+    const summer = new Date("2024-07-15T12:00:00Z");
+    expect(
+      wallClockToUtcCron("every day at 09:00", "America/New_York", winter),
+    ).toBe("0 14 * * *");
+    expect(
+      wallClockToUtcCron("every day at 09:00", "America/New_York", summer),
+    ).toBe("0 13 * * *");
+    expect(
+      wallClockToUtcCron(
+        "every weekday at 22:00",
+        "America/Los_Angeles",
+        winter,
+      ),
+    ).toBe("0 6 * * 2,3,4,5,6");
+    expect(
+      wallClockToUtcCron(
+        "every week on sunday at 22:00",
+        "America/New_York",
+        winter,
+      ),
+    ).toBe("0 3 * * 1");
   });
 });
 

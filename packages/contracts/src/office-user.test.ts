@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { OFFICE_REVIEW_SOURCE } from "./office-review.js";
+import { OFFICE_INTRO_SOURCE, OFFICE_REVIEW_SOURCE } from "./office-review.js";
 import {
   OFFICE_USER_ID_HEADER,
   OFFICE_USER_NAME_HEADER,
@@ -145,6 +145,14 @@ describe("stampIncomingOfficeUser", () => {
     const row = {
       role: "user" as const,
       metadata: { source: OFFICE_REVIEW_SOURCE },
+    };
+    expect(stampIncomingOfficeUser(row, alex, null)).toBe(row);
+  });
+
+  it("does not stamp a hire-intro trigger as the connected human", () => {
+    const row = {
+      role: "user" as const,
+      metadata: { source: OFFICE_INTRO_SOURCE },
     };
     expect(stampIncomingOfficeUser(row, alex, null)).toBe(row);
   });

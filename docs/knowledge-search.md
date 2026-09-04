@@ -1,6 +1,6 @@
 # Office knowledge search
 
-Markdown on R2 is truth. Search is a disposable cache plus an in-memory ranker. The agent calls `knowledge.search` / `read` / `write` inside Code Mode `execute` — not top-level chat tools, not this computer.
+Markdown on R2 is truth. Search is a disposable cache plus an in-memory ranker. The agent calls `knowledge.search` / `read` / `write` inside Code Mode `code` — not top-level chat tools, not this computer.
 
 ## What we shipped
 

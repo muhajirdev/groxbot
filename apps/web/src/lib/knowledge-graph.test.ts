@@ -1,16 +1,23 @@
 import { describe, expect, it } from "vitest";
 import {
+  createGraphSim,
   fitGraphCamera,
   graphEdgeGeom,
   graphFolder,
   graphFolderHue,
   graphNodeLabel,
+  graphZoomFactor,
   indexKnowledgeGraph,
   knowledgeGraphBacklinks,
+  knowledgeGraphFocusIds,
   knowledgeGraphLinkedIds,
   layoutKnowledgeGraph,
   pickGraphLabels,
+  pinGraphNode,
+  setGraphSimTarget,
+  stepGraphSim,
   worldFromScreen,
+  graphWorldTransform,
   zoomGraphCamera,
 } from "./knowledge-graph";
 
@@ -34,16 +41,18 @@ describe("indexKnowledgeGraph", () => {
     expect(knowledgeGraphLinkedIds(index, "for/example/this-file.md")).toEqual(
       new Set([0, 1, 2]),
     );
+    expect(
+      knowledgeGraphFocusIds(index, "orphan.md", "for/example/this-file.md"),
+    ).toEqual(new Set([3]));
+    expect(knowledgeGraphFocusIds(index, null, null).size).toBe(0);
   });
 });
 
 describe("graph labels", () => {
-  it("uses the note name, and the parent folder for SKILL.md", () => {
-    expect(graphNodeLabel("playbooks/weekly-update/SKILL.md")).toBe(
-      "weekly-update",
-    );
-    expect(graphNodeLabel("playbooks/SKILL.md")).toBe("SKILL");
-    expect(graphNodeLabel("notes/clients.md")).toBe("clients");
+  it("uses the filename, including .md", () => {
+    expect(graphNodeLabel("playbooks/weekly-update/SKILL.md")).toBe("SKILL.md");
+    expect(graphNodeLabel("playbooks/SKILL.md")).toBe("SKILL.md");
+    expect(graphNodeLabel("notes/clients.md")).toBe("clients.md");
     expect(graphFolder("notes/clients.md")).toBe("notes");
     expect(graphFolder("orphan.md")).toBe("");
   });
@@ -99,6 +108,12 @@ describe("graph camera", () => {
     const back = worldFromScreen(next, screen, viewport);
     expect(back.x).toBeCloseTo(world.x, 5);
     expect(back.y).toBeCloseTo(world.y, 5);
+    const k = viewport.width / next.w;
+    expect(world.x * k - next.x * k).toBeCloseTo(screen.x, 5);
+    expect(world.y * k - next.y * k).toBeCloseTo(screen.y, 5);
+    expect(graphWorldTransform(camera, viewport)).toBe(
+      "translate(0 0) scale(1)",
+    );
   });
 });
 
@@ -140,9 +155,9 @@ describe("layoutKnowledgeGraph", () => {
     const to = layout.nodes[1];
     expect(from && to).toBeTruthy();
     if (from && to) {
-      const bent = graphEdgeGeom(from, to, true);
-      const straightish = graphEdgeGeom(from, to, false);
-      expect(bent.d).not.toBe(straightish.d);
+      const line = graphEdgeGeom(from, to);
+      expect(line.d).toMatch(/ L /);
+      expect(line.d).not.toMatch(/ Q /);
     }
   });
 
@@ -200,5 +215,86 @@ describe("layoutKnowledgeGraph", () => {
       }
     }
     expect(close).toBeLessThan(8);
+  });
+});
+
+describe("live graph physics", () => {
+  it("lets a dragged note tug its neighbors", () => {
+    const layout = layoutKnowledgeGraph({
+      paths: ["a.md", "b.md", "c.md"],
+      out: [[1], [0, 2], [1]],
+    });
+    const sim = createGraphSim(layout.nodes, layout.edges);
+    const a = layout.nodes.find((node) => node.path === "a.md");
+    const b = layout.nodes.find((node) => node.path === "b.md");
+    expect(a && b).toBeTruthy();
+    if (!a || !b) return;
+    const dx = a.x - (sim.x[b.id] ?? a.x);
+    const dy = a.y - (sim.y[b.id] ?? a.y);
+    const len = Math.hypot(dx, dy) || 1;
+    const pinAt = {
+      x: a.x + (dx / len) * 200,
+      y: a.y + (dy / len) * 200,
+    };
+    const before = { x: sim.x[b.id] ?? 0, y: sim.y[b.id] ?? 0 };
+    const distBefore = Math.hypot(before.x - pinAt.x, before.y - pinAt.y);
+    pinGraphNode(sim, a.id, pinAt.x, pinAt.y);
+    setGraphSimTarget(sim, 0.8);
+    for (let i = 0; i < 40; i++) stepGraphSim(sim);
+    expect(sim.x[a.id]).toBeCloseTo(pinAt.x, 5);
+    expect(sim.y[a.id]).toBeCloseTo(pinAt.y, 5);
+    const distAfter = Math.hypot(
+      (sim.x[b.id] ?? 0) - pinAt.x,
+      (sim.y[b.id] ?? 0) - pinAt.y,
+    );
+    expect(distAfter).toBeLessThan(distBefore - 8);
+  });
+
+  it("lets the tug travel to the next note in the chain", () => {
+    const layout = layoutKnowledgeGraph({
+      paths: ["a.md", "b.md", "c.md"],
+      out: [[1], [0, 2], [1]],
+    });
+    const sim = createGraphSim(layout.nodes, layout.edges);
+    const a = layout.nodes.find((node) => node.path === "a.md");
+    const c = layout.nodes.find((node) => node.path === "c.md");
+    expect(a && c).toBeTruthy();
+    if (!a || !c) return;
+    const before = { x: sim.x[c.id] ?? 0, y: sim.y[c.id] ?? 0 };
+    const dx = a.x - before.x;
+    const dy = a.y - before.y;
+    const len = Math.hypot(dx, dy) || 1;
+    pinGraphNode(sim, a.id, a.x + (dx / len) * 240, a.y + (dy / len) * 240);
+    setGraphSimTarget(sim, 0.8);
+    for (let i = 0; i < 50; i++) stepGraphSim(sim);
+    const moved = Math.hypot(
+      (sim.x[c.id] ?? 0) - before.x,
+      (sim.y[c.id] ?? 0) - before.y,
+    );
+    expect(moved).toBeGreaterThan(6);
+  });
+
+  it("leaves isolates still while the linked cluster moves", () => {
+    const layout = layoutKnowledgeGraph(snap);
+    const sim = createGraphSim(layout.nodes, layout.edges);
+    const orphan = layout.nodes.find((node) => node.path === "orphan.md");
+    const hub = layout.nodes.find(
+      (node) => node.path === "how-we-work/constraints.md",
+    );
+    expect(orphan && hub).toBeTruthy();
+    if (!orphan || !hub) return;
+    const ox = sim.x[orphan.id];
+    const oy = sim.y[orphan.id];
+    pinGraphNode(sim, hub.id, hub.x + 180, hub.y);
+    setGraphSimTarget(sim, 0.8);
+    for (let i = 0; i < 40; i++) stepGraphSim(sim);
+    expect(sim.x[orphan.id]).toBe(ox);
+    expect(sim.y[orphan.id]).toBe(oy);
+  });
+
+  it("zooms smoothly from wheel deltas", () => {
+    expect(graphZoomFactor(0)).toBe(1);
+    expect(graphZoomFactor(80)).toBeLessThan(1);
+    expect(graphZoomFactor(-80)).toBeGreaterThan(1);
   });
 });

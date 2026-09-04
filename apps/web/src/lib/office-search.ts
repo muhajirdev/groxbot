@@ -132,3 +132,18 @@ export function toggleDesk(
   if (current.pane === pane) return deskClosed();
   return pane === "settings" ? deskSettings() : deskComputer();
 }
+
+/** Computer/settings on a group need a seat. Chat targeting is @mention, not this. */
+export function roomDeskSearch(
+  next: OfficeSearch,
+  fallbackBotId?: string,
+): OfficeSearch {
+  const paneNeedsSeat = next.pane === "computer" || next.pane === "settings";
+  if (!paneNeedsSeat) {
+    const rest = { ...next };
+    delete rest.bot;
+    return officeSearch(rest);
+  }
+  const bot = (next.bot || fallbackBotId || "").trim();
+  return officeSearch({ ...next, bot: bot || undefined });
+}

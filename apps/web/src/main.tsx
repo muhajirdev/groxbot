@@ -20,7 +20,7 @@ if (!root) throw new Error("Missing #root");
 
 createRoot(root).render(
   <StrictMode>
-    <IconContext.Provider value={{ size: 16, weight: "regular" }}>
+    <IconContext.Provider value={{ size: 18, weight: "duotone" }}>
       <HotkeysProvider
         defaultOptions={{
           hotkey: { preventDefault: true },

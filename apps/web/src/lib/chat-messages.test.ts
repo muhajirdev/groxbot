@@ -1,4 +1,4 @@
-import { OFFICE_REVIEW_SOURCE } from "@groxbot/contracts";
+import { OFFICE_INTRO_SOURCE, OFFICE_REVIEW_SOURCE } from "@groxbot/contracts";
 import type { PiProjectedMessage } from "@groxbot/core/browser";
 import { describe, expect, it } from "vitest";
 import {
@@ -142,6 +142,20 @@ describe("lastOfficePreview", () => {
     ).toBe("Hiring shortlist");
   });
 
+  it("skips a hidden hire-intro nudge and keeps the greeting", () => {
+    expect(
+      lastOfficePreview([
+        {
+          id: "u-intro",
+          role: "user",
+          content: [{ type: "text", text: "Office intro. Become Alex Hormozi." }],
+          metadata: { custom: { source: OFFICE_INTRO_SOURCE } },
+        },
+        assistant("a1", "I'm Hormozi. What's the offer?"),
+      ]),
+    ).toBe("I'm Hormozi. What's the offer?");
+  });
+
   it("skips a hidden office-review nudge and a Skip", () => {
     expect(
       lastOfficePreview([
@@ -172,6 +186,22 @@ describe("isVisibleChatMessage", () => {
     expect(
       isVisibleChatMessage(
         assistant("a", "Saved skills/weekly-update/SKILL.md"),
+      ),
+    ).toBe(true);
+  });
+
+  it("hides the hire-intro trigger and keeps the greeting", () => {
+    expect(
+      isVisibleChatMessage({
+        id: "u",
+        role: "user",
+        content: [{ type: "text", text: "Office intro. Become Alex Hormozi." }],
+        metadata: { custom: { source: OFFICE_INTRO_SOURCE } },
+      }),
+    ).toBe(false);
+    expect(
+      isVisibleChatMessage(
+        assistant("a", "I'm Hormozi. What's the offer?"),
       ),
     ).toBe(true);
   });

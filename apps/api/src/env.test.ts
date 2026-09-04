@@ -58,6 +58,24 @@ describe("loadEnv", () => {
     expect(env.authUrl).toBe("http://127.0.0.1:3100");
     expect(env.webOrigin).toBe("http://127.0.0.1:5173");
     expect(env.apiUrl).toBe("http://127.0.0.1:3100");
+    expect(env.tinyfishApiKey).toBeUndefined();
+    expect(env.tinyfishApiKeys).toEqual([]);
+  });
+
+  it("reads the TinyFish key for office web search", () => {
+    expect(
+      loadEnv({ ...base, TINYFISH_API_KEY: " tf-test " }).tinyfishApiKey,
+    ).toBe("tf-test");
+  });
+
+  it("parses a TinyFish key pool", () => {
+    const env = loadEnv({
+      ...base,
+      TINYFISH_API_KEY: "tf-one",
+      TINYFISH_API_KEYS: "tf-two, tf-three",
+    });
+    expect(env.tinyfishApiKeys).toEqual(["tf-two", "tf-three", "tf-one"]);
+    expect(env.tinyfishApiKey).toBe("tf-two");
   });
 
   it("trusts the Expo app scheme so magic links can return to a device", () => {

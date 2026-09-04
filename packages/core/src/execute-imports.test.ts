@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  executeCodeFromInput,
   isNpmPackageName,
   splitExecuteNpmImports,
 } from "./execute-imports.js";
@@ -65,5 +66,30 @@ return 1;`);
     );
     expect(split.dependencies).toEqual({});
     expect(split.body).toMatch(/from "\.\/local.js"/);
+  });
+});
+
+describe("executeCodeFromInput", () => {
+  it("prefers code over command", () => {
+    expect(
+      executeCodeFromInput({
+        code: "return await knowledge.search({ query: \"x\" })",
+        command: "ls",
+      }),
+    ).toBe('return await knowledge.search({ query: "x" })');
+  });
+
+  it("accepts command as the Code Mode alias", () => {
+    expect(
+      executeCodeFromInput({
+        command: "return await routines.list()",
+      }),
+    ).toBe("return await routines.list()");
+  });
+
+  it("returns empty when neither field is a string", () => {
+    expect(executeCodeFromInput({})).toBe("");
+    expect(executeCodeFromInput({ command: 1 })).toBe("");
+    expect(executeCodeFromInput(null)).toBe("");
   });
 });

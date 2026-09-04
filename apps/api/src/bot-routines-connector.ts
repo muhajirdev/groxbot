@@ -1,7 +1,7 @@
 /** Cloudflare-only. Excluded from `tsc`. Recurring jobs as a Code Mode connector. */
 import { CodemodeConnector, type ConnectorTools } from "@cloudflare/codemode";
 import type { Routine } from "@groxbot/contracts";
-import { RoutineError } from "@groxbot/core";
+import { connectorString, RoutineError } from "@groxbot/core";
 
 export type RoutineHost = {
   listRoutines(): Promise<Routine[]>;
@@ -32,8 +32,8 @@ export class RoutinesConnector extends CodemodeConnector {
   protected override instructions() {
     return [
       "This bot’s recurring jobs. Use when someone asks you to do something on a schedule.",
-      "Schedules: “every day at 09:00”, “every weekday at 09:00”, “every week on monday at 09:00”, “every 30 minutes”.",
-      "Timezone is IANA for display (alarms are UTC cron). Pause or remove instead of stacking duplicates.",
+      "Schedules: “every day at 09:00”, “every weekday at 9:00 AM”, “every week on monday at 09:00”, “every 30 minutes”.",
+      "Do not pass timezone unless they name a zone; the office clock is Settings → General.",
     ].join(" ");
   }
 
@@ -75,7 +75,7 @@ export class RoutinesConnector extends CodemodeConnector {
           required: ["id"],
         },
         execute: async (args) =>
-          this.host().pauseRoutine(stringArg(args, "id")),
+          this.host().pauseRoutine(stringArg(args, "id", true)),
       },
       resume: {
         description: "Resume a paused routine.",
@@ -85,7 +85,7 @@ export class RoutinesConnector extends CodemodeConnector {
           required: ["id"],
         },
         execute: async (args) =>
-          this.host().resumeRoutine(stringArg(args, "id")),
+          this.host().resumeRoutine(stringArg(args, "id", true)),
       },
       remove: {
         description: "Delete a routine. Needs approval.",
@@ -96,7 +96,7 @@ export class RoutinesConnector extends CodemodeConnector {
         },
         requiresApproval: true,
         execute: async (args) => {
-          const id = stringArg(args, "id");
+          const id = stringArg(args, "id", true);
           await this.host().removeRoutine(id);
           return { id };
         },
@@ -105,19 +105,19 @@ export class RoutinesConnector extends CodemodeConnector {
   }
 }
 
-function stringArg(args: unknown, key: string): string {
-  const value = optionalStringArg(args, key);
+function stringArg(args: unknown, key: string, positional = false): string {
+  const value = optionalStringArg(args, key, positional);
   if (!value) throw new RoutineError();
   return value;
 }
 
-function optionalStringArg(args: unknown, key: string): string | undefined {
-  if (!args || typeof args !== "object" || Array.isArray(args)) {
-    throw new RoutineError();
+function optionalStringArg(
+  args: unknown,
+  key: string,
+  positional = false,
+): string | undefined {
+  if (typeof args === "string") {
+    return positional ? connectorString(args, key, true) : undefined;
   }
-  const value = (args as Record<string, unknown>)[key];
-  if (value == null) return undefined;
-  if (typeof value !== "string") throw new RoutineError();
-  const trimmed = value.trim();
-  return trimmed || undefined;
+  return connectorString(args, key, false);
 }

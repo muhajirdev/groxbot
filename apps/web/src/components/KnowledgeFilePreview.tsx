@@ -6,11 +6,12 @@ import {
   computerDownloadFilename,
 } from "../lib/computer-download";
 import {
-  computerFileKind,
   computerPreviewKind,
   computerPreviewSource,
+  isMarkdownPreview,
 } from "../lib/computer-preview";
 import { userFacingError } from "../lib/errors";
+import { knowledgeReadQueryOptions } from "../lib/file-cache";
 import {
   knowledgeLinkTarget,
   knowledgeMarkdownUrl,
@@ -20,8 +21,8 @@ import {
   knowledgeMarkdownHasHeading,
   splitKnowledgeMarkdown,
 } from "../lib/knowledge-markdown";
-import { orpc } from "../lib/orpc";
 import { OFFICE_MESSAGES_GC_TIME } from "../lib/office-messages";
+import { orpc } from "../lib/orpc";
 import { ChatMarkdown } from "./ChatMarkdown";
 
 export function KnowledgeFilePreview(props: {
@@ -68,12 +69,8 @@ function RemoteFilePreview(props: {
   links?: OfficeLinks;
 }) {
   const textQuery = useQuery({
-    ...orpc.knowledge.read.queryOptions({
-      input: { path: props.path },
-    }),
+    ...knowledgeReadQueryOptions(props.path),
     enabled: props.source === "read",
-    staleTime: 60_000,
-    gcTime: OFFICE_MESSAGES_GC_TIME,
   });
   const fileQuery = useQuery({
     ...orpc.knowledge.download.queryOptions({
@@ -222,9 +219,7 @@ function TextPreview(props: {
   path: string;
   links?: OfficeLinks;
 }) {
-  const markdown =
-    computerFileKind(props.path) === "md" ||
-    props.file.mediaType === "text/markdown";
+  const markdown = isMarkdownPreview(props.path, props.file.mediaType);
   return (
     <div
       className={markdown ? "knowledge-preview-md" : "computer-preview-text"}

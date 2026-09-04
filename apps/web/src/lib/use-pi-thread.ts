@@ -107,6 +107,7 @@ export function usePiThread(options: {
   const [connectionError, setConnectionError] = useState<Error | undefined>(
     undefined,
   );
+  const [connected, setConnected] = useState(false);
   const readyRef = useRef(false);
   const viewRef = useRef(view);
   viewRef.current = view;
@@ -116,7 +117,10 @@ export function usePiThread(options: {
   targetRef.current = options.targetBotId;
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      setConnected(false);
+      return;
+    }
     let cancelled = false;
     readyRef.current = false;
     const host = newWebSocketRpcSession<PiHost>(options.rpcUrl);
@@ -163,6 +167,7 @@ export function usePiThread(options: {
       .then(() => {
         if (cancelled) return;
         readyRef.current = true;
+        setConnected(true);
         setConnectionError(undefined);
         for (const resolve of readyWaiters.current) resolve();
         readyWaiters.current = [];
@@ -179,6 +184,7 @@ export function usePiThread(options: {
       cancelled = true;
       hostRef.current = null;
       readyRef.current = false;
+      setConnected(false);
       try {
         host[Symbol.dispose]?.();
       } catch {
@@ -240,7 +246,7 @@ export function usePiThread(options: {
         messages: current.messages.some((row) => row.id === id)
           ? current.messages
           : [...current.messages, optimistic],
-        status: "submitted",
+        status: current.status === "streaming" ? "streaming" : "submitted",
       }));
       try {
         await send({ content, id, metadata });
@@ -270,8 +276,10 @@ export function usePiThread(options: {
     status,
     error,
     connectionError,
+    connected,
     isStreaming: status === "streaming",
     busy,
+    floorBotId: view.floorBotId,
     onNew,
     send,
     stop,

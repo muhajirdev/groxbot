@@ -31,8 +31,6 @@ export function BotSettingsScreen({ navigation, route }: Props) {
   const modelsQuery = useQuery(orpc.models.get.queryOptions());
   const bot = botQuery.data;
   const [name, setName] = useState("");
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
   const [color, setColor] = useState("");
   const [shape, setShape] = useState<(typeof AVATAR_SHAPES)[number]>("circle");
   const [model, setModel] = useState("");
@@ -43,8 +41,6 @@ export function BotSettingsScreen({ navigation, route }: Props) {
   useEffect(() => {
     if (!bot) return;
     setName(bot.name);
-    setTitle(bot.title);
-    setDescription(bot.description);
     setColor(bot.avatarColor);
     setShape(bot.avatarShape);
     const listed = (modelsQuery.data?.catalog ?? []).some(
@@ -78,9 +74,6 @@ export function BotSettingsScreen({ navigation, route }: Props) {
       await client.bots.update({
         botId,
         name: name.trim() || current.name,
-        title,
-        description,
-        instructions: description,
         avatarColor: color,
         avatarShape: shape,
         model: nextModel,
@@ -145,13 +138,6 @@ export function BotSettingsScreen({ navigation, route }: Props) {
         value={name}
         onChangeText={setName}
         autoCapitalize="words"
-      />
-      <Field label="Job" value={title} onChangeText={setTitle} />
-      <Field
-        label="Description"
-        value={description}
-        onChangeText={setDescription}
-        multiline
       />
       <View style={styles.row}>
         {AVATAR_COLORS.map((swatch) => (

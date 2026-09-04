@@ -9,36 +9,60 @@ import { parseChatHref } from "../lib/chat-link";
 
 export type OpenComputerFile = (path: string) => void;
 export type OpenKnowledgeFile = (path: string) => void;
+export type DownloadChatFile = (path: string) => void | Promise<void>;
 
-const ComputerFileOpenContext = createContext<OpenComputerFile | null>(null);
-const KnowledgeFileOpenContext = createContext<OpenKnowledgeFile | null>(null);
+type FileOpenActions = {
+  open: (path: string) => void;
+  download?: DownloadChatFile;
+};
+
+const ComputerFileOpenContext = createContext<FileOpenActions | null>(null);
+const KnowledgeFileOpenContext = createContext<FileOpenActions | null>(null);
 
 export function ComputerFileOpenProvider(
-  props: PropsWithChildren<{ onOpen: OpenComputerFile }>,
+  props: PropsWithChildren<{
+    onOpen: OpenComputerFile;
+    onDownload?: DownloadChatFile;
+  }>,
 ) {
   return (
-    <ComputerFileOpenContext.Provider value={props.onOpen}>
+    <ComputerFileOpenContext.Provider
+      value={{ open: props.onOpen, download: props.onDownload }}
+    >
       {props.children}
     </ComputerFileOpenContext.Provider>
   );
 }
 
 export function KnowledgeFileOpenProvider(
-  props: PropsWithChildren<{ onOpen: OpenKnowledgeFile }>,
+  props: PropsWithChildren<{
+    onOpen: OpenKnowledgeFile;
+    onDownload?: DownloadChatFile;
+  }>,
 ) {
   return (
-    <KnowledgeFileOpenContext.Provider value={props.onOpen}>
+    <KnowledgeFileOpenContext.Provider
+      value={{ open: props.onOpen, download: props.onDownload }}
+    >
       {props.children}
     </KnowledgeFileOpenContext.Provider>
   );
 }
 
 export function useOpenComputerFile() {
-  return useContext(ComputerFileOpenContext);
+  return useContext(ComputerFileOpenContext)?.open ?? null;
+}
+
+export function useDownloadComputerFile() {
+  return useContext(ComputerFileOpenContext)?.download ?? null;
 }
 
 export function useOpenKnowledgeFile() {
-  return useContext(KnowledgeFileOpenContext);
+  return useContext(KnowledgeFileOpenContext)?.open ?? null;
+}
+
+export function useDownloadKnowledgeFile() {
+  return useContext(KnowledgeFileOpenContext)?.download ?? null;
 }
 
 export function ChatFileLink(props: {
@@ -46,7 +70,7 @@ export function ChatFileLink(props: {
   className?: string;
   children?: ReactNode;
 }) {
-  const open = useContext(ComputerFileOpenContext);
+  const open = useOpenComputerFile();
   const origin = typeof window === "undefined" ? "" : window.location.origin;
   const parsed = parseChatHref(props.href ?? "", origin);
   if (parsed.kind === "external") {

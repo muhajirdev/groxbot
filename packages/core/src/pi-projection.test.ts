@@ -1,4 +1,4 @@
-import { OFFICE_REVIEW_SOURCE } from "@groxbot/contracts";
+import { OFFICE_INTRO_SOURCE, OFFICE_REVIEW_SOURCE } from "@groxbot/contracts";
 import { describe, expect, it } from "vitest";
 import {
   isVisibleProjectedMessage,
@@ -66,6 +66,69 @@ describe("projectPiBoundMessages", () => {
     expect(lastProjectedPreview(projected)).toBe("Done.");
   });
 
+  it("keeps one tool-call part when consecutive assistants repeat the same id", () => {
+    const projected = projectPiBoundMessages([
+      {
+        id: "a1",
+        message: {
+          role: "assistant",
+          content: [
+            {
+              type: "toolCall",
+              id: "call_dup",
+              name: "list",
+              arguments: { path: "/" },
+            },
+          ],
+          timestamp: 1,
+          stopReason: "toolUse",
+        },
+      },
+      {
+        id: "t1",
+        message: {
+          role: "toolResult",
+          toolCallId: "call_dup",
+          toolName: "list",
+          content: [{ type: "text", text: "[]" }],
+          isError: false,
+          timestamp: 2,
+        },
+      },
+      {
+        id: "a1-stream",
+        message: {
+          role: "assistant",
+          content: [
+            {
+              type: "toolCall",
+              id: "call_dup",
+              name: "list",
+              arguments: { path: "/" },
+            },
+            { type: "text", text: "Empty." },
+          ],
+          timestamp: 3,
+          stopReason: "stop",
+        },
+      },
+    ]);
+    const tools = projected[0]?.content.filter(
+      (part) => part.type === "tool-call",
+    );
+    expect(tools).toEqual([
+      expect.objectContaining({
+        type: "tool-call",
+        toolCallId: "call_dup",
+        result: "[]",
+      }),
+    ]);
+    expect(projected[0]?.content).toContainEqual({
+      type: "text",
+      text: "Empty.",
+    });
+  });
+
   it("uses a present card title when the assistant has no text", () => {
     const projected = projectPiBoundMessages([
       {
@@ -104,6 +167,24 @@ describe("projectPiBoundMessages", () => {
         content: [{ type: "text", text: "Skip" }],
       }),
     ).toBe(false);
+  });
+
+  it("hides the hire-intro trigger and keeps the greeting", () => {
+    expect(
+      isVisibleProjectedMessage({
+        id: "u",
+        role: "user",
+        content: [{ type: "text", text: "Office intro. Become Alex Hormozi." }],
+        metadata: { custom: { source: OFFICE_INTRO_SOURCE } },
+      }),
+    ).toBe(false);
+    expect(
+      isVisibleProjectedMessage({
+        id: "a",
+        role: "assistant",
+        content: [{ type: "text", text: "I'm Hormozi. What's the offer?" }],
+      }),
+    ).toBe(true);
   });
 
   it("keeps two table speakers in separate bubbles", () => {

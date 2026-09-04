@@ -17,11 +17,13 @@ import {
 } from "@groxbot/contracts";
 import {
   applyPiOfficeEvent,
+  buildOfficeSystemPrompt,
   composePersonDoorSoul,
   emptyPiOfficeView,
   encryptionSecret,
   jsonClone,
   mentionFromText,
+  officeCanReadSkills,
   OFFICE_GENERATION_STORAGE,
   OFFICE_WORKSPACE_HEADER,
   parsePiClientEvent,
@@ -32,6 +34,9 @@ import {
   type PiOfficeSnapshot,
   type PiSendMessageInput,
   piLogShouldRun,
+  PiSteerQueue,
+  piQueuedUserBound,
+  takePiAssistantDraft,
   piUserText,
   piViewMessages,
   RoomError,
@@ -65,6 +70,7 @@ export class RoomActor extends RoomHome {
   private floorBotId = "";
   private roomSeq = 0;
   private guestTurn: AbortController | null = null;
+  private roomSteer = new PiSteerQueue();
 
   constructor(ctx: DurableObjectState, env: WorkerEnv) {
     super(ctx, env);
@@ -92,6 +98,8 @@ export class RoomActor extends RoomHome {
       if (typeof stored === "string" && stored && !this.officeId) {
         this.officeId = stored;
       }
+      const floor = await this.ctx.storage.get<string>("floorBotId");
+      this.floorBotId = typeof floor === "string" ? floor.trim() : "";
       return;
     }
     await super.onStart();
@@ -172,9 +180,13 @@ export class RoomActor extends RoomHome {
           : "running";
     const snapshot: PiOfficeSnapshot = {
       metadata: { id: this.name, status },
-      messages: this.readLog(),
+      messages: [
+        ...this.readLog(),
+        ...this.roomSteer.pending().map(piQueuedUserBound),
+      ],
     };
     if (this.error) snapshot.lastError = this.error;
+    if (this.floorBotId) snapshot.floorBotId = this.floorBotId;
     return snapshot;
   }
 
@@ -199,6 +211,22 @@ export class RoomActor extends RoomHome {
         timestamp: Date.now(),
       },
     };
+    const running = Boolean(this.guestTurn && !this.guestTurn.signal.aborted);
+    if (running) {
+      this.roomSteer.push({
+        id,
+        content: input.content,
+        metadata: stamped.metadata,
+        timestamp: Date.now(),
+      });
+      await this.broadcastEvent({
+        type: "message_end",
+        id,
+        message: row.message,
+        metadata: row.metadata,
+      });
+      return;
+    }
     const next = existing
       ? log.map((item) => (item.id === id ? row : item))
       : [...log, row];
@@ -235,8 +263,7 @@ export class RoomActor extends RoomHome {
     }
     this.error = "";
     this.status = "submitted";
-    this.floorBotId = targets[0]?.id ?? "";
-    if (this.floorBotId) await this.ctx.storage.put("floorBotId", this.floorBotId);
+    await this.setFloor(targets[0]?.id ?? "");
     await this.bumpGeneration();
     await this.broadcastStatus();
     const abort = new AbortController();
@@ -252,9 +279,18 @@ export class RoomActor extends RoomHome {
   async stopRoom(): Promise<void> {
     this.guestTurn?.abort();
     this.guestTurn = null;
+    const leftover = this.roomSteer.takeAll();
+    if (leftover.length) {
+      const log = this.readLog();
+      this.writeLog([
+        ...log,
+        ...leftover
+          .filter((row) => !log.some((item) => item.id === row.id))
+          .map(piQueuedUserBound),
+      ]);
+    }
     this.status = "ready";
-    this.floorBotId = "";
-    await this.ctx.storage.delete("floorBotId");
+    await this.setFloor("");
     await this.broadcastStatus();
   }
 
@@ -266,9 +302,7 @@ export class RoomActor extends RoomHome {
       for (let i = 0; i < targets.length; i++) {
         const target = targets[i];
         if (!target || abort.signal.aborted || this.guestTurn !== abort) return;
-        this.floorBotId = target.id;
-        await this.ctx.storage.put("floorBotId", target.id);
-        await this.broadcastStatus();
+        await this.setFloor(target.id);
         const halted = await this.runGuestTurn(
           target,
           this.readLog(),
@@ -313,28 +347,31 @@ export class RoomActor extends RoomHome {
     const door = await personDoorContext(ns, homeRoomId, workspaceId);
     const members = await this.members();
     const roomName = (await this.ctx.storage.get<string>("name")) || "Room";
-    const system = await this.withOfficeSkills(
-      roomTurnSystem(
-        composePersonDoorSoul({
-          soulPrompt: brain.soulPrompt || door.soulPrompt,
-          overlay: door.overlay,
-          memory: door.memory,
-        }),
-        {
-          name: roomName,
-          selfName: target.name,
-          members,
-          around,
-        },
-      ),
-      messages.map((row) => row.message),
-    );
     const tools: AgentTool[] = [
       ...(await this.guestTools(homeRoomId, workspaceId)),
       ...this.roomFileTools(this.name, workspaceId),
     ];
-    const assistantId = crypto.randomUUID();
-    let firstAssistant = true;
+    const system = await this.withOfficeSkills(
+      buildOfficeSystemPrompt({
+        identity: roomTurnSystem(
+          composePersonDoorSoul({
+            soulPrompt: brain.soulPrompt || door.soulPrompt,
+            overlay: door.overlay,
+            memory: door.memory,
+          }),
+          {
+            name: roomName,
+            selfName: target.name,
+            members,
+            around,
+          },
+        ),
+        tools,
+      }),
+      messages.map((row) => row.message),
+      { canReadSkills: officeCanReadSkills(tools) },
+    );
+    const assistantDraft: { id?: string } = {};
     this.status = "streaming";
     await this.broadcastStatus();
     try {
@@ -345,14 +382,35 @@ export class RoomActor extends RoomHome {
         streamFn: brain.streamFn,
         tools,
         signal: abort.signal,
+        getSteeringMessages: () => this.roomSteer.drainMessages(),
+        getFollowUpMessages: () => this.roomSteer.drainMessages(),
         onEvent: async (event) => {
-          const draftId = firstAssistant ? assistantId : undefined;
+          const incoming =
+            "message" in event && event.message ? event.message : null;
           if (
-            event.type === "message_end" &&
-            event.message.role === "assistant"
+            incoming?.role === "user" &&
+            (event.type === "message_start" || event.type === "message_end")
           ) {
-            firstAssistant = false;
+            const queued =
+              event.type === "message_end"
+                ? this.roomSteer.takeEmitted()
+                : this.roomSteer.peekEmitted();
+            const cloned = jsonClone(event);
+            if (!cloned) return;
+            const parsed = parsePiClientEvent({
+              ...cloned,
+              threadId: this.name,
+              seq: this.roomSeq + 1,
+              ...(queued
+                ? { id: queued.id, metadata: queued.metadata }
+                : {}),
+            });
+            if (!parsed) return;
+            this.applyTurnEvent(parsed);
+            await this.broadcastEvent(parsed);
+            return;
           }
+          const draftId = takePiAssistantDraft(assistantDraft, event);
           const cloned = jsonClone(event);
           if (!cloned) return;
           const parsed = parsePiClientEvent({
@@ -379,8 +437,7 @@ export class RoomActor extends RoomHome {
       if (this.guestTurn !== abort) return true;
       if (result.stopReason === "aborted" || abort.signal.aborted) {
         this.status = "ready";
-        this.floorBotId = "";
-        await this.ctx.storage.delete("floorBotId");
+        await this.setFloor("");
         await this.broadcastStatus();
         return true;
       }
@@ -394,15 +451,13 @@ export class RoomActor extends RoomHome {
       if (!settle) return false;
       this.status = "ready";
       this.error = "";
-      this.floorBotId = "";
-      await this.ctx.storage.delete("floorBotId");
+      await this.setFloor("");
       await this.broadcastStatus();
       return false;
     } catch (error) {
       if (this.guestTurn !== abort || abort.signal.aborted) {
         this.status = "ready";
-        this.floorBotId = "";
-        await this.ctx.storage.delete("floorBotId");
+        await this.setFloor("");
         await this.broadcastStatus();
         return true;
       }
@@ -630,8 +685,7 @@ export class RoomActor extends RoomHome {
     }
     this.status = "ready";
     this.error = "";
-    this.floorBotId = "";
-    await this.ctx.storage.delete("floorBotId");
+    await this.setFloor("");
     await this.broadcastStatus();
     return Response.json({ ok: true });
   }
@@ -658,8 +712,7 @@ export class RoomActor extends RoomHome {
       return new Response("Forbidden", { status: 403 });
     }
     this.status = "ready";
-    this.floorBotId = "";
-    await this.ctx.storage.delete("floorBotId");
+    await this.setFloor("");
     await this.broadcastStatus();
     return Response.json({ ok: true });
   }
@@ -850,6 +903,13 @@ export class RoomActor extends RoomHome {
 
   private broadcastStatus(): Promise<void> {
     return this.broadcast((sub) => sub.status(this.status));
+  }
+
+  private async setFloor(botId: string): Promise<void> {
+    this.floorBotId = botId;
+    if (botId) await this.ctx.storage.put("floorBotId", botId);
+    else await this.ctx.storage.delete("floorBotId");
+    await this.broadcastEvent({ type: "floor", botId });
   }
 
   private broadcastError(): Promise<void> {

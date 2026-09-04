@@ -157,6 +157,18 @@ function toLoopMessages(
   return toPiMessages(messages as OwnedPiLine[], model);
 }
 
+async function safePiQueue(
+  read?: () => Promise<AgentMessage[]> | AgentMessage[],
+): Promise<AgentMessage[]> {
+  if (!read) return [];
+  try {
+    const rows = await read();
+    return Array.isArray(rows) ? rows : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function runPiTurn(input: {
   systemPrompt: string;
   messages: Array<OwnedPiLine | Message | AgentMessage>;
@@ -165,6 +177,8 @@ export async function runPiTurn(input: {
   tools?: AgentTool[];
   signal?: AbortSignal;
   onEvent?: (event: AgentEvent) => void | Promise<void>;
+  getSteeringMessages?: () => Promise<AgentMessage[]> | AgentMessage[];
+  getFollowUpMessages?: () => Promise<AgentMessage[]> | AgentMessage[];
 }): Promise<PiTurnResult> {
   let text = "";
   let usage: Usage | null = null;
@@ -180,6 +194,8 @@ export async function runPiTurn(input: {
       model: input.model,
       convertToLlm,
       toolExecution: "sequential",
+      getSteeringMessages: () => safePiQueue(input.getSteeringMessages),
+      getFollowUpMessages: () => safePiQueue(input.getFollowUpMessages),
     },
     async (event) => {
       await input.onEvent?.(event);
@@ -203,6 +219,8 @@ export async function runOwnedPiTurn(
     streamFn: StreamFn;
     signal?: AbortSignal;
     onEvent?: (event: AgentEvent) => void | Promise<void>;
+    getSteeringMessages?: () => Promise<AgentMessage[]> | AgentMessage[];
+    getFollowUpMessages?: () => Promise<AgentMessage[]> | AgentMessage[];
   },
 ): Promise<PiTurnResult> {
   return runPiTurn(input);

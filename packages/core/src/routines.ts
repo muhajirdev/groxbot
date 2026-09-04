@@ -2,6 +2,9 @@
 
 import type { Routine } from "@groxbot/contracts";
 import { newId } from "./ids.js";
+import { parseRoutineClock } from "./routine-clock.js";
+
+export { isIntervalSchedule, parseRoutineClock } from "./routine-clock.js";
 
 export const DEFAULT_ROUTINE_TIMEZONE = "UTC";
 export const MAX_ROUTINE_NAME = 80;
@@ -124,20 +127,18 @@ export function formatRoutinePrompt(name: string, prompt: string): string {
   return `Scheduled routine: ${name}\n\n${prompt}`;
 }
 
-export function isIntervalSchedule(schedule: string): boolean {
-  return /^every [1-9]\d* (minute|minutes|hour|hours)$/.test(
-    schedule.trim().replace(/\s+/g, " ").toLowerCase(),
-  );
-}
-
 /** Cron when it fits; `scheduleEvery` for intervals cron cannot express. */
 export function agentRoutineWhen(
   parsed: ParsedRoutineSchedule,
+  at?: Date,
 ): AgentRoutineWhen {
   if (parsed.kind === "interval") {
     return intervalToAgentWhen(parsed.schedule);
   }
-  return { kind: "cron", cron: wallClockToCron(parsed.schedule) };
+  return {
+    kind: "cron",
+    cron: wallClockToUtcCron(parsed.schedule, parsed.timezone, at),
+  };
 }
 
 export function prepareRoutineCreate(input: RoutineCreateInput): {
@@ -233,9 +234,9 @@ function tryParseWallClockSchedule(
       timezone: DEFAULT_ROUTINE_TIMEZONE,
     };
   }
-  const daily = /^every day at (\d{1,2}:[0-5]\d)$/.exec(schedule);
+  const daily = new RegExp(`^every day at ${CLOCK_CAPTURE}$`).exec(schedule);
   if (daily) {
-    const time = parseWallClockTime(daily[1]);
+    const time = parseRoutineClock(daily[1]);
     if (!time) return null;
     return {
       kind: "wall-clock",
@@ -243,9 +244,11 @@ function tryParseWallClockSchedule(
       timezone,
     };
   }
-  const weekday = /^every weekday at (\d{1,2}:[0-5]\d)$/.exec(schedule);
+  const weekday = new RegExp(`^every weekday at ${CLOCK_CAPTURE}$`).exec(
+    schedule,
+  );
   if (weekday) {
-    const time = parseWallClockTime(weekday[1]);
+    const time = parseRoutineClock(weekday[1]);
     if (!time) return null;
     return {
       kind: "wall-clock",
@@ -253,12 +256,12 @@ function tryParseWallClockSchedule(
       timezone,
     };
   }
-  const weekly = /^every week on ([a-z,\s]+) at (\d{1,2}:[0-5]\d)$/.exec(
-    schedule,
-  );
+  const weekly = new RegExp(
+    `^every week on ([a-z,\\s]+) at ${CLOCK_CAPTURE}$`,
+  ).exec(schedule);
   if (weekly) {
     const rawDays = weekly[1];
-    const time = parseWallClockTime(weekly[2]);
+    const time = parseRoutineClock(weekly[2]);
     if (!rawDays || !time) return null;
     const days = parseDayList(rawDays);
     if (!days) return null;
@@ -271,15 +274,7 @@ function tryParseWallClockSchedule(
   return null;
 }
 
-/** Wall-clock times are `HH:mm` with hours 00–23. */
-function parseWallClockTime(raw: string | undefined): string | null {
-  if (!raw) return null;
-  const match = /^(\d{1,2}):([0-5]\d)$/.exec(raw);
-  if (!match?.[1] || !match[2]) return null;
-  const hour = Number(match[1]);
-  if (hour > 23) return null;
-  return `${String(hour).padStart(2, "0")}:${match[2]}`;
-}
+const CLOCK_CAPTURE = String.raw`(\d{1,2}(?::[0-5]\d)?(?:\s*[ap]m)?)`;
 
 function tryParseCronSchedule(
   raw: string,
@@ -413,14 +408,31 @@ function intervalToAgentWhen(schedule: string): AgentRoutineWhen {
   return { kind: "interval", intervalSeconds: count * 3600 };
 }
 
-function wallClockToCron(schedule: string): string {
+/** Agents cron is UTC. Shift a local wall-clock schedule into UTC fields. */
+export function wallClockToUtcCron(
+  schedule: string,
+  timezone: string,
+  at = new Date(),
+): string {
   const daily = /^every day at (\d{2}):(\d{2})$/.exec(schedule);
   if (daily?.[1] && daily[2]) {
-    return `${Number(daily[2])} ${Number(daily[1])} * * *`;
+    return utcCronFromLocal(
+      Number(daily[1]),
+      Number(daily[2]),
+      null,
+      timezone,
+      at,
+    );
   }
   const weekday = /^every weekday at (\d{2}):(\d{2})$/.exec(schedule);
   if (weekday?.[1] && weekday[2]) {
-    return `${Number(weekday[2])} ${Number(weekday[1])} * * 1-5`;
+    return utcCronFromLocal(
+      Number(weekday[1]),
+      Number(weekday[2]),
+      [1, 2, 3, 4, 5],
+      timezone,
+      at,
+    );
   }
   const weekly = /^every week on ([a-z,]+) at (\d{2}):(\d{2})$/.exec(schedule);
   const rawDays = weekly?.[1];
@@ -433,7 +445,159 @@ function wallClockToCron(schedule: string): string {
     if (index == null) throw new RoutineScheduleError();
     days.push(index);
   }
-  return `${Number(minute)} ${Number(hour)} * * ${days.join(",")}`;
+  return utcCronFromLocal(Number(hour), Number(minute), days, timezone, at);
+}
+
+function utcCronFromLocal(
+  hour: number,
+  minute: number,
+  localWeekdays: number[] | null,
+  timezone: string,
+  at: Date,
+): string {
+  const zone = timezone.trim() || DEFAULT_ROUTINE_TIMEZONE;
+  if (zone === DEFAULT_ROUTINE_TIMEZONE || zone === "Etc/UTC") {
+    return cronFields(minute, hour, localWeekdays);
+  }
+  const targets = localWeekdays ?? [zonedWeekday(at, zone)];
+  const shifted: Array<{ hour: number; minute: number; weekday: number }> = [];
+  for (const weekday of targets) {
+    const instant = zonedWallClockInstant(hour, minute, weekday, zone, at);
+    const utcWeekday = instant.getUTCDay();
+    shifted.push({
+      hour: instant.getUTCHours(),
+      minute: instant.getUTCMinutes(),
+      weekday: utcWeekday,
+    });
+  }
+  const time = shifted[0];
+  if (!time) throw new RoutineScheduleError();
+  if (
+    shifted.some((row) => row.hour !== time.hour || row.minute !== time.minute)
+  ) {
+    throw new RoutineScheduleError();
+  }
+  const days = localWeekdays
+    ? [...new Set(shifted.map((row) => row.weekday))].sort((a, b) => a - b)
+    : null;
+  return cronFields(time.minute, time.hour, days);
+}
+
+function cronFields(
+  minute: number,
+  hour: number,
+  weekdays: number[] | null,
+): string {
+  if (!weekdays || weekdays.length === 0 || weekdays.length === 7) {
+    return `${minute} ${hour} * * *`;
+  }
+  if (weekdays.join(",") === "1,2,3,4,5") {
+    return `${minute} ${hour} * * 1-5`;
+  }
+  return `${minute} ${hour} * * ${weekdays.join(",")}`;
+}
+
+function zonedWallClockInstant(
+  hour: number,
+  minute: number,
+  weekday: number,
+  timeZone: string,
+  at: Date,
+): Date {
+  const start = zonedCalendarDate(at, timeZone);
+  for (let i = 0; i < 14; i++) {
+    const day = addCalendarDays(start, i);
+    const instant = zonedTimeToUtc(
+      day.year,
+      day.month,
+      day.day,
+      hour,
+      minute,
+      timeZone,
+    );
+    if (zonedWeekday(instant, timeZone) === weekday) return instant;
+  }
+  throw new RoutineScheduleError();
+}
+
+function zonedTimeToUtc(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+  timeZone: string,
+): Date {
+  const guess = Date.UTC(year, month - 1, day, hour, minute, 0);
+  let utc = guess - tzOffsetMs(guess, timeZone);
+  utc = guess - tzOffsetMs(utc, timeZone);
+  return new Date(utc);
+}
+
+function tzOffsetMs(utcMs: number, timeZone: string): number {
+  const wall = zonedDateParts(new Date(utcMs), timeZone);
+  const asUtc = Date.UTC(
+    wall.year,
+    wall.month - 1,
+    wall.day,
+    wall.hour,
+    wall.minute,
+    wall.second,
+  );
+  return asUtc - utcMs;
+}
+
+function zonedCalendarDate(at: Date, timeZone: string) {
+  const parts = zonedDateParts(at, timeZone);
+  return { year: parts.year, month: parts.month, day: parts.day };
+}
+
+function zonedWeekday(at: Date, timeZone: string): number {
+  const name = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    weekday: "short",
+  }).format(at);
+  const index = DAY_INDEX[name.toLowerCase()];
+  if (index == null) throw new RoutineScheduleError();
+  return index;
+}
+
+function zonedDateParts(at: Date, timeZone: string) {
+  const map: Record<string, string> = {};
+  for (const part of new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(at)) {
+    if (part.type !== "literal") map[part.type] = part.value;
+  }
+  let hour = Number(map.hour);
+  if (hour === 24) hour = 0;
+  return {
+    year: Number(map.year),
+    month: Number(map.month),
+    day: Number(map.day),
+    hour,
+    minute: Number(map.minute),
+    second: Number(map.second),
+  };
+}
+
+function addCalendarDays(
+  start: { year: number; month: number; day: number },
+  days: number,
+) {
+  const next = new Date(Date.UTC(start.year, start.month - 1, start.day + days));
+  return {
+    year: next.getUTCFullYear(),
+    month: next.getUTCMonth() + 1,
+    day: next.getUTCDate(),
+  };
 }
 
 export class MemoryRoutineStore {

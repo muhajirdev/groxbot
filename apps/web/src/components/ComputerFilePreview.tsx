@@ -8,11 +8,14 @@ import {
 import {
   computerPreviewKind,
   computerPreviewSource,
+  isMarkdownPreview,
 } from "../lib/computer-preview";
 import { userFacingError } from "../lib/errors";
+import { computerReadQueryOptions } from "../lib/file-cache";
 import { orpc } from "../lib/orpc";
 import { ModalShell } from "../ui";
 import { CloseIcon, DownloadIcon } from "./Icons";
+import { KnowledgeMarkdown } from "./KnowledgeFilePreview";
 
 export function ComputerFilePreview(props: {
   botId: string;
@@ -26,12 +29,8 @@ export function ComputerFilePreview(props: {
   const kind = computerPreviewKind(path ?? "");
   const source = computerPreviewSource(kind);
   const textQuery = useQuery({
-    ...orpc.computer.read.queryOptions({
-      input: { botId: props.botId, path: path ?? "" },
-    }),
+    ...computerReadQueryOptions(props.botId, path ?? ""),
     enabled: Boolean(path) && source === "read",
-    staleTime: 60_000,
-    gcTime: 5 * 60_000,
   });
   const fileQuery = useQuery({
     ...orpc.computer.download.queryOptions({
@@ -91,14 +90,11 @@ export function ComputerFilePreview(props: {
             {userFacingError(error, "Could not open that file")}
           </p>
         ) : kind === "text" && readyText ? (
-          <div className="computer-preview-text">
-            {readyText.truncated ? (
-              <p className="computer-preview-note">
-                Showing the first part of this file.
-              </p>
-            ) : null}
-            <pre>{readyText.content}</pre>
-          </div>
+          <ComputerTextPreview
+            path={path}
+            content={readyText.content}
+            truncated={readyText.truncated}
+          />
         ) : kind === "html" && readyText ? (
           <iframe
             className="computer-preview-frame"
@@ -118,6 +114,29 @@ export function ComputerFilePreview(props: {
         )}
       </div>
     </ModalShell>
+  );
+}
+
+export function ComputerTextPreview(props: {
+  path: string;
+  content: string;
+  truncated: boolean;
+  mediaType?: string;
+}) {
+  const markdown = isMarkdownPreview(props.path, props.mediaType);
+  return (
+    <div className={markdown ? "knowledge-preview-md" : "computer-preview-text"}>
+      {props.truncated ? (
+        <p className="computer-preview-note">
+          Showing the first part of this file.
+        </p>
+      ) : null}
+      {markdown ? (
+        <KnowledgeMarkdown text={props.content} />
+      ) : (
+        <pre>{props.content}</pre>
+      )}
+    </div>
   );
 }
 

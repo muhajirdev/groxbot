@@ -2,6 +2,7 @@ import {
   CaretDoubleRightIcon,
   CaretDownIcon,
   CaretLeftIcon,
+  CaretRightIcon,
   CaretLineLeftIcon,
   CaretUpDownIcon,
   CheckIcon as PhosphorCheck,
@@ -10,7 +11,8 @@ import {
   DownloadSimpleIcon,
   UploadSimpleIcon,
   FileIcon as PhosphorFile,
-  FileMdIcon,
+  FolderNotchIcon,
+  FolderNotchOpenIcon,
   FunnelIcon,
   GearIcon as PhosphorGear,
   GithubLogoIcon,
@@ -19,17 +21,20 @@ import {
   MagnifyingGlassIcon,
   MicrophoneIcon,
   MonitorIcon as PhosphorMonitor,
-  LightningIcon as PhosphorLightning,
+  BookmarkSimpleIcon,
   PlugIcon as PhosphorPlug,
   PlusIcon as PhosphorPlus,
-  BooksIcon as PhosphorBooks,
+  BookOpenIcon,
   SquaresFourIcon as PhosphorSquaresFour,
   PushPinIcon,
   SignOutIcon as PhosphorSignOut,
+  NoteIcon,
+  TrayArrowDownIcon,
   TrashSimpleIcon,
   UsersThreeIcon,
   XIcon as PhosphorX,
 } from "@phosphor-icons/react";
+import { computerFileKind } from "../lib/computer-preview";
 
 type IconProps = { className?: string };
 
@@ -46,11 +51,11 @@ export function PlugIcon(props: IconProps) {
 }
 
 export function KnowledgeIcon(props: IconProps) {
-  return <PhosphorBooks className={props.className} />;
+  return <BookOpenIcon className={props.className} />;
 }
 
 export function SkillsIcon(props: IconProps) {
-  return <PhosphorLightning className={props.className} />;
+  return <BookmarkSimpleIcon className={props.className} />;
 }
 
 export function LiveAppsIcon(props: IconProps) {
@@ -81,6 +86,10 @@ export function ChevronLeftIcon(props: IconProps) {
   return <CaretLeftIcon className={props.className} />;
 }
 
+export function ChevronRightIcon(props: IconProps) {
+  return <CaretRightIcon className={props.className} />;
+}
+
 export function ChevronDownIcon(props: IconProps) {
   return <CaretDownIcon className={props.className} />;
 }
@@ -102,7 +111,28 @@ export function ImageFileIcon(props: IconProps) {
 }
 
 export function MarkdownFileIcon(props: IconProps) {
-  return <FileMdIcon className={props.className} />;
+  return <NoteIcon className={props.className} />;
+}
+
+export function FolderIcon(props: IconProps) {
+  return <FolderNotchIcon className={props.className} />;
+}
+
+export function FolderOpenIcon(props: IconProps) {
+  return <FolderNotchOpenIcon className={props.className} />;
+}
+
+export function ImportIcon(props: IconProps) {
+  return <TrayArrowDownIcon className={props.className} />;
+}
+
+export function FileKindIcon(props: { name: string; className?: string }) {
+  const kind = computerFileKind(props.name);
+  if (kind === "image" || kind === "svg") {
+    return <ImageFileIcon className={props.className} />;
+  }
+  if (kind === "md") return <MarkdownFileIcon className={props.className} />;
+  return <FileIcon className={props.className} />;
 }
 
 export function MoreIcon(props: IconProps) {

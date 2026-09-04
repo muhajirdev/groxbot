@@ -130,4 +130,49 @@ describe("runOwnedPiTurn", () => {
     expect(result.stopReason).toBe("stop");
     expect(seen).toContain("tool_execution_end");
   });
+
+  it("injects a steering user after tools and before the next model call", async () => {
+    const lastUser: string[] = [];
+    const steer = [
+      {
+        role: "user" as const,
+        content: "stop, summarize instead",
+        timestamp: 2,
+      },
+    ];
+    const scripted = scriptedPiSequenceStreamFn([
+      {
+        tool: { id: "call_1", name: "list", arguments: { path: "/" } },
+      },
+      { text: "Okay, summary." },
+    ]);
+    const result = await runPiTurn({
+      systemPrompt: "You are Piper.",
+      messages: [{ role: "user", content: "list files" }],
+      model,
+      tools: [
+        {
+          name: "list",
+          label: "list",
+          description: "List files.",
+          parameters: openObjectParameters(),
+          execute: async () => ({
+            content: [{ type: "text", text: "[]" }],
+          }),
+        },
+      ],
+      getSteeringMessages: () => steer.splice(0),
+      streamFn: (called, context) => {
+        const last = context.messages.at(-1);
+        lastUser.push(
+          last?.role === "user" && typeof last.content === "string"
+            ? last.content
+            : String(last?.role ?? ""),
+        );
+        return scripted(called, context);
+      },
+    });
+    expect(lastUser).toEqual(["list files", "stop, summarize instead"]);
+    expect(result.text).toBe("Okay, summary.");
+  });
 });

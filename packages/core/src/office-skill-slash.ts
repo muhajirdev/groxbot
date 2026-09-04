@@ -43,7 +43,7 @@ export function lastUserText(messages: readonly unknown[]): string {
 /** Pi / Agent Skills: names + descriptions only. Full SKILL.md loads on demand. */
 export const OFFICE_SKILL_CATALOG_INSTRUCTIONS = [
   "The following skills provide specialized instructions for specific tasks.",
-  "When a task matches a skill's description, load the SKILL.md at the listed location with knowledge.read (inside execute) before proceeding.",
+  "When a task matches a skill's description, load the SKILL.md at the listed location with knowledge.read({ path }) inside code before proceeding.",
   "When a skill references relative paths, resolve them against the skill directory (the parent of SKILL.md) in the office library.",
 ].join(" ");
 
@@ -102,7 +102,10 @@ export function applyOfficeSkillsToSystem(opts: {
   messages: readonly unknown[];
   catalog: readonly OfficeSkillCatalogEntry[];
   continuation?: boolean;
+  /** Skills load via knowledge.read inside code. Skip when that tool is off this turn. */
+  canReadSkills?: boolean;
 }): string {
+  if (opts.canReadSkills === false) return opts.system;
   let system = withOfficeSkillCatalog(opts.system, opts.catalog);
   if (opts.continuation) return system;
   const invoked = parseOfficeSkillSlash(lastUserText(opts.messages));

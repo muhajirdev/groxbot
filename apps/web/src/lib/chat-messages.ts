@@ -1,6 +1,6 @@
 import {
+  isHiddenOfficeUserMessage,
   isOfficeReviewSkip,
-  isOfficeReviewUserMessage,
   presentPreviewFromParts,
 } from "@groxbot/contracts";
 import type { PiProjectedMessage } from "@groxbot/core/browser";
@@ -70,7 +70,7 @@ export function isVisibleChatMessage(message: {
   content?: PiProjectedMessage["content"];
   parts?: ReadonlyArray<{ type: string; text?: string; toolName?: string }>;
 }): boolean {
-  if (isOfficeReviewUserMessage(message)) return false;
+  if (isHiddenOfficeUserMessage(message)) return false;
   const parts = message.content ?? message.parts ?? [];
   const text = parts
     .filter(

@@ -1,4 +1,4 @@
-import { isOfficeReviewUserMessage } from "./office-review.js";
+import { isHiddenOfficeUserMessage } from "./office-review.js";
 
 /** Who sent an office message. Lives on projected `metadata.custom.user`. */
 
@@ -139,7 +139,7 @@ export function stampOfficeUser<
 /**
  * Stamp identity at office intake. New user rows get the connected human.
  * Existing rows keep the stored sender so a later turn cannot rewrite history.
- * Office-review triggers are not a human — leave them unlabeled.
+ * Hidden office kicks (review, hire intro) are not a human — leave them unlabeled.
  */
 export function stampIncomingOfficeUser<
   T extends { role?: string; metadata?: unknown },
@@ -148,7 +148,7 @@ export function stampIncomingOfficeUser<
   connected: OfficeUserMeta | null,
   existing: { metadata?: unknown } | null | undefined,
 ): T {
-  if (isOfficeReviewUserMessage(message)) return message;
+  if (isHiddenOfficeUserMessage(message)) return message;
   if (existing) {
     const stored = parseOfficeUserMeta(existing.metadata);
     return stored ? stampOfficeUser(message, stored) : message;

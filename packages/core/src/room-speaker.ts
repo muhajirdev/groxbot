@@ -3,6 +3,12 @@ import type {
   PiAssistantMessage,
   PiBoundMessage,
 } from "./pi-transcript.js";
+import { piUserText } from "./pi-transcript.js";
+import {
+  firstLiveSeatName,
+  mentionFromText,
+  type RoomSeat,
+} from "./room-target.js";
 
 export type RoomSpeaker = {
   botId: string;
@@ -84,4 +90,57 @@ export function piGroupLoopMessages(
     });
   }
   return out;
+}
+
+function seatName(
+  members: readonly RoomSeat[],
+  botId: string | null | undefined,
+): string {
+  const id = (botId ?? "").trim();
+  if (!id) return "";
+  return members.find((row) => row.id === id && !row.archivedAt)?.name ?? "";
+}
+
+/** Who the table should name while a turn is in flight. Never the room title. */
+export function roomWorkingName(
+  messages: readonly PiBoundMessage[],
+  members: readonly RoomSeat[],
+  target?: { targetBotId?: string | null; floorBotId?: string | null },
+): string {
+  const floorName = seatName(members, target?.floorBotId);
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const row = messages[i];
+    if (!row) continue;
+    const role = row.message.role;
+    if (role === "toolResult") continue;
+    if (role === "assistant") {
+      const name = parseRoomSpeaker(row.metadata)?.name;
+      const stop =
+        row.message.role === "assistant"
+          ? (row.message as PiAssistantMessage).stopReason
+          : undefined;
+      const finished = Boolean(stop && stop !== "toolUse");
+      if (finished && floorName) return floorName;
+      if (name) return name;
+      continue;
+    }
+    if (role === "user") {
+      const mention = mentionFromText(
+        piUserText(row.message),
+        members.map((seat) => seat.name),
+      );
+      const focused = (target?.targetBotId ?? "").trim();
+      if (mention || focused) {
+        return firstLiveSeatName(members, {
+          targetBotId: focused,
+          mention,
+        });
+      }
+      return floorName;
+    }
+  }
+  const focused = (target?.targetBotId ?? "").trim();
+  if (focused) return firstLiveSeatName(members, { targetBotId: focused });
+  return floorName;
 }

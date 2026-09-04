@@ -102,7 +102,8 @@ describe("office review messages", () => {
     expect(isOfficeReviewUserMessage({ role: "user", metadata: {} })).toBe(
       false,
     );
-    expect(officeReviewUserText()).toMatch(/knowledge\.search/);
+    expect(officeReviewUserText()).toMatch(/When you write a knowledge file/);
+    expect(officeReviewUserText()).toMatch(/\[label\]\(path\/from\/office\/root\.md\)/);
     expect(officeReviewUserText()).toMatch(/skill_manage patch/);
     expect(officeReviewUserText()).toMatch(/Skip/);
   });

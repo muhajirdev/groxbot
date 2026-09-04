@@ -6,5 +6,7 @@
 export * from "./office-chat.js";
 export * from "./pi-projection.js";
 export * from "./pi-transcript.js";
+export * from "./routine-clock.js";
 export * from "./room-speaker.js";
+export * from "./room-target.js";
 export * from "./sidebar-roster.js";

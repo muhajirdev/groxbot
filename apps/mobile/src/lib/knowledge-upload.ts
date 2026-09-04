@@ -23,7 +23,7 @@ export function optimisticKnowledgeEntry(
   return {
     path,
     name,
-    title: name.replace(/\.md$/iu, "") || name,
+    title: name,
     description: "",
     size: file.size,
     encoding: kind === "text" || kind === "html" ? "text" : "binary",

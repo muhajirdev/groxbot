@@ -37,7 +37,7 @@ describe("optimisticKnowledgeEntry", () => {
     ).toMatchObject({
       path: "how-we-work/voice.md",
       encoding: "text",
-      title: "voice",
+      title: "voice.md",
     });
   });
 });

@@ -74,6 +74,7 @@ describe("skill catalog", () => {
   it("tells the model to knowledge.read, not activate_skill", () => {
     const next = withOfficeSkillCatalog("You are Reja.", [skill]);
     expect(next).toContain("knowledge.read");
+    expect(next).toContain("inside code");
     expect(next).not.toContain("activate_skill");
   });
 });
@@ -120,5 +121,15 @@ describe("applyOfficeSkillsToSystem", () => {
     });
     expect(next).toContain("<available_skills>");
     expect(next).not.toContain("<skill_content");
+  });
+
+  it("skips the catalog when code is not on this turn", () => {
+    const next = applyOfficeSkillsToSystem({
+      system: "You are Reja.",
+      messages: [{ role: "user", content: "/skill:agreements" }],
+      catalog: [skill],
+      canReadSkills: false,
+    });
+    expect(next).toBe("You are Reja.");
   });
 });

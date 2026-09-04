@@ -300,7 +300,7 @@ async function knowledgeFileFromBytes(
   const truncated = text.length > MAX_KNOWLEDGE_READ_CHARS;
   return {
     path,
-    title: meta.title || displayName(name),
+    title: meta.title || name,
     description: meta.description,
     content: truncated ? text.slice(0, MAX_KNOWLEDGE_READ_CHARS) : text,
     truncated,
@@ -687,14 +687,14 @@ export function nestKnowledgeTree(
     for (let i = 0; i < parts.length - 1; i++) {
       const dirPath = parts.slice(0, i + 1).join("/");
       if (dirs.has(dirPath)) continue;
-      const label = displayName(parts[i] ?? dirPath);
+      const label = parts[i] ?? dirPath;
       const node = dirNode(dirPath, label);
       if (i === 0) roots.push(node);
       else dirs.get(parts.slice(0, i).join("/"))?.children.push(node);
     }
     const leaf: KnowledgeTreeNode = {
       path: entry.path,
-      name: displayName(entry.name),
+      name: entry.name,
       kind: "file",
       title: entry.title,
       description: entry.description,
@@ -952,12 +952,12 @@ async function fileMeta(
 ): Promise<{ title: string; description: string }> {
   const name = path.split("/").at(-1) ?? path;
   if (!isKnowledgeSkillFile(path)) {
-    return { title: displayName(name), description: "" };
+    return { title: name, description: "" };
   }
   const raw = await disk.getText(`${office}/${path}`);
   const parsed = raw ? parseSkillMarkdown(raw) : null;
   return {
-    title: parsed?.name ?? knowledgeSkillName(path) ?? displayName(name),
+    title: parsed?.name ?? knowledgeSkillName(path) ?? name,
     description: parsed?.description ?? "",
   };
 }
@@ -981,10 +981,6 @@ async function entryFromObject(
     encoding,
     mediaType,
   };
-}
-
-function displayName(name: string): string {
-  return name.replace(/\.md$/iu, "") || name;
 }
 
 function extensionOf(path: string): string {

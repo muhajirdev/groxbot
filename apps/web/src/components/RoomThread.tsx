@@ -3,13 +3,17 @@ import {
   officeUserFromActor,
   withOfficeUserMetadata,
 } from "@groxbot/contracts";
-import type { PiBoundMessage } from "@groxbot/core/browser";
+import {
+  roomWorkingName,
+  type PiBoundMessage,
+} from "@groxbot/core/browser";
 import {
   type MutableRefObject,
   memo,
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -17,7 +21,9 @@ import { Thread } from "@/components/assistant-ui/elements/thread.aui";
 import { composerBannerError } from "../lib/errors";
 import { FIRST_TASK } from "../lib/jobs";
 import { peekRoomMessages, setRoomMessages } from "../lib/room-messages";
+import type { RoomMentionSeat } from "../lib/room-mention";
 import { patchThreadMeta, OFFICE_WORKING } from "../lib/thread-cache";
+import { createImmediateSteerQueue } from "../lib/thread-steer-queue";
 import { useRoomChat } from "../lib/use-room-chat";
 import { projectedToThreadMessage } from "../lib/use-pi-thread";
 import { cn } from "../lib/utils";
@@ -40,9 +46,8 @@ const THREAD_COMPONENTS = { Welcome: RoomWelcome };
 
 export const KeptRoomThread = memo(function KeptRoomThread(props: {
   roomId: string;
-  roomName: string;
+  members: RoomMentionSeat[];
   targetBotId?: string;
-  targetName?: string;
   needsModel: boolean;
   placeholder: string;
   error: string;
@@ -60,9 +65,8 @@ export const KeptRoomThread = memo(function KeptRoomThread(props: {
   return (
     <RoomThread
       roomId={props.roomId}
-      roomName={props.roomName}
+      members={props.members}
       targetBotId={props.targetBotId}
-      targetName={props.targetName}
       needsModel={props.needsModel}
       placeholder={props.placeholder}
       error={props.error}
@@ -79,9 +83,8 @@ export const KeptRoomThread = memo(function KeptRoomThread(props: {
 
 export function RoomThread(props: {
   roomId: string;
-  roomName: string;
+  members: RoomMentionSeat[];
   targetBotId?: string;
-  targetName?: string;
   needsModel: boolean;
   placeholder: string;
   error: string;
@@ -125,9 +128,8 @@ export function RoomThread(props: {
     >
       <RoomThreadRuntime
         roomId={props.roomId}
-        roomName={props.roomName}
+        members={props.members}
         targetBotId={props.targetBotId}
-        targetName={props.targetName}
         needsModel={props.needsModel}
         placeholder={props.placeholder}
         error={props.error}
@@ -149,9 +151,8 @@ export function RoomThread(props: {
 
 const RoomThreadRuntime = memo(function RoomThreadRuntime(props: {
   roomId: string;
-  roomName: string;
+  members: RoomMentionSeat[];
   targetBotId?: string;
-  targetName?: string;
   needsModel: boolean;
   placeholder: string;
   error: string;
@@ -193,6 +194,7 @@ const RoomThreadRuntime = memo(function RoomThreadRuntime(props: {
     onNew,
     isStreaming,
     connectionError,
+    floorBotId,
   } = chat;
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
@@ -232,6 +234,13 @@ const RoomThreadRuntime = memo(function RoomThreadRuntime(props: {
     [onNew],
   );
 
+  const sendRef = useRef(send);
+  sendRef.current = send;
+  const queue = useMemo(
+    () => createImmediateSteerQueue((message) => sendRef.current(message)),
+    [],
+  );
+
   const halt = useCallback(() => {
     abortSendRef.current?.abort();
     return stop();
@@ -243,6 +252,7 @@ const RoomThreadRuntime = memo(function RoomThreadRuntime(props: {
     isRunning: inFlight,
     onNew: send,
     onCancel: halt,
+    queue,
   });
 
   useEffect(() => {
@@ -286,6 +296,11 @@ const RoomThreadRuntime = memo(function RoomThreadRuntime(props: {
     onErrorRef.current(banner);
   }, [banner, props.error]);
 
+  const workingName = roomWorkingName(messages, props.members, {
+    targetBotId: props.targetBotId,
+    floorBotId,
+  });
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <AssistantRuntimeProvider runtime={runtime}>
@@ -296,7 +311,8 @@ const RoomThreadRuntime = memo(function RoomThreadRuntime(props: {
             placeholder={props.placeholder || FIRST_TASK}
             viewerUserId={props.userId}
             viewerImage={props.userImage}
-            botName={props.targetName || props.roomName}
+            botName={workingName}
+            mentionSeats={props.members}
             pending={pending}
             components={THREAD_COMPONENTS}
           />

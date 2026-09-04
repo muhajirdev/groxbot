@@ -49,3 +49,15 @@ export function isWaitingForAssistantTurn(input: ThreadWaitingInput): boolean {
   if (visible) return Boolean(input.pending && !input.isRunning);
   return Boolean(input.pending || input.isRunning);
 }
+
+/** Hire: keep the working state through create + the first socket snapshot. */
+export function isOfficeHireWaiting(input: {
+  opening: boolean;
+  hired: boolean;
+  connected: boolean;
+  failed?: boolean;
+}): boolean {
+  if (input.failed) return false;
+  if (input.opening) return true;
+  return input.hired && !input.connected;
+}

@@ -227,7 +227,7 @@ export function jsonClone<T>(value: T): T | null {
 }
 
 /**
- * AI SDK tools may return a Promise or an AsyncGenerator (Computer `exec`
+ * AI SDK tools may return a Promise or an AsyncGenerator (Computer `shell`
  * streams stdout). Pi `await`s execute() and would otherwise keep the
  * generator as the tool result.
  */

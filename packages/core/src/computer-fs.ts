@@ -10,6 +10,12 @@ export const COMPUTER_SHELL_BACKEND = "worker-shell";
 export const COMPUTER_VFS_ROOT = "/workspace";
 export const COMPUTER_SHELL_DESCRIPTION =
   "Fast Worker shell (just-bash) on this bot’s computer. Core text commands only — no Linux container.";
+/** Pi-facing bash tool. Computer ships this as `exec` — do not leave both names. */
+export const COMPUTER_SHELL_TOOL_NAME = "shell";
+export const COMPUTER_SHELL_TOOL_DESCRIPTION = [
+  "Bash on this computer (just-bash). Argument is `command`. cwd is /workspace.",
+  "This is not the JavaScript sandbox — that is `code` (knowledge, routines, history).",
+].join(" ");
 
 export type ComputerWorkerShell = {
   defaultBackend: typeof COMPUTER_SHELL_BACKEND;
@@ -27,15 +33,22 @@ export function computerWorkerShell(): ComputerWorkerShell {
 }
 
 /**
- * Computer file tools ship as `ls`. Office exposes that tool as `list`
- * only — do not leave both names in the catalog.
+ * Computer file tools ship as `ls` / `exec`. Office exposes `list` / `shell`
+ * only — do not leave both names in the catalog (`exec` rhymes with `code`).
  */
 export function withComputerOfficeTools<T extends Record<string, unknown>>(
   computerTools: T,
-): Omit<T, "ls"> & { list?: T["ls"] } {
-  const { ls, ...rest } = computerTools;
-  if (ls === undefined) return rest as Omit<T, "ls"> & { list?: T["ls"] };
-  return { ...rest, list: ls };
+): Omit<T, "ls" | "exec"> & { list?: T["ls"]; shell?: T["exec"] } {
+  const { ls, exec, ...rest } = computerTools;
+  const out: Record<string, unknown> = { ...rest };
+  if (ls !== undefined) out.list = ls;
+  if (exec !== undefined) {
+    out.shell =
+      exec && typeof exec === "object"
+        ? { ...exec, description: COMPUTER_SHELL_TOOL_DESCRIPTION }
+        : exec;
+  }
+  return out as Omit<T, "ls" | "exec"> & { list?: T["ls"]; shell?: T["exec"] };
 }
 
 export type ComputerFsDirent = {
@@ -114,7 +127,18 @@ export function computerRelativePath(path: string): string {
   return path.replace(/^\/+/u, "");
 }
 
-/** Computer `list` / `exec` cwd is `/workspace`. Create it on the VFS. */
+/**
+ * Computer tools cwd is `/workspace`, so `write({ path: "/workspace/notes.md" })`
+ * lands there. Chat chips often pass `notes.md`. Try both.
+ */
+export function computerVfsPaths(path: string): string[] {
+  const abs = computerAbsolutePath(path);
+  if (abs === "/" || abs === COMPUTER_VFS_ROOT) return [abs];
+  if (abs.startsWith(`${COMPUTER_VFS_ROOT}/`)) return [abs];
+  return [abs, `${COMPUTER_VFS_ROOT}${abs}`];
+}
+
+/** Computer `list` / `shell` cwd is `/workspace`. Create it on the VFS. */
 export async function ensureComputerHome(
   fs: Pick<ComputerFs, "mkdir">,
 ): Promise<void> {
@@ -128,21 +152,27 @@ export async function ensureComputerHome(
 export function diskFromComputerFs(fs: ComputerFs): ComputerWorkspaceDisk {
   return {
     async readFile(path) {
-      try {
-        const text = await fs.readFile(computerAbsolutePath(path), "utf8");
-        return typeof text === "string" ? text : null;
-      } catch (error) {
-        if (isMissing(error)) return null;
-        throw error;
+      for (const abs of computerVfsPaths(path)) {
+        try {
+          const text = await fs.readFile(abs, "utf8");
+          return typeof text === "string" ? text : null;
+        } catch (error) {
+          if (isMissing(error)) continue;
+          throw error;
+        }
       }
+      return null;
     },
     async readFileBytes(path) {
-      try {
-        return await bytesFromFs(fs, computerAbsolutePath(path));
-      } catch (error) {
-        if (isMissing(error)) return null;
-        throw error;
+      for (const abs of computerVfsPaths(path)) {
+        try {
+          return await bytesFromFs(fs, abs);
+        } catch (error) {
+          if (isMissing(error)) continue;
+          throw error;
+        }
       }
+      return null;
     },
     async writeFile(path, content) {
       const abs = computerAbsolutePath(path);
@@ -217,20 +247,23 @@ export function diskFromComputerFs(fs: ComputerFs): ComputerWorkspaceDisk {
       }
     },
     async stat(path) {
-      try {
-        const info = await fs.stat(computerAbsolutePath(path));
-        const relative = computerRelativePath(computerAbsolutePath(path));
-        return toInfo({
-          path: relative,
-          name: relative.split("/").at(-1) ?? relative,
-          directory: Boolean(info.isDirectory) && !info.isFile,
-          size: typeof info.size === "number" ? info.size : 0,
-          mtime: info.mtime,
-        });
-      } catch (error) {
-        if (isMissing(error)) return null;
-        throw error;
+      for (const abs of computerVfsPaths(path)) {
+        try {
+          const info = await fs.stat(abs);
+          const relative = computerRelativePath(abs);
+          return toInfo({
+            path: relative,
+            name: relative.split("/").at(-1) ?? relative,
+            directory: Boolean(info.isDirectory) && !info.isFile,
+            size: typeof info.size === "number" ? info.size : 0,
+            mtime: info.mtime,
+          });
+        } catch (error) {
+          if (isMissing(error)) continue;
+          throw error;
+        }
       }
+      return null;
     },
   };
 }

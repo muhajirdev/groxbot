@@ -4,10 +4,14 @@ import type { WorkersAiBinding } from "@groxbot/adapters/edge";
 import {
   PUBLIC_FETCH_ALLOWLIST,
   runPublicFetch,
+  runTinyfishFetch,
+  runTinyfishSearch,
   runToMarkdown,
   sanitizeComputerPath,
+  tinyfishConfigured,
   type MarkdownBytes,
   type MarkdownDisk,
+  type TinyfishKeyPool,
 } from "@groxbot/core";
 import { z } from "zod";
 import { officeAgentTool } from "./bot-office-tools.js";
@@ -21,11 +25,22 @@ export type PageWorkspace = MarkdownDisk & {
   ): Promise<void> | void;
 };
 
+export const WEB_SEARCH_DESCRIPTION =
+  "Search the public web (TinyFish). Returns ranked titles, snippets, and URLs. Then fetch_url a result you need to read. Do not open a browser just to search.";
+
 export const FETCH_URL_DESCRIPTION =
-  "GET a public http(s) URL. Loopback and private nets are blocked. Large or binary bodies land in inbox/fetch on this computer.";
+  "Read a public http(s) URL (TinyFish). Loopback and private nets are blocked. Returns clean Markdown when TinyFish is set; otherwise a plain GET. Large bodies land in inbox/fetch on this computer. Do not open a browser just to read a page.";
 
 export const TO_MARKDOWN_DESCRIPTION =
   "Convert HTML, a PDF, or a file on this computer to Markdown. Use fetch_url first for a public page, then pass the HTML body here. Pass a workspace path for a file already on this computer. Do not use the browser just to read a page.";
+
+export const webSearchParameters = z.object({
+  query: z.string().min(1).describe("What to search the public web for."),
+  purpose: z
+    .string()
+    .optional()
+    .describe("Why you are searching — a short goal, not the query."),
+});
 
 export const fetchUrlParameters = z.object({
   url: z.string().min(1).describe("Public http(s) URL to read."),
@@ -46,6 +61,14 @@ export const toMarkdownParameters = z.object({
     .describe("Optional filename used to pick a MIME type."),
 });
 
+export type PageToolsOpts = {
+  workspace: PageWorkspace;
+  convert?: (file: MarkdownBytes) => Promise<unknown>;
+  tinyfishApiKey?: string;
+  tinyfishKeys?: TinyfishKeyPool | readonly string[];
+  fetch?: typeof fetch;
+};
+
 export function bindToMarkdown(ai: WorkersAiBinding | undefined) {
   if (!ai?.toMarkdown) return undefined;
   const toMarkdown = ai.toMarkdown.bind(ai);
@@ -56,15 +79,40 @@ export function bindToMarkdown(ai: WorkersAiBinding | undefined) {
     });
 }
 
+export async function runWebSearchTool(
+  input: { query: string; purpose?: string },
+  opts?: Pick<PageToolsOpts, "tinyfishApiKey" | "tinyfishKeys" | "fetch">,
+): Promise<unknown> {
+  return runTinyfishSearch({
+    query: input.query,
+    purpose: input.purpose,
+    apiKey: opts?.tinyfishApiKey,
+    keys: opts?.tinyfishKeys,
+    fetch: opts?.fetch,
+  });
+}
+
 export async function runFetchUrlTool(
   workspace: PageWorkspace,
   url: string,
+  opts?: Pick<PageToolsOpts, "tinyfishApiKey" | "tinyfishKeys" | "fetch">,
 ): Promise<unknown> {
+  if (tinyfishConfigured(opts?.tinyfishKeys ?? opts?.tinyfishApiKey)) {
+    return runTinyfishFetch({
+      url,
+      apiKey: opts?.tinyfishApiKey,
+      keys: opts?.tinyfishKeys,
+      fetch: opts?.fetch,
+      workspace,
+      spillToWorkspace: true,
+    });
+  }
   return runPublicFetch({
     url,
     allowlist: PUBLIC_FETCH_ALLOWLIST,
     workspace,
     spillToWorkspace: true,
+    fetch: opts?.fetch,
   });
 }
 
@@ -83,17 +131,28 @@ export async function runToMarkdownTool(
   });
 }
 
-export function createPageAgentTools(opts: {
-  workspace: PageWorkspace;
-  convert?: (file: MarkdownBytes) => Promise<unknown>;
-}): AgentTool[] {
+export function createPageAgentTools(opts: PageToolsOpts): AgentTool[] {
   return [
+    officeAgentTool({
+      name: "web_search",
+      description: WEB_SEARCH_DESCRIPTION,
+      parameters: webSearchParameters,
+      execute: async (input) =>
+        runWebSearchTool(
+          {
+            query: String(input.query ?? ""),
+            purpose:
+              typeof input.purpose === "string" ? input.purpose : undefined,
+          },
+          opts,
+        ),
+    }),
     officeAgentTool({
       name: "fetch_url",
       description: FETCH_URL_DESCRIPTION,
       parameters: fetchUrlParameters,
       execute: async ({ url }) =>
-        runFetchUrlTool(opts.workspace, String(url ?? "")),
+        runFetchUrlTool(opts.workspace, String(url ?? ""), opts),
     }),
     officeAgentTool({
       name: "to_markdown",

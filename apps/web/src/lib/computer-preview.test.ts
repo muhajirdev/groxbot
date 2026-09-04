@@ -3,6 +3,7 @@ import {
   computerFileKind,
   computerPreviewKind,
   computerPreviewSource,
+  isMarkdownPreview,
 } from "./computer-preview";
 
 describe("computerFileKind", () => {
@@ -44,5 +45,15 @@ describe("computerPreviewSource", () => {
     expect(computerPreviewSource("pdf")).toBe("download");
     expect(computerPreviewSource("image")).toBe("download");
     expect(computerPreviewSource("none")).toBe("none");
+  });
+});
+
+describe("isMarkdownPreview", () => {
+  it("treats md files and markdown media as rendered markdown", () => {
+    expect(isMarkdownPreview("notes/q3.md")).toBe(true);
+    expect(isMarkdownPreview("brief.markdown")).toBe(true);
+    expect(isMarkdownPreview("mystery", "text/markdown")).toBe(true);
+    expect(isMarkdownPreview("notes.txt")).toBe(false);
+    expect(isMarkdownPreview("package.json")).toBe(false);
   });
 });

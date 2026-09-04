@@ -47,7 +47,7 @@ import { client } from "../lib/rpc";
 import { setRpcWorkspaceId } from "../lib/rpc-workspace";
 import { cacheCreatedBot, firstLiveBot } from "../lib/session";
 import { writeCachedWorkspace } from "../lib/workspace-switcher";
-import { Button, Chip, Field, Input, Select, Textarea } from "../ui";
+import { Button, Chip, Field, Input, Select } from "../ui";
 
 const TOOLS = [
   { name: "Gmail", logo: composioLogoUrl("gmail") },
@@ -91,9 +91,7 @@ export function Onboarding(props: { invite?: string }) {
   const [inviteId, setInviteId] = useState("");
   const [step, setStep] = useState(0);
   const [tools, setTools] = useState<string[]>([]);
-  const [name, setName] = useState(FIRST_HIRE.title);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState(FIRST_HIRE.description);
+  const [name, setName] = useState(FIRST_HIRE);
   const [color, setColor] = useState<string>(AVATAR_COLORS[0]);
   const [shape, setShape] = useState<AvatarShape>("circle");
   const [error, setError] = useState("");
@@ -169,9 +167,7 @@ export function Onboarding(props: { invite?: string }) {
 
   function pickJob(job: (typeof SUGGESTED_JOBS)[number]) {
     runGateTransition(() => {
-      setName(job.title);
-      setTitle("");
-      setDescription(job.description);
+      setName(job);
       setStep(5);
     });
   }
@@ -377,9 +373,6 @@ export function Onboarding(props: { invite?: string }) {
     try {
       const bot = await client.bots.create({
         name,
-        title,
-        description,
-        instructions: description,
         avatarColor: color,
         avatarShape: shape,
       });
@@ -792,8 +785,8 @@ export function Onboarding(props: { invite?: string }) {
           </p>
           <div className="gate-tools">
             {SUGGESTED_JOBS.map((job) => (
-              <Chip key={job.title} onClick={() => pickJob(job)}>
-                {job.title}
+              <Chip key={job} onClick={() => pickJob(job)}>
+                {job}
               </Chip>
             ))}
           </div>
@@ -809,10 +802,9 @@ export function Onboarding(props: { invite?: string }) {
       ) : null}
       {step === 5 ? (
         <div className="gate-stage" key="profile">
-          <h1>Name + how it should work.</h1>
+          <h1>Name them.</h1>
           <p className="lede">
-            A Bot is a contact: name, optional job, and the rules it should
-            follow.
+            A Bot is a contact. Who they are grows in the thread.
           </p>
           <div className="my-3 mb-5 flex items-center gap-4">
             <AvatarMark name={name} color={color} shape={shape} large hero />
@@ -838,16 +830,6 @@ export function Onboarding(props: { invite?: string }) {
           </div>
           <Field label="Name">
             <Input value={name} onValueChange={setName} required />
-          </Field>
-          <Field label="Job (optional)">
-            <Input value={title} onValueChange={setTitle} />
-          </Field>
-          <Field label="How it should work">
-            <Textarea
-              rows={4}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
           </Field>
           {error ? <p className="error">{error}</p> : null}
           <div className="gate-nav">

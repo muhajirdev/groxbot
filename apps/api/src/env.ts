@@ -14,6 +14,7 @@ import {
   STAGING_WEB_ORIGIN,
   type WakeupKind,
 } from "@groxbot/contracts";
+import { parseTinyfishKeys } from "@groxbot/core";
 
 export { DURABLE_OBJECT_WAKEUP, HTTP_WAKEUP, IN_PROCESS_WAKEUP };
 
@@ -40,6 +41,8 @@ export interface Env {
   emailFrom?: string;
   encryptionKey?: string;
   composioApiKey?: string;
+  tinyfishApiKey?: string;
+  tinyfishApiKeys: string[];
   production: boolean;
   wakeupKind: WakeupKind;
 }
@@ -108,6 +111,8 @@ export type EnvStrings = {
   EMAIL_FROM?: string;
   ENCRYPTION_KEY?: string;
   COMPOSIO_API_KEY?: string;
+  TINYFISH_API_KEY?: string;
+  TINYFISH_API_KEYS?: string;
   WAKEUP_KIND?: string;
 };
 
@@ -129,6 +134,10 @@ export function loadEnv(source: EnvStrings): Env {
     );
   }
   const webOrigin = read(source, "WEB_ORIGIN") ?? "http://127.0.0.1:5173";
+  const tinyfishApiKeys = parseTinyfishKeys({
+    TINYFISH_API_KEY: read(source, "TINYFISH_API_KEY"),
+    TINYFISH_API_KEYS: read(source, "TINYFISH_API_KEYS"),
+  });
   return {
     databaseUrl,
     authSecret: authSecret || "development-only-change-me-please-32ch",
@@ -167,6 +176,8 @@ export function loadEnv(source: EnvStrings): Env {
     emailFrom: read(source, "EMAIL_FROM"),
     encryptionKey: read(source, "ENCRYPTION_KEY"),
     composioApiKey: read(source, "COMPOSIO_API_KEY")?.trim() || undefined,
+    tinyfishApiKeys,
+    tinyfishApiKey: tinyfishApiKeys[0],
     production: read(source, "NODE_ENV") === "production",
     wakeupKind:
       read(source, "WAKEUP_KIND") === DURABLE_OBJECT_WAKEUP

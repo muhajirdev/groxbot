@@ -16,13 +16,16 @@ import { tool, type ToolSet } from "ai";
 import {
   FETCH_URL_DESCRIPTION,
   fetchUrlParameters,
-  type PageWorkspace,
+  type PageToolsOpts,
   runFetchUrlTool,
   runToMarkdownTool,
+  runWebSearchTool,
   TO_MARKDOWN_DESCRIPTION,
   toMarkdownParameters,
+  WEB_SEARCH_DESCRIPTION,
+  webSearchParameters,
 } from "./bot-markdown.js";
-import { aiToolToPi } from "./bot-office-tools.js";
+import { bindOfficeExecuteTool } from "./bot-office-tools.js";
 
 type LoaderWorker = {
   getEntrypoint: () => {
@@ -158,16 +161,18 @@ export function createBundlingExecutor(
   };
 }
 
-/** Code Mode page tools. The Pi loop sees fetch_url / to_markdown as sibling AgentTools. */
-function pageToolSet(page: {
-  workspace: PageWorkspace;
-  convert?: Parameters<typeof runToMarkdownTool>[0]["convert"];
-}): ToolSet {
+/** Code Mode page tools. The Pi loop sees web_search / fetch_url / to_markdown as sibling AgentTools. */
+function pageToolSet(page: PageToolsOpts): ToolSet {
   return {
+    web_search: tool({
+      description: WEB_SEARCH_DESCRIPTION,
+      inputSchema: webSearchParameters,
+      execute: async (input) => runWebSearchTool(input, page),
+    }),
     fetch_url: tool({
       description: FETCH_URL_DESCRIPTION,
       inputSchema: fetchUrlParameters,
-      execute: async ({ url }) => runFetchUrlTool(page.workspace, url),
+      execute: async ({ url }) => runFetchUrlTool(page.workspace, url, page),
     }),
     to_markdown: tool({
       description: TO_MARKDOWN_DESCRIPTION,
@@ -181,10 +186,7 @@ function pageToolSet(page: {
 export function createOfficeExecuteTool(opts: {
   ctx: DurableObjectState;
   executor: Executor;
-  page?: {
-    workspace: PageWorkspace;
-    convert?: Parameters<typeof runToMarkdownTool>[0]["convert"];
-  };
+  page?: PageToolsOpts;
   connectors?: CodemodeConnector[];
   name?: string;
 }): AgentTool {
@@ -204,7 +206,5 @@ export function createOfficeExecuteTool(opts: {
     connectors,
     name: opts.name ?? "execute",
   });
-  const wrapped = aiToolToPi("execute", runtime.tool());
-  if (!wrapped) throw new Error("Code Mode execute tool is missing execute()");
-  return wrapped;
+  return bindOfficeExecuteTool(runtime.tool());
 }

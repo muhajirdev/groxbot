@@ -1,12 +1,38 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { defaultGenerativeUILibrary } from "@assistant-ui/react-generative-ui";
 import { PRESENT_TYPES } from "@groxbot/contracts";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { KnowledgeFileOpenProvider } from "../components/ChatFileLink";
+import {
+  ComputerFileOpenProvider,
+  KnowledgeFileOpenProvider,
+} from "../components/ChatFileLink";
 import { PresentSurface } from "../components/PresentToolUI";
 
 describe("PresentSurface", () => {
+  it("keeps a long Fact value from crushing the label column", () => {
+    const html = renderToStaticMarkup(
+      createElement(PresentSurface, {
+        tree: {
+          $type: "Card",
+          title: "Protocol",
+          children: [
+            {
+              $type: "Fact",
+              label: "Diet",
+              value:
+                "~1,977 kcal/day vegan, 3 meals (6am, 7am, 11am) — eating window ends ~noon",
+            },
+          ],
+        },
+      }),
+    );
+    expect(html).toContain('data-aui="fact-label">Diet<');
+    expect(html).toContain("1,977 kcal/day");
+  });
+
   it("renders a Card of Facts", () => {
     const html = renderToStaticMarkup(
       createElement(PresentSurface, {
@@ -95,8 +121,29 @@ describe("PresentSurface", () => {
       }),
     );
     expect(html).toContain('data-aui="file"');
+    expect(html).toContain('data-aui="file-mark"');
+    expect(html).toContain('data-kind="md"');
     expect(html).toContain("q3.md");
     expect(html).toContain("Computer");
+    expect(html).not.toContain("data-aui=\"file-download\"");
+  });
+
+  it("adds a download control when a downloader is present", () => {
+    const html = renderToStaticMarkup(
+      createElement(
+        ComputerFileOpenProvider,
+        { onOpen: () => undefined, onDownload: () => undefined },
+        createElement(PresentSurface, {
+          tree: {
+            $type: "File",
+            path: "notes.md",
+            place: "computer",
+          },
+        }),
+      ),
+    );
+    expect(html).toContain('data-aui="file-download"');
+    expect(html).toContain('aria-label="Download notes.md"');
   });
 
   it("enables a knowledge File chip when an opener is present", () => {
@@ -124,5 +171,21 @@ describe("PresentSurface", () => {
       Object.keys(defaultGenerativeUILibrary).sort(),
     );
     expect(PRESENT_TYPES).toContain("File");
+  });
+
+  it("puts each Fact label on its own line inside the thread bubble", () => {
+    const css = readFileSync(
+      join(import.meta.dirname, "../styles.css"),
+      "utf8",
+    );
+    expect(css).toMatch(/\[data-aui="fact"\] \{\n  display: grid;\n  gap: 3px;/);
+    expect(css).toMatch(/\[data-aui="fact"\] > \* \{\n  display: block;/);
+    expect(css).not.toContain('content: " · "');
+    expect(css).toMatch(
+      /\[data-aui="card"\] \{\n  display: grid;\n  gap: 12px;\n  background: none;\n  border: 0;/,
+    );
+    expect(css).toContain(
+      '[data-aui="root"]:has(> [data-aui="file"]:only-child)',
+    );
   });
 });

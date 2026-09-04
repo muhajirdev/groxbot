@@ -48,6 +48,9 @@ describe("knowledgeSearchDoc", () => {
         "# Constraints\nNo mail.",
       ).title,
     ).toBe("Constraints");
+    expect(
+      knowledgeSearchDoc("how-we-work/constraints.md", "No mail.").title,
+    ).toBe("constraints.md");
   });
 
   it("reads a note title from frontmatter", () => {

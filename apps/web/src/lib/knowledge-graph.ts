@@ -34,6 +34,31 @@ export type KnowledgeGraphLayout = {
   height: number;
 };
 
+export type GraphSim = {
+  n: number;
+  x: Float64Array;
+  y: Float64Array;
+  vx: Float64Array;
+  vy: Float64Array;
+  pin: Int8Array;
+  active: Int8Array;
+  degree: Float64Array;
+  alpha: number;
+  alphaTarget: number;
+  rest: number;
+  charge: number;
+  cx: number;
+  cy: number;
+  edges: { from: number; to: number }[];
+};
+
+/** d3-force defaults: cool over ~300 ticks, keep 60% of velocity. */
+const ALPHA_MIN = 0.001;
+const ALPHA_DECAY = 1 - 0.001 ** (1 / 300);
+const VELOCITY_KEEP = 0.6;
+const LINK_ITERATIONS = 3;
+const CENTER_STRENGTH = 0.06;
+
 export type GraphCamera = {
   x: number;
   y: number;
@@ -98,13 +123,20 @@ export function knowledgeGraphLinkedIds(
   return linked;
 }
 
+/** Hover wins over selection. Empty when the graph is at rest. */
+export function knowledgeGraphFocusIds(
+  index: KnowledgeGraphIndex,
+  hover: string | null,
+  selected: string | null,
+): Set<number> {
+  const path = hover ?? selected;
+  if (!path) return new Set();
+  return knowledgeGraphLinkedIds(index, path);
+}
+
 export function graphNodeLabel(path: string): string {
   const parts = path.split("/").filter(Boolean);
-  const last = parts.at(-1) || path;
-  if (/^skill\.md$/i.test(last) && parts.length >= 3) {
-    return parts.at(-2) ?? last;
-  }
-  return last.replace(/\.md$/i, "");
+  return parts.at(-1) || path;
 }
 
 export function graphFolder(path: string): string {
@@ -132,6 +164,15 @@ export function graphCameraScale(
 ): number {
   if (camera.w <= 0) return 1;
   return viewport.width / camera.w;
+}
+
+/** Screen-space transform for a world group. Pan/zoom should set this, not viewBox. */
+export function graphWorldTransform(
+  camera: GraphCamera,
+  viewport: { width: number; height: number },
+): string {
+  const k = graphCameraScale(camera, viewport);
+  return `translate(${-camera.x * k} ${-camera.y * k}) scale(${k})`;
 }
 
 export function worldFromScreen(
@@ -215,18 +256,22 @@ export function fitGraphCamera(
   };
 }
 
-export function graphLabelBox(node: {
-  x: number;
-  y: number;
-  r: number;
-  label: string;
-}): GraphLabelBox {
-  const w = Math.max(28, node.label.length * 6.4);
+export function graphLabelBox(
+  node: {
+    x: number;
+    y: number;
+    r: number;
+    label: string;
+  },
+  zoom = 1,
+): GraphLabelBox {
+  const k = Math.max(0.5, zoom);
+  const w = Math.max(28, node.label.length * 6.4) / k;
   return {
     x: node.x - w / 2,
     y: node.y + node.r + 2,
     w,
-    h: 14,
+    h: 14 / k,
   };
 }
 
@@ -251,19 +296,20 @@ export function pickGraphLabels(
   }[],
   always: ReadonlySet<number>,
   limit = 52,
+  zoom = 1,
 ): Set<number> {
   const shown = new Set<number>(always);
   const boxes: GraphLabelBox[] = [];
   const byId = new Map(nodes.map((node) => [node.id, node]));
   for (const id of always) {
     const node = byId.get(id);
-    if (node) boxes.push(graphLabelBox(node));
+    if (node) boxes.push(graphLabelBox(node, zoom));
   }
   const ranked = [...nodes].sort((a, b) => b.degree - a.degree || a.id - b.id);
   for (const node of ranked) {
     if (shown.has(node.id)) continue;
     if (shown.size >= limit) break;
-    const box = graphLabelBox(node);
+    const box = graphLabelBox(node, zoom);
     if (boxes.some((other) => boxesOverlap(other, box))) continue;
     shown.add(node.id);
     boxes.push(box);
@@ -274,33 +320,18 @@ export function pickGraphLabels(
 export function graphEdgeGeom(
   from: { x: number; y: number; r: number },
   to: { x: number; y: number; r: number },
-  reciprocal: boolean,
-): { d: string; ax: number; ay: number; angle: number } {
+): { d: string } {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   const len = Math.hypot(dx, dy) || 1;
   const ux = dx / len;
   const uy = dy / len;
-  const nx = -uy;
-  const ny = ux;
-  const bend = reciprocal ? Math.min(28, len * 0.18) : Math.min(14, len * 0.08);
-  const x1 = from.x + ux * (from.r + 1.5);
-  const y1 = from.y + uy * (from.r + 1.5);
-  const x2 = to.x - ux * (to.r + 5);
-  const y2 = to.y - uy * (to.r + 5);
-  const cx = (x1 + x2) / 2 + nx * bend;
-  const cy = (y1 + y2) / 2 + ny * bend;
-  const t = 0.72;
-  const mt = 1 - t;
-  const ax = mt * mt * x1 + 2 * mt * t * cx + t * t * x2;
-  const ay = mt * mt * y1 + 2 * mt * t * cy + t * t * y2;
-  const tx = 2 * mt * (cx - x1) + 2 * t * (x2 - cx);
-  const ty = 2 * mt * (cy - y1) + 2 * t * (y2 - cy);
+  const x1 = from.x + ux * (from.r + 1.2);
+  const y1 = from.y + uy * (from.r + 1.2);
+  const x2 = to.x - ux * (to.r + 1.2);
+  const y2 = to.y - uy * (to.r + 1.2);
   return {
-    d: `M ${x1.toFixed(1)} ${y1.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`,
-    ax,
-    ay,
-    angle: (Math.atan2(ty, tx) * 180) / Math.PI,
+    d: `M ${x1.toFixed(1)} ${y1.toFixed(1)} L ${x2.toFixed(1)} ${y2.toFixed(1)}`,
   };
 }
 
@@ -497,7 +528,7 @@ function makeNode(
     path,
     x: (pos?.x ?? 0) + ox,
     y: (pos?.y ?? 0) + oy,
-    r: isolate ? 4.2 : 5.4 + Math.min(7.5, Math.sqrt(degree) * 2),
+    r: isolate ? 3.4 : 4.2 + Math.min(8.5, Math.sqrt(degree) * 2.4),
     label: graphNodeLabel(path),
     folder,
     hue: graphFolderHue(folder),
@@ -608,6 +639,77 @@ function folderCentroids(
     out.set(folder, { x: cur.x / cur.n, y: cur.y / cur.n });
   }
   return out;
+}
+
+function applyCharge(
+  x: Float64Array,
+  y: Float64Array,
+  vx: Float64Array,
+  vy: Float64Array,
+  activeIds: number[],
+  k: number,
+  max2: number,
+) {
+  const n = activeIds.length;
+  if (n <= 220) {
+    for (let a = 0; a < n; a++) {
+      const i = activeIds[a];
+      if (i == null) continue;
+      for (let b = a + 1; b < n; b++) {
+        const j = activeIds[b];
+        if (j == null) continue;
+        pushCharge(x, y, vx, vy, i, j, k, max2);
+      }
+    }
+    return;
+  }
+  const cell = Math.max(48, Math.sqrt(max2) / 8);
+  const buckets = new Map<number, number[]>();
+  const keyAt = (cx: number, cy: number) => cx * 1_000_003 + cy;
+  for (const i of activeIds) {
+    const cx = Math.floor((x[i] ?? 0) / cell);
+    const cy = Math.floor((y[i] ?? 0) / cell);
+    const key = keyAt(cx, cy);
+    const bucket = buckets.get(key);
+    if (bucket) bucket.push(i);
+    else buckets.set(key, [i]);
+  }
+  for (const i of activeIds) {
+    const cx = Math.floor((x[i] ?? 0) / cell);
+    const cy = Math.floor((y[i] ?? 0) / cell);
+    for (let ox = -2; ox <= 2; ox++) {
+      for (let oy = -2; oy <= 2; oy++) {
+        const bucket = buckets.get(keyAt(cx + ox, cy + oy));
+        if (!bucket) continue;
+        for (const j of bucket) {
+          if (j <= i) continue;
+          pushCharge(x, y, vx, vy, i, j, k, max2);
+        }
+      }
+    }
+  }
+}
+
+function pushCharge(
+  x: Float64Array,
+  y: Float64Array,
+  vx: Float64Array,
+  vy: Float64Array,
+  i: number,
+  j: number,
+  k: number,
+  max2: number,
+) {
+  const dx = (x[j] ?? 0) - (x[i] ?? 0);
+  const dy = (y[j] ?? 0) - (y[i] ?? 0);
+  let d2 = dx * dx + dy * dy;
+  if (d2 > max2 || d2 < 1e-8) return;
+  if (d2 < 16) d2 = 16;
+  const w = k / d2;
+  vx[i] = (vx[i] ?? 0) + dx * w;
+  vy[i] = (vy[i] ?? 0) + dy * w;
+  vx[j] = (vx[j] ?? 0) - dx * w;
+  vy[j] = (vy[j] ?? 0) - dy * w;
 }
 
 function applyAllPairsRepulsion(
@@ -740,4 +842,207 @@ function undirectedComponents(ids: number[], out: number[][]): number[][] {
     groups.push(group);
   }
   return groups;
+}
+
+export function createGraphSim(
+  nodes: KnowledgeGraphNode[],
+  edges: KnowledgeGraphEdge[],
+): GraphSim {
+  const n = nodes.reduce((max, node) => Math.max(max, node.id + 1), 0);
+  const x = new Float64Array(n);
+  const y = new Float64Array(n);
+  const vx = new Float64Array(n);
+  const vy = new Float64Array(n);
+  const pin = new Int8Array(n);
+  const active = new Int8Array(n);
+  const degree = new Float64Array(n);
+  let cx = 0;
+  let cy = 0;
+  let live = 0;
+  for (const node of nodes) {
+    x[node.id] = node.x;
+    y[node.id] = node.y;
+    if (!node.isolate) {
+      active[node.id] = 1;
+      cx += node.x;
+      cy += node.y;
+      live += 1;
+    }
+  }
+  if (live > 0) {
+    cx /= live;
+    cy /= live;
+  }
+  const simEdges = edges.map((edge) => {
+    degree[edge.from] = (degree[edge.from] ?? 0) + 1;
+    degree[edge.to] = (degree[edge.to] ?? 0) + 1;
+    return { from: edge.from, to: edge.to };
+  });
+  let restSum = 0;
+  for (const edge of simEdges) {
+    restSum += Math.hypot(
+      (x[edge.to] ?? 0) - (x[edge.from] ?? 0),
+      (y[edge.to] ?? 0) - (y[edge.from] ?? 0),
+    );
+  }
+  const rest =
+    simEdges.length > 0
+      ? Math.min(240, Math.max(72, restSum / simEdges.length))
+      : KNOWLEDGE_GRAPH_REST;
+  return {
+    n,
+    x,
+    y,
+    vx,
+    vy,
+    pin,
+    active,
+    degree,
+    alpha: 0.2,
+    alphaTarget: 0,
+    rest,
+    charge: -rest * 5,
+    cx,
+    cy,
+    edges: simEdges,
+  };
+}
+
+export function pinGraphNode(
+  sim: GraphSim,
+  id: number,
+  x: number,
+  y: number,
+) {
+  if (id < 0 || id >= sim.n) return;
+  sim.pin[id] = 1;
+  sim.x[id] = x;
+  sim.y[id] = y;
+  sim.vx[id] = 0;
+  sim.vy[id] = 0;
+}
+
+export function unpinGraphNode(sim: GraphSim, id: number) {
+  if (id < 0 || id >= sim.n) return;
+  sim.pin[id] = 0;
+}
+
+export function setGraphSimTarget(sim: GraphSim, target: number) {
+  sim.alphaTarget = Math.min(1, Math.max(0, target));
+  if (sim.alphaTarget > sim.alpha) sim.alpha = sim.alphaTarget;
+}
+
+export function heatGraphSim(sim: GraphSim, amount = 0.4) {
+  sim.alpha = Math.min(1, Math.max(sim.alpha, 0) + amount);
+}
+
+export function applySimNodes(
+  sim: GraphSim,
+  nodes: KnowledgeGraphNode[],
+): KnowledgeGraphNode[] {
+  let changed = false;
+  const next = nodes.map((node) => {
+    const x = sim.x[node.id] ?? node.x;
+    const y = sim.y[node.id] ?? node.y;
+    if (x === node.x && y === node.y) return node;
+    changed = true;
+    return { ...node, x, y };
+  });
+  return changed ? next : nodes;
+}
+
+export function graphSimAwake(sim: GraphSim): boolean {
+  return sim.alpha > ALPHA_MIN || sim.alphaTarget > ALPHA_MIN;
+}
+
+/** One live tick. Same model as Obsidian / d3-force. */
+export function stepGraphSim(sim: GraphSim): boolean {
+  if (sim.n === 0) return false;
+  sim.alpha += (sim.alphaTarget - sim.alpha) * ALPHA_DECAY;
+  const alpha = sim.alpha;
+  const activeIds: number[] = [];
+  let pinned = false;
+  for (let i = 0; i < sim.n; i++) {
+    if (sim.active[i]) activeIds.push(i);
+    if (sim.pin[i]) pinned = true;
+  }
+
+  applyCharge(
+    sim.x,
+    sim.y,
+    sim.vx,
+    sim.vy,
+    activeIds,
+    sim.charge * alpha,
+    sim.rest * sim.rest * 64,
+  );
+
+  const rest = sim.rest;
+  for (let pass = 0; pass < LINK_ITERATIONS; pass++) {
+    for (const edge of sim.edges) {
+      if (!sim.active[edge.from] || !sim.active[edge.to]) continue;
+      const degFrom = Math.max(1, sim.degree[edge.from] ?? 1);
+      const degTo = Math.max(1, sim.degree[edge.to] ?? 1);
+      const strength = 0.9 / Math.min(degFrom, degTo);
+      const dx =
+        (sim.x[edge.to] ?? 0) +
+        (sim.vx[edge.to] ?? 0) -
+        ((sim.x[edge.from] ?? 0) + (sim.vx[edge.from] ?? 0));
+      const dy =
+        (sim.y[edge.to] ?? 0) +
+        (sim.vy[edge.to] ?? 0) -
+        ((sim.y[edge.from] ?? 0) + (sim.vy[edge.from] ?? 0));
+      const d = Math.hypot(dx, dy) || 0.01;
+      const l = ((d - rest) / d) * alpha * strength;
+      const b = degFrom / (degFrom + degTo);
+      const fx = dx * l;
+      const fy = dy * l;
+      if (!sim.pin[edge.to]) {
+        sim.vx[edge.to] = (sim.vx[edge.to] ?? 0) - fx * b;
+        sim.vy[edge.to] = (sim.vy[edge.to] ?? 0) - fy * b;
+      }
+      if (!sim.pin[edge.from]) {
+        sim.vx[edge.from] = (sim.vx[edge.from] ?? 0) + fx * (1 - b);
+        sim.vy[edge.from] = (sim.vy[edge.from] ?? 0) + fy * (1 - b);
+      }
+    }
+  }
+
+  let moving = false;
+  for (const i of activeIds) {
+    if (sim.pin[i]) {
+      sim.vx[i] = 0;
+      sim.vy[i] = 0;
+      continue;
+    }
+    sim.vx[i] = (sim.vx[i] ?? 0) * VELOCITY_KEEP;
+    sim.vy[i] = (sim.vy[i] ?? 0) * VELOCITY_KEEP;
+    sim.x[i] = (sim.x[i] ?? 0) + (sim.vx[i] ?? 0);
+    sim.y[i] = (sim.y[i] ?? 0) + (sim.vy[i] ?? 0);
+    if (Math.abs(sim.vx[i] ?? 0) + Math.abs(sim.vy[i] ?? 0) > 0.04) moving = true;
+  }
+
+  if (!pinned && activeIds.length > 0) {
+    let mx = 0;
+    let my = 0;
+    for (const i of activeIds) {
+      mx += sim.x[i] ?? 0;
+      my += sim.y[i] ?? 0;
+    }
+    mx = (mx / activeIds.length - sim.cx) * CENTER_STRENGTH;
+    my = (my / activeIds.length - sim.cy) * CENTER_STRENGTH;
+    if (mx !== 0 || my !== 0) {
+      for (const i of activeIds) {
+        if (sim.pin[i]) continue;
+        sim.x[i] = (sim.x[i] ?? 0) - mx;
+        sim.y[i] = (sim.y[i] ?? 0) - my;
+      }
+    }
+  }
+
+  return moving || graphSimAwake(sim);
+}
+
+export function graphZoomFactor(deltaY: number): number {
+  return Math.exp(-deltaY * 0.0016);
 }

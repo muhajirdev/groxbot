@@ -27,6 +27,7 @@ export function BotContextMenu(props: {
   sections: { id: string; name: string }[];
   onClose: () => void;
   onPin: (bot: Bot) => void;
+  onArchive: (bot: Bot) => void;
   onMove: (bot: Bot, sectionId: string | null) => void;
   onPhase: (next: BotMenuState) => void;
   onDelete: (botId: string) => void;
@@ -46,6 +47,7 @@ export function BotContextMenu(props: {
 
   const items = botMenuItems({
     pinned: isPinnedBot(current.bot),
+    archived: Boolean(current.bot.archivedAt),
     name: current.bot.name,
     phase: current.phase,
     sections: props.sections,
@@ -85,12 +87,17 @@ export function BotContextMenu(props: {
                   className={cn(itemClass, item.id === "delete" && "text-danger")}
                   closeOnClick={
                     item.id === "pin" ||
+                    item.id === "archive" ||
                     item.id === "move-to" ||
                     (item.id === "delete" && current.phase === "confirm-delete")
                   }
                   onClick={() => {
                     if (item.id === "pin") {
                       props.onPin(current.bot);
+                      return;
+                    }
+                    if (item.id === "archive") {
+                      props.onArchive(current.bot);
                       return;
                     }
                     if (item.id === "move") {

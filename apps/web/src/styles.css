@@ -54,8 +54,8 @@
 :root {
   color-scheme: dark;
   --bg: #000000;
-  --bg-side: #111111;
-  --bg-thread: #111111;
+  --bg-side: #161616;
+  --bg-thread: #161616;
   --bg-pane: #1a1a1a;
   --ink: #f4f4f4;
   --muted: #8a8a8a;
@@ -85,7 +85,7 @@
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #f6f6f6;
+  --bg: #f2f2f2;
   --bg-side: #ffffff;
   --bg-thread: #ffffff;
   --bg-pane: #f0f0f0;
@@ -1468,8 +1468,8 @@ a.btn {
 .explorer-chevron {
   display: grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   flex: none;
   border: 0;
   padding: 0;
@@ -1484,28 +1484,10 @@ a.btn {
 .explorer-mark {
   display: grid;
   place-items: center;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   flex: none;
-  color: #9aa0a6;
-}
-
-.explorer-mark.pdf,
-.explorer-mark.file,
-.explorer-mark.html {
-  color: #b0b4ba;
-}
-
-.explorer-mark.image {
-  color: #e89ab8;
-}
-
-.explorer-mark.svg {
-  color: #e0a36c;
-}
-
-.explorer-mark.md {
-  color: #3ecf8e;
+  color: var(--muted);
 }
 
 .explorer-name {
@@ -1933,23 +1915,47 @@ html.electron .pane-head {
 
 [data-aui="root"] {
   display: grid;
-  gap: 10px;
-  width: min(360px, 100%);
+  gap: 12px;
+  width: min(92%, 36rem);
+  padding: 10px 12px 12px;
+  background: var(--card);
+  border-radius: 14px;
   justify-self: start;
+}
+
+@media (min-width: 721px) {
+  [data-aui="root"] {
+    width: min(72%, 36rem);
+  }
+}
+
+:root[data-theme="light"] [data-aui="root"] {
+  background: var(--card-2);
+}
+
+[data-aui="root"]:has(> [data-aui="file"]:only-child),
+[data-aui="root"]:has(> [data-aui="card"]:only-child > [data-aui="file"]:only-child) {
+  width: auto;
+  max-width: 100%;
+  padding: 0;
+  background: none;
+  border-radius: 0;
 }
 
 [data-aui="card"] {
   display: grid;
-  gap: 10px;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 12px;
+  gap: 12px;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
 }
 
 [data-aui="card-title"] {
-  font-size: 13px;
-  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--ink);
 }
 
 [data-aui="card-footer"] {
@@ -1974,14 +1980,22 @@ html.electron .pane-head {
 
 [data-aui="fact"] {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
+  gap: 3px;
   margin: 0;
   font-size: 14px;
+  line-height: 1.45;
+}
+
+[data-aui="fact"] > * {
+  display: block;
+  margin: 0;
 }
 
 [data-aui="fact-label"] {
   color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
 }
 
 [data-aui="fact-value"] {
@@ -2088,32 +2102,113 @@ html.electron .pane-head {
 }
 
 [data-aui="file"] {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: min(100%, 280px);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--card);
   color: inherit;
-  padding: 10px 12px;
+  padding: 6px;
+}
+
+[data-aui="file-open"] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: inherit;
+  padding: 2px 8px 2px 2px;
   font: inherit;
   text-align: left;
   cursor: pointer;
 }
 
-[data-aui="file"]:disabled {
+[data-aui="file-open"]:disabled {
   cursor: default;
 }
 
+[data-aui="file-open"]:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+[data-aui="file-mark"] {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 9px;
+  background: var(--card-2);
+  color: #b0b4ba;
+}
+
+[data-aui="file-mark"] svg {
+  width: 18px;
+  height: 18px;
+}
+
+[data-aui="file-mark"][data-kind="md"] {
+  color: #3ecf8e;
+}
+
+[data-aui="file-mark"][data-kind="image"] {
+  color: #e89ab8;
+}
+
+[data-aui="file-mark"][data-kind="svg"] {
+  color: #e0a36c;
+}
+
+[data-aui="file-copy"] {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
 [data-aui="file-name"] {
-  font-size: 14px;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 550;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 [data-aui="file-place"] {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted);
+}
+
+[data-aui="file-download"] {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+}
+
+[data-aui="file-download"] svg {
+  width: 16px;
+  height: 16px;
+}
+
+[data-aui="file-download"]:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+[data-aui="file-download"]:disabled {
+  cursor: wait;
 }
 
 [data-aui="carousel"] {
@@ -2180,8 +2275,15 @@ html.electron .pane-head {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  min-height: 45px;
   padding: 8px 14px;
   border-bottom: 1px solid var(--line);
+  box-sizing: border-box;
+}
+
+.thread-head {
+  min-height: 45px;
+  box-sizing: border-box;
 }
 
 .pane-title {
@@ -3280,7 +3382,7 @@ html.electron .pane-head {
 
 .knowledge-split {
   display: grid;
-  grid-template-columns: minmax(200px, 240px) minmax(0, 1fr);
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
   min-height: 0;
   flex: 1;
 }
@@ -3289,21 +3391,23 @@ html.electron .pane-head {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: 8px 8px 12px;
+  padding: 12px 12px 16px;
   background: transparent;
   border-right: 1px solid var(--line);
 }
 
 .knowledge-nav-tools {
   display: flex;
-  align-items: center;
-  gap: 2px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
   flex: none;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .knowledge-nav .explorer-search {
-  flex: 1;
+  flex: none;
+  width: 100%;
   min-width: 0;
   margin-bottom: 0;
 }
@@ -3313,8 +3417,14 @@ html.electron .pane-head {
 }
 
 .knowledge-tree .explorer-row {
-  min-height: 26px;
-  border-radius: 6px;
+  min-height: 30px;
+  gap: 8px;
+  border-radius: 8px;
+}
+
+.knowledge-tree .explorer-row.dir .explorer-name {
+  color: var(--muted);
+  font-weight: 500;
 }
 
 .knowledge-tree .explorer-more {
@@ -3465,19 +3575,63 @@ html.electron .pane-head {
 
 .knowledge-empty {
   display: grid;
-  place-items: center;
+  place-items: start;
   flex: 1;
   min-height: 0;
-  padding: 32px 24px;
+  padding: 40px 32px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
-  text-align: center;
+  text-align: left;
 }
 
 .knowledge-empty p {
   margin: 0;
-  max-width: 16rem;
+  max-width: 22rem;
+}
+
+.knowledge-folder {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.knowledge-folder-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px 16px 32px;
+  overflow: auto;
+}
+
+.knowledge-folder-item {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.knowledge-folder-item:hover {
+  background: var(--hover);
+}
+
+.knowledge-folder-name {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.knowledge-folder-desc {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
 }
 
 .knowledge-hint {
@@ -3555,6 +3709,7 @@ html.electron .pane-head {
   display: flex;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 .knowledge-graph-canvas .knowledge-empty {
@@ -3578,90 +3733,125 @@ html.electron .pane-head {
   cursor: grabbing;
 }
 
+.knowledge-graph-world {
+  transform-origin: 0 0;
+}
+
+.knowledge-graph-edge {
+  transition: opacity 140ms ease;
+}
+
 .knowledge-graph-edge path {
   fill: none;
-  stroke: color-mix(in srgb, var(--ink) 16%, transparent);
-  stroke-width: 1;
   stroke-linecap: round;
   vector-effect: non-scaling-stroke;
 }
 
-.knowledge-graph-arrow {
-  fill: color-mix(in srgb, var(--ink) 28%, transparent);
+.knowledge-graph-edge-glow {
+  stroke: color-mix(in srgb, var(--ink) 7%, transparent);
+  stroke-width: 5;
 }
 
-.knowledge-graph-edge.linked path {
-  stroke: color-mix(in srgb, var(--ink) 58%, transparent);
-  stroke-width: 1.35;
+.knowledge-graph-edge-core {
+  stroke: color-mix(in srgb, var(--ink) 18%, transparent);
+  stroke-width: 1.05;
 }
 
-.knowledge-graph-edge.linked .knowledge-graph-arrow {
-  fill: color-mix(in srgb, var(--ink) 58%, transparent);
+.knowledge-graph-edge.linked .knowledge-graph-edge-glow {
+  stroke: color-mix(in srgb, var(--ink) 22%, transparent);
+  stroke-width: 7;
+}
+
+.knowledge-graph-edge.linked .knowledge-graph-edge-core {
+  stroke: color-mix(in srgb, var(--ink) 72%, transparent);
+  stroke-width: 1.45;
 }
 
 .knowledge-graph-edge.faded {
-  opacity: 0.28;
+  opacity: 0.07;
 }
 
 .knowledge-graph-node {
   cursor: pointer;
+  transition: opacity 140ms ease;
 }
 
-.knowledge-graph-node circle {
-  fill: color-mix(
-    in srgb,
-    var(--muted) 78%,
-    hsl(var(--graph-hue) 40% 50%)
-  );
-  stroke: color-mix(in srgb, var(--ink) 12%, transparent);
+.knowledge-graph-hit {
+  fill: transparent;
+  stroke: none;
+}
+
+.knowledge-graph-glow {
+  fill: hsl(var(--graph-hue) 55% 58% / 0.16);
+  stroke: none;
+}
+
+.knowledge-graph-dot {
+  fill: hsl(var(--graph-hue) 48% 58%);
+  stroke: hsl(var(--graph-hue) 40% 38% / 0.35);
   stroke-width: 1;
   vector-effect: non-scaling-stroke;
 }
 
-.knowledge-graph-node.linked circle {
-  fill: color-mix(
-    in srgb,
-    var(--muted) 52%,
-    hsl(var(--graph-hue) 38% 52%)
-  );
-  stroke: color-mix(in srgb, var(--ink) 24%, transparent);
+.knowledge-graph-node.linked .knowledge-graph-glow {
+  fill: hsl(var(--graph-hue) 60% 62% / 0.32);
 }
 
-.knowledge-graph-node.selected circle {
-  fill: var(--ink);
-  stroke: transparent;
+.knowledge-graph-node.linked .knowledge-graph-dot {
+  fill: hsl(var(--graph-hue) 58% 64%);
+  stroke: color-mix(in srgb, var(--ink) 28%, transparent);
 }
 
-.knowledge-graph-glow {
-  fill: color-mix(in srgb, var(--ink) 16%, transparent);
+.knowledge-graph-node.selected .knowledge-graph-glow {
+  fill: hsl(var(--graph-hue) 62% 66% / 0.42);
 }
 
-.knowledge-graph-node.missing circle {
+.knowledge-graph-node.selected .knowledge-graph-dot {
+  fill: hsl(var(--graph-hue) 62% 68%);
+  stroke: var(--ink);
+  stroke-width: 1.6;
+}
+
+.knowledge-graph-node.missing .knowledge-graph-dot {
   stroke-dasharray: 2.4 2;
-  fill-opacity: 0.32;
+  fill-opacity: 0.38;
 }
 
-.knowledge-graph-node.isolate circle {
-  fill-opacity: 0.62;
+.knowledge-graph-node.isolate .knowledge-graph-dot {
+  fill: color-mix(in srgb, var(--muted) 55%, hsl(var(--graph-hue) 30% 50%));
+  fill-opacity: 0.7;
 }
 
 .knowledge-graph-node.faded {
-  opacity: 0.32;
+  opacity: 0.12;
 }
 
 .knowledge-graph-node text {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
-  fill: var(--ink);
+  fill: var(--muted);
   pointer-events: none;
   paint-order: stroke;
   stroke: var(--bg-thread);
-  stroke-width: 4px;
+  stroke-width: 5px;
   stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.knowledge-graph-node.linked text,
+.knowledge-graph-node.selected text {
+  fill: var(--ink);
 }
 
 .knowledge-graph-node.missing text {
   fill: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .knowledge-graph-edge,
+  .knowledge-graph-node {
+    transition: none;
+  }
 }
 
 .knowledge-graph-legend {
@@ -3695,11 +3885,7 @@ html.electron .pane-head {
   width: 7px;
   height: 7px;
   border-radius: 99px;
-  background: color-mix(
-    in srgb,
-    var(--muted) 72%,
-    hsl(var(--graph-hue) 40% 50%)
-  );
+  background: hsl(var(--graph-hue) 48% 58%);
 }
 
 .knowledge-draft {
@@ -3742,8 +3928,15 @@ html.electron .pane-head {
   color: inherit;
 }
 
-.skill-slash-item:hover {
+.skill-slash-item:hover,
+.skill-slash-item.on {
   background: var(--hover);
+}
+
+.mention-slash-item {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
 }
 
 .skill-slash-name {
@@ -3779,6 +3972,10 @@ html.electron .pane-head {
 
 .command-palette.modal-popup[data-ending-style] {
   transition-duration: 80ms;
+}
+
+.command-palette [role="option"][aria-selected="true"] {
+  background: var(--card-2);
 }
 
 .command-palette-backdrop.modal-backdrop {

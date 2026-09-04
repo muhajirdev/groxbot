@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   coversKnowledgePath,
   filterKnowledgeTree,
+  findKnowledgeNode,
   knowledgeMenuItems,
   nestKnowledgeTree,
   officeSkills,
@@ -33,6 +34,7 @@ describe("nestKnowledgeTree", () => {
     expect(tree.map((node) => node.path)).toEqual(["how-we-work", "playbooks"]);
     expect(tree[1]?.children[0]?.children[0]).toMatchObject({
       path: "playbooks/weekly-update/SKILL.md",
+      name: "SKILL.md",
       kind: "file",
     });
   });
@@ -42,6 +44,19 @@ describe("filterKnowledgeTree", () => {
   it("keeps a parent when a child description matches", () => {
     const found = filterKnowledgeTree(nestKnowledgeTree(entries), "monday");
     expect(found.map((node) => node.path)).toEqual(["playbooks"]);
+  });
+});
+
+describe("findKnowledgeNode", () => {
+  it("finds a nested folder or file", () => {
+    const tree = nestKnowledgeTree(entries);
+    expect(findKnowledgeNode(tree, "playbooks/weekly-update")?.kind).toBe(
+      "dir",
+    );
+    expect(findKnowledgeNode(tree, "how-we-work/constraints.md")?.name).toBe(
+      "constraints.md",
+    );
+    expect(findKnowledgeNode(tree, "missing")).toBeNull();
   });
 });
 

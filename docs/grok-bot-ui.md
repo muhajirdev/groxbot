@@ -31,7 +31,7 @@ Quote they highlight: *“There wasn’t anything to learn. It was just like bri
 Copy this:
 
 - First action is **talk**, not configure a graph.
-- A Bot is a **contact**: name, optional job, description, avatar, one thread.
+- A Bot is a **contact**: name, avatar, one thread.
 - Apps (docs / slides / sheets) open from a **card in chat**. No file manager.
 - Plugins exist, but first task can be “summarize this file” with no connector.
 
@@ -64,7 +64,7 @@ Three regions. Looks like iMessage, not Linear. The computer icon in the thread 
 
 - **Left:** roster of Bots. Search. `+` → Create new agent. Plugins and you at the bottom.
 - **Center:** one conversation. Transcript is the audit log. In-thread **Computer** cards still **Open computer**. Header: computer icon, gear (profile), collapse.
-- **Right:** computer icon → **Starting desktop** / `{Bot}'s screen` + **Routines** (Agents schedules on that bot: `every weekday at 09:00`). Gear → Bot settings (name, title, description, notify). Collapse hides the pane.
+- **Right:** computer icon → **Starting desktop** / `{Bot}'s screen` + **Routines** (Agents schedules on that bot: `every weekday at 09:00`). Gear → Bot settings (name, avatar). Collapse hides the pane.
 
 Composer:
 
@@ -85,7 +85,7 @@ Docs examples: **Talent Scout**, **Expense Manager**, **Bug Reproduction**. Avoi
 ## Visual style
 
 - **Messaging app**, not a dashboard. No kanban of agents as the home screen.
-- Each Bot: **short name**, optional **job**, **description**, **avatar**.
+- Each Bot: **short name**, **avatar**.
 - Avatar onboarding: pick a **color** and a **rounded mark** (circle by default — a flat blob with two slits, not a photoreal face). Shape and mood morph; they do not crossfade. Sidebar shows that mascot like a contact photo. Working bots bounce.
 - Appearance: Follow system / Light / Dark (`Cmd/Ctrl+,`).
 - Attention in the list:
@@ -126,17 +126,17 @@ Desktop ([get started](https://docs.x.ai/grok-bot/get-started)):
     suggested jobs     or    [ Create your own ]
          |
          v
-  Name + one primary job + how it should work
+  Name them.
   Open the thread. First message is a real task.
 ```
 
 Create-your-own fields (example from docs):
 
 - **Name:** Piper
-- **Job:** Product performance (optional)
-- **Description:** operational rules — sources, output shape, **never** change production.
 
-After that, **New** / `Cmd+N` → **Create new agent** → opens **New Agent** → **Bot actions → Edit Profile** (name, title, description, avatar) → give a task.
+Soul (voice, taste, how they work) grows in the thread via `set_context`. Not a Settings essay.
+
+After that, **New** / `Cmd+N` → **Create new agent** → opens **New Agent** → **Bot actions → Edit Profile** (name, avatar) → give a task.
 
 iPhone: Login with Cursor → first-run tour → choose first Bot → wait for computer → same roster. `+` → New Agent | New Group Chat.
 
@@ -169,12 +169,12 @@ Label: **Agent Computer** (we can say **Computer**).
 
 ## Profile vs chat
 
-| Put in description (durable) | Put in a message (this task) |
+| Put in soul (durable) | Put in a message (this task) |
 | --- | --- |
 | Never send mail without approval | Draft follow-ups for these 12 accounts |
 | How to format weekly reports | Use last week’s numbers |
 
-Edit: **View conversation details → Agent settings** (name, title, description, avatar, notify).
+Edit: **View conversation details → Agent settings** (name, avatar).
 
 Sidebar: Pin, Hide (work continues), Show hidden, Duplicate (profile only, not history), Delete.
 
@@ -204,7 +204,7 @@ Empty composer and New Agent must still work without those.
 
 ## Implementation checklist (web)
 
-1. Welcome → sign in → **create or join a workspace** → tour → tools → **models (BYOK)** → “meet a teammate” (name, title, description, color+shape).
+1. Welcome → sign in → **create or join a workspace** → tour → tools → **models (BYOK)** → “meet a teammate” (name, color+shape).
 2. Sidebar of Bots; click = that office thread.
 3. Chat transcript with inline “working,” files, approval.
 4. Computer pane: this bot’s Cloudflare Computer workspace (empty first). No takeover, no desk RPC. Wakeup is the bot’s actor, not a queue UI.

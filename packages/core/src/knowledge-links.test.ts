@@ -5,6 +5,7 @@ import {
   emptyKnowledgeLinkSnapshot,
   extractOfficeMarkdownPaths,
   isKnowledgeLinksPath,
+  KNOWLEDGE_MARKDOWN_LINK_HINT,
   knowledgeBacklinks,
   parseKnowledgeLinkSnapshot,
   parseOfficeMarkdownHref,
@@ -70,5 +71,15 @@ describe("knowledge link snapshot", () => {
     const parsed = parseKnowledgeLinkSnapshot(JSON.stringify(snap));
     expect(parsed?.paths).toEqual(snap.paths);
     expect(parsed?.out).toEqual(snap.out);
+  });
+});
+
+describe("KNOWLEDGE_MARKDOWN_LINK_HINT", () => {
+  it("tells the agent how to link notes when writing a file", () => {
+    expect(KNOWLEDGE_MARKDOWN_LINK_HINT).toMatch(
+      /\[label\]\(path\/from\/office\/root\.md\)/,
+    );
+    expect(KNOWLEDGE_MARKDOWN_LINK_HINT).toMatch(/\[\[wikilinks\]\]/);
+    expect(KNOWLEDGE_MARKDOWN_LINK_HINT).toMatch(/When you write a knowledge file/);
   });
 });

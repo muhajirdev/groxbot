@@ -44,6 +44,28 @@ export function writeAutoReviewRules(value: string): void {
   localStorage.setItem("groxbot.autoReviewRules", value);
 }
 
+export const AUTO_TIMEZONE = "auto";
+
+export function readTimezonePref(): string {
+  try {
+    const value = localStorage.getItem("groxbot.timezone")?.trim();
+    return value || AUTO_TIMEZONE;
+  } catch {
+    return AUTO_TIMEZONE;
+  }
+}
+
+export function writeTimezonePref(value: string): void {
+  try {
+    localStorage.setItem(
+      "groxbot.timezone",
+      value.trim() || AUTO_TIMEZONE,
+    );
+  } catch {
+    // Private mode.
+  }
+}
+
 const collapsedSectionsKey = (workspaceId: string) =>
   `groxbot.sections.collapsed.${workspaceId}`;
 

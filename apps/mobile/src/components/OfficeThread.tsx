@@ -42,6 +42,7 @@ import { officeUserMessageSender } from "../lib/office-sender";
 import { orpc, queryClient } from "../lib/orpc";
 import { pickOfficeFiles, pickOfficePhotos } from "../lib/pick-file";
 import { client } from "../lib/rpc";
+import { createImmediateSteerQueue } from "../lib/thread-steer-queue";
 import { isWaitingForAssistantTurn } from "../lib/thread-waiting";
 import { useOfficeChat } from "../lib/use-office-chat";
 import { projectedToThreadMessage } from "../lib/use-pi-thread";
@@ -187,6 +188,13 @@ function OfficeThreadRuntime(props: {
     [onNew, setWorking],
   );
 
+  const sendRef = useRef(send);
+  sendRef.current = send;
+  const queue = useMemo(
+    () => createImmediateSteerQueue((message) => sendRef.current(message)),
+    [],
+  );
+
   const halt = useCallback(() => {
     abortSendRef.current?.abort();
     return stop();
@@ -213,6 +221,7 @@ function OfficeThreadRuntime(props: {
     isRunning: inFlight,
     onNew: send,
     onCancel: halt,
+    queue,
     adapters: { attachments },
   });
 
@@ -591,16 +600,14 @@ function Composer(props: { placeholder: string; pending?: boolean }) {
         <View style={styles.actionLeft}>
           <AttachButton />
         </View>
-        <AuiIf condition={(s) => !s.thread.isRunning && !pending}>
-          <ComposerPrimitive.Send style={styles.send}>
-            <Text style={styles.sendLabel}>Send</Text>
-          </ComposerPrimitive.Send>
-        </AuiIf>
         <AuiIf condition={(s) => s.thread.isRunning || pending}>
           <ComposerPrimitive.Cancel style={styles.stop}>
             <Text style={styles.stopLabel}>Stop</Text>
           </ComposerPrimitive.Cancel>
         </AuiIf>
+        <ComposerPrimitive.Send style={styles.send}>
+          <Text style={styles.sendLabel}>Send</Text>
+        </ComposerPrimitive.Send>
       </View>
     </ComposerPrimitive.Root>
   );
