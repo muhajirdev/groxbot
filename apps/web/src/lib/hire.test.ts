@@ -42,6 +42,8 @@ describe("draftCreatedBot", () => {
     expect(bot.threadId).toBe("bot-1");
     expect(bot.homeRoomId).toBe("bot-1");
     expect(bot.guestKind).toBe("off");
+    expect(bot.visibility).toBe("private");
+    expect(bot.userId).toBe("user");
     expect(bot.archivedAt).toBeNull();
     expect(bot.pinnedAt).toBeNull();
     expect(bot.sectionId).toBeNull();

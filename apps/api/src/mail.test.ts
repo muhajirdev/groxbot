@@ -1,6 +1,12 @@
 import { MAIL_CLOUDFLARE, MAIL_LOG } from "@groxbot/contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cloudflareMailConfigured, createMailer, parseFrom } from "./mail.js";
+import {
+  cloudflareMailConfigured,
+  createMailer,
+  mailFrom,
+  parseFrom,
+  sendAwayOfficeMail,
+} from "./mail.js";
 
 describe("parseFrom", () => {
   it("keeps a bare address", () => {
@@ -93,5 +99,52 @@ describe("createMailer", () => {
       from: "noreply@groxbot.com",
       subject: "Join Acme on Groxbot",
     });
+  });
+});
+
+describe("sendAwayOfficeMail", () => {
+  it("sends from the bot name", async () => {
+    expect(mailFrom("Groxbot <noreply@mail.groxbot.com>", "Reja")).toEqual({
+      email: "noreply@mail.groxbot.com",
+      name: "Reja",
+    });
+    const send = vi.fn(async () => ({ messageId: "msg_away" }));
+    await sendAwayOfficeMail(
+      {
+        emailFrom: "Groxbot <noreply@mail.groxbot.com>",
+        email: { send },
+      },
+      {
+        to: "you@example.com",
+        botName: "Reja",
+        url: "https://app.groxbot.com/acme/room/room_1",
+        excerpt: "Shortlist is in the thread.",
+      },
+    );
+    expect(send).toHaveBeenCalledOnce();
+    expect(send.mock.calls[0]?.[0]).toMatchObject({
+      to: "you@example.com",
+      from: { email: "noreply@mail.groxbot.com", name: "Reja" },
+      subject: "Reja finished",
+    });
+  });
+
+  it("escapes excerpt HTML", async () => {
+    const send = vi.fn(async () => undefined);
+    await sendAwayOfficeMail(
+      {
+        emailFrom: "noreply@mail.groxbot.com",
+        email: { send },
+      },
+      {
+        to: "you@example.com",
+        botName: "Reja",
+        url: "https://app.groxbot.com/acme/room/room_1",
+        excerpt: "<script>x</script>",
+      },
+    );
+    expect(String(send.mock.calls[0]?.[0]?.html)).toContain(
+      "&lt;script&gt;x&lt;/script&gt;",
+    );
   });
 });

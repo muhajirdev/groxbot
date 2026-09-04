@@ -80,10 +80,32 @@ describe("botMenuItems", () => {
       { id: "delete", label: "Delete", danger: true },
     ]);
     expect(
-      botMenuItems({ pinned: true, name: "Piper", phase: "confirm-delete" }),
+      botMenuItems({
+        pinned: false,
+        name: "Piper",
+        phase: "actions",
+        owner: true,
+        visibility: "private",
+      }),
     ).toEqual([
-      { id: "delete", label: "Delete Piper", danger: true },
-      { id: "cancel-delete", label: "Cancel" },
+      { id: "pin", label: "Pin" },
+      { id: "archive", label: "Archive" },
+      { id: "share", label: "Share with office" },
+      { id: "delete", label: "Delete", danger: true },
+    ]);
+    expect(
+      botMenuItems({
+        pinned: false,
+        name: "Piper",
+        phase: "actions",
+        owner: true,
+        visibility: "shared",
+      }),
+    ).toEqual([
+      { id: "pin", label: "Pin" },
+      { id: "archive", label: "Archive" },
+      { id: "share", label: "Make private" },
+      { id: "delete", label: "Delete", danger: true },
     ]);
   });
 
@@ -106,6 +128,15 @@ describe("botMenuBox", () => {
   it("grows for the confirm labels", () => {
     expect(botMenuBox("confirm-delete").width).toBeGreaterThan(
       botMenuBox("actions").width,
+    );
+  });
+
+  it("grows with extra action rows", () => {
+    expect(botMenuBox("actions", 5).height).toBeGreaterThan(
+      botMenuBox("actions", 3).height,
+    );
+    expect(botMenuBox("actions", 5).height).toBeGreaterThan(
+      botMenuBox("actions", 4).height,
     );
   });
 

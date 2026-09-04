@@ -5,6 +5,7 @@ import type {
   KnowledgeImportInput,
   KnowledgeImportResult,
   KnowledgeList,
+  KnowledgeSearch,
   KnowledgeWrite,
 } from "@groxbot/contracts";
 import {
@@ -19,6 +20,7 @@ import {
   listKnowledgeGraph,
   readKnowledge,
   removeKnowledge,
+  searchKnowledge,
   writeKnowledge,
   type KnowledgeDisk,
   type SkillImportHttp,
@@ -26,6 +28,11 @@ import {
 
 export type KnowledgeAccess = {
   list(workspaceId: string): Promise<KnowledgeList>;
+  search(
+    workspaceId: string,
+    query: string,
+    limit?: number,
+  ): Promise<KnowledgeSearch>;
   read(workspaceId: string, path: string): Promise<KnowledgeFile>;
   download(workspaceId: string, path: string): Promise<ComputerDownload>;
   backlinks(workspaceId: string, path: string): Promise<{ sources: string[] }>;
@@ -47,6 +54,8 @@ export function knowledgeAccess(
 ): KnowledgeAccess {
   return {
     list: (workspaceId) => listKnowledge(disk, workspaceId),
+    search: (workspaceId, query, limit) =>
+      searchKnowledge(disk, workspaceId, query, limit),
     read: (workspaceId, path) => readKnowledge(disk, workspaceId, path),
     download: (workspaceId, path) => downloadKnowledge(disk, workspaceId, path),
     backlinks: async (workspaceId, path) => ({
@@ -68,6 +77,9 @@ export function emptyKnowledgeAccess(): KnowledgeAccess {
   return {
     async list() {
       return { entries: [], truncated: false };
+    },
+    async search() {
+      return { hits: [], truncated: false };
     },
     async read() {
       throw new KnowledgeFileError("Knowledge is not configured.");

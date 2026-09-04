@@ -152,6 +152,7 @@ import {
 import {
   type BotMenuPhase,
   botMenuBox,
+  botMenuItems,
   compareSidebarBots,
   groupSidebarBots,
   isPinnedBot,
@@ -226,7 +227,15 @@ const BotRow = memo(function BotRow(props: {
           props.selected && "bg-selected",
           props.muted && "opacity-70",
         )}
-        aria-label={pinned ? `${item.name}, pinned` : item.name}
+        aria-label={
+          item.visibility === "private"
+            ? pinned
+              ? `${item.name}, private, pinned`
+              : `${item.name}, private`
+            : pinned
+              ? `${item.name}, pinned`
+              : item.name
+        }
         onClick={props.onPick}
         onContextMenu={(event) => {
           event.preventDefault();
@@ -256,6 +265,11 @@ const BotRow = memo(function BotRow(props: {
               <span className="truncate text-[13px] font-semibold">
                 {item.name}
               </span>
+              {item.visibility === "private" ? (
+                <span className="shrink-0 text-[11px] font-normal text-muted">
+                  Private
+                </span>
+              ) : null}
               {pinned ? (
                 <PinIcon className="size-3 shrink-0 text-muted" weight="fill" />
               ) : null}
@@ -862,7 +876,16 @@ export function Chat(props: {
   }
 
   const openBotMenu = useCallback((event: MouseEvent, item: Bot) => {
-    const box = botMenuBox("actions", sections.length > 0 ? 4 : 3);
+    const items = botMenuItems({
+      pinned: isPinnedBot(item),
+      archived: Boolean(item.archivedAt),
+      name: item.name,
+      phase: "actions",
+      sections,
+      owner: Boolean(me?.userId && item.userId === me.userId),
+      visibility: item.visibility,
+    });
+    const box = botMenuBox("actions", items.length);
     setSectionMenu(null);
     setRoomMenu(null);
     setBotMenu({
@@ -871,7 +894,7 @@ export function Chat(props: {
       x: Math.min(event.clientX, window.innerWidth - box.width - 8),
       y: Math.min(event.clientY, window.innerHeight - box.height - 8),
     });
-  }, [sections.length]);
+  }, [me?.userId, sections]);
 
   const openRoomMenu = useCallback((event: MouseEvent, item: Room) => {
     const box = roomMenuBox("actions");
@@ -966,6 +989,25 @@ export function Chat(props: {
     }
   }
 
+  async function toggleShare(item: Bot) {
+    const previous = item.visibility;
+    const visibility = previous === "shared" ? "private" : "shared";
+    patchBot(item.id, { visibility });
+    setBotMenu(null);
+    try {
+      const next = await client.bots.update({ botId: item.id, visibility });
+      patchBot(item.id, { visibility: next.visibility });
+    } catch (caught: unknown) {
+      patchBot(item.id, { visibility: previous });
+      patchThreadMeta(item.id, {
+        error: userFacingError(
+          caught,
+          visibility === "shared" ? "Could not share" : "Could not make private",
+        ),
+      });
+    }
+  }
+
   const hire = useCallback(
     async (name: string) => {
       const trimmed = name.trim();
@@ -982,6 +1024,7 @@ export function Chat(props: {
         workspaceId: props.workspace.id,
         name: trimmed,
         avatarColor,
+        userId: me?.userId,
       });
       try {
         await cacheCreatedBot(draft);
@@ -1012,7 +1055,7 @@ export function Chat(props: {
         hiring.current = false;
       }
     },
-    [currentBotId, goToBot, props.workspace.id],
+    [currentBotId, goToBot, me?.userId, props.workspace.id],
   );
 
   const createRoom = useCallback(
@@ -2031,6 +2074,9 @@ export function Chat(props: {
           {desk.library ? (
             <KnowledgeLibrary
               path={desk.knowledge ?? null}
+              folder={
+                libraryShowsSkills(desk) ? SKILLS_LIBRARY_PATH : undefined
+              }
               onPath={(path) => setDesk(deskLibrary(desk, path))}
               onClose={() => setDesk(closeLibrary(desk))}
             />
@@ -2039,6 +2085,7 @@ export function Chat(props: {
           <PluginsModal
             open={pluginsOpen}
             botId={activeId}
+            meUserId={me?.userId}
             onClose={() => setPluginsOpen(false)}
           />
           <AppSettings
@@ -2134,9 +2181,11 @@ export function Chat(props: {
           <BotContextMenu
             menu={botMenu}
             sections={sections.map((row) => ({ id: row.id, name: row.name }))}
+            ownerUserId={me?.userId}
             onClose={() => setBotMenu(null)}
             onPin={(bot) => void togglePin(bot)}
             onArchive={(bot) => void toggleArchive(bot)}
+            onShare={(bot) => void toggleShare(bot)}
             onMove={(bot, sectionId) => void moveBotToSection(bot, sectionId)}
             onPhase={setBotMenu}
             onDelete={(botId) => void deleteTeammate(botId)}

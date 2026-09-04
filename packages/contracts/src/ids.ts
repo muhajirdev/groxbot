@@ -38,6 +38,10 @@ export const AvatarShape = z.enum([
 ]);
 export type AvatarShape = z.infer<typeof AvatarShape>;
 
+/** Roster person or MCP: yours, or the whole office. */
+export const Visibility = z.enum(["private", "shared"]);
+export type Visibility = z.infer<typeof Visibility>;
+
 /** Off = Groxbot’s own runtime. Other values are outbound guest agents. */
 export const GuestKind = z.enum(["off", "hermes", "openclaw", "generic"]);
 export type GuestKind = z.infer<typeof GuestKind>;

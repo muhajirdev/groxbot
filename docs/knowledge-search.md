@@ -10,7 +10,7 @@ Markdown on R2 is truth. Search is a disposable cache plus an in-memory ranker. 
 - Rebuild on first miss (one R2 `GET` per note). A write patches the snapshot.
 - Leftover `_search/manifest.json` + `_search/s/*.json` shards are read once, then folded into `index.json`.
 
-Library UI still filters the tree client-side. The ranked index is for the agent (and any future RPC search).
+Library UI uses the same ranked index (`knowledge.search` over oRPC). While the query is in flight, the tree still filters names client-side so the pane never waits. A quiet line under the field says whether results are ranked notes, still searching, or name matches only.
 
 ## Self-improving office
 

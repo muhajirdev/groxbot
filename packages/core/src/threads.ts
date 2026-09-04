@@ -8,6 +8,7 @@ import {
   threads,
 } from "@groxbot/db";
 import { and, asc, desc, eq, gt } from "drizzle-orm";
+import { parseVisibility } from "./visibility.js";
 
 export function iso(value: Date | null | undefined): string | null {
   return value ? value.toISOString() : null;
@@ -52,6 +53,8 @@ export function toBotDto(
   return {
     id: bot.id,
     workspaceId: bot.workspaceId,
+    userId: bot.userId,
+    visibility: parseVisibility(bot.visibility),
     name: bot.name,
     title: bot.title,
     description: bot.description,

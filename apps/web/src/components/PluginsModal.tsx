@@ -31,6 +31,7 @@ const MCP_MESSAGE = "groxbot:mcp";
 export function PluginsModal(props: {
   open: boolean;
   botId?: string;
+  meUserId?: string;
   onClose: () => void;
 }) {
   const [tab, setTab] = useState<PluginTab>("search");
@@ -237,6 +238,25 @@ export function PluginsModal(props: {
     }
   }
 
+  async function shareRemoteMcp(row: McpConnection) {
+    const visibility = row.visibility === "shared" ? "private" : "shared";
+    setError("");
+    setBusy(row.id);
+    try {
+      const next = await client.mcp.update({ id: row.id, visibility });
+      mcpCollection.utils.writeUpsert(next);
+    } catch (caught) {
+      setError(
+        userFacingError(
+          caught,
+          visibility === "shared" ? "Could not share MCP" : "Could not make private",
+        ),
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function probeRemoteMcp(id: string) {
     setError("");
     setBusy(`probe:${id}`);
@@ -364,7 +384,7 @@ export function PluginsModal(props: {
             {[...groups.entries()].map(([category, items]) => (
               <section key={category} className="mb-[18px]">
                 <p className="group-label">{category}</p>
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2.5">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-2.5">
                   {items.map((item) => (
                     <PluginToolkitCard
                       key={item.id}
@@ -382,7 +402,7 @@ export function PluginsModal(props: {
             {mcpVisible.length > 0 ? (
               <section className="mb-[18px]">
                 <p className="group-label">Custom MCP</p>
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2.5">
+                <div className="grid grid-cols-1 gap-2.5">
                   {mcpVisible.map((row) => (
                     <McpServerCard
                       key={row.id}
@@ -390,8 +410,10 @@ export function PluginsModal(props: {
                       probe={probes[row.id]}
                       busy={busy === row.id}
                       probing={busy === `probe:${row.id}`}
+                      mine={Boolean(props.meUserId && row.userId === props.meUserId)}
                       onConnect={() => void connectRemoteMcp(row.id)}
                       onProbe={() => void probeRemoteMcp(row.id)}
+                      onShare={() => void shareRemoteMcp(row)}
                       onRemove={() => void removeRemoteMcp(row.id)}
                     />
                   ))}
@@ -489,68 +511,83 @@ function McpServerCard(props: {
   probe?: McpProbeResult;
   busy: boolean;
   probing: boolean;
+  mine: boolean;
   onConnect: () => void;
   onProbe: () => void;
+  onShare: () => void;
   onRemove: () => void;
 }) {
   const live = props.row.status === "connected";
   const host = mcpHostLabel(props.row.url);
+  const scope = props.row.visibility === "private" ? "Private" : "Shared";
   const detail = props.probe
     ? mcpProbeSummary(props.probe, host)
     : props.row.status === "error" && props.row.lastError
       ? props.row.lastError
-      : host;
+      : `${scope} · ${host}`;
   return (
-    <article className="flex items-start justify-between gap-2.5 rounded-[14px] bg-card-2 p-3">
-      <div className="flex min-w-0 items-start gap-2.5">
-        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-hover text-ink">
-          <PlugIcon className="size-5" />
-        </span>
-        <div className="min-w-0">
+    <article className="flex items-start gap-3 rounded-[14px] bg-card-2 p-3">
+      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-hover text-ink">
+        <PlugIcon className="size-5" />
+      </span>
+      <div className="flex min-w-0 flex-1 flex-wrap items-start justify-between gap-x-3 gap-y-2">
+        <div className="min-w-0 flex-1 basis-[12rem]">
           <strong className="mb-0.5 block truncate">{props.row.name}</strong>
           <p
             className={cn(
-              "m-0 text-xs",
-              props.probe && !props.probe.ok ? "text-danger" : "muted truncate",
+              "m-0 truncate text-xs",
+              props.probe && !props.probe.ok ? "text-danger" : "muted",
             )}
             title={props.row.url}
           >
             {detail}
           </p>
         </div>
-      </div>
-      <div className="flex shrink-0 items-center gap-1">
-        {live ? (
-          <>
-            <span className="ok">Connected</span>
+        <div className="flex flex-wrap items-center gap-1">
+          {live ? (
+            <>
+              <span className="ok">Connected</span>
+              <button
+                className="mini"
+                type="button"
+                disabled={props.busy || props.probing}
+                onClick={props.onProbe}
+              >
+                {props.probing ? "Testing…" : "Test"}
+              </button>
+              {props.mine ? (
+                <button
+                  className="mini"
+                  type="button"
+                  disabled={props.busy || props.probing}
+                  onClick={props.onShare}
+                >
+                  {props.row.visibility === "shared"
+                    ? "Make private"
+                    : "Share"}
+                </button>
+              ) : null}
+            </>
+          ) : (
             <button
               className="mini"
               type="button"
-              disabled={props.busy || props.probing}
-              onClick={props.onProbe}
+              disabled={props.busy}
+              onClick={props.onConnect}
             >
-              {props.probing ? "Testing…" : "Test"}
+              {props.row.status === "connecting" ? "Continue" : "Connect"}
             </button>
-          </>
-        ) : (
+          )}
           <button
-            className="mini"
+            className="icon-btn"
             type="button"
-            disabled={props.busy}
-            onClick={props.onConnect}
+            aria-label={`Remove ${props.row.name}`}
+            disabled={props.busy || props.probing}
+            onClick={props.onRemove}
           >
-            {props.row.status === "connecting" ? "Continue" : "Connect"}
+            <TrashIcon />
           </button>
-        )}
-        <button
-          className="icon-btn"
-          type="button"
-          aria-label={`Remove ${props.row.name}`}
-          disabled={props.busy || props.probing}
-          onClick={props.onRemove}
-        >
-          <TrashIcon />
-        </button>
+        </div>
       </div>
     </article>
   );
@@ -608,6 +645,10 @@ function AdvancedMcpForm(props: {
               </button>
             </div>
           </div>
+          <p className="m-0 text-xs text-muted">
+            New MCP is private to you and needs a private teammate to host
+            it. Share it with the office from the card.
+          </p>
         </form>
       ) : null}
     </section>

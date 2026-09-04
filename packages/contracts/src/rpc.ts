@@ -20,6 +20,7 @@ import {
   KnowledgeImportInput,
   KnowledgeImportResultSchema,
   KnowledgeListSchema,
+  KnowledgeSearchSchema,
   KnowledgeWriteSchema,
   MAX_COMPUTER_WRITE_BYTES,
   McpConnectionSchema,
@@ -39,6 +40,7 @@ import {
   ToolkitSlug,
   UpdateAccountInput,
   UpdateBotInput,
+  Visibility,
   UpdateWorkspaceInput,
   WorkspaceAppSchema,
   WorkspaceInvitationSchema,
@@ -186,6 +188,9 @@ export const appContract = oc.router({
       .input(z.object({ id: Id }))
       .output(z.object({ ok: z.literal(true) })),
     probe: oc.input(z.object({ id: Id })).output(McpProbeResultSchema),
+    update: oc
+      .input(z.object({ id: Id, visibility: Visibility }))
+      .output(McpConnectionSchema),
   },
   routines: {
     list: oc.input(botId).output(z.array(RoutineSchema)),
@@ -209,6 +214,14 @@ export const appContract = oc.router({
   /** Workspace library on R2. One prefix per office. */
   knowledge: {
     list: oc.output(KnowledgeListSchema),
+    search: oc
+      .input(
+        z.object({
+          query: z.string().min(1).max(200),
+          limit: z.number().int().min(1).max(12).optional(),
+        }),
+      )
+      .output(KnowledgeSearchSchema),
     read: oc
       .input(z.object({ path: z.string().min(1).max(240) }))
       .output(KnowledgeFileSchema),

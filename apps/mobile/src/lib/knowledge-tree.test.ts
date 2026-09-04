@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { matchOfficeLearn, matchOfficeSkills, officeSkills } from "./knowledge-tree";
+import {
+  knowledgeSearchStatus,
+  matchOfficeLearn,
+  matchOfficeSkills,
+  officeSkills,
+} from "./knowledge-tree";
 
 describe("officeSkills", () => {
   it("reads SKILL.md playbooks from the library tree", () => {
@@ -24,6 +29,35 @@ describe("matchOfficeSkills", () => {
     expect(matchOfficeSkills("/di", skills)).toEqual(skills);
     expect(matchOfficeSkills("digest", skills)).toEqual([]);
     expect(matchOfficeSkills("/nope", skills)).toEqual([]);
+  });
+});
+
+describe("knowledgeSearchStatus", () => {
+  it("says when notes are ranking, and when it fell back to names", () => {
+    expect(
+      knowledgeSearchStatus({
+        query: "standup",
+        fetching: true,
+        hitCount: 0,
+        fallbackCount: 2,
+      }),
+    ).toEqual({ label: "Searching notes…", busy: true });
+    expect(
+      knowledgeSearchStatus({
+        query: "standup",
+        fetching: false,
+        hitCount: 3,
+        fallbackCount: 0,
+      }),
+    ).toEqual({ label: "3 notes", busy: false });
+    expect(
+      knowledgeSearchStatus({
+        query: "standup",
+        fetching: false,
+        hitCount: 0,
+        fallbackCount: 2,
+      }),
+    ).toEqual({ label: "Matching names", busy: false });
   });
 });
 

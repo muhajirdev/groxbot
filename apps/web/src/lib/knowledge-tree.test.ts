@@ -3,10 +3,21 @@ import { describe, expect, it } from "vitest";
 import {
   coversKnowledgePath,
   filterKnowledgeTree,
+  filterOfficeSkillRows,
   findKnowledgeNode,
   knowledgeMenuItems,
+  matchingOfficeSkill,
   nestKnowledgeTree,
+  officeSkillDirectory,
+  officeSkillFileLabel,
+  officeSkillFiles,
+  officeSkillRows,
+  groupOfficeSkillFiles,
+  officeSkillPackSummary,
   officeSkills,
+  rankOfficeSkillRows,
+  countOfficeSkillHits,
+  knowledgeSearchStatus,
 } from "./knowledge-tree";
 
 const entries: KnowledgeEntry[] = [
@@ -44,6 +55,80 @@ describe("filterKnowledgeTree", () => {
   it("keeps a parent when a child description matches", () => {
     const found = filterKnowledgeTree(nestKnowledgeTree(entries), "monday");
     expect(found.map((node) => node.path)).toEqual(["playbooks"]);
+  });
+});
+
+describe("rankOfficeSkillRows", () => {
+  it("orders playbooks by search hits", () => {
+    const rows = officeSkillRows(entries, "playbooks");
+    expect(
+      rankOfficeSkillRows(
+        rows,
+        [{ path: "playbooks/weekly-update/references/notes.md" }],
+        "standup",
+      ).map((row) => row.path),
+    ).toEqual(["playbooks/weekly-update/SKILL.md"]);
+  });
+
+  it("counts unique playbooks from hits, including files under the skill", () => {
+    const rows = officeSkillRows(entries, "playbooks");
+    expect(
+      countOfficeSkillHits(rows, [
+        { path: "playbooks/weekly-update/SKILL.md" },
+        { path: "playbooks/weekly-update/references/notes.md" },
+        { path: "how-we-work/constraints.md" },
+      ]),
+    ).toBe(1);
+  });
+});
+
+describe("knowledgeSearchStatus", () => {
+  it("says when notes are ranking, and when it fell back to names", () => {
+    expect(
+      knowledgeSearchStatus({
+        query: "standup",
+        fetching: true,
+        hitCount: 0,
+        fallbackCount: 2,
+      }),
+    ).toEqual({ label: "Searching notes…", busy: true });
+    expect(
+      knowledgeSearchStatus({
+        query: "standup",
+        fetching: false,
+        hitCount: 3,
+        fallbackCount: 0,
+      }),
+    ).toEqual({ label: "3 notes", busy: false });
+    expect(
+      knowledgeSearchStatus({
+        query: "standup",
+        fetching: false,
+        hitCount: 0,
+        fallbackCount: 2,
+      }),
+    ).toEqual({ label: "Matching names", busy: false });
+  });
+
+  it("names playbooks in the skills view", () => {
+    expect(
+      knowledgeSearchStatus({
+        query: "digest",
+        fetching: true,
+        hitCount: 0,
+        fallbackCount: 0,
+        kind: "skills",
+      }),
+    ).toEqual({ label: "Searching playbooks…", busy: true });
+    expect(
+      knowledgeSearchStatus({
+        query: "digest",
+        fetching: false,
+        hitCount: 1,
+        fallbackCount: 0,
+        kind: "skills",
+      }),
+    ).toEqual({ label: "1 playbook", busy: false });
   });
 });
 
@@ -145,5 +230,140 @@ describe("officeSkills", () => {
     ).toEqual([
       { name: "agreements", description: "Draft the client agreement." },
     ]);
+  });
+});
+
+describe("officeSkillRows", () => {
+  const catalog: KnowledgeEntry[] = [
+    {
+      path: "skills/digest/SKILL.md",
+      name: "SKILL.md",
+      title: "digest",
+      description: "Summarize the week.",
+      encoding: "text",
+      mediaType: "text/markdown",
+    },
+    {
+      path: "skills/digest/references/notes.md",
+      name: "notes.md",
+      title: "notes",
+      description: "",
+      encoding: "text",
+      mediaType: "text/markdown",
+    },
+    {
+      path: "skills/client-agreements/SKILL.md",
+      name: "SKILL.md",
+      title: "agreements",
+      description: "Draft the client agreement.",
+      encoding: "text",
+      mediaType: "text/markdown",
+    },
+    {
+      path: "playbooks/weekly-update/SKILL.md",
+      name: "SKILL.md",
+      title: "weekly-update",
+      description: "Five-bullet Monday.",
+      encoding: "text",
+      mediaType: "text/markdown",
+    },
+  ];
+
+  it("lists playbooks in skills/, not nested files or other folders", () => {
+    expect(officeSkillRows(catalog)).toEqual([
+      {
+        name: "agreements",
+        description: "Draft the client agreement.",
+        path: "skills/client-agreements/SKILL.md",
+        directory: "skills/client-agreements",
+        files: 1,
+        pack: "",
+      },
+      {
+        name: "digest",
+        description: "Summarize the week.",
+        path: "skills/digest/SKILL.md",
+        directory: "skills/digest",
+        files: 2,
+        pack: "references",
+      },
+    ]);
+  });
+
+  it("lists every file in a skill folder, SKILL.md first", () => {
+    expect(
+      officeSkillFiles(catalog, "skills/digest").map((row) => row.name),
+    ).toEqual(["SKILL.md", "references/notes.md"]);
+  });
+
+  it("groups pack files the way a skill folder is meant to look", () => {
+    const files = officeSkillFiles(
+      [
+        ...catalog,
+        {
+          path: "skills/digest/scripts/run.sh",
+          name: "run.sh",
+          title: "run",
+          description: "",
+          encoding: "text",
+          mediaType: "text/x-shellscript",
+        },
+        {
+          path: "skills/digest/templates/memo.md",
+          name: "memo.md",
+          title: "memo",
+          description: "",
+          encoding: "text",
+          mediaType: "text/markdown",
+        },
+        {
+          path: "skills/digest/examples/week.md",
+          name: "week.md",
+          title: "week",
+          description: "",
+          encoding: "text",
+          mediaType: "text/markdown",
+        },
+      ],
+      "skills/digest",
+    );
+    expect(
+      groupOfficeSkillFiles(files).map((group) => [
+        group.kind,
+        group.files.map((file) => officeSkillFileLabel(file)),
+      ]),
+    ).toEqual([
+      ["playbook", ["SKILL.md"]],
+      ["references", ["notes.md"]],
+      ["scripts", ["run.sh"]],
+      ["templates", ["memo.md"]],
+      ["examples", ["week.md"]],
+    ]);
+    expect(officeSkillPackSummary(files)).toBe(
+      "references · scripts · templates · examples",
+    );
+  });
+
+  it("filters by name or description", () => {
+    expect(
+      filterOfficeSkillRows(officeSkillRows(catalog), "week").map(
+        (row) => row.name,
+      ),
+    ).toEqual(["digest"]);
+  });
+
+  it("matches a skill folder or a file under it", () => {
+    const rows = officeSkillRows(catalog);
+    expect(matchingOfficeSkill(rows, "skills/digest/SKILL.md")?.name).toBe(
+      "digest",
+    );
+    expect(matchingOfficeSkill(rows, "skills/digest")?.name).toBe("digest");
+    expect(
+      matchingOfficeSkill(rows, "skills/digest/references/notes.md")?.name,
+    ).toBe("digest");
+    expect(matchingOfficeSkill(rows, "skills")).toBeNull();
+    expect(officeSkillDirectory("skills/digest/SKILL.md")).toBe(
+      "skills/digest",
+    );
   });
 });

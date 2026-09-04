@@ -10,6 +10,7 @@ import {
   RoomError,
   roomTurnSystem,
   roomWakeJob,
+  assertInvitableToSharedRoom,
 } from "./rooms.js";
 
 const steve = { id: "steve", name: "Steve", archivedAt: null };
@@ -157,6 +158,20 @@ describe("roomWakeJob", () => {
     expect(steveJob.payload.roomId).toBe("board");
     expect(steveJob.payload.homeRoomId).toBe("home-steve");
     expect(hormoziJob.payload.homeRoomId).toBe("home-hormozi");
+  });
+});
+
+describe("assertInvitableToSharedRoom", () => {
+  it("refuses a private teammate at a group table", () => {
+    expect(() =>
+      assertInvitableToSharedRoom({ name: "Inbox", visibility: "private" }),
+    ).toThrow(RoomError);
+    expect(() =>
+      assertInvitableToSharedRoom({ name: "Inbox", visibility: "private" }),
+    ).toThrow(/private and can't join/);
+    expect(() =>
+      assertInvitableToSharedRoom({ name: "Tutor", visibility: "shared" }),
+    ).not.toThrow();
   });
 });
 

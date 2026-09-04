@@ -10,3 +10,4 @@ export * from "./routine-clock.js";
 export * from "./room-speaker.js";
 export * from "./room-target.js";
 export * from "./sidebar-roster.js";
+export * from "./visibility.js";

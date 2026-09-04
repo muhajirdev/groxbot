@@ -104,6 +104,7 @@ describe("mcp connections", () => {
         name: "linear",
         url: "https://mcp.linear.app/mcp",
         status: "connected",
+        visibility: "shared",
         lastError: null,
         createdAt: now,
         updatedAt: now,
@@ -113,6 +114,8 @@ describe("mcp connections", () => {
       name: "linear",
       url: "https://mcp.linear.app/mcp",
       status: "connected",
+      visibility: "shared",
+      userId: "user-1",
       hostBotId: "bot-1",
       lastError: null,
       createdAt: now.toISOString(),
@@ -128,21 +131,73 @@ describe("mcp connections", () => {
           name: "mimpimu",
           status: "connected",
           hostBotId: "bot-1",
+          visibility: "shared",
+          userId: "user-1",
         },
         {
           id: "mcp-2",
           name: "github",
           status: "connecting",
           hostBotId: "bot-1",
+          visibility: "shared",
+          userId: "user-1",
         },
         {
           id: "mcp-3",
           name: "orphan",
           status: "connected",
           hostBotId: null,
+          visibility: "shared",
+          userId: "user-1",
         },
       ]),
     ).toEqual([{ id: "mcp-1", name: "mimpimu", hostBotId: "bot-1" }]);
+  });
+
+  it("gives a private bot the owner’s private MCP plus shared MCP", () => {
+    const rows = [
+      {
+        id: "mcp-shared",
+        name: "mimpimu",
+        status: "connected",
+        hostBotId: "bot-shared",
+        visibility: "shared",
+        userId: "user-office",
+      },
+      {
+        id: "mcp-alice",
+        name: "gmail",
+        status: "connected",
+        hostBotId: "bot-alice",
+        visibility: "private",
+        userId: "user-alice",
+      },
+      {
+        id: "mcp-bob",
+        name: "gmail-bob",
+        status: "connected",
+        hostBotId: "bot-bob",
+        visibility: "private",
+        userId: "user-bob",
+      },
+    ];
+    expect(
+      mcpCatalogForExecute(rows, {
+        visibility: "private",
+        userId: "user-alice",
+      }),
+    ).toEqual([
+      { id: "mcp-shared", name: "mimpimu", hostBotId: "bot-shared" },
+      { id: "mcp-alice", name: "gmail", hostBotId: "bot-alice" },
+    ]);
+    expect(
+      mcpCatalogForExecute(rows, {
+        visibility: "shared",
+        userId: "user-alice",
+      }),
+    ).toEqual([
+      { id: "mcp-shared", name: "mimpimu", hostBotId: "bot-shared" },
+    ]);
   });
 
   it("exposes live MCP sessions, not just catalog-ready rows", () => {

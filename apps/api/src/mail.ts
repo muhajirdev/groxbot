@@ -102,3 +102,58 @@ function requireMailInProduction(env: MailEnv) {
     );
   }
 }
+
+export function mailFrom(
+  emailFrom: string,
+  displayName?: string,
+): string | { email: string; name?: string } {
+  const parsed = parseFrom(emailFrom);
+  const address = typeof parsed === "string" ? parsed : parsed.address;
+  const name = displayName?.trim();
+  if (name && address) return { email: address, name };
+  return bindingFrom(emailFrom);
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** Teammate ping after a long office turn. Not a digest. */
+export async function sendAwayOfficeMail(
+  env: MailEnv,
+  input: {
+    to: string;
+    botName: string;
+    url: string;
+    excerpt?: string;
+  },
+): Promise<void> {
+  const fromRaw = env.emailFrom?.trim() ?? "";
+  const to = input.to.trim();
+  const url = input.url.trim();
+  const botName = input.botName.trim() || "Your teammate";
+  if (!to || !url || !fromRaw) return;
+  const excerpt = input.excerpt?.trim() ?? "";
+  const subject = `${botName} finished`;
+  const text = excerpt
+    ? `${excerpt}\n\nOpen the office:\n${url}`
+    : `I'm done in the office.\n\n${url}`;
+  const html = excerpt
+    ? `<p>${escapeHtml(excerpt)}</p><p><a href="${url}">Open the office</a></p>`
+    : `<p>I'm done in the office.</p><p><a href="${url}">Open the office</a></p>`;
+  if (env.email) {
+    await env.email.send({
+      to,
+      from: mailFrom(fromRaw, botName),
+      subject,
+      text,
+      html,
+    });
+    return;
+  }
+  console.info(`[groxbot] ${botName} finished for ${to}:\n${url}`);
+}

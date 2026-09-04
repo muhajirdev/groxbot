@@ -28,11 +28,14 @@ export function draftCreatedBot(input: {
   name: string;
   avatarColor: string;
   homeRoomId?: string;
+  userId?: string;
 }): Bot {
   const now = new Date().toISOString();
   return {
     id: input.id,
     workspaceId: input.workspaceId,
+    userId: input.userId ?? "user",
+    visibility: "private",
     name: input.name,
     title: "",
     description: "",

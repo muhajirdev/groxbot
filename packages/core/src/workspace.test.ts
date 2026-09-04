@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   invitationIdFromInput,
   invitationUrl,
+  officeRoomUrl,
   renameWorkspace,
   slugForWorkspace,
   workspaceAuthMessage,
@@ -50,6 +51,14 @@ describe("invitationUrl", () => {
     expect(invitationUrl("https://app.groxbot.com/", "inv_abc")).toBe(
       "https://app.groxbot.com/onboarding?invite=inv_abc",
     );
+  });
+});
+
+describe("officeRoomUrl", () => {
+  it("builds the 1:1 office link", () => {
+    expect(
+      officeRoomUrl("https://app.groxbot.com/", "acme-user12ab", "room_1"),
+    ).toBe("https://app.groxbot.com/acme-user12ab/room/room_1");
   });
 });
 

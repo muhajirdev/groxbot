@@ -84,6 +84,52 @@ export function filterKnowledgeTree(
   return next;
 }
 
+export type KnowledgeSearchStatus = {
+  label: string;
+  busy: boolean;
+};
+
+/** Quiet line under the knowledge search field. */
+export function knowledgeSearchStatus(input: {
+  query: string;
+  fetching: boolean;
+  hitCount: number;
+  fallbackCount: number;
+  kind?: "library" | "skills";
+}): KnowledgeSearchStatus | null {
+  if (!input.query.trim()) return null;
+  const playbooks = input.kind === "skills";
+  if (input.fetching && input.hitCount === 0) {
+    return {
+      label: playbooks ? "Searching playbooks…" : "Searching notes…",
+      busy: true,
+    };
+  }
+  if (input.hitCount > 0) {
+    const n = input.hitCount;
+    const noun = playbooks
+      ? n === 1
+        ? "playbook"
+        : "playbooks"
+      : n === 1
+        ? "note"
+        : "notes";
+    return {
+      label: input.fetching ? `Searching… ${n} ${noun}` : `${n} ${noun}`,
+      busy: input.fetching,
+    };
+  }
+  if (input.fallbackCount > 0) {
+    return { label: "Matching names", busy: input.fetching };
+  }
+  return input.fetching
+    ? {
+        label: playbooks ? "Searching playbooks…" : "Searching notes…",
+        busy: true,
+      }
+    : null;
+}
+
 export function isOfficeSkillPath(path: string): boolean {
   return path === "SKILL.md" || path.endsWith("/SKILL.md");
 }

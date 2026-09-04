@@ -1,12 +1,13 @@
 import type { WakeupJob } from "@groxbot/adapter-kit";
 import { AvatarShape, type Room, type RoomMember } from "@groxbot/contracts";
 import { bots, type Database, roomMembers, rooms } from "@groxbot/db";
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { newId } from "./ids.js";
 import type { PiBoundMessage } from "./pi-transcript.js";
 import { parsePiLogMessages, piUserText } from "./pi-transcript.js";
 import { iso } from "./threads.js";
 import { RoomError, type RoomSeat } from "./room-target.js";
+import { parseVisibility } from "./visibility.js";
 
 export {
   RoomError,
@@ -18,6 +19,18 @@ export {
 } from "./room-target.js";
 
 export const ROOM_TURN_JOB = "room.turn";
+
+/** Shared rooms only seat shared teammates. */
+export function assertInvitableToSharedRoom(bot: {
+  name: string;
+  visibility: string;
+}): void {
+  if (parseVisibility(bot.visibility) === "private") {
+    throw new RoomError(
+      `${bot.name} is private and can't join a shared room.`,
+    );
+  }
+}
 
 /** Listing hides rooms that are someone’s `bots.homeRoomId`. */
 export function isListedGroupRoom(
@@ -179,6 +192,7 @@ export async function createRoom(
       avatarShape: bots.avatarShape,
       archivedAt: bots.archivedAt,
       homeRoomId: bots.homeRoomId,
+      visibility: bots.visibility,
     })
     .from(bots)
     .where(
@@ -195,6 +209,7 @@ export async function createRoom(
     if (!input.own && bot.archivedAt) {
       throw new RoomError(`${bot.name} is archived.`);
     }
+    if (!input.own) assertInvitableToSharedRoom(bot);
     if (!input.own && !bot.homeRoomId) {
       throw new RoomError(`${bot.name} has no room yet.`);
     }
@@ -348,6 +363,30 @@ export async function getRoom(
     .innerJoin(bots, eq(bots.id, roomMembers.botId))
     .where(eq(roomMembers.roomId, room.id));
   return toRoomDto(room, seats.map(toRoomMemberDto));
+}
+
+/** Private teammates cannot sit at a group table. Home office stays. */
+export async function unseatBotFromGroups(
+  db: Database,
+  botId: string,
+  homeRoomId: string | null,
+): Promise<string[]> {
+  const seats = await db
+    .select({ id: roomMembers.id, roomId: roomMembers.roomId })
+    .from(roomMembers)
+    .where(
+      homeRoomId
+        ? and(eq(roomMembers.botId, botId), ne(roomMembers.roomId, homeRoomId))
+        : eq(roomMembers.botId, botId),
+    );
+  if (seats.length === 0) return [];
+  await db.delete(roomMembers).where(
+    inArray(
+      roomMembers.id,
+      seats.map((row) => row.id),
+    ),
+  );
+  return [...new Set(seats.map((row) => row.roomId))];
 }
 
 export function liveRoomSeats(room: Pick<Room, "members">): RoomSeat[] {

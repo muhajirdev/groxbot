@@ -5,14 +5,17 @@ import {
   encryptionSecret,
   ensureBotOwnRoom,
   getHomeThread,
+  getRoom,
   missingModelMessage,
   moveBotToSection,
   newId,
   nextSeq,
+  parseVisibility,
   previewFromBlocks,
   resolveRunModel,
   SectionError,
   toBotDto,
+  unseatBotFromGroups,
 } from "@groxbot/core";
 import {
   bots,
@@ -57,21 +60,68 @@ export async function getBotThread(
     .where(and(eq(bots.id, botId), eq(bots.workspaceId, actor.workspaceId)))
     .limit(1);
   if (!bot) throw new ORPCError("NOT_FOUND", { message: "Bot not found" });
+  if (parseVisibility(bot.visibility) === "private" && bot.userId !== actor.userId) {
+    throw new ORPCError("NOT_FOUND", { message: "Bot not found" });
+  }
   const thread = await getHomeThread(context.db, bot);
   if (!thread) throw new ORPCError("NOT_FOUND", { message: "Thread missing" });
   return { bot: await withOwnRoom(context, actor, bot), thread };
 }
 
-/** Live MCP OAuth has to sit on some home actor; the catalog is still workspace-wide. */
+/** Live MCP OAuth sits on a home actor. Private MCP hosts on the owner’s private bot. */
 export async function getMcpHostBot(
   context: RpcContext,
   actor: Actor,
   botId?: string,
+  opts?: { mcpVisibility?: string },
 ) {
+  const privateMcp = parseVisibility(opts?.mcpVisibility ?? "private") === "private";
   if (botId) {
     const { bot } = await getBotThread(context, actor, botId);
-    if (!bot.archivedAt) return bot;
+    if (!bot.archivedAt) {
+      if (!privateMcp) return bot;
+      if (
+        parseVisibility(bot.visibility) === "private" &&
+        bot.userId === actor.userId
+      ) {
+        return bot;
+      }
+    }
   }
+  if (privateMcp) {
+    const [privateHost] = await context.db
+      .select()
+      .from(bots)
+      .where(
+        and(
+          eq(bots.workspaceId, actor.workspaceId),
+          eq(bots.userId, actor.userId),
+          eq(bots.visibility, "private"),
+          isNull(bots.archivedAt),
+        ),
+      )
+      .orderBy(asc(bots.createdAt))
+      .limit(1);
+    if (!privateHost) {
+      throw new ORPCError("PRECONDITION_FAILED", {
+        message: "Hire a private teammate before connecting a private MCP.",
+      });
+    }
+    return withOwnRoom(context, actor, privateHost);
+  }
+  const [shared] = await context.db
+    .select()
+    .from(bots)
+    .where(
+      and(
+        eq(bots.workspaceId, actor.workspaceId),
+        eq(bots.visibility, "shared"),
+        isNull(bots.archivedAt),
+      ),
+    )
+    .orderBy(asc(bots.createdAt))
+    .limit(1);
+  if (shared) return withOwnRoom(context, actor, shared);
   const [row] = await context.db
     .select()
     .from(bots)
@@ -127,7 +177,12 @@ export async function listBots(
   const rows = await context.db
     .select()
     .from(bots)
-    .where(eq(bots.workspaceId, actor.workspaceId))
+    .where(
+      and(
+        eq(bots.workspaceId, actor.workspaceId),
+        or(eq(bots.visibility, "shared"), eq(bots.userId, actor.userId)),
+      ),
+    )
     .orderBy(desc(bots.updatedAt));
   const threadRows = await context.db
     .select()
@@ -208,6 +263,7 @@ export async function createBot(
     avatarColor: string;
     avatarShape: string;
     homeRoomId?: string;
+    visibility?: "private" | "shared";
   },
 ): Promise<Bot> {
   const botId = input.id?.trim() || newId();
@@ -225,6 +281,7 @@ export async function createBot(
     avatarColor: input.avatarColor,
     avatarShape: input.avatarShape,
     guestKind: "off",
+    visibility: parseVisibility(input.visibility ?? "private"),
     createdAt: now,
     updatedAt: now,
   });
@@ -286,6 +343,7 @@ export async function updateBot(
     avatarColor?: string;
     avatarShape?: string;
     model?: string;
+    visibility?: "private" | "shared";
   },
 ): Promise<Bot> {
   const { bot, thread } = await getBotThread(context, actor, input.botId);
@@ -293,6 +351,37 @@ export async function updateBot(
   if (input.model !== undefined && model) {
     const problem = validateModelId(model);
     if (problem) throw new ORPCError("BAD_REQUEST", { message: problem });
+  }
+  let visibility = parseVisibility(bot.visibility);
+  if (input.visibility !== undefined) {
+    if (bot.userId !== actor.userId) {
+      throw new ORPCError("BAD_REQUEST", {
+        message: "Only the owner can share or unshare this teammate.",
+      });
+    }
+    visibility = parseVisibility(input.visibility);
+    if (visibility === "private" && parseVisibility(bot.visibility) !== "private") {
+      const roomIds = await unseatBotFromGroups(
+        context.db,
+        bot.id,
+        bot.homeRoomId,
+      );
+      if (context.initRoom) {
+        for (const roomId of roomIds) {
+          const room = await getRoom(context.db, actor.workspaceId, roomId);
+          if (!room) continue;
+          await context.initRoom(room.id, {
+            workspaceId: room.workspaceId,
+            name: room.name,
+            members: room.members.map((row) => ({
+              id: row.botId,
+              name: row.name,
+              homeRoomId: row.homeRoomId,
+            })),
+          });
+        }
+      }
+    }
   }
   await context.db
     .update(bots)
@@ -304,6 +393,7 @@ export async function updateBot(
       avatarColor: input.avatarColor ?? bot.avatarColor,
       avatarShape: input.avatarShape ?? bot.avatarShape,
       model,
+      visibility,
       updatedAt: new Date(),
     })
     .where(eq(bots.id, bot.id));

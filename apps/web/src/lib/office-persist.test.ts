@@ -186,4 +186,18 @@ describe("query persist", () => {
       }),
     ).toBe(false);
   });
+
+  it("does not persist knowledge.search queries", () => {
+    expect(
+      shouldDehydrateOfficeQuery({
+        queryKey: orpc.knowledge.search.queryOptions({
+          input: { query: "standup" },
+        }).queryKey,
+        state: {
+          status: "success",
+          data: { hits: [], truncated: false },
+        },
+      }),
+    ).toBe(false);
+  });
 });

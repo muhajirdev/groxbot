@@ -8,6 +8,7 @@ import {
   parsePiBoundMessage,
   parsePiClientEvent,
   parsePiLogMessages,
+  lastPiAssistantText,
   piAssistantText,
   piLoopMessages,
   piLogShouldRun,
@@ -43,6 +44,15 @@ describe("parse Pi wire", () => {
     expect(assistant?.role).toBe("assistant");
     expect(assistant && piAssistantText(assistant)).toBe("ok");
     expect(tool?.role).toBe("toolResult");
+    if (user && assistant && tool) {
+      expect(
+        lastPiAssistantText([
+          { id: "u1", message: user },
+          { id: "a1", message: assistant },
+          { id: "t1", message: tool },
+        ]),
+      ).toBe("ok");
+    }
     expect(
       parsePiBoundMessage({
         id: "u1",

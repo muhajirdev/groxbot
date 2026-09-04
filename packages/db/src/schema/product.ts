@@ -33,6 +33,11 @@ export const bots = pgTable(
     guestKind: text("guest_kind").notNull().default("off"),
     /** Empty = workspace default model from user_model_credentials. */
     model: text("model").notNull().default(""),
+    /**
+     * private = owner’s teammate. shared = office contact.
+     * Existing rows default shared; new hires insert private.
+     */
+    visibility: text("visibility").notNull().default("shared"),
     /** Set when the teammate is archived (hidden + paused). Null = active. */
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     /** Set when the teammate is pinned to the top of the sidebar. Null = unpinned. */
@@ -392,6 +397,11 @@ export const mcpConnections = pgTable(
     name: text("name").notNull(),
     url: text("url").notNull(),
     status: text("status").notNull(),
+    /**
+     * private = owner’s MCP. shared = office phone.
+     * Existing rows default shared; new connections insert private.
+     */
+    visibility: text("visibility").notNull().default("shared"),
     lastError: text("last_error"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -401,8 +411,18 @@ export const mcpConnections = pgTable(
       .defaultNow(),
   },
   (t) => [
-    uniqueIndex("mcp_connections_workspace_name").on(t.workspaceId, t.name),
-    uniqueIndex("mcp_connections_workspace_url").on(t.workspaceId, t.url),
+    uniqueIndex("mcp_connections_workspace_shared_name")
+      .on(t.workspaceId, t.name)
+      .where(sql`${t.visibility} = 'shared'`),
+    uniqueIndex("mcp_connections_workspace_owner_name")
+      .on(t.workspaceId, t.userId, t.name)
+      .where(sql`${t.visibility} = 'private'`),
+    uniqueIndex("mcp_connections_workspace_shared_url")
+      .on(t.workspaceId, t.url)
+      .where(sql`${t.visibility} = 'shared'`),
+    uniqueIndex("mcp_connections_workspace_owner_url")
+      .on(t.workspaceId, t.userId, t.url)
+      .where(sql`${t.visibility} = 'private'`),
     index("mcp_connections_host_bot_id").on(t.hostBotId),
   ],
 );

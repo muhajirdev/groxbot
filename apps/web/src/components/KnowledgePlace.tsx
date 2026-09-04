@@ -1,4 +1,4 @@
-import type { KnowledgeList } from "@groxbot/contracts";
+import type { KnowledgeList, KnowledgeSearchHit } from "@groxbot/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   type MouseEvent,
@@ -24,12 +24,23 @@ import {
 import { insertComposerText } from "../lib/knowledge-slash";
 import {
   coversKnowledgePath,
+  countOfficeSkillHits,
   filterKnowledgeTree,
   findKnowledgeNode,
   isOfficeSkillPath,
+  matchingOfficeSkill,
   type KnowledgeTreeNode,
+  knowledgeSearchStatus,
   nestKnowledgeTree,
+  officeSkillFiles,
+  officeSkillFileLabel,
+  officeSkillNode,
+  officeSkillRows,
+  type OfficeSkillFile,
+  type OfficeSkillRow,
+  rankOfficeSkillRows,
 } from "../lib/knowledge-tree";
+import { SKILLS_LIBRARY_PATH } from "../lib/office-search";
 import {
   knowledgeUploadPath,
   optimisticKnowledgeEntry,
@@ -67,14 +78,57 @@ const ROOT_COLLAPSED = new Set<string>();
 
 export function KnowledgeLibrary(props: {
   path?: string | null;
+  /** Playbook list of this knowledge folder. Same files as the tree. */
+  folder?: string | null;
   onPath: (path: string | null) => void;
   onClose: () => void;
 }) {
   const workspace = useKnowledgeWorkspace(props.path ?? null);
   const selected = workspace.selected;
+  const skillsView = Boolean(props.folder);
+  const folder = props.folder || SKILLS_LIBRARY_PATH;
   const selectedNode = selected
     ? findKnowledgeNode(workspace.tree, selected)
     : null;
+  const catalog = useMemo(
+    () => officeSkillRows(workspace.entries, folder),
+    [workspace.entries, folder],
+  );
+  const skillRows = useMemo(
+    () =>
+      rankOfficeSkillRows(
+        catalog,
+        workspace.searchHits,
+        workspace.query,
+      ),
+    [catalog, workspace.query, workspace.searchHits],
+  );
+  const searchStatus = knowledgeSearchStatus({
+    query: workspace.query,
+    fetching: workspace.searchBusy,
+    hitCount: skillsView
+      ? countOfficeSkillHits(catalog, workspace.searchHits)
+      : workspace.searchHits.length,
+    fallbackCount: skillsView ? skillRows.length : workspace.tree.length,
+    kind: skillsView ? "skills" : "library",
+  });
+  const activeSkill = matchingOfficeSkill(catalog, selected);
+  const previewPath =
+    selected && workspace.files.has(selected)
+      ? selected
+      : skillsView
+        ? (activeSkill?.path ?? null)
+        : null;
+  const previewEntry = previewPath
+    ? (workspace.entries.find((row) => row.path === previewPath) ?? null)
+    : null;
+  const skillPack = useMemo(
+    () =>
+      activeSkill
+        ? officeSkillFiles(workspace.entries, activeSkill.directory)
+        : [],
+    [activeSkill, workspace.entries],
+  );
   const [fileMenu, setFileMenu] = useState<KnowledgeMenuState | null>(null);
 
   useEffect(() => {
@@ -93,21 +147,31 @@ export function KnowledgeLibrary(props: {
     });
   }
 
+  function openSkill(row: OfficeSkillRow) {
+    workspace.pick(row.path);
+    props.onPath(row.path);
+  }
+
+  const previewOpen =
+    Boolean(previewPath) && workspace.files.has(previewPath ?? "");
+
   return (
-    <div className="knowledge-place">
+    <div className={cn("knowledge-place", skillsView && "is-skills")}>
       <div className="pane-head">
-        <span className="pane-title">Knowledge</span>
+        <span className="pane-title">{skillsView ? "Skills" : "Knowledge"}</span>
         <div className="row tight">
-          <button
-            className={cn("icon-btn", workspace.mapOpen && "on")}
-            type="button"
-            aria-pressed={workspace.mapOpen}
-            aria-label="Map"
-            title="Map"
-            onClick={workspace.toggleMap}
-          >
-            <GraphIcon />
-          </button>
+          {skillsView ? null : (
+            <button
+              className={cn("icon-btn", workspace.mapOpen && "on")}
+              type="button"
+              aria-pressed={workspace.mapOpen}
+              aria-label="Map"
+              title="Map"
+              onClick={workspace.toggleMap}
+            >
+              <GraphIcon />
+            </button>
+          )}
           <button
             className="icon-btn"
             type="button"
@@ -121,33 +185,61 @@ export function KnowledgeLibrary(props: {
       </div>
       <div className="knowledge-split">
         <KnowledgeNav
+          kind={skillsView ? "skills" : "library"}
           query={workspace.query}
           onQuery={workspace.setQuery}
-          onNew={workspace.startDraft}
+          status={searchStatus}
+          onNew={() =>
+            workspace.startDraft(skillsView ? folder : undefined)
+          }
           onUpload={() => workspace.fileRef.current?.click()}
           onImport={workspace.startImport}
           fileRef={workspace.fileRef}
           onFile={workspace.uploadFile}
         >
-          <KnowledgeTree
-            pending={
-              workspace.listQuery.isPending && workspace.entries.length === 0
-            }
-            error={workspace.listQuery.error}
-            empty={workspace.empty}
-            truncated={workspace.listQuery.data?.truncated}
-            tree={workspace.tree}
-            selected={selected}
-            collapsed={
-              workspace.searching ? ROOT_COLLAPSED : workspace.collapsed
-            }
-            onSelect={(path) => {
-              workspace.pick(path);
-              props.onPath(path);
-            }}
-            onMenu={openFileMenu}
-            onToggle={workspace.toggleCollapsed}
-          />
+          {skillsView ? (
+            <SkillsList
+              pending={
+                workspace.listQuery.isPending && workspace.entries.length === 0
+              }
+              error={workspace.listQuery.error}
+              empty={catalog.length === 0 && !workspace.query.trim()}
+              searchBusy={workspace.searchBusy}
+              rows={skillRows}
+              selected={activeSkill?.path ?? null}
+              onSelect={openSkill}
+              onMenu={(event, row) =>
+                openFileMenu(event, officeSkillNode(row))
+              }
+            />
+          ) : (
+            <KnowledgeTree
+              pending={
+                workspace.listQuery.isPending && workspace.entries.length === 0
+              }
+              error={workspace.listQuery.error}
+              empty={workspace.empty}
+              truncated={
+                workspace.searching
+                  ? workspace.searchQuery.data?.truncated
+                  : workspace.listQuery.data?.truncated
+              }
+              tree={workspace.tree}
+              hits={workspace.searchHits}
+              searching={workspace.searching}
+              searchBusy={workspace.searchBusy}
+              selected={selected}
+              collapsed={
+                workspace.searching ? ROOT_COLLAPSED : workspace.collapsed
+              }
+              onSelect={(path) => {
+                workspace.pick(path);
+                props.onPath(path);
+              }}
+              onMenu={openFileMenu}
+              onToggle={workspace.toggleCollapsed}
+            />
+          )}
         </KnowledgeNav>
         <section className="knowledge-preview">
           {workspace.error ? <p className="error">{workspace.error}</p> : null}
@@ -155,6 +247,7 @@ export function KnowledgeLibrary(props: {
             <DraftForm
               draft={workspace.draft}
               busy={workspace.busy}
+              title={skillsView ? "New playbook" : "New file"}
               onChange={workspace.setDraft}
               onSave={() => void workspace.saveDraft(props.onPath)}
               onCancel={() => {
@@ -173,7 +266,7 @@ export function KnowledgeLibrary(props: {
                 workspace.syncPath(props.path ?? null);
               }}
             />
-          ) : workspace.mapOpen ? (
+          ) : !skillsView && workspace.mapOpen ? (
             <KnowledgeMapPane
               pending={
                 workspace.graphQuery.isPending && !workspace.graphQuery.data
@@ -192,17 +285,21 @@ export function KnowledgeLibrary(props: {
                 props.onPath(path);
               }}
             />
-          ) : workspace.canPreview && selected ? (
+          ) : previewOpen && previewPath ? (
             <PreviewPane
-              path={selected}
-              title={workspace.selectedEntry?.title ?? selected}
-              description={workspace.selectedEntry?.description ?? ""}
-              mediaType={workspace.selectedEntry?.mediaType}
-              localFile={workspace.localFile}
+              path={previewPath}
+              title={previewEntry?.title ?? previewPath}
+              description={previewEntry?.description ?? ""}
+              mediaType={previewEntry?.mediaType}
+              localFile={
+                workspace.localFiles[previewPath] ?? workspace.localFile
+              }
               files={workspace.files}
+              pack={skillsView ? skillPack : []}
+              packName={skillsView ? activeSkill?.name : undefined}
               backlinks={knowledgeGraphBacklinks(
                 workspace.graphIndex,
-                selected,
+                previewPath,
               )}
               onOpen={(path) => {
                 workspace.openPath(path);
@@ -211,19 +308,27 @@ export function KnowledgeLibrary(props: {
               busy={workspace.busy}
               downloading={workspace.downloading}
               onUse={
-                isOfficeSkillPath(selected)
+                isOfficeSkillPath(previewPath)
                   ? () => {
                       insertComposerText(
-                        `/${workspace.selectedEntry?.title || selected} `,
+                        `/skill:${previewEntry?.title || activeSkill?.name || previewPath} `,
                       );
                       props.onClose();
                     }
                   : undefined
               }
-              onDownload={workspace.downloadSelected}
-              onRemove={() => void workspace.removeSelected(props.onPath)}
+              onDownload={() => workspace.downloadPath(previewPath)}
+              onRemove={() => {
+                const target =
+                  skillsView &&
+                  activeSkill &&
+                  isOfficeSkillPath(previewPath)
+                    ? activeSkill.directory || previewPath
+                    : previewPath;
+                void workspace.removePath(target, props.onPath);
+              }}
             />
-          ) : selectedNode?.kind === "dir" ? (
+          ) : !skillsView && selectedNode?.kind === "dir" ? (
             <FolderPane
               node={selectedNode}
               onOpen={(path) => {
@@ -234,9 +339,13 @@ export function KnowledgeLibrary(props: {
             />
           ) : (
             <KnowledgeEmpty>
-              {selected && !workspace.files.has(selected)
-                ? "A folder. New file or upload lands here."
-                : "Playbooks and notes for this office. Pick one on the left."}
+              {skillsView
+                ? catalog.length === 0
+                  ? "No playbooks yet. Import one, or create a new playbook."
+                  : "Pick a playbook on the left."
+                : selected && !workspace.files.has(selected)
+                  ? "A folder. New file or upload lands here."
+                  : "Playbooks and notes for this office. Pick one on the left."}
             </KnowledgeEmpty>
           )}
         </section>
@@ -250,14 +359,25 @@ export function KnowledgeLibrary(props: {
           void navigator.clipboard?.writeText(path);
         }}
         onUse={(node) => {
-          insertComposerText(`/${node.title || node.name} `);
+          const name = node.title || node.name;
+          insertComposerText(
+            isOfficeSkillPath(node.path) ? `/skill:${name} ` : `/${name} `,
+          );
           props.onClose();
         }}
         onNewFile={(folder) => {
           setFileMenu(null);
           workspace.startDraft(folder);
         }}
-        onDelete={(path) => void workspace.removePath(path, props.onPath)}
+        onDelete={(path) => {
+          const skill =
+            skillsView ? matchingOfficeSkill(catalog, path) : null;
+          const target =
+            skill?.directory && isOfficeSkillPath(path)
+              ? skill.directory
+              : path;
+          void workspace.removePath(target, props.onPath);
+        }}
       />
     </div>
   );
@@ -358,6 +478,7 @@ function useKnowledgeWorkspace(initialPath: string | null) {
   const listKey = orpc.knowledge.list.queryOptions().queryKey;
   const graphKey = orpc.knowledge.graph.queryOptions().queryKey;
   const [query, setQuery] = useState("");
+  const [searchNeedle, setSearchNeedle] = useState("");
   const [selected, setSelected] = useState<string | null>(initialPath);
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -375,6 +496,24 @@ function useKnowledgeWorkspace(initialPath: string | null) {
     ...orpc.knowledge.graph.queryOptions(),
     gcTime: OFFICE_MESSAGES_GC_TIME,
   });
+  useEffect(() => {
+    const needle = query.trim();
+    if (!needle) {
+      setSearchNeedle("");
+      return;
+    }
+    const timer = window.setTimeout(() => setSearchNeedle(needle), 200);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+  const searchQuery = useQuery({
+    ...orpc.knowledge.search.queryOptions({
+      input: { query: searchNeedle },
+    }),
+    enabled: searchNeedle.length > 0,
+    placeholderData: (previous) => previous,
+    gcTime: OFFICE_MESSAGES_GC_TIME,
+  });
+  const searchHits = searchNeedle ? (searchQuery.data?.hits ?? []) : [];
   const graphIndex = useMemo(
     () =>
       indexKnowledgeGraph({
@@ -397,6 +536,9 @@ function useKnowledgeWorkspace(initialPath: string | null) {
     return filterKnowledgeTree(nested, query);
   }, [entries, query]);
   const searching = query.trim().length > 0;
+  const searchBusy =
+    searching &&
+    (searchNeedle !== query.trim() || searchQuery.isFetching);
   const localFile = selected ? (localFiles[selected] ?? null) : null;
   const empty = !listQuery.isPending && entries.length === 0 && !query.trim();
 
@@ -444,6 +586,13 @@ function useKnowledgeWorkspace(initialPath: string | null) {
   async function refresh(path?: string) {
     await queryClient.invalidateQueries({ queryKey: listKey });
     await queryClient.invalidateQueries({ queryKey: graphKey });
+    if (searchNeedle) {
+      await queryClient.invalidateQueries({
+        queryKey: orpc.knowledge.search.queryOptions({
+          input: { query: searchNeedle },
+        }).queryKey,
+      });
+    }
     if (path) {
       setSelected(path);
       await queryClient.invalidateQueries({
@@ -578,6 +727,13 @@ function useKnowledgeWorkspace(initialPath: string | null) {
         });
         await queryClient.invalidateQueries({ queryKey: listKey });
         await queryClient.invalidateQueries({ queryKey: graphKey });
+        if (searchNeedle) {
+          await queryClient.invalidateQueries({
+            queryKey: orpc.knowledge.search.queryOptions({
+              input: { query: searchNeedle },
+            }).queryKey,
+          });
+        }
       })
       .catch((caught: unknown) => {
         queryClient.setQueryData(listKey, snapshot);
@@ -633,6 +789,8 @@ function useKnowledgeWorkspace(initialPath: string | null) {
     localFiles,
     listQuery,
     graphQuery,
+    searchQuery,
+    searchHits,
     graphIndex,
     entries,
     files,
@@ -640,6 +798,7 @@ function useKnowledgeWorkspace(initialPath: string | null) {
     canPreview,
     tree,
     searching,
+    searchBusy,
     localFile,
     empty,
     syncPath,
@@ -741,8 +900,10 @@ function FolderPane(props: {
 }
 
 function KnowledgeNav(props: {
+  kind?: "library" | "skills";
   query: string;
   onQuery: (query: string) => void;
+  status?: { label: string; busy: boolean } | null;
   onNew: () => void;
   onUpload: () => void;
   onImport: () => void;
@@ -750,37 +911,52 @@ function KnowledgeNav(props: {
   onFile: (file: File) => void;
   children: ReactNode;
 }) {
+  const skills = props.kind === "skills";
+  const status = props.status;
   return (
     <aside className="knowledge-nav">
       <div className="knowledge-nav-tools">
-        <label className="search-field explorer-search">
+        <label
+          className={cn(
+            "search-field explorer-search",
+            status?.busy && "is-busy",
+          )}
+        >
           <SearchIcon />
           <input
             value={props.query}
             onChange={(event) => props.onQuery(event.target.value)}
-            placeholder="Search…"
-            aria-label="Search knowledge"
+            placeholder={skills ? "Search playbooks…" : "Search notes…"}
+            aria-label={skills ? "Search playbooks" : "Search knowledge"}
+            aria-busy={status?.busy ?? false}
           />
         </label>
+        {status ? (
+          <p className="knowledge-search-status" aria-live="polite">
+            {status.label}
+          </p>
+        ) : null}
         <div className="knowledge-adds">
           <button
             className="icon-btn"
             type="button"
-            aria-label="New file"
-            title="New file"
+            aria-label={skills ? "New playbook" : "New file"}
+            title={skills ? "New playbook" : "New file"}
             onClick={props.onNew}
           >
             <PlusIcon />
           </button>
-          <button
-            className="icon-btn"
-            type="button"
-            aria-label="Upload"
-            title="Upload"
-            onClick={props.onUpload}
-          >
-            <UploadIcon />
-          </button>
+          {skills ? null : (
+            <button
+              className="icon-btn"
+              type="button"
+              aria-label="Upload"
+              title="Upload"
+              onClick={props.onUpload}
+            >
+              <UploadIcon />
+            </button>
+          )}
           <button
             className="icon-btn"
             type="button"
@@ -802,8 +978,87 @@ function KnowledgeNav(props: {
           />
         </div>
       </div>
-      <div className="explorer knowledge-tree">{props.children}</div>
+      <div
+        className={cn("explorer", skills ? "skills-nav" : "knowledge-tree")}
+      >
+        {props.children}
+      </div>
     </aside>
+  );
+}
+
+function SkillsList(props: {
+  pending: boolean;
+  error: Error | null;
+  empty: boolean;
+  searchBusy: boolean;
+  rows: OfficeSkillRow[];
+  selected: string | null;
+  onSelect: (row: OfficeSkillRow) => void;
+  onMenu: (event: MouseEvent, row: OfficeSkillRow) => void;
+}) {
+  if (props.pending) return <p className="explorer-empty">Opening…</p>;
+  if (props.error) {
+    return (
+      <p className="explorer-empty">
+        {userFacingError(props.error, "Could not read skills")}
+      </p>
+    );
+  }
+  if (props.empty) {
+    return (
+      <p className="explorer-empty">
+        Nothing here yet. New or import a playbook.
+      </p>
+    );
+  }
+  if (props.rows.length === 0) {
+    return (
+      <p className="explorer-empty">
+        {props.searchBusy ? "Searching playbooks…" : "No matching playbooks."}
+      </p>
+    );
+  }
+  return (
+    <ul className="skills-list">
+      {props.rows.map((row) => {
+        const on = props.selected === row.path;
+        return (
+          <li key={row.path}>
+            <div
+              className={cn("skills-row", on && "on")}
+              onContextMenu={(event) => props.onMenu(event, row)}
+            >
+              <button
+                className="skills-row-main"
+                type="button"
+                onClick={() => props.onSelect(row)}
+              >
+                <span className="skills-row-name">/{row.name}</span>
+                {row.description ? (
+                  <span className="skills-row-desc">{row.description}</span>
+                ) : null}
+                {row.pack ? (
+                  <span className="skills-row-meta">{row.pack}</span>
+                ) : null}
+              </button>
+              <button
+                className="explorer-more"
+                type="button"
+                aria-label={`${row.name} actions`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  props.onMenu(event, row);
+                }}
+              >
+                <MoreIcon />
+              </button>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -813,6 +1068,9 @@ function KnowledgeTree(props: {
   empty: boolean;
   truncated?: boolean;
   tree: KnowledgeTreeNode[];
+  hits: KnowledgeSearchHit[];
+  searching: boolean;
+  searchBusy: boolean;
   selected: string | null;
   collapsed: Set<string>;
   onSelect: (path: string) => void;
@@ -833,6 +1091,50 @@ function KnowledgeTree(props: {
         Nothing here yet. New, upload, or import a playbook.
       </p>
     );
+  }
+  if (
+    props.searching &&
+    props.hits.length === 0 &&
+    props.searchBusy &&
+    props.tree.length === 0
+  ) {
+    return <p className="explorer-empty">Searching notes…</p>;
+  }
+  if (props.searching && props.hits.length > 0) {
+    return (
+      <>
+        <ul className="knowledge-hits">
+          {props.hits.map((hit) => {
+            const on = props.selected === hit.path;
+            const name =
+              hit.title.trim() ||
+              hit.path.split("/").filter(Boolean).at(-1) ||
+              hit.path;
+            return (
+              <li key={hit.path}>
+                <button
+                  type="button"
+                  className={cn("knowledge-hit", on && "on")}
+                  onClick={() => props.onSelect(hit.path)}
+                >
+                  <span className="knowledge-hit-title">{name}</span>
+                  <span className="knowledge-hit-path">{hit.path}</span>
+                  {hit.snippet ? (
+                    <span className="knowledge-hit-snippet">{hit.snippet}</span>
+                  ) : null}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        {props.truncated ? (
+          <p className="explorer-empty">Showing the first 800 files.</p>
+        ) : null}
+      </>
+    );
+  }
+  if (props.searching && props.tree.length === 0) {
+    return <p className="explorer-empty">No matching notes.</p>;
   }
   return (
     <>
@@ -896,6 +1198,8 @@ function PreviewPane(props: {
   mediaType?: string;
   localFile?: File | null;
   files: ReadonlySet<string>;
+  pack?: OfficeSkillFile[];
+  packName?: string;
   backlinks: string[];
   onOpen: (path: string) => void;
   busy: boolean;
@@ -905,6 +1209,8 @@ function PreviewPane(props: {
   onRemove: () => void;
 }) {
   const skill = isOfficeSkillPath(props.path);
+  const pack = props.pack ?? [];
+  const currentPack = pack.find((file) => file.path === props.path);
   const markdown =
     computerFileKind(props.path) === "md" ||
     props.mediaType === "text/markdown";
@@ -912,7 +1218,14 @@ function PreviewPane(props: {
     <>
       <div className="knowledge-preview-head">
         <div>
-          {skill ? (
+          {props.packName ? (
+            <>
+              <p className="knowledge-kicker">/{props.packName}</p>
+              {currentPack && !skill ? (
+                <p className="knowledge-kicker">{currentPack.name}</p>
+              ) : null}
+            </>
+          ) : skill ? (
             <p className="knowledge-kicker">/{props.title}</p>
           ) : (
             <KnowledgePath path={props.path} onOpen={props.onOpen} />
@@ -920,6 +1233,29 @@ function PreviewPane(props: {
           {markdown ? null : <h3>{props.title}</h3>}
           {props.description ? (
             <p className="muted knowledge-preview-desc">{props.description}</p>
+          ) : null}
+          {pack.length > 1 ? (
+            <div
+              className="skill-files"
+              role="tablist"
+              aria-label="Files in this skill"
+            >
+              {pack.map((file) => {
+                const on = file.path === props.path;
+                return (
+                  <button
+                    key={file.path}
+                    type="button"
+                    role="tab"
+                    aria-selected={on}
+                    className={cn("skill-file", on && "on")}
+                    onClick={() => props.onOpen(file.path)}
+                  >
+                    {officeSkillFileLabel(file)}
+                  </button>
+                );
+              })}
+            </div>
           ) : null}
           <KnowledgeBacklinks sources={props.backlinks} onOpen={props.onOpen} />
         </div>
@@ -1027,6 +1363,7 @@ function KnowledgeBacklinks(props: {
 function DraftForm(props: {
   draft: Draft;
   busy: boolean;
+  title?: string;
   onChange: (draft: Draft) => void;
   onSave: () => void;
   onCancel: () => void;
@@ -1040,7 +1377,7 @@ function DraftForm(props: {
         if (ready) props.onSave();
       }}
     >
-      <h3>New file</h3>
+      <h3>{props.title ?? "New file"}</h3>
       <Field label="Path">
         <Input
           value={props.draft.path}

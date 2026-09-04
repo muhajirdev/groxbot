@@ -1,12 +1,17 @@
-import type { McpConnection, PluginStatus } from "@groxbot/contracts";
+import type { McpConnection, PluginStatus, Visibility } from "@groxbot/contracts";
 import {
   McpName,
   PluginStatus as PluginStatusSchema,
 } from "@groxbot/contracts";
 import { type Database, mcpConnections } from "@groxbot/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { newId } from "./ids.js";
 import { iso } from "./threads.js";
+import {
+  mcpBindableForBot,
+  mcpVisibleToViewer,
+  parseVisibility,
+} from "./visibility.js";
 
 /** Agents `normalizeServerId` truncates to this length. */
 const MCP_SERVER_ID_MAX = 64;
@@ -65,6 +70,8 @@ export function toMcpDto(
     name: row.name,
     url: row.url,
     status: status.success ? status.data : "error",
+    visibility: parseVisibility(row.visibility),
+    userId: row.userId,
     hostBotId: row.hostBotId,
     lastError: row.lastError,
     createdAt: iso(row.createdAt) ?? new Date().toISOString(),
@@ -75,12 +82,17 @@ export function toMcpDto(
 export async function listMcpConnections(
   db: Database,
   workspaceId: string,
+  viewerUserId?: string,
 ): Promise<McpConnection[]> {
   const rows = await db
     .select()
     .from(mcpConnections)
     .where(eq(mcpConnections.workspaceId, workspaceId));
-  return rows.map(toMcpDto);
+  const listed =
+    viewerUserId === undefined
+      ? rows
+      : rows.filter((row) => mcpVisibleToViewer(row, viewerUserId));
+  return listed.map(toMcpDto);
 }
 
 export async function getMcpConnection(
@@ -118,19 +130,26 @@ export async function getMcpConnectionById(
 export async function addMcpConnection(
   db: Database,
   actor: { workspaceId: string; userId: string },
-  input: { name: string; url: string },
+  input: { name: string; url: string; visibility?: Visibility },
 ): Promise<McpConnection> {
   const name = parseMcpName(input.name);
   const url = parseMcpUrl(input.url);
+  const visibility = parseVisibility(input.visibility ?? "private");
+  const scope =
+    visibility === "private"
+      ? and(
+          eq(mcpConnections.workspaceId, actor.workspaceId),
+          eq(mcpConnections.userId, actor.userId),
+          eq(mcpConnections.visibility, "private"),
+        )
+      : and(
+          eq(mcpConnections.workspaceId, actor.workspaceId),
+          eq(mcpConnections.visibility, "shared"),
+        );
   const [byName] = await db
     .select()
     .from(mcpConnections)
-    .where(
-      and(
-        eq(mcpConnections.workspaceId, actor.workspaceId),
-        eq(mcpConnections.name, name),
-      ),
-    )
+    .where(and(scope, eq(mcpConnections.name, name)))
     .limit(1);
   if (byName) {
     if (byName.url !== url) {
@@ -141,12 +160,7 @@ export async function addMcpConnection(
   const [byUrl] = await db
     .select()
     .from(mcpConnections)
-    .where(
-      and(
-        eq(mcpConnections.workspaceId, actor.workspaceId),
-        eq(mcpConnections.url, url),
-      ),
-    )
+    .where(and(scope, eq(mcpConnections.url, url)))
     .limit(1);
   if (byUrl) return toMcpDto(byUrl);
   const now = new Date();
@@ -160,6 +174,7 @@ export async function addMcpConnection(
       name,
       url,
       status: "added",
+      visibility,
       createdAt: now,
       updatedAt: now,
     })
@@ -176,6 +191,7 @@ export async function saveMcpConnection(
     hostBotId?: string | null;
     lastError?: string | null;
     userId?: string;
+    visibility?: Visibility;
   },
 ): Promise<McpConnection> {
   const existing = await getMcpConnectionById(db, id);
@@ -187,6 +203,78 @@ export async function saveMcpConnection(
     .returning();
   if (!row) throw new McpError("MCP server missing.");
   return toMcpDto(row);
+}
+
+export async function setMcpVisibility(
+  db: Database,
+  actor: { workspaceId: string; userId: string },
+  id: string,
+  visibility: Visibility,
+): Promise<McpConnection> {
+  const existing = await getMcpConnection(db, actor.workspaceId, id);
+  if (!existing || !mcpVisibleToViewer(existing, actor.userId)) {
+    throw new McpError("MCP server missing.");
+  }
+  if (existing.userId !== actor.userId) {
+    throw new McpError("Only the owner can share or unshare this MCP.");
+  }
+  const next = parseVisibility(visibility);
+  if (parseVisibility(existing.visibility) === next) return toMcpDto(existing);
+  const clashName = await db
+    .select({ id: mcpConnections.id })
+    .from(mcpConnections)
+    .where(
+      next === "private"
+        ? and(
+            eq(mcpConnections.workspaceId, actor.workspaceId),
+            eq(mcpConnections.userId, actor.userId),
+            eq(mcpConnections.visibility, "private"),
+            eq(mcpConnections.name, existing.name),
+            ne(mcpConnections.id, existing.id),
+          )
+        : and(
+            eq(mcpConnections.workspaceId, actor.workspaceId),
+            eq(mcpConnections.visibility, "shared"),
+            eq(mcpConnections.name, existing.name),
+            ne(mcpConnections.id, existing.id),
+          ),
+    )
+    .limit(1);
+  if (clashName[0]) {
+    throw new McpError(
+      next === "private"
+        ? `You already have a private MCP named “${existing.name}”.`
+        : `“${existing.name}” is already a shared MCP.`,
+    );
+  }
+  const clashUrl = await db
+    .select({ id: mcpConnections.id })
+    .from(mcpConnections)
+    .where(
+      next === "private"
+        ? and(
+            eq(mcpConnections.workspaceId, actor.workspaceId),
+            eq(mcpConnections.userId, actor.userId),
+            eq(mcpConnections.visibility, "private"),
+            eq(mcpConnections.url, existing.url),
+            ne(mcpConnections.id, existing.id),
+          )
+        : and(
+            eq(mcpConnections.workspaceId, actor.workspaceId),
+            eq(mcpConnections.visibility, "shared"),
+            eq(mcpConnections.url, existing.url),
+            ne(mcpConnections.id, existing.id),
+          ),
+    )
+    .limit(1);
+  if (clashUrl[0]) {
+    throw new McpError(
+      next === "private"
+        ? "You already connected that URL as a private MCP."
+        : "That URL is already a shared MCP.",
+    );
+  }
+  return saveMcpConnection(db, existing.id, { visibility: next });
 }
 
 export async function removeMcpConnection(
@@ -300,19 +388,29 @@ export type WorkspaceMcpCatalogRow = {
   name: string;
   status: string;
   hostBotId: string | null;
+  visibility: string;
+  userId: string;
+};
+
+export type McpCatalogBot = {
+  visibility: string;
+  userId: string;
 };
 
 /**
- * Workspace catalog rows every teammate can bind. Live OAuth still sits on
+ * Workspace catalog rows this teammate can bind. Live OAuth still sits on
  * `hostBotId`; other home rooms proxy into that actor.
+ * Private bot → owner’s private MCP + shared MCP. Shared bot → shared only.
  */
 export function mcpCatalogForExecute(
   rows: readonly WorkspaceMcpCatalogRow[],
+  bot?: McpCatalogBot,
 ): Array<{ id: string; name: string; hostBotId: string }> {
   const used = new Set<string>();
   const out: Array<{ id: string; name: string; hostBotId: string }> = [];
   for (const row of rows) {
     if (row.status !== "connected" || !row.hostBotId) continue;
+    if (bot && !mcpBindableForBot(row, bot)) continue;
     let name = row.name.trim() || "mcp";
     if (used.has(name)) name = `${name}-${row.id.slice(0, 8)}`;
     used.add(name);

@@ -1,5 +1,6 @@
-import type { Bot } from "@groxbot/contracts";
 import { Combobox } from "@base-ui/react/combobox";
+import type { Bot } from "@groxbot/contracts";
+import { isSharedVisibility } from "@groxbot/core/browser";
 import { useEffect, useId, useMemo, useState } from "react";
 import { isArchivedBot } from "../lib/session";
 import { Button, Field, Input, ModalShell, cn } from "../ui";
@@ -118,7 +119,10 @@ export function CreateRoomDialog(props: {
   onCreate: (input: { name: string; memberBotIds: string[] }) => void;
 }) {
   const live = useMemo(
-    () => props.bots.filter((bot) => !isArchivedBot(bot)),
+    () =>
+      props.bots.filter(
+        (bot) => !isArchivedBot(bot) && isSharedVisibility(bot.visibility),
+      ),
     [props.bots],
   );
   const inviteId = useId();
@@ -166,7 +170,9 @@ export function CreateRoomDialog(props: {
             Invite
           </label>
           {live.length === 0 ? (
-            <p className="m-0 text-[13px] text-muted">Hire a teammate first.</p>
+            <p className="m-0 text-[13px] text-muted">
+              Share a teammate with the office before you make a group.
+            </p>
           ) : (
             <InviteField
               id={inviteId}

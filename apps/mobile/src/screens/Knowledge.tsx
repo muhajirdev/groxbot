@@ -26,6 +26,7 @@ import {
 } from "../lib/knowledge-import";
 import {
   filterKnowledgeTree,
+  knowledgeSearchStatus,
   type KnowledgeTreeNode,
   nestKnowledgeTree,
 } from "../lib/knowledge-tree";
@@ -46,6 +47,7 @@ export function KnowledgeScreen({ navigation, route }: Props) {
   const listQuery = useQuery(orpc.knowledge.list.queryOptions());
   const graphQuery = useQuery(orpc.knowledge.graph.queryOptions());
   const [query, setQuery] = useState("");
+  const [searchNeedle, setSearchNeedle] = useState("");
   const [tab, setTab] = useState<"library" | "graph">("library");
   const [selected, setSelected] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -75,6 +77,32 @@ export function KnowledgeScreen({ navigation, route }: Props) {
       }),
     [graphQuery.data],
   );
+  useEffect(() => {
+    const needle = query.trim();
+    if (!needle) {
+      setSearchNeedle("");
+      return;
+    }
+    const timer = setTimeout(() => setSearchNeedle(needle), 200);
+    return () => clearTimeout(timer);
+  }, [query]);
+  const searchQuery = useQuery({
+    ...orpc.knowledge.search.queryOptions({
+      input: { query: searchNeedle },
+    }),
+    enabled: searchNeedle.length > 0,
+  });
+  const searchHits = searchNeedle ? (searchQuery.data?.hits ?? []) : [];
+  const searching = query.trim().length > 0;
+  const searchBusy =
+    searching &&
+    (searchNeedle !== query.trim() || searchQuery.isFetching);
+  const searchStatus = knowledgeSearchStatus({
+    query,
+    fetching: searchBusy,
+    hitCount: searchHits.length,
+    fallbackCount: tree.length,
+  });
   const backlinks = selected
     ? knowledgeGraphBacklinks(graphIndex, selected)
     : [];
@@ -91,6 +119,11 @@ export function KnowledgeScreen({ navigation, route }: Props) {
     await queryClient.invalidateQueries({
       queryKey: orpc.knowledge.graph.key(),
     });
+    if (searchNeedle) {
+      await queryClient.invalidateQueries({
+        queryKey: orpc.knowledge.search.key({ input: { query: searchNeedle } }),
+      });
+    }
   }
 
   const openFile = useCallback(
@@ -264,7 +297,15 @@ export function KnowledgeScreen({ navigation, route }: Props) {
           <Text style={tab === "graph" ? styles.on : styles.meta}>Graph</Text>
         </Pressable>
       </View>
-      <Field placeholder="Search" value={query} onChangeText={setQuery} />
+      <Field placeholder="Search notes…" value={query} onChangeText={setQuery} />
+      {searchStatus ? (
+        <Text
+          style={styles.meta}
+          accessibilityLiveRegion="polite"
+        >
+          {searchStatus.label}
+        </Text>
+      ) : null}
       {tab === "graph" ? (
         <GraphList
           index={graphIndex}
@@ -272,6 +313,26 @@ export function KnowledgeScreen({ navigation, route }: Props) {
           selected={selected}
           onOpen={(next) => void openFile(next)}
         />
+      ) : searchHits.length > 0 ? (
+        <View>
+          {searchHits.map((hit) => (
+            <Pressable
+              key={hit.path}
+              onPress={() => void openFile(hit.path)}
+              style={styles.file}
+            >
+              <Text
+                style={selected === hit.path ? styles.on : styles.fileName}
+              >
+                {hit.title.trim() || hit.path}
+              </Text>
+              <Text style={styles.meta}>{hit.path}</Text>
+              {hit.snippet ? (
+                <Text style={styles.body}>{hit.snippet}</Text>
+              ) : null}
+            </Pressable>
+          ))}
+        </View>
       ) : (
         <Tree
           nodes={tree}
@@ -279,7 +340,7 @@ export function KnowledgeScreen({ navigation, route }: Props) {
           onToggle={toggleDir}
           selected={selected}
           collapsed={collapsed}
-          searching={query.trim().length > 0}
+          searching={searching}
         />
       )}
       {selected ? (

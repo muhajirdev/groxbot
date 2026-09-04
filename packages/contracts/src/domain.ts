@@ -7,11 +7,16 @@ import {
   MemoryScope,
   RunStatus,
   TemplateId,
+  Visibility,
 } from "./ids.js";
+
+export { Visibility };
 
 export const BotSchema = z.object({
   id: Id,
   workspaceId: Id,
+  userId: Id,
+  visibility: Visibility,
   name: z.string(),
   title: z.string(),
   description: z.string(),
@@ -47,6 +52,7 @@ export const CreateBotInput = z.object({
   avatarShape: AvatarShape.default("circle"),
   /** Client-generated home RoomActor id so 1:1 can open at /room/$homeRoomId. */
   homeRoomId: Id.max(64).optional(),
+  visibility: Visibility.optional(),
 });
 
 export const UpdateBotInput = z.object({
@@ -58,6 +64,7 @@ export const UpdateBotInput = z.object({
   avatarColor: z.string().max(32).optional(),
   avatarShape: AvatarShape.optional(),
   model: z.string().max(200).optional(),
+  visibility: Visibility.optional(),
 });
 
 export const RoomMemberSchema = z.object({
@@ -254,6 +261,22 @@ export const KnowledgeListSchema = z.object({
   truncated: z.boolean(),
 });
 export type KnowledgeList = z.infer<typeof KnowledgeListSchema>;
+
+/** Ranked office-library hit. Same ranker as Code Mode `knowledge.search`. */
+export const KnowledgeSearchHitSchema = z.object({
+  path: z.string(),
+  title: z.string(),
+  description: z.string(),
+  score: z.number(),
+  snippet: z.string(),
+});
+export type KnowledgeSearchHit = z.infer<typeof KnowledgeSearchHitSchema>;
+
+export const KnowledgeSearchSchema = z.object({
+  hits: z.array(KnowledgeSearchHitSchema),
+  truncated: z.boolean(),
+});
+export type KnowledgeSearch = z.infer<typeof KnowledgeSearchSchema>;
 
 /** Interned office-link snapshot. Invert `out` in RAM; do not persist incoming. */
 export const KnowledgeGraphSchema = z.object({
@@ -468,6 +491,8 @@ export const McpConnectionSchema = z.object({
   name: McpName,
   url: z.string(),
   status: PluginStatus,
+  visibility: Visibility,
+  userId: Id,
   hostBotId: Id.nullable(),
   lastError: z.string().nullable(),
   createdAt: z.string(),

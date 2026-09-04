@@ -49,6 +49,19 @@ export function invitationUrl(webOrigin: string, invitationId: string): string {
   return `${origin}/onboarding?invite=${encodeURIComponent(invitationId)}`;
 }
 
+/** Desk on `/$workspaceSlug/room/$roomId`. */
+export function officeRoomUrl(
+  webOrigin: string,
+  workspaceSlug: string,
+  roomId: string,
+): string {
+  const origin = webOrigin.replace(/\/$/, "");
+  const slug = workspaceSlug.trim().replace(/^\/+|\/+$/g, "");
+  const room = roomId.trim();
+  if (!origin || !slug || !room) return "";
+  return `${origin}/${slug}/room/${encodeURIComponent(room)}`;
+}
+
 export async function isWorkspaceMember(
   db: Database,
   userId: string,

@@ -960,12 +960,14 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
       title: "Product",
       description: "Stays.",
       instructions: "Stays.",
+      visibility: "shared",
     });
     const scout = await rpc.bots.create({
       name: "Scout",
       title: "Talent",
       description: "Also stays.",
       instructions: "Also stays.",
+      visibility: "shared",
     });
     const board = await rpc.rooms.create({
       name: "Board",

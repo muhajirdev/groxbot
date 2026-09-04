@@ -30,6 +30,7 @@ import {
 } from "@groxbot/contracts";
 import {
   applyOfficeReviewTurn,
+  awayOfficeExcerpt,
   applyOfficeSkillsToSystem,
   buildOfficeSystemPrompt,
   ComputerFileError,
@@ -49,7 +50,9 @@ import {
   isMcpOAuthCallbackPath,
   isoUnixSeconds,
   jsonClone,
+  lastOfficeHumanUserId,
   lastOfficeUserIsIntro,
+  lastPiAssistantText,
   listComputerEntries,
   listMcpConnections,
   loadOfficeSkillCatalog,
@@ -58,7 +61,11 @@ import {
   mcpCatalogStatusFromLive,
   mcpConnectionIsExecutable,
   mcpServerId,
+  parseVisibility,
   newId,
+  OFFICE_AWAY_CALLBACK,
+  OFFICE_AWAY_SETTLE_MS,
+  OFFICE_AWAY_STORAGE,
   OFFICE_GENERATION_STORAGE,
   OFFICE_INTRO_STORAGE,
   OFFICE_REVIEW_STORAGE,
@@ -72,6 +79,9 @@ import {
   officeReviewDue,
   officeReviewNoteMetadata,
   officeReviewUserText,
+  officeRoomUrl,
+  parseOfficeAwayPayload,
+  parseOfficeAwayStored,
   parseOfficeChatMessages,
   parseOfficeReviewCounters,
   parseTinyfishKeys,
@@ -94,8 +104,10 @@ import {
   type StoredRoutine,
   saveMcpConnection,
   searchOfficeHistory,
+  shouldArmAwayOfficePing,
   shouldEnqueueOfficeReview,
   shouldRunOfficeIntro,
+  shouldSendAwayOfficePing,
   soulOverlayFromWrite,
   teammatePrompt,
   TinyfishKeyPool,
@@ -105,11 +117,11 @@ import {
   withOfficeExecuteDescription,
   writeInboxFile,
 } from "@groxbot/core";
-import { bots } from "@groxbot/db";
+import { bots, member, organization, user } from "@groxbot/db";
 import { createNeonHttpDb } from "@groxbot/db/neon";
 import { Agent } from "agents";
 import { AgentContextProvider } from "agents/experimental/memory/session";
-import { eq, inArray, or } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 import { createBotComputer } from "./bot-computer-workspace.js";
 import {
@@ -132,6 +144,7 @@ import { RoutinesConnector } from "./bot-routines-connector.js";
 import { agentRuntimeSource, productEnv, type RuntimeSource } from "./env.js";
 import { r2KnowledgeDisk } from "./knowledge-r2.js";
 import type { SendEmailBinding } from "./mail.js";
+import { sendAwayOfficeMail } from "./mail.js";
 import { mcpCallbackPage } from "./mcp-callback-page.js";
 export interface WorkerEnv {
   DATABASE_URL: string;
@@ -294,6 +307,8 @@ export class RoomHome extends Agent<WorkerEnv> {
   protected officeId = "";
   /** Product bot id. DO instance name is the home room id. */
   protected personId = "";
+  private ownerUserId = "";
+  private botVisibility: "private" | "shared" = "shared";
   /** Claimed a due review; other waitUntil callbacks should not start another. */
   private reviewQueued = false;
   /** Office review turn in flight. */
@@ -301,6 +316,8 @@ export class RoomHome extends Agent<WorkerEnv> {
   private soulOverlay = new AgentContextProvider(this, "soul-evolved");
   private memoryBlock = new AgentContextProvider(this, "memory");
   private officeSubscribers = new Set<OfficeChatSubscriber>();
+  /** Human steered this in-flight turn from the composer. */
+  private officeTurnTouched = false;
   private officeStatus: "ready" | "submitted" | "streaming" | "error" = "ready";
   private officeError = "";
   private officeTurn: AbortController | null = null;
@@ -407,9 +424,16 @@ export class RoomHome extends Agent<WorkerEnv> {
       url.pathname.endsWith("/rpc")
     ) {
       await this.ensureOfficeId();
+      await this.ensureBotLoaded();
       const claimed = request.headers.get(OFFICE_WORKSPACE_HEADER);
       if (!this.officeId || claimed !== this.officeId) {
         return new Response("Forbidden", { status: 403 });
+      }
+      if (this.personId && this.botVisibility === "private") {
+        const user = officeUserFromHeaders(request.headers);
+        if (user && this.ownerUserId && user.userId !== this.ownerUserId) {
+          return new Response("Forbidden", { status: 403 });
+        }
       }
       return officeRpcResponse(
         this,
@@ -490,6 +514,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     live.onRpcBroken?.(() => {
       this.officeSubscribers.delete(live);
     });
+    this.ctx.waitUntil(this.markOfficeHumanPresent());
     const generation =
       (await this.ctx.storage.get<number>(OFFICE_GENERATION_STORAGE)) ?? 0;
     await live.streamGeneration(generation);
@@ -539,6 +564,8 @@ export class RoomHome extends Agent<WorkerEnv> {
     const running = Boolean(
       this.officeTurn && !this.officeTurn.signal.aborted,
     );
+    this.ctx.waitUntil(this.markOfficeHumanPresent());
+    if (running) this.officeTurnTouched = true;
     const stamped = stampIncomingOfficeUser(
       { role: "user", metadata: input.metadata },
       user,
@@ -661,6 +688,9 @@ export class RoomHome extends Agent<WorkerEnv> {
     const model = this.turnPiModel();
     const bound = await this.officeBound(session);
     const intro = lastOfficeUserIsIntro(bound);
+    const startedAt = Date.now();
+    const visible = !intro;
+    this.officeTurnTouched = false;
     const tools = intro
       ? officeIntroTurnTools(await this.officeAgentTools())
       : await this.officeAgentTools();
@@ -731,6 +761,17 @@ export class RoomHome extends Agent<WorkerEnv> {
       }
       this.officeStatus = "ready";
       await this.broadcastOfficeStatus();
+      const after = await this.officeBound(session);
+      this.ctx.waitUntil(
+        this.maybeArmAwayOfficePing({
+          visible,
+          startedAt,
+          touched: this.officeTurnTouched,
+          seq: this.officeSeq,
+          excerpt: awayOfficeExcerpt(lastPiAssistantText(after)),
+          toUserId: lastOfficeHumanUserId(after),
+        }),
+      );
       this.enqueueOfficeReview({
         status: "completed",
         continuation: false,
@@ -996,6 +1037,151 @@ export class RoomHome extends Agent<WorkerEnv> {
     return this.broadcastOffice((sub) => sub.error(this.officeError));
   }
 
+  private async markOfficeHumanPresent(): Promise<void> {
+    await this.cancelAwayOfficePing();
+  }
+
+  private async cancelAwayOfficePing(): Promise<void> {
+    const stored = parseOfficeAwayStored(
+      await this.ctx.storage.get(OFFICE_AWAY_STORAGE),
+    );
+    if (stored?.scheduleId) {
+      try {
+        await this.cancelSchedule(stored.scheduleId);
+      } catch {
+        // Already fired or missing.
+      }
+    }
+    await this.ctx.storage.delete(OFFICE_AWAY_STORAGE);
+  }
+
+  private async maybeArmAwayOfficePing(input: {
+    visible: boolean;
+    startedAt: number;
+    touched: boolean;
+    seq: number;
+    excerpt: string;
+    toUserId: string | null;
+  }): Promise<void> {
+    const stored = parseOfficeAwayStored(
+      await this.ctx.storage.get(OFFICE_AWAY_STORAGE),
+    );
+    const toUserId = input.toUserId?.trim() ?? "";
+    if (!toUserId) return;
+    if (
+      !shouldArmAwayOfficePing({
+        visible: input.visible,
+        startedAt: input.startedAt,
+        now: Date.now(),
+        subscriberCount: this.officeSubscribers.size,
+        touched: input.touched,
+        seq: input.seq,
+        pingedSeq: stored?.pingedSeq,
+      })
+    ) {
+      return;
+    }
+    if (stored?.scheduleId) {
+      try {
+        await this.cancelSchedule(stored.scheduleId);
+      } catch {
+        // Already fired or missing.
+      }
+    }
+    const row = await this.schedule(
+      new Date(Date.now() + OFFICE_AWAY_SETTLE_MS),
+      OFFICE_AWAY_CALLBACK,
+      {
+        seq: input.seq,
+        excerpt: input.excerpt || undefined,
+        toUserId,
+      },
+    );
+    await this.ctx.storage.put(OFFICE_AWAY_STORAGE, {
+      seq: input.seq,
+      scheduleId: row.id,
+      pingedSeq: stored?.pingedSeq,
+    });
+  }
+
+  /**
+   * Agents `this.schedule` callback. One ping after a long office turn
+   * if the Cap’n Web is still empty.
+   */
+  async runAwayOfficePing(payload: unknown): Promise<void> {
+    const body = parseOfficeAwayPayload(payload);
+    if (!body) return;
+    const stored = parseOfficeAwayStored(
+      await this.ctx.storage.get(OFFICE_AWAY_STORAGE),
+    );
+    if (
+      !shouldSendAwayOfficePing({
+        subscriberCount: this.officeSubscribers.size,
+        seq: body.seq,
+        stored,
+      })
+    ) {
+      return;
+    }
+    try {
+      await this.sendAwayOfficePing(body.toUserId, body.excerpt);
+      await this.ctx.storage.put(OFFICE_AWAY_STORAGE, {
+        seq: body.seq,
+        pingedSeq: body.seq,
+      });
+    } catch (error) {
+      console.error("bot actor away office ping", this.name, error);
+    }
+  }
+
+  private async sendAwayOfficePing(
+    toUserId: string | undefined,
+    excerpt?: string,
+  ): Promise<void> {
+    await this.ensureBotLoaded();
+    const env = productEnv(this.env);
+    const recipientId = toUserId?.trim() ?? "";
+    if (!this.personId || !this.officeId || !recipientId) return;
+    const { db } = createNeonHttpDb(env.databaseUrl);
+    const [bot] = await db
+      .select({
+        name: bots.name,
+        workspaceId: bots.workspaceId,
+      })
+      .from(bots)
+      .where(eq(bots.id, this.personId))
+      .limit(1);
+    if (!bot) return;
+    const [org] = await db
+      .select({ slug: organization.slug })
+      .from(organization)
+      .where(eq(organization.id, bot.workspaceId))
+      .limit(1);
+    const [recipient] = await db
+      .select({ email: user.email })
+      .from(user)
+      .innerJoin(member, eq(member.userId, user.id))
+      .where(
+        and(
+          eq(user.id, recipientId),
+          eq(member.organizationId, bot.workspaceId),
+        ),
+      )
+      .limit(1);
+    const url = officeRoomUrl(env.webOrigin, org?.slug ?? "", this.name);
+    const to = recipient?.email?.trim() ?? "";
+    if (!url || !to) return;
+    await sendAwayOfficeMail(
+      { ...env, email: this.env.EMAIL },
+      {
+        to,
+        botName: bot.name || this.hireName,
+        url,
+        excerpt,
+      },
+    );
+  }
+
   private async ensureOfficeId(): Promise<void> {
     if (this.officeId) return;
     const stored = await this.ctx.storage.get<string>("officeId");
@@ -1072,6 +1258,8 @@ export class RoomHome extends Agent<WorkerEnv> {
     if (!bot) return;
     this.personId = bot.id;
     this.officeId = bot.workspaceId;
+    this.ownerUserId = bot.userId;
+    this.botVisibility = parseVisibility(bot.visibility);
     this.hireName = bot.name;
     await this.ctx.storage.put("officeId", bot.workspaceId);
     await this.ctx.storage.put("botId", bot.id);
@@ -1700,6 +1888,9 @@ export class RoomHome extends Agent<WorkerEnv> {
     const { db } = createNeonHttpDb(env.databaseUrl);
     const catalog = mcpCatalogForExecute(
       await listMcpConnections(db, this.officeId),
+      this.personId
+        ? { visibility: this.botVisibility, userId: this.ownerUserId }
+        : { visibility: "shared", userId: "" },
     );
     const hostIds = [...new Set(catalog.map((row) => row.hostBotId))];
     const hosts =

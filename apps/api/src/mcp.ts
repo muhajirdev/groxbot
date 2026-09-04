@@ -8,8 +8,11 @@ import {
   mcpOauthServerId,
   mcpProbeError,
   mcpToolNames,
+  mcpVisibleToViewer,
+  parseVisibility,
   removeMcpConnection,
   saveMcpConnection,
+  setMcpVisibility,
   mcpServerId,
 } from "@groxbot/core";
 import { ORPCError } from "@orpc/server";
@@ -35,17 +38,19 @@ function callbackHost(env: RpcContext["env"]): string {
 async function ensureMcpHost(
   context: RpcContext,
   actor: Actor,
-  row: McpConnection,
+  row: { id: string; hostBotId: string | null; visibility: string },
 ): Promise<string> {
   if (row.hostBotId) return row.hostBotId;
-  const bot = await getMcpHostBot(context, actor);
+  const bot = await getMcpHostBot(context, actor, undefined, {
+    mcpVisibility: row.visibility,
+  });
   await saveMcpConnection(context.db, row.id, { hostBotId: bot.id });
   return bot.id;
 }
 
 export async function listMcp(context: RpcContext): Promise<McpConnection[]> {
   const actor = await requireActor(context);
-  return listMcpConnections(context.db, actor.workspaceId);
+  return listMcpConnections(context.db, actor.workspaceId, actor.userId);
 }
 
 export async function addMcp(
@@ -54,7 +59,10 @@ export async function addMcp(
 ): Promise<McpConnectResult> {
   const actor = await requireActor(context);
   try {
-    const row = await addMcpConnection(context.db, actor, input);
+    const row = await addMcpConnection(context.db, actor, {
+      ...input,
+      visibility: "private",
+    });
     return connectMcp(context, { id: row.id, botId: input.botId });
   } catch (error) {
     mapMcpError(error);
@@ -67,19 +75,21 @@ export async function connectMcp(
 ): Promise<McpConnectResult> {
   const actor = await requireActor(context);
   try {
-    const bot = await getMcpHostBot(context, actor, input.botId);
-    if (!context.mcp) {
-      throw new McpError("Remote MCP is only available on the Cloudflare API.");
-    }
     const existing = await getMcpConnection(
       context.db,
       actor.workspaceId,
       input.id,
     );
-    if (!existing) {
+    if (!existing || !mcpVisibleToViewer(existing, actor.userId)) {
       throw new ORPCError("NOT_FOUND", {
         message: "Add the MCP server first.",
       });
+    }
+    const bot = await getMcpHostBot(context, actor, input.botId, {
+      mcpVisibility: existing.visibility,
+    });
+    if (!context.mcp) {
+      throw new McpError("Remote MCP is only available on the Cloudflare API.");
     }
     const result = await context.mcp.add(bot.id, {
       serverId: existing.id,
@@ -92,7 +102,6 @@ export async function connectMcp(
       status: connecting ? "connecting" : "connected",
       hostBotId: bot.id,
       lastError: null,
-      userId: actor.userId,
     });
     return {
       connection,
@@ -122,6 +131,16 @@ export async function removeMcp(context: RpcContext, id: string) {
   const actor = await requireActor(context);
   try {
     const row = await getMcpConnection(context.db, actor.workspaceId, id);
+    if (row && !mcpVisibleToViewer(row, actor.userId)) {
+      throw new ORPCError("NOT_FOUND", {
+        message: "Add the MCP server first.",
+      });
+    }
+    if (row && parseVisibility(row.visibility) === "private" && row.userId !== actor.userId) {
+      throw new ORPCError("NOT_FOUND", {
+        message: "Add the MCP server first.",
+      });
+    }
     if (row?.hostBotId && context.mcp) {
       try {
         await context.mcp.remove(row.hostBotId, mcpServerId(row.id));
@@ -143,7 +162,7 @@ export async function probeMcp(
   const actor = await requireActor(context);
   try {
     const row = await getMcpConnection(context.db, actor.workspaceId, id);
-    if (!row) {
+    if (!row || !mcpVisibleToViewer(row, actor.userId)) {
       throw new ORPCError("NOT_FOUND", {
         message: "Add the MCP server first.",
       });
@@ -162,6 +181,18 @@ export async function probeMcp(
     } catch (error) {
       return { ok: false, tools: [], error: mcpProbeError(error) };
     }
+  } catch (error) {
+    mapMcpError(error);
+  }
+}
+
+export async function updateMcp(
+  context: RpcContext,
+  input: { id: string; visibility: "private" | "shared" },
+): Promise<McpConnection> {
+  const actor = await requireActor(context);
+  try {
+    return await setMcpVisibility(context.db, actor, input.id, input.visibility);
   } catch (error) {
     mapMcpError(error);
   }

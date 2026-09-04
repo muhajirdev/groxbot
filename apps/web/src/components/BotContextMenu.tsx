@@ -29,8 +29,10 @@ export function BotContextMenu(props: {
   onPin: (bot: Bot) => void;
   onArchive: (bot: Bot) => void;
   onMove: (bot: Bot, sectionId: string | null) => void;
+  onShare: (bot: Bot) => void;
   onPhase: (next: BotMenuState) => void;
   onDelete: (botId: string) => void;
+  ownerUserId?: string;
 }) {
   const last = useRef(props.menu);
   if (props.menu) last.current = props.menu;
@@ -51,6 +53,8 @@ export function BotContextMenu(props: {
     name: current.bot.name,
     phase: current.phase,
     sections: props.sections,
+    owner: Boolean(props.ownerUserId && current.bot.userId === props.ownerUserId),
+    visibility: current.bot.visibility,
   });
 
   return (
@@ -88,6 +92,7 @@ export function BotContextMenu(props: {
                   closeOnClick={
                     item.id === "pin" ||
                     item.id === "archive" ||
+                    item.id === "share" ||
                     item.id === "move-to" ||
                     (item.id === "delete" && current.phase === "confirm-delete")
                   }
@@ -98,6 +103,10 @@ export function BotContextMenu(props: {
                     }
                     if (item.id === "archive") {
                       props.onArchive(current.bot);
+                      return;
+                    }
+                    if (item.id === "share") {
+                      props.onShare(current.bot);
                       return;
                     }
                     if (item.id === "move") {

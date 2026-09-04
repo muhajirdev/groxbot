@@ -318,6 +318,18 @@ export function lastPiUserText(messages: readonly PiBoundMessage[]): string {
   return "";
 }
 
+export function lastPiAssistantText(
+  messages: readonly PiBoundMessage[],
+): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const row = messages[i];
+    if (!row || row.message.role !== "assistant") continue;
+    const text = piAssistantText(row.message);
+    if (text) return text;
+  }
+  return "";
+}
+
 export function piLogShouldRun(messages: readonly PiBoundMessage[]): boolean {
   return messages.at(-1)?.message.role === "user";
 }

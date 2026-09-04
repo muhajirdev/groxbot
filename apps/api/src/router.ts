@@ -56,7 +56,7 @@ import {
   rotateGuest,
 } from "./guests.js";
 import { healthPayload } from "./health.js";
-import { addMcp, connectMcp, listMcp, probeMcp, removeMcp } from "./mcp.js";
+import { addMcp, connectMcp, listMcp, probeMcp, removeMcp, updateMcp } from "./mcp.js";
 import {
   addPlugin,
   connectPlugin,
@@ -477,6 +477,9 @@ export const appRouter = os.router({
     probe: os.mcp.probe.handler(async ({ context, input }) =>
       probeMcp(context, input.id),
     ),
+    update: os.mcp.update.handler(async ({ context, input }) =>
+      updateMcp(context, input),
+    ),
   },
   routines: {
     list: os.routines.list.handler(async ({ context, input }) => {
@@ -552,6 +555,19 @@ export const appRouter = os.router({
       if (!context.knowledge) return { entries: [], truncated: false };
       try {
         return await context.knowledge.list(actor.workspaceId);
+      } catch (error) {
+        throwKnowledgeError(error);
+      }
+    }),
+    search: os.knowledge.search.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      if (!context.knowledge) return { hits: [], truncated: false };
+      try {
+        return await context.knowledge.search(
+          actor.workspaceId,
+          input.query,
+          input.limit,
+        );
       } catch (error) {
         throwKnowledgeError(error);
       }
