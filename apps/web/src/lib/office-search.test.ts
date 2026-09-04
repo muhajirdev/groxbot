@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  closeLibrary,
+  closePeek,
   deskApp,
   deskClosed,
   deskComputer,
+  deskLibrary,
+  deskPeek,
   deskSettings,
   officeSearch,
   toggleDesk,
@@ -43,5 +47,72 @@ describe("desk helpers", () => {
 
   it("opens an app by id", () => {
     expect(deskApp("doc-1")).toEqual({ pane: "app", app: "doc-1" });
+  });
+});
+
+describe("knowledge desk", () => {
+  it("opens a peek at an office path", () => {
+    expect(
+      officeSearch({ pane: "knowledge", knowledge: "how-we-work/voice.md" }),
+    ).toEqual({
+      pane: "knowledge",
+      knowledge: "how-we-work/voice.md",
+    });
+    expect(deskPeek("how-we-work/voice.md")).toEqual({
+      pane: "knowledge",
+      knowledge: "how-we-work/voice.md",
+    });
+  });
+
+  it("rejects traversal in the knowledge path", () => {
+    expect(
+      officeSearch({ pane: "knowledge", knowledge: "../secret.md" }),
+    ).toEqual({
+      pane: "knowledge",
+    });
+    expect(deskPeek("../secret.md")).toEqual({ pane: "knowledge" });
+  });
+
+  it("opens the library without a bot pane", () => {
+    expect(officeSearch({ library: true })).toEqual({ library: true });
+    expect(
+      officeSearch({ library: "true", knowledge: "skills/foo/SKILL.md" }),
+    ).toEqual({
+      library: true,
+      knowledge: "skills/foo/SKILL.md",
+    });
+  });
+
+  it("keeps the previous pane under the library so Back can restore it", () => {
+    expect(deskLibrary({ pane: "computer" }, "company/resources.md")).toEqual({
+      pane: "computer",
+      knowledge: "company/resources.md",
+      library: true,
+    });
+    expect(
+      deskLibrary({ pane: "knowledge", knowledge: "a.md" }, "a.md"),
+    ).toEqual({
+      pane: "knowledge",
+      knowledge: "a.md",
+      library: true,
+    });
+  });
+
+  it("Back from the library restores the pane", () => {
+    expect(
+      closeLibrary({
+        pane: "computer",
+        knowledge: "note.md",
+        library: true,
+      }),
+    ).toEqual({ pane: "computer", knowledge: "note.md" });
+    expect(closeLibrary({ library: true })).toEqual({});
+  });
+
+  it("closing a peek returns to chat", () => {
+    expect(closePeek({ pane: "knowledge", knowledge: "a.md" })).toEqual({});
+    expect(
+      closePeek({ pane: "knowledge", knowledge: "a.md", library: true }),
+    ).toEqual({ knowledge: "a.md", library: true });
   });
 });

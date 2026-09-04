@@ -4,7 +4,7 @@ import { getAgentByName } from "agents";
 
 type ActorBinding = DurableObjectNamespace;
 
-/** Read this bot’s Think workspace. Cloudflare is the mailbox. */
+/** Read this bot’s Computer workspace. Cloudflare is the mailbox. */
 export async function listBotComputer(
   actors: ActorBinding,
   botId: string,

@@ -10,7 +10,7 @@ Source of truth is never the browser:
 |---|---|
 | Team, bots, members, models | Postgres |
 | Office chat | Think session on `BotActor` (DO SQLite) |
-| This bot’s files | Think `this.workspace` |
+| This bot’s files | `@cloudflare/computer` `Workspace` on `BotActor` |
 | Office knowledge | R2 `{workspaceId}/…` |
 
 R2 `_search/index.json` and `_links/index.json` are **Worker snapshots**, not this cache. See [knowledge-search.md](./knowledge-search.md).

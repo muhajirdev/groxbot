@@ -204,7 +204,7 @@ export const appContract = oc.router({
       .input(z.object({ path: z.string().min(1).max(240) }))
       .output(z.object({ ok: z.literal(true) })),
   },
-  /** This bot’s Think workspace. Not a computers catalog. */
+  /** This bot’s Computer workspace. Not a computers catalog. */
   computer: {
     list: oc
       .input(z.object({ botId: Id, path: z.string().max(240).optional() }))

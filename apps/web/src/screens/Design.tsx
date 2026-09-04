@@ -599,7 +599,7 @@ export function Design() {
           <Section
             id="knowledge"
             title="Knowledge"
-            lede="Library modal: tree plus a document reader. Frontmatter stays off the page."
+            lede="Library: tree plus a document reader. A File chip peeks the note beside chat."
           >
             <Specimen label="Note">
               <div className="design-knowledge-read">

@@ -132,12 +132,12 @@ export const RoutineSchema = z.object({
 });
 export type Routine = z.infer<typeof RoutineSchema>;
 
-/** Human-attached files land here on this bot’s Think workspace. */
+/** Human-attached files land here on this bot’s Computer workspace. */
 export const COMPUTER_INBOX_DIR = "inbox";
 export const MAX_COMPUTER_ATTACHMENTS = 6;
 export const MAX_COMPUTER_WRITE_BYTES = 4 * 1024 * 1024;
 
-/** One path on this bot’s Think workspace. Not a computers catalog. */
+/** One path on this bot’s Computer workspace. Not a computers catalog. */
 export const ComputerEntrySchema = z.object({
   path: z.string(),
   kind: z.enum(["file", "dir"]),

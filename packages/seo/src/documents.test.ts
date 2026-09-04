@@ -65,7 +65,7 @@ describe("discovery documents", () => {
 
   it("sells a computer as built into the bot, not a separate desk", () => {
     expect(GROXBOT_SUMMARY).toMatch(/real computer/i);
-    expect(GROXBOT_STACK.join("\n")).toMatch(/Think workspace/i);
+    expect(GROXBOT_STACK.join("\n")).toMatch(/Cloudflare Computer workspace/i);
     const faq = faqAiTxt(origins);
     expect(faq).toMatch(/What is a computer/i);
     expect(faq).toMatch(/not a second Durable Object/i);

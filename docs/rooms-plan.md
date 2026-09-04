@@ -23,7 +23,7 @@ So: do not point group chat at Think. Do not name `BotActor` by `roomId`. Do not
 
 Think’s own docs say the design is **inspired by Pi**. Groxbot uses both, in different jobs:
 
-- **Think** stays the v1 office person object: `BotActor extends Think`, `this.workspace`, one Session, `useAgentChat({ name: botId })`.
+- **Think** stays the v1 office person object: `BotActor extends Think`, Computer `Workspace` + Worker shell, one Session, `useAgentChat({ name: botId })`.
 - **Pi** is the turn engine when you already own the array: `runAgentLoopContinue({ systemPrompt, messages })`. Soul is the stable system-prompt prefix (Steve and Hormozi must not share that prefix). The room/office log is the suffix. Hosted REST / poke / guest turns go through `PiAgentRuntime`.
 - Do **not** put Think or Pi on `RoomActor` (that would serialize the table and share one computer). Do **not** use Pi’s stateful `Agent` class as the room. The OS lesson for a panel is the Overseer shape: **place owns the log; the loop is a guest on the person.**
 
@@ -44,7 +44,7 @@ BotActor  [name = botId]      Think (office) + Pi (owned turns)
 | Bot (person) | yes — `BotActor` | `botId` | office Session; Pi for owned arrays |
 | Room (place) | yes — `RoomActor` | `roomId` | **no** |
 | Membership / listing | Postgres | workspace | no |
-| Computer | built into the bot | `botId` | `this.workspace` |
+| Computer | built into the bot | `botId` | `@cloudflare/computer` `Workspace` |
 
 `RoomActor` is a coordinator, the same job as `AppRuntime` for a doc: one writer, one log, many subscribers. It is **not** a bot doing impressions.
 

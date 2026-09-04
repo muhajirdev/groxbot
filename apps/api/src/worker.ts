@@ -32,6 +32,7 @@ import { r2KnowledgeDisk } from "./knowledge-r2.js";
 import { actorForAgentBot, requireActor } from "./session.js";
 
 export { CodemodeRuntime } from "@cloudflare/codemode";
+export { WorkspaceServiceProxy } from "@cloudflare/computer";
 export { AppRuntime, BotActor };
 
 /** `/agents/{binding}/{botId}` — instance name is the bot id. */
