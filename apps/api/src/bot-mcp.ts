@@ -8,7 +8,7 @@ export type McpAddResult = {
   authUrl?: string;
 };
 
-/** Live MCP client on this bot’s Think actor. Catalog stays in Postgres. */
+/** Live MCP client on this bot’s actor. Catalog stays in Postgres. */
 export async function addBotMcp(
   actors: ActorBinding,
   botId: string,

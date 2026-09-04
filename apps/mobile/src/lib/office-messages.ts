@@ -4,18 +4,18 @@ import {
 } from "@groxbot/contracts";
 import { officeUserMessageSender } from "./office-sender";
 
-export type ThinkRole = "user" | "assistant" | "system";
+export type OfficeRole = "user" | "assistant" | "system";
 
-export type ThinkPart = {
+export type OfficePart = {
   type: string;
   text?: string;
   [key: string]: unknown;
 };
 
-export type ThinkMessage = {
+export type OfficeMessage = {
   id: string;
-  role: ThinkRole;
-  parts: ThinkPart[];
+  role: OfficeRole;
+  parts: OfficePart[];
   metadata?: unknown;
 };
 
@@ -28,18 +28,18 @@ export function isComputerFileNote(text: string): boolean {
   );
 }
 
-function isTextPart(part: ThinkPart): part is ThinkPart & { text: string } {
+function isTextPart(part: OfficePart): part is OfficePart & { text: string } {
   return part.type === "text" && typeof part.text === "string";
 }
 
-export function textFromThinkMessage(message: ThinkMessage): string {
+export function textFromOfficeMessage(message: OfficeMessage): string {
   return message.parts
     .filter(isTextPart)
     .map((part) => part.text)
     .join("");
 }
 
-export function visibleTextFromThinkMessage(message: ThinkMessage): string {
+export function visibleTextFromOfficeMessage(message: OfficeMessage): string {
   return message.parts
     .filter(isTextPart)
     .map((part) => part.text)
@@ -47,24 +47,24 @@ export function visibleTextFromThinkMessage(message: ThinkMessage): string {
     .join("");
 }
 
-export function usedTools(message: ThinkMessage): boolean {
+export function usedTools(message: OfficeMessage): boolean {
   return message.parts.some(
     (part) => part.type.startsWith("tool-") || part.type === "dynamic-tool",
   );
 }
 
-export function isVisibleThinkMessage(message: ThinkMessage): boolean {
+export function isVisibleOfficeMessage(message: OfficeMessage): boolean {
   if (message.role === "user") {
-    return visibleTextFromThinkMessage(message).trim().length > 0;
+    return visibleTextFromOfficeMessage(message).trim().length > 0;
   }
-  return textFromThinkMessage(message).trim().length > 0 || usedTools(message);
+  return textFromOfficeMessage(message).trim().length > 0 || usedTools(message);
 }
 
-export function lastThinkPreview(messages: ThinkMessage[]): string {
+export function lastOfficePreview(messages: OfficeMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
     const row = messages[i];
     if (!row) continue;
-    const text = visibleTextFromThinkMessage(row).replace(/\s+/g, " ").trim();
+    const text = visibleTextFromOfficeMessage(row).replace(/\s+/g, " ").trim();
     if (text) return text.slice(0, 140);
     const presented = presentPreviewFromParts(row.parts);
     if (presented) return presented;
@@ -72,9 +72,9 @@ export function lastThinkPreview(messages: ThinkMessage[]): string {
   return "";
 }
 
-export function parseThinkMessages(payload: unknown): ThinkMessage[] {
+export function parseOfficeMessages(payload: unknown): OfficeMessage[] {
   if (!Array.isArray(payload)) return [];
-  const out: ThinkMessage[] = [];
+  const out: OfficeMessage[] = [];
   for (const row of payload) {
     if (!row || typeof row !== "object") continue;
     const item = row as Record<string, unknown>;
@@ -85,7 +85,7 @@ export function parseThinkMessages(payload: unknown): ThinkMessage[] {
     }
     const parts = Array.isArray(item.parts)
       ? item.parts.filter(
-          (part): part is ThinkPart =>
+          (part): part is OfficePart =>
             Boolean(part) && typeof part === "object" && "type" in part,
         )
       : [];
@@ -99,7 +99,7 @@ export function parseThinkMessages(payload: unknown): ThinkMessage[] {
   return out;
 }
 
-function lastAssistantIndex(messages: ThinkMessage[]): number {
+function lastAssistantIndex(messages: OfficeMessage[]): number {
   for (let i = messages.length - 1; i >= 0; i--) {
     if (messages[i]?.role === "assistant") return i;
   }
@@ -107,13 +107,13 @@ function lastAssistantIndex(messages: ThinkMessage[]): number {
 }
 
 function withAssistantText(
-  messages: ThinkMessage[],
+  messages: OfficeMessage[],
   delta: string,
   messageId?: string,
-): ThinkMessage[] {
+): OfficeMessage[] {
   const next = messages.slice();
   let index = lastAssistantIndex(next);
-  const id = messageId?.trim() || next[index]?.id || newThinkId("a");
+  const id = messageId?.trim() || next[index]?.id || newOfficeId("a");
   if (index < 0 || (messageId && next[index]?.id !== messageId)) {
     const existing = next.findIndex((row) => row.id === id);
     if (existing >= 0) index = existing;
@@ -146,10 +146,10 @@ function withAssistantText(
   return next;
 }
 
-export function applyThinkChunk(
-  messages: ThinkMessage[],
+export function applyOfficeChunk(
+  messages: OfficeMessage[],
   chunk: Record<string, unknown>,
-): ThinkMessage[] {
+): OfficeMessage[] {
   const type = String(chunk.type ?? "");
   const messageId =
     typeof chunk.messageId === "string"
@@ -158,7 +158,7 @@ export function applyThinkChunk(
         ? chunk.id
         : undefined;
   if (type === "start" || type === "text-start") {
-    const id = messageId || newThinkId("a");
+    const id = messageId || newOfficeId("a");
     if (messages.some((row) => row.id === id)) return messages;
     return [
       ...messages,
@@ -173,17 +173,17 @@ export function applyThinkChunk(
   return messages;
 }
 
-export function applyThinkSocketMessage(
-  messages: ThinkMessage[],
+export function applyOfficeSocketMessage(
+  messages: OfficeMessage[],
   payload: unknown,
-): { messages: ThinkMessage[]; streaming: boolean; error?: string } {
+): { messages: OfficeMessage[]; streaming: boolean; error?: string } {
   if (!payload || typeof payload !== "object") {
     return { messages, streaming: false };
   }
   const row = payload as Record<string, unknown>;
   const type = String(row.type ?? "");
   if (type === "cf_agent_chat_messages" && Array.isArray(row.messages)) {
-    return { messages: parseThinkMessages(row.messages), streaming: false };
+    return { messages: parseOfficeMessages(row.messages), streaming: false };
   }
   if (type === "cf_agent_use_chat_response") {
     if (row.error) {
@@ -197,7 +197,7 @@ export function applyThinkSocketMessage(
     if (typeof row.body === "string" && row.body.trim()) {
       try {
         const chunk = JSON.parse(row.body) as Record<string, unknown>;
-        next = applyThinkChunk(messages, chunk);
+        next = applyOfficeChunk(messages, chunk);
       } catch {
         next = messages;
       }
@@ -207,15 +207,15 @@ export function applyThinkSocketMessage(
   return { messages, streaming: false };
 }
 
-export function newThinkId(prefix = "m"): string {
+export function newOfficeId(prefix = "m"): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
 }
 
-export function userThinkMessage(input: {
+export function userOfficeMessage(input: {
   text: string;
   userId?: string;
   userName?: string;
-}): ThinkMessage {
+}): OfficeMessage {
   const sender =
     input.userId && input.userName
       ? { userId: input.userId, name: input.userName }
@@ -224,14 +224,14 @@ export function userThinkMessage(input: {
     metadata?: unknown;
   };
   return {
-    id: newThinkId("u"),
+    id: newOfficeId("u"),
     role: "user",
     parts: [{ type: "text", text: input.text }],
     metadata: stamped.metadata,
   };
 }
 
-export function thinkSendBody(messages: ThinkMessage[]): string {
+export function officeSendBody(messages: OfficeMessage[]): string {
   return JSON.stringify({
     messages,
     trigger: "submit-message",

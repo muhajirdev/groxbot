@@ -132,12 +132,17 @@ describe("destinationAfterWorkspaceChange", () => {
     expect(destinationAfterWorkspaceChange([])).toEqual({ to: "/onboarding" });
   });
 
-  it("opens the first live teammate", () => {
+  it("opens the first live teammate’s home room", () => {
     expect(
       destinationAfterWorkspaceChange([
         { id: "bot-archived", archivedAt: "2026-01-01T00:00:00.000Z" },
         { id: "bot-live", archivedAt: null },
       ]),
-    ).toEqual({ to: "/bot/$botId", botId: "bot-live" });
+    ).toEqual({ to: "/room/$roomId", roomId: "bot-live" });
+    expect(
+      destinationAfterWorkspaceChange([
+        { id: "bot-live", homeRoomId: "home-live", archivedAt: null },
+      ]),
+    ).toEqual({ to: "/room/$roomId", roomId: "home-live" });
   });
 });

@@ -1,5 +1,5 @@
 import type { TemplateId } from "@groxbot/contracts";
-import type { ThinkMessage, ThinkPart } from "./think";
+import type { OfficeMessage, OfficePart } from "./office-messages";
 
 export type OfficeAppCard = {
   appId: string;
@@ -23,7 +23,7 @@ function asCard(value: unknown): OfficeAppCard | null {
   return { appId, templateId: templateId as TemplateId, title };
 }
 
-function cardsFromPart(part: ThinkPart): OfficeAppCard[] {
+function cardsFromPart(part: OfficePart): OfficeAppCard[] {
   if (part.type === "app" || part.type === "data-app") {
     const card = asCard(part);
     return card ? [card] : [];
@@ -32,8 +32,8 @@ function cardsFromPart(part: ThinkPart): OfficeAppCard[] {
   return fromOutput ? [fromOutput] : [];
 }
 
-export function appCardsFromThinkMessage(
-  message: ThinkMessage,
+export function appCardsFromOfficeMessage(
+  message: OfficeMessage,
 ): OfficeAppCard[] {
   const seen = new Set<string>();
   const cards: OfficeAppCard[] = [];

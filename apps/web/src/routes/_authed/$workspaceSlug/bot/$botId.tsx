@@ -3,34 +3,24 @@ import { botsCollection, peekBots } from "../../../../lib/collections";
 import { OFFICE_TO, officeParams } from "../../../../lib/office-route";
 import { officeSearch } from "../../../../lib/office-search";
 import { firstLiveBot, loadBotsForRoute } from "../../../../lib/session";
-import { Chat } from "../../../../screens/Chat";
 
+/** Old `/bot/$botId` bookmarks open that person’s home room. */
 export const Route = createFileRoute("/_authed/$workspaceSlug/bot/$botId")({
   pendingMs: 1000,
   preloadStaleTime: 30_000,
   validateSearch: officeSearch,
-  loader: ({ params }) => {
-    if (botsCollection.has(params.botId)) {
-      return peekBots();
-    }
-    return loadBotsForRoute(params.botId).then((bots) => {
-      const first = firstLiveBot(bots);
-      if (!first) throw redirect({ to: "/onboarding", search: {} });
-      if (!bots.some((bot) => bot.id === params.botId)) {
-        throw redirect({
-          to: OFFICE_TO,
-          params: officeParams(params.workspaceSlug, first.id),
-        });
-      }
-      return bots;
+  loader: async ({ params, search }) => {
+    const bots = botsCollection.has(params.botId)
+      ? peekBots()
+      : await loadBotsForRoute(params.botId);
+    const bot = bots.find((item) => item.id === params.botId);
+    const first = firstLiveBot(bots);
+    const roomId = bot?.homeRoomId || first?.homeRoomId || first?.id;
+    if (!roomId) throw redirect({ to: "/onboarding", search: {} });
+    throw redirect({
+      to: OFFICE_TO,
+      params: officeParams(params.workspaceSlug, roomId),
+      search,
     });
   },
-  component: ChatPage,
 });
-
-function ChatPage() {
-  const { botId } = Route.useParams();
-  const { workspace } = Route.useRouteContext();
-  const desk = Route.useSearch();
-  return <Chat botId={botId} workspace={workspace} desk={desk} />;
-}

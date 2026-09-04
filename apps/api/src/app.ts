@@ -1,10 +1,14 @@
-import type { EnqueueJob, InitApp } from "@groxbot/adapter-kit";
+import type { EnqueueJob, InitApp, InitRoom } from "@groxbot/adapter-kit";
 import { createAuth } from "@groxbot/auth";
-import { groxbotCookieDomain } from "@groxbot/contracts";
+import {
+  groxbotCookieDomain,
+  officeUserFromActor,
+  withOfficeUserRequest,
+} from "@groxbot/contracts";
 import { GuestHub, handleGuestRequest, readAvatar } from "@groxbot/core";
-import type { Database } from "@groxbot/db";
+import { bots, type Database, rooms } from "@groxbot/db";
 import { ORPCError } from "@orpc/server";
-import { sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
@@ -31,9 +35,20 @@ export function createApp(
     close: () => Promise<void>;
     enqueue: EnqueueJob;
     initApp: InitApp;
+    initRoom?: InitRoom;
     email?: SendEmailBinding;
     connectApp?: (
       appId: string,
+      request: Request,
+      workspaceId: string,
+    ) => Promise<Response>;
+    connectBot?: (
+      botId: string,
+      request: Request,
+      workspaceId: string,
+    ) => Promise<Response>;
+    connectRoom?: (
+      roomId: string,
       request: Request,
       workspaceId: string,
     ) => Promise<Response>;
@@ -77,6 +92,7 @@ export function createApp(
     auth,
     enqueue: opts.enqueue,
     initApp: opts.initApp,
+    initRoom: opts.initRoom,
     guests,
     env,
     computer: opts.computer,
@@ -148,6 +164,78 @@ export function createApp(
     }
   });
 
+  if (opts.connectBot) {
+    const connectBot = opts.connectBot;
+    app.get("/bots/:botId/rpc", async (c) => {
+      const origin = c.req.header("Origin");
+      if (origin && !env.corsOrigins.includes(origin)) {
+        return c.text("Forbidden", 403);
+      }
+      try {
+        const inbound = withQueryCookie(c.req.raw);
+        const actor = await requireActor({
+          ...handles,
+          headers: inbound.headers,
+        });
+        const botId = c.req.param("botId");
+        const [bot] = await opts.db
+          .select({ id: bots.id })
+          .from(bots)
+          .where(
+            and(eq(bots.id, botId), eq(bots.workspaceId, actor.workspaceId)),
+          )
+          .limit(1);
+        if (!bot) return c.text("Not found", 404);
+        const officeUser = officeUserFromActor(actor);
+        const stamped = officeUser
+          ? withOfficeUserRequest(inbound, officeUser)
+          : inbound;
+        return connectBot(botId, stamped, actor.workspaceId);
+      } catch (error) {
+        if (error instanceof ORPCError) {
+          return new Response(error.message, { status: error.status });
+        }
+        throw error;
+      }
+    });
+  }
+
+  if (opts.connectRoom) {
+    const connectRoom = opts.connectRoom;
+    app.get("/rooms/:roomId/rpc", async (c) => {
+      const origin = c.req.header("Origin");
+      if (origin && !env.corsOrigins.includes(origin)) {
+        return c.text("Forbidden", 403);
+      }
+      try {
+        const inbound = withQueryCookie(c.req.raw);
+        const actor = await requireActor({
+          ...handles,
+          headers: inbound.headers,
+        });
+        const roomId = c.req.param("roomId");
+        const [room] = await opts.db
+          .select({ id: rooms.id })
+          .from(rooms)
+          .where(
+            and(eq(rooms.id, roomId), eq(rooms.workspaceId, actor.workspaceId)),
+          )
+          .limit(1);
+        if (!room) return c.text("Not found", 404);
+        const officeUser = officeUserFromActor(actor);
+        const stamped = officeUser
+          ? withOfficeUserRequest(inbound, officeUser)
+          : inbound;
+        return connectRoom(roomId, stamped, actor.workspaceId);
+      } catch (error) {
+        if (error instanceof ORPCError) {
+          return new Response(error.message, { status: error.status });
+        }
+        throw error;
+      }
+    });
+  }
+
   if (opts.connectApp) {
     const connectApp = opts.connectApp;
     app.get("/apps/:appId/rpc", async (c) => {
@@ -209,4 +297,14 @@ export function createApp(
   });
 
   return handles;
+}
+
+/** React Native WebSocket cannot set Cookie; the office client puts it on the query. */
+function withQueryCookie(request: Request): Request {
+  if (request.headers.get("Cookie")) return request;
+  const cookie = new URL(request.url).searchParams.get("Cookie")?.trim();
+  if (!cookie) return request;
+  const headers = new Headers(request.headers);
+  headers.set("Cookie", cookie);
+  return new Request(request, { headers });
 }

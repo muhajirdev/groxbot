@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   mcpExecuteHint,
-  rewriteThinkCapability,
-  TEAMMATE_RUNTIME_LINE,
-  THINK_RUNTIME_LINE,
   teammatePrompt,
   withOfficeExecuteDescription,
 } from "./run-continue.js";
@@ -63,36 +60,22 @@ describe("teammatePrompt", () => {
   });
 });
 
-describe("rewriteThinkCapability", () => {
-  it("replaces Think's runtime identity and keeps the tool list", () => {
-    const next = rewriteThinkCapability(
-      "You are Reja.\n\nYou are running inside a Think agent.\n\nCapabilities available in this turn:\n- Use the tools",
-    );
-    expect(next).toContain(TEAMMATE_RUNTIME_LINE);
-    expect(next).toContain("Capabilities available in this turn:");
-    expect(next).not.toContain(THINK_RUNTIME_LINE);
-  });
-
-  it("leaves other system prompts unchanged", () => {
-    expect(rewriteThinkCapability("You are Reja.")).toBe("You are Reja.");
-  });
-});
-
 describe("withOfficeExecuteDescription", () => {
   const generated = [
     "Execute JavaScript in a sandbox with access to connector SDKs.",
     "",
     "## Available connectors",
     "",
-    "- `state` — the workspace filesystem.",
+    "- `tools` — page helpers.",
     "- `knowledge`",
     "- `routines`",
     "- `github`",
   ].join("\n");
 
-  it("hints knowledge on Think's bare connector bullet", () => {
+  it("hints knowledge on a bare connector bullet", () => {
     const next = withOfficeExecuteDescription(generated, true);
     expect(next).toMatch(/- `knowledge` — shared office library/);
+    expect(next).not.toMatch(/state\.\*/);
     expect(next).toMatch(/knowledge\.search\(\{ query \}\)/);
     expect(next).toContain("- `github`");
     expect(next).toContain("- `routines`");

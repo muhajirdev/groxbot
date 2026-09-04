@@ -2,60 +2,72 @@ import { describe, expect, it } from "vitest";
 import { orpc } from "./orpc";
 import {
   isComputerListQueryKey,
-  shouldDehydrateThinkQuery,
-  thinkCacheEnabled,
-} from "./think-persist";
+  shouldDehydrateOfficeQuery,
+  officeCacheEnabled,
+} from "./office-persist";
 
 describe("query persist", () => {
   it("does not open IndexedDB in node tests", () => {
-    expect(thinkCacheEnabled()).toBe(false);
+    expect(officeCacheEnabled()).toBe(false);
   });
 
-  it("dehydrates successful think-messages and catalog queries", () => {
+  it("dehydrates successful office-messages and catalog queries", () => {
     expect(
-      shouldDehydrateThinkQuery({
-        queryKey: ["think-messages", "bot-1"],
+      shouldDehydrateOfficeQuery({
+        queryKey: ["office-messages", "bot-1"],
         state: { status: "success" },
       }),
     ).toBe(true);
     expect(
-      shouldDehydrateThinkQuery({
+      shouldDehydrateOfficeQuery({
+        queryKey: ["room-messages", "room-1"],
+        state: { status: "success" },
+      }),
+    ).toBe(true);
+    expect(
+      shouldDehydrateOfficeQuery({
+        queryKey: orpc.rooms.list.queryOptions().queryKey,
+        state: { status: "success" },
+      }),
+    ).toBe(true);
+    expect(
+      shouldDehydrateOfficeQuery({
         queryKey: orpc.bots.list.queryOptions().queryKey,
         state: { status: "success" },
       }),
     ).toBe(true);
     expect(
-      shouldDehydrateThinkQuery({
+      shouldDehydrateOfficeQuery({
         queryKey: orpc.apps.list.queryOptions().queryKey,
         state: { status: "success" },
       }),
     ).toBe(true);
     expect(
-      shouldDehydrateThinkQuery({
+      shouldDehydrateOfficeQuery({
         queryKey: orpc.plugins.list.queryOptions().queryKey,
         state: { status: "success" },
       }),
     ).toBe(true);
     expect(
-      shouldDehydrateThinkQuery({
+      shouldDehydrateOfficeQuery({
         queryKey: orpc.mcp.list.queryOptions().queryKey,
         state: { status: "success" },
       }),
     ).toBe(true);
     expect(
-      shouldDehydrateThinkQuery({
+      shouldDehydrateOfficeQuery({
         queryKey: orpc.knowledge.list.queryOptions().queryKey,
         state: { status: "success" },
       }),
     ).toBe(true);
     expect(
-      shouldDehydrateThinkQuery({
-        queryKey: ["think-messages", "bot-1"],
+      shouldDehydrateOfficeQuery({
+        queryKey: ["office-messages", "bot-1"],
         state: { status: "pending" },
       }),
     ).toBe(false);
     expect(
-      shouldDehydrateThinkQuery({
+      shouldDehydrateOfficeQuery({
         queryKey: ["auth", "session"],
         state: { status: "success" },
       }),
@@ -72,13 +84,13 @@ describe("query persist", () => {
     expect(isComputerListQueryKey(listed)).toBe(true);
     expect(isComputerListQueryKey(other)).toBe(true);
     expect(
-      shouldDehydrateThinkQuery({
+      shouldDehydrateOfficeQuery({
         queryKey: listed,
         state: { status: "success" },
       }),
     ).toBe(true);
     expect(
-      shouldDehydrateThinkQuery({
+      shouldDehydrateOfficeQuery({
         queryKey: listed,
         state: { status: "pending" },
       }),

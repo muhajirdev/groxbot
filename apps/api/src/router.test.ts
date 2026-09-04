@@ -74,6 +74,9 @@ describe("oRPC", () => {
         code: "UNAUTHORIZED",
       },
     );
+    await expect(client.rooms.list()).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
   });
 
   it("requires a session to list plugins", async () => {

@@ -7,7 +7,7 @@ export type OfficeMessageSender = {
   image?: string;
 };
 
-/** Label a human Think message for the thread. Own turns say "You". */
+/** Label a human office message for the thread. Own turns say "You". */
 export function officeUserMessageSender(
   metadata: unknown,
   viewerUserId?: string,

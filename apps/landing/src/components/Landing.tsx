@@ -135,13 +135,13 @@ export function Landing(props: { startUrl: string }) {
             <h3>Built into the bot</h3>
             <p>
               Not a second product and not a shared desk you pick at hire. Each
-              Bot is one Think actor. The computer is that actor’s workspace.
+              Bot is one Durable Object. The computer is that actor’s workspace.
             </p>
             <div className="tile-stage">
               <div className="desk-split">
                 <div className="desk-card on">
                   <span className="kicker">Bot</span>
-                  <strong>Think actor</strong>
+                  <strong>Bot actor</strong>
                   <span>Named by botId</span>
                 </div>
                 <div className="desk-card">

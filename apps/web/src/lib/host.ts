@@ -3,7 +3,7 @@ import { CLOUD_API_ORIGIN } from "@groxbot/contracts";
 const LOCAL_API_ORIGIN = "http://127.0.0.1:3100";
 const LOCAL_WEB_ORIGIN = "http://127.0.0.1:5173";
 
-/** Absolute origin for oRPC, auth, and Think. Local dev talks to wrangler, not the Vite proxy. */
+/** Absolute origin for oRPC, auth, and office Cap’n Web. Local dev talks to wrangler, not the Vite proxy. */
 export function apiOrigin(): string {
   const explicit = import.meta.env.VITE_API_URL?.replace(/\/$/, "");
   if (explicit) return explicit;
@@ -11,7 +11,7 @@ export function apiOrigin(): string {
   return LOCAL_API_ORIGIN;
 }
 
-/** Host for Think `useAgent` (no scheme). */
+/** Host for the API origin (no scheme). */
 export function agentSocketHost(): string {
   try {
     return new URL(apiOrigin()).host;

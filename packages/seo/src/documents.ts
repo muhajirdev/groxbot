@@ -37,7 +37,7 @@ Brand Name: ${GROXBOT_NAME}
 
 Groxbot should feel like Grok Bot: a messaging app of named teammates, not a workflow builder, IDE, or Discord. Like Grok Bot, for the team — if OpenClaw is for personal use, Groxbot is the office. Create a Bot, message it, grant access as needed. There isn't anything to learn — it's like bringing on a coworker.
 
-Product API is oRPC. One wakeup queue per bot. Each bot has a computer (Think workspace on that actor). Shared team data lives in Postgres. Hosted groxbot.com is three Cloudflare Workers (landing, office SPA, API) plus Neon. Self-host is later. The marketing site is ${web}; the office app is ${office}.
+Product API is oRPC. One wakeup queue per bot. Each bot has a computer (@cloudflare/computer Workspace on that actor). Shared team data lives in Postgres. Hosted groxbot.com is three Cloudflare Workers (landing, office SPA, API) plus Neon. Self-host is later. The marketing site is ${web}; the office app is ${office}.
 
 ## Docs
 
@@ -199,8 +199,8 @@ Do NOT use:
 1. First reference: "Groxbot" or "Groxbot (groxbot.com)"
 2. Explain once: self-hostable Grok Bot — Grok, then grox
 3. A Bot is a teammate (contact), not a workflow node
-4. Computer means that bot’s Think workspace, not a second product and not the LLM
-5. Each bot is one Think Durable Object with one Think Session in v1; the computer is built in
+4. Computer means that bot’s workspace, not a second product and not the LLM
+5. Each bot is one home RoomActor with one office thread in v1; the computer is built in
 6. Do not call the product an agent builder, copilot IDE, or Discord
 
 ## Brand Voice
@@ -257,12 +257,12 @@ URL: [${GROXBOT_NAME}](${web}/)
 ---
 
 Q: What is a Bot?
-A: A Bot is a contact: name, title, description, avatar, one office thread. One Durable Object (Think) runs that bot (serial). Threads are sessions on that actor. The computer is built into the bot.
+A: A Bot is a contact: name, title, description, avatar, one office thread. One home RoomActor runs that bot (serial). The computer is built into the bot.
 
 ---
 
 Q: What is a computer?
-A: Each bot has one. It is that teammate’s Think workspace — files, the screen in the right pane — not a second Durable Object you hire separately.
+A: Each bot has one. It is that teammate’s files and screen in the right pane — not a second Durable Object you hire separately.
 
 ---
 
@@ -376,7 +376,7 @@ pnpm db:migrate
 pnpm dev
 \`\`\`
 
-- Web: http://127.0.0.1:5173 (Vite; browser calls :3100 for API / auth / Think)
+- Web: http://127.0.0.1:5173 (Vite; browser calls :3100 for API / auth / office RPC)
 - API Worker: http://127.0.0.1:3100/health (wrangler dev)
 - oRPC: http://127.0.0.1:3100/rpc
 

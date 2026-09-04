@@ -2,12 +2,13 @@ import { eventIterator, oc } from "@orpc/contract";
 import * as z from "zod";
 import {
   AccountSchema,
+  ActivateWorkspaceInput,
   BotSchema,
   ComputerDownloadSchema,
   ComputerFileSchema,
   ComputerListSchema,
   CreateBotInput,
-  ActivateWorkspaceInput,
+  CreateRoomInput,
   CreateWorkspaceInput,
   GuestConnectSchema,
   GuestStatusSchema,
@@ -28,6 +29,7 @@ import {
   PluginConnectResultSchema,
   PluginStatusSchema,
   PokeThreadSchema,
+  RoomSchema,
   RoutineSchema,
   ToolkitSlug,
   UpdateAccountInput,
@@ -93,6 +95,11 @@ export const appContract = oc.router({
     pin: oc.input(botId).output(BotSchema),
     unpin: oc.input(botId).output(BotSchema),
     delete: oc.input(botId).output(z.object({ ok: z.literal(true) })),
+  },
+  rooms: {
+    list: oc.output(z.array(RoomSchema)),
+    get: oc.input(z.object({ roomId: Id })).output(RoomSchema),
+    create: oc.input(CreateRoomInput).output(RoomSchema),
   },
   threads: {
     subscribe: oc
@@ -204,7 +211,7 @@ export const appContract = oc.router({
       .input(z.object({ path: z.string().min(1).max(240) }))
       .output(z.object({ ok: z.literal(true) })),
   },
-  /** This bot’s Think workspace. Not a computers catalog. */
+  /** This bot’s Computer workspace. Not a computers catalog. */
   computer: {
     list: oc
       .input(z.object({ botId: Id, path: z.string().max(240).optional() }))

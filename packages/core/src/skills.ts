@@ -137,9 +137,9 @@ export function parseSkillMarkdown(raw: string): {
 }
 
 /**
- * Live catalog of Agent Skills in this bot’s Think workspace.
- * Add / edit / delete `skills/<name>/SKILL.md` with the file tools; Think
- * refreshes the catalog at the start of the next turn.
+ * Live catalog of Agent Skills in this bot’s Computer workspace.
+ * Add / edit / delete `skills/<name>/SKILL.md` with the file tools; the catalog
+ * refreshes at the start of the next turn.
  */
 export function workspaceSkillSource(
   workspace: SkillWorkspace,

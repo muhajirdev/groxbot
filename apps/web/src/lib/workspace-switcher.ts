@@ -24,7 +24,7 @@ export type WorkspaceMenuItem =
 
 export type WorkspaceDestination =
   | { to: "/onboarding" }
-  | { to: "/bot/$botId"; botId: string };
+  | { to: "/room/$roomId"; roomId: string };
 
 export function workspaceDisplayName(name: string | null | undefined): string {
   const trimmed = name?.trim();
@@ -148,9 +148,9 @@ export function workspaceMenuItems(opts: {
 
 /** Empty offices hire first; otherwise open a live teammate. */
 export function destinationAfterWorkspaceChange(
-  bots: { id: string; archivedAt?: string | null }[],
+  bots: { id: string; homeRoomId?: string; archivedAt?: string | null }[],
 ): WorkspaceDestination {
   const live = bots.find((bot) => !bot.archivedAt) ?? bots[0];
   if (!live) return { to: "/onboarding" };
-  return { to: "/bot/$botId", botId: live.id };
+  return { to: "/room/$roomId", roomId: live.homeRoomId || live.id };
 }

@@ -64,4 +64,4 @@ Visual language stays Groxbot (Meet Groxbot, thesis serif, thread bubbles, Worki
 
 - Ticket keys (`MCA-42`) and In Review / In Progress as the home metaphor.
 - A status board of agents as the product. Home is still the thread.
-- “Connect your own CLI” as a first-run promise. Groxbot’s computer is the bot’s Think workspace.
+- “Connect your own CLI” as a first-run promise. Groxbot’s computer is the bot’s Cloudflare Computer workspace.

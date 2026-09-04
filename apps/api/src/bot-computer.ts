@@ -4,7 +4,7 @@ import { getAgentByName } from "agents";
 
 type ActorBinding = DurableObjectNamespace;
 
-/** Read this bot’s Think workspace. Cloudflare is the mailbox. */
+/** Read this bot’s Computer workspace. Cloudflare is the mailbox. */
 export async function listBotComputer(
   actors: ActorBinding,
   botId: string,
@@ -52,7 +52,7 @@ export async function writeBotComputer(
   });
 }
 
-/** Wipe Think SQLite for this botId. Storage is gone even if the stub stays. */
+/** Wipe this bot’s Durable Object SQLite. Storage is gone even if the stub stays. */
 export async function destroyBotActor(
   actors: ActorBinding,
   botId: string,

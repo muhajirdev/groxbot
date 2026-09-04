@@ -30,7 +30,7 @@ function listJs(dir: string): string[] {
   });
 }
 
-describe("workerd-safe Think deps", () => {
+describe("workerd-safe agent deps", () => {
   it("pins chat below the 4.39.0 module-scope AbortController", () => {
     expect(rootPackage.pnpm.overrides.chat).toBe("4.38.1");
   });

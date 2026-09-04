@@ -21,12 +21,12 @@ describe("isNpmPackageName", () => {
 describe("splitExecuteNpmImports", () => {
   it("hoists a named import and leaves the body", () => {
     const split = splitExecuteNpmImports(
-      `import { extractText, getDocumentProxy } from "unpdf";\nconst bytes = await state.readFileBytes({ path: "/inbox/a.pdf" });\nreturn extractText;`,
+      `import { extractText, getDocumentProxy } from "unpdf";\nconst bytes = await knowledge.read({ path: "inbox/a.pdf" });\nreturn extractText;`,
     );
     expect(split.dependencies).toEqual({ unpdf: "latest" });
     expect(split.importSource).toContain('from "unpdf"');
     expect(split.body).not.toMatch(/import /);
-    expect(split.body).toMatch(/readFileBytes/);
+    expect(split.body).toMatch(/knowledge\.read/);
   });
 
   it("hoists an import from inside an async function", () => {

@@ -1,13 +1,17 @@
 /** Cloudflare-only. Bundles npm imports before Code Mode execute. */
 import {
+  createCodemodeRuntime,
   DynamicWorkerExecutor,
+  type CodemodeConnector,
   type Executor,
   type ExecuteOptions,
   type ExecuteResult,
   type ResolvedProvider,
 } from "@cloudflare/codemode";
+import { toolSetConnector } from "@cloudflare/codemode/ai";
 import { createWorker } from "@cloudflare/worker-bundler";
 import { splitExecuteNpmImports } from "@groxbot/core";
+import type { Tool, ToolSet } from "ai";
 
 type LoaderWorker = {
   getEntrypoint: () => {
@@ -141,4 +145,28 @@ export function createBundlingExecutor(
       }
     },
   };
+}
+
+/** Code Mode execute — office connectors only. Files and bash are Computer tools. */
+export function createOfficeExecuteTool(opts: {
+  ctx: DurableObjectState;
+  executor: Executor;
+  tools?: ToolSet;
+  connectors?: CodemodeConnector[];
+  name?: string;
+}): Tool {
+  const connectors: CodemodeConnector[] = [];
+  if (opts.tools && Object.keys(opts.tools).length > 0) {
+    connectors.push(
+      toolSetConnector(opts.ctx, { name: "tools", tools: opts.tools }),
+    );
+  }
+  if (opts.connectors) connectors.push(...opts.connectors);
+  const runtime = createCodemodeRuntime({
+    ctx: opts.ctx,
+    executor: opts.executor,
+    connectors,
+    name: opts.name ?? "execute",
+  });
+  return runtime.tool() as Tool;
 }

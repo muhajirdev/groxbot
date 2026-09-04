@@ -8,6 +8,7 @@
   "exclude": [
     "src/worker.ts",
     "src/bot-actor.ts",
+    "src/bot-computer-workspace.ts",
     "src/bot-enqueue.ts",
     "src/bot-computer.ts",
     "src/bot-mcp.ts",
@@ -16,8 +17,11 @@
     "src/bot-routines-connector.ts",
     "src/bot-execute.ts",
     "src/bot-markdown.ts",
-    "src/bot-present.ts",
+    "src/bot-office-rpc.ts",
+    "src/bot-office-tools.ts",
     "src/bot-knowledge.ts",
+    "src/room-actor.ts",
+    "src/room-rpc.ts",
     "src/index.ts",
     "src/app-runtime-do.ts",
     "src/**/*.test.ts"

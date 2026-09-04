@@ -1,7 +1,9 @@
 import { type Bot, validateModelId } from "@groxbot/contracts";
 import {
   appendEvent,
+  createRoom,
   encryptionSecret,
+  ensureBotOwnRoom,
   getHomeThread,
   missingModelMessage,
   newId,
@@ -15,6 +17,7 @@ import {
   guestConnectors,
   memoryDocuments,
   messages,
+  rooms,
   runs,
   tasks,
   threadMembers,
@@ -54,7 +57,7 @@ export async function getBotThread(
   if (!bot) throw new ORPCError("NOT_FOUND", { message: "Bot not found" });
   const thread = await getHomeThread(context.db, bot);
   if (!thread) throw new ORPCError("NOT_FOUND", { message: "Thread missing" });
-  return { bot, thread };
+  return { bot: await withOwnRoom(context, actor, bot), thread };
 }
 
 function assertBotActive(bot: { archivedAt: Date | null }) {
@@ -63,6 +66,30 @@ function assertBotActive(bot: { archivedAt: Date | null }) {
       message: "This teammate is archived.",
     });
   }
+}
+
+async function withOwnRoom(
+  context: RpcContext,
+  actor: Actor,
+  bot: typeof bots.$inferSelect,
+): Promise<typeof bots.$inferSelect> {
+  if (bot.homeRoomId) return bot;
+  const homeRoomId = await ensureBotOwnRoom(context.db, {
+    workspaceId: actor.workspaceId,
+    userId: actor.userId,
+    botId: bot.id,
+    name: bot.name,
+    homeRoomId: bot.homeRoomId,
+  });
+  if (context.initRoom) {
+    await context.initRoom(homeRoomId, {
+      workspaceId: actor.workspaceId,
+      name: bot.name,
+      botId: bot.id,
+      members: [{ id: bot.id, name: bot.name, homeRoomId }],
+    });
+  }
+  return { ...bot, homeRoomId };
 }
 
 export async function listBots(
@@ -124,18 +151,21 @@ export async function listBots(
       });
     }
   }
-  return rows.flatMap((bot) => {
+  const listed: Bot[] = [];
+  for (const bot of rows) {
     const threadId = threadByBot.get(bot.id);
-    if (!threadId) return [];
+    if (!threadId) continue;
+    const withHome = await withOwnRoom(context, actor, bot);
     const last = lastByThread.get(threadId);
-    return [
-      toBotDto(bot, threadId, {
+    listed.push(
+      toBotDto(withHome, threadId, {
         online: onlineByBot.get(bot.id),
         lastPreview: last?.preview,
         lastAt: last?.at,
       }),
-    ];
-  });
+    );
+  }
+  return listed;
 }
 
 export async function createBot(
@@ -149,10 +179,12 @@ export async function createBot(
     instructions: string;
     avatarColor: string;
     avatarShape: string;
+    homeRoomId?: string;
   },
 ): Promise<Bot> {
   const botId = input.id?.trim() || newId();
   const threadId = newId();
+  const homeRoomId = input.homeRoomId?.trim() || newId();
   const now = new Date();
   await context.db.insert(bots).values({
     id: botId,
@@ -182,10 +214,26 @@ export async function createBot(
     role: "owner",
     createdAt: now,
   });
+  const home = await createRoom(context.db, {
+    workspaceId: actor.workspaceId,
+    userId: actor.userId,
+    name: input.name,
+    memberBotIds: [botId],
+    id: homeRoomId,
+    own: true,
+  });
   await context.db
     .update(bots)
-    .set({ homeThreadId: threadId, updatedAt: now })
+    .set({ homeThreadId: threadId, homeRoomId: home.id, updatedAt: now })
     .where(eq(bots.id, botId));
+  if (context.initRoom) {
+    await context.initRoom(home.id, {
+      workspaceId: actor.workspaceId,
+      name: input.name,
+      botId,
+      members: [{ id: botId, name: input.name, homeRoomId: home.id }],
+    });
+  }
   const [bot] = await context.db
     .select()
     .from(bots)
@@ -325,11 +373,12 @@ export async function deleteBot(
   botId: string,
 ): Promise<{ ok: true }> {
   const { bot } = await getBotThread(context, actor, botId);
+  const homeRoomId = bot.homeRoomId;
   await stopBotRuns(context, actor, botId);
   const now = new Date();
   await context.db
     .update(bots)
-    .set({ homeThreadId: null, updatedAt: now })
+    .set({ homeThreadId: null, homeRoomId: null, updatedAt: now })
     .where(eq(bots.id, bot.id));
   await context.db
     .update(bots)
@@ -354,8 +403,11 @@ export async function deleteBot(
   if (removed.length === 0) {
     throw new ORPCError("NOT_FOUND", { message: "Bot not found" });
   }
+  if (homeRoomId) {
+    await context.db.delete(rooms).where(eq(rooms.id, homeRoomId));
+  }
   try {
-    await context.forgetBot?.(bot.id);
+    await context.forgetBot?.(homeRoomId || bot.id);
   } catch (error) {
     console.error("bot actor destroy", bot.id, error);
   }

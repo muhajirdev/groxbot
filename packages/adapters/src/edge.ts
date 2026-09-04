@@ -13,6 +13,7 @@ export {
   createEdgeAgentRuntime as createAgentRuntime,
   createHostedAgentRuntime,
   GatewayAgentRuntime,
+  PiAgentRuntime,
   parsePokePrompt,
   resolveAgentRuntimeKind,
   ScriptedAgentRuntime,
@@ -24,6 +25,23 @@ export {
   gatewayRequestModel,
   loadGatewayConfig,
 } from "./gateway.js";
+export {
+  applyOfficeAgentEvent,
+  emptyOfficeDraft,
+  officeDraftMessage,
+  officeLogToPiMessages,
+  openObjectParameters,
+} from "./office-pi.js";
+export {
+  createGatewayStreamFn,
+  createWorkersAiStreamFn,
+  piCompletionsModel,
+  resolvePiStreamFn,
+  runOwnedPiTurn,
+  runPiTurn,
+  scriptedPiSequenceStreamFn,
+  scriptedPiStreamFn,
+} from "./pi-turn.js";
 export {
   createWakeupDriver,
   InProcessWakeupDriver,

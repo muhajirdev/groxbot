@@ -14,7 +14,7 @@ import {
   listKnowledgeGraph,
   nestKnowledgeTree,
   officeSkillSource,
-  officeThinkSkillSources,
+  botSkillSources,
   readKnowledge,
   readKnowledgeMany,
   removeKnowledge,
@@ -366,7 +366,7 @@ describe("filterKnowledgeTree", () => {
 });
 
 describe("officeSkillSource", () => {
-  it("feeds Think getSkills from any SKILL.md in the office", async () => {
+  it("lists SKILL.md playbooks from the office knowledge tree", async () => {
     const disk = new MemoryKnowledge();
     await writeKnowledge(disk, OFFICE, {
       path: "playbooks/weekly-update/SKILL.md",
@@ -393,14 +393,14 @@ describe("officeSkillSource", () => {
     const disk = new MemoryKnowledge();
     const workspace = knowledgeSkillWorkspace(disk, OFFICE);
     expect(
-      officeThinkSkillSources({
+      botSkillSources({
         knowledge: disk,
         officeId: "",
         workspace,
       }).map((source) => source.id),
     ).toEqual(["workspace:skills"]);
     expect(
-      officeThinkSkillSources({
+      botSkillSources({
         knowledge: disk,
         officeId: OFFICE,
         workspace,

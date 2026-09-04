@@ -3,12 +3,14 @@ import { parseKnowledgeHref } from "./knowledge-link";
 export const DESK_PANES = ["settings", "computer", "app", "knowledge"] as const;
 export type DeskPane = (typeof DESK_PANES)[number];
 
-/** Desk on `/$workspaceSlug/bot/$botId` — back button restores the pane. */
+/** Desk on `/$workspaceSlug/room/$roomId`. */
 export type OfficeSearch = {
   pane?: DeskPane;
   app?: string;
   knowledge?: string;
   library?: true;
+  /** Focused teammate on a room route — computer pane key. */
+  bot?: string;
 };
 
 const DESK_CLOSED: OfficeSearch = {};
@@ -32,6 +34,7 @@ export function officeSearch(
   const library = libraryFlag(raw?.library);
   const knowledge = knowledgeFile(raw?.knowledge);
   const pane = raw?.pane;
+  const bot = typeof raw?.bot === "string" ? raw.bot.trim() : "";
   const next: OfficeSearch = {};
 
   if (pane === "settings") next.pane = "settings";
@@ -46,8 +49,9 @@ export function officeSearch(
   }
   if (knowledge) next.knowledge = knowledge;
   if (library) next.library = true;
+  if (bot) next.bot = bot;
 
-  if (!next.library && !next.knowledge && !next.app) {
+  if (!next.library && !next.knowledge && !next.app && !next.bot) {
     if (!next.pane) return DESK_CLOSED;
     if (next.pane === "settings") return DESK_SETTINGS;
     if (next.pane === "computer") return DESK_COMPUTER;

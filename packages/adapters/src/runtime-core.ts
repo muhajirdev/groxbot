@@ -20,7 +20,10 @@ import {
   readSseData,
   unwrapGatewayPayload,
 } from "./gateway.js";
+import { PiAgentRuntime } from "./pi-runtime.js";
 import { type WorkersAiBinding, WorkersAiRuntime } from "./workers-ai.js";
+
+export { PiAgentRuntime };
 
 export class ScriptedAgentRuntime implements AgentRuntime {
   private running = new Map<string, AbortController>();
@@ -256,7 +259,7 @@ export function createHostedAgentRuntime(
       "Hosted brain needs the Worker AI binding or a Cloudflare/OpenRouter gateway key.",
     );
   }
-  return new GatewayAgentRuntime(
+  return new PiAgentRuntime(
     loadGatewayConfig(source, { fetch: options?.fetch }),
   );
 }

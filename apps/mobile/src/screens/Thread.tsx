@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Avatar } from "../components/Avatar";
 import { Header } from "../components/Header";
 import { Screen } from "../components/Screen";
-import { ThinkThread } from "../components/ThinkThread";
+import { OfficeThread } from "../components/OfficeThread";
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
 import type { RootStackParamList } from "../navigation";
@@ -70,7 +70,7 @@ export function ThreadScreen({ navigation, route }: Props) {
         </View>
       ) : null}
       {bot ? (
-        <ThinkThread
+        <OfficeThread
           botId={bot.id}
           botName={bot.name}
           archived={Boolean(bot.archivedAt)}

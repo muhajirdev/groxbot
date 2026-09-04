@@ -11,7 +11,7 @@ import {
 import { userFacingError } from "../lib/errors";
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
-import { THINK_MESSAGES_GC_TIME } from "../lib/think-messages";
+import { OFFICE_MESSAGES_GC_TIME } from "../lib/office-messages";
 import { ModalShell } from "../ui";
 import { ComputerFilePreview } from "./ComputerFilePreview";
 import {
@@ -69,7 +69,7 @@ export function ComputerPane(props: {
   }, [openPath]);
   const filesQuery = useQuery({
     ...orpc.computer.list.queryOptions({ input: { botId } }),
-    gcTime: THINK_MESSAGES_GC_TIME,
+    gcTime: OFFICE_MESSAGES_GC_TIME,
     refetchInterval: (queryState) => (queryState.state.data ? 15_000 : false),
   });
   const routinesQuery = useQuery({

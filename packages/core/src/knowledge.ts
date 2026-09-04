@@ -774,11 +774,10 @@ export function knowledgeSkillWorkspace(
 }
 
 /**
- * Think `getSkills()` sources. Office playbooks first, then this computer.
- * Skip the office source when `officeId` is empty — Think hydrates skills
- * before `BotActor.onStart`, so the actor must load the office id first.
+ * Playbook sources for this bot: office knowledge first, then this computer.
+ * Skip the office source when `officeId` is empty.
  */
-export function officeThinkSkillSources(opts: {
+export function botSkillSources(opts: {
   knowledge: KnowledgeDisk | null;
   officeId: string;
   workspace: SkillWorkspace;

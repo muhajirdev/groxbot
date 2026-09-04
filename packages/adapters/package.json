@@ -12,8 +12,11 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@earendil-works/pi-agent-core": "0.83.0",
+    "@earendil-works/pi-ai": "0.83.0",
     "@groxbot/adapter-kit": "workspace:*",
-    "@groxbot/contracts": "workspace:*"
+    "@groxbot/contracts": "workspace:*",
+    "@groxbot/core": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.2",

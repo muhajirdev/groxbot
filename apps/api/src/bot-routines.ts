@@ -15,7 +15,7 @@ export type RoutineCreateBody = {
   timezone?: string;
 };
 
-/** Recurring jobs on this bot’s Think actor. Not a Postgres catalog. */
+/** Recurring jobs on this bot’s actor. Not a Postgres catalog. */
 export async function listBotRoutines(
   actors: ActorBinding,
   botId: string,
@@ -62,7 +62,7 @@ export async function removeBotRoutine(
   await callBotRoutines(actors, botId, "/routines/remove", { id });
 }
 
-/** Archive: keep the catalog, stop Think from firing until unarchived. */
+/** Archive: keep the catalog, stop routines from firing until unarchived. */
 export async function suspendBotRoutines(
   actors: ActorBinding,
   botId: string,

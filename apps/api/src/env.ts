@@ -177,7 +177,7 @@ export function loadEnv(source: EnvStrings): Env {
   };
 }
 
-/** Worker / BotActor: bindings in, product Env out. Wakeup is always the DO. */
+/** Worker / RoomActor: bindings in, product Env out. Wakeup is always the DO. */
 export function productEnv(
   env: EnvStrings & { EMAIL?: unknown; AI?: unknown },
 ): Env {

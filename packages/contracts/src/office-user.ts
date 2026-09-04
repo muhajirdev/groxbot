@@ -1,6 +1,6 @@
 import { isOfficeReviewUserMessage } from "./office-review.js";
 
-/** Who sent an office Think message. Lives on UIMessage.metadata.user. */
+/** Who sent an office message. Lives on UIMessage.metadata.user. */
 
 export type OfficeUserMeta = {
   userId: string;
@@ -33,10 +33,7 @@ function cleanImage(value: unknown): string | undefined {
   return url;
 }
 
-function sameOfficeUser(
-  a: OfficeUserMeta | null,
-  b: OfficeUserMeta,
-): boolean {
+function sameOfficeUser(a: OfficeUserMeta | null, b: OfficeUserMeta): boolean {
   return (
     a?.userId === b.userId &&
     a?.name === b.name &&
@@ -89,9 +86,7 @@ function decodeHeader(value: string | null): string {
   }
 }
 
-export function officeUserFromHeaders(
-  headers: Headers,
-): OfficeUserMeta | null {
+export function officeUserFromHeaders(headers: Headers): OfficeUserMeta | null {
   return officeUserFromActor({
     userId: decodeHeader(headers.get(OFFICE_USER_ID_HEADER)),
     name: decodeHeader(headers.get(OFFICE_USER_NAME_HEADER)),
@@ -142,7 +137,7 @@ export function stampOfficeUser<
 }
 
 /**
- * Stamp identity at Think intake. New user rows get the connected human.
+ * Stamp identity at office intake. New user rows get the connected human.
  * Existing rows keep the stored sender so a later turn cannot rewrite history.
  * Office-review triggers are not a human — leave them unlabeled.
  */
@@ -161,12 +156,17 @@ export function stampIncomingOfficeUser<
   return stampOfficeUser(message, connected);
 }
 
-/** Attach sender metadata to a useAgentChat / sendMessage payload. */
+/** Attach sender metadata to an office sendMessage payload. */
 export function withOfficeUserMetadata(
   payload: unknown,
   user: OfficeUserMeta | null,
 ): unknown {
-  if (!user || !payload || typeof payload !== "object" || Array.isArray(payload)) {
+  if (
+    !user ||
+    !payload ||
+    typeof payload !== "object" ||
+    Array.isArray(payload)
+  ) {
     return payload;
   }
   const row = payload as Record<string, unknown>;

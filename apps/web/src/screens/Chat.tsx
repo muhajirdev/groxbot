@@ -1,6 +1,7 @@
 import type {
   Bot,
   ProductEvent,
+  Room,
   ThreadMessage,
   WorkspaceApp,
 } from "@groxbot/contracts";
@@ -27,6 +28,7 @@ import {
 } from "../components/ChatFileLink";
 import { CommandPalette, SearchTrigger } from "../components/CommandPalette";
 import { ComputerPane } from "../components/ComputerPane";
+import { CreateRoomDialog } from "../components/CreateRoomDialog";
 import { HireDialog } from "../components/HireDialog";
 import {
   ChevronLeftIcon,
@@ -42,9 +44,10 @@ import {
   TrashIcon,
 } from "../components/Icons";
 import { KnowledgeLibrary, KnowledgePeek } from "../components/KnowledgePlace";
+import { KeptOfficeThread } from "../components/OfficeThread";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { PluginsModal } from "../components/PluginsModal";
-import { KeptThinkThread } from "../components/ThinkThread";
+import { KeptRoomThread } from "../components/RoomThread";
 import { ThreadList } from "../components/ThreadList";
 import { WorkspaceSwitcher } from "../components/WorkspaceSwitcher";
 import { APP_KIND_COLOR, APP_KIND_LABEL } from "../lib/app-kind";
@@ -55,12 +58,25 @@ import {
   clearThreadStore,
   patchBot,
   peekBots,
+  peekRooms,
   removeBot,
+  roomsCollection,
   threadMetaCollection,
+  upsertRoom,
 } from "../lib/collections";
 import { neighborBotId, type PaletteActionId } from "../lib/command-palette";
 import { userFacingError } from "../lib/errors";
 import { draftCreatedBot, nextAvatarColor } from "../lib/hire";
+import {
+  dropOfficeKeepAlive,
+  rememberOfficeKeepAlive,
+  sameOfficeKeepAlive,
+} from "../lib/office-keepalive";
+import {
+  forgetOfficeMessages,
+  setOfficeMessages,
+} from "../lib/office-messages";
+import { OFFICE_TO, ROOM_TO } from "../lib/office-route";
 import {
   closeLibrary,
   closePeek,
@@ -92,12 +108,6 @@ import {
   nextBotIdAfterDelete,
 } from "../lib/sidebar";
 import { applyTheme, readTheme, type Theme } from "../lib/theme";
-import {
-  dropThinkKeepAlive,
-  rememberThinkKeepAlive,
-  sameThinkKeepAlive,
-} from "../lib/think-keepalive";
-import { forgetThinkMessages, setThinkMessages } from "../lib/think-messages";
 import {
   dropThreadMeta,
   ensureThreadMeta,
@@ -143,8 +153,11 @@ const BotRow = memo(function BotRow(props: {
   return (
     <div className="group/bot relative">
       <Link
-        to="/$workspaceSlug/bot/$botId"
-        params={{ workspaceSlug: props.workspaceSlug, botId: item.id }}
+        to="/$workspaceSlug/room/$roomId"
+        params={{
+          workspaceSlug: props.workspaceSlug,
+          roomId: item.homeRoomId || item.id,
+        }}
         search={props.desk}
         preload="intent"
         preloadDelay={300}
@@ -250,7 +263,8 @@ const AppRow = memo(function AppRow(props: {
 });
 
 export function Chat(props: {
-  botId: string;
+  botId?: string;
+  roomId?: string;
   workspace: { id: string; name: string; slug: string };
   desk: OfficeSearch;
 }) {
@@ -258,6 +272,7 @@ export function Chat(props: {
   const router = useRouter();
   const queryClient = useQueryClient();
   const botsQuery = useLiveQuery((q) => q.from({ bot: botsCollection }));
+  const roomsQuery = useLiveQuery((q) => q.from({ room: roomsCollection }));
   const appsQuery = useLiveQuery((q) => q.from({ app: appsCollection }));
   const meQuery = useQuery(orpc.me.queryOptions());
   const liveBotsRows = botsQuery.data ?? [];
@@ -266,6 +281,12 @@ export function Chat(props: {
     liveBotsRows.length > 0 || peekedBots.length === 0
       ? liveBotsRows
       : peekedBots;
+  const liveRoomsRows = roomsQuery.data ?? [];
+  const peekedRooms = peekRooms();
+  const rooms =
+    liveRoomsRows.length > 0 || peekedRooms.length === 0
+      ? liveRoomsRows
+      : peekedRooms;
   const me = meQuery.data;
   const desk = officeSearch(props.desk);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -275,6 +296,7 @@ export function Chat(props: {
   );
   const [pluginsOpen, setPluginsOpen] = useState(false);
   const [hireOpen, setHireOpen] = useState(false);
+  const [roomOpen, setRoomOpen] = useState(false);
   const [rosterOpen, setRosterOpen] = useState(false);
   const [narrow, setNarrow] = useState(
     () => window.matchMedia("(max-width: 720px)").matches,
@@ -296,20 +318,49 @@ export function Chat(props: {
     threadId: string;
     peerName: string;
   } | null>(null);
-  const stopThink = useRef<(() => void) | null>(null);
+  const stopOffice = useRef<(() => void) | null>(null);
   const hiring = useRef(false);
   const [pokeMessages, setPokeMessages] = useState<ThreadMessage[]>([]);
-  const [thinkKeepAlive, setThinkKeepAlive] = useState<string[]>(() =>
+  const [officeKeepAlive, setOfficeKeepAlive] = useState<string[]>(() =>
     props.botId ? [props.botId] : [],
   );
-  const thinkLruRef = useRef<string[]>(props.botId ? [props.botId] : []);
-  const bot = bots.find((item) => item.id === props.botId);
-  const activeId = bot?.id;
-  const mountedThinkIds = useMemo(() => {
-    if (!activeId) return thinkKeepAlive;
-    return rememberThinkKeepAlive(thinkKeepAlive, thinkLruRef.current, activeId)
-      .mounted;
-  }, [activeId, thinkKeepAlive]);
+  const officeLruRef = useRef<string[]>(props.botId ? [props.botId] : []);
+  const [roomKeepAlive, setRoomKeepAlive] = useState<string[]>(() =>
+    props.roomId ? [props.roomId] : [],
+  );
+  const roomLruRef = useRef<string[]>(props.roomId ? [props.roomId] : []);
+  const homeBot = bots.find(
+    (item) =>
+      (props.roomId && item.homeRoomId === props.roomId) ||
+      (!props.roomId && item.id === props.botId),
+  );
+  const isRoom = Boolean(props.roomId && !homeBot);
+  const room = rooms.find((item: Room) => item.id === props.roomId);
+  const focusedBotId =
+    desk.bot ||
+    homeBot?.id ||
+    room?.members.find((member) => !member.archivedAt)?.botId ||
+    room?.members[0]?.botId ||
+    props.botId;
+  const bot = homeBot || bots.find((item) => item.id === focusedBotId);
+  const currentBotId = homeBot?.id;
+  const activeId = isRoom ? props.roomId : bot?.id;
+  const mountedOfficeIds = useMemo(() => {
+    if (isRoom || !bot?.id) return officeKeepAlive;
+    return rememberOfficeKeepAlive(
+      officeKeepAlive,
+      officeLruRef.current,
+      bot.id,
+    ).mounted;
+  }, [bot?.id, isRoom, officeKeepAlive]);
+  const mountedRoomIds = useMemo(() => {
+    if (!props.roomId) return roomKeepAlive;
+    return rememberOfficeKeepAlive(
+      roomKeepAlive,
+      roomLruRef.current,
+      props.roomId,
+    ).mounted;
+  }, [props.roomId, roomKeepAlive]);
   const metaQuery = useLiveQuery(
     (q) => {
       if (!activeId) return undefined;
@@ -358,11 +409,26 @@ export function Chat(props: {
   const goToBot = useCallback(
     (botId: string, nextDesk: OfficeSearch = desk) => {
       setRosterOpen(false);
+      const bot = peekBots().find((item) => item.id === botId);
       return navigate({
-        to: "/$workspaceSlug/bot/$botId",
+        to: OFFICE_TO,
         params: {
           workspaceSlug: props.workspace.slug,
-          botId,
+          roomId: bot?.homeRoomId || botId,
+        },
+        search: nextDesk,
+      });
+    },
+    [desk, navigate, props.workspace.slug],
+  );
+  const goToRoom = useCallback(
+    (roomId: string, nextDesk: OfficeSearch = desk) => {
+      setRosterOpen(false);
+      return navigate({
+        to: ROOM_TO,
+        params: {
+          workspaceSlug: props.workspace.slug,
+          roomId,
         },
         search: nextDesk,
       });
@@ -370,8 +436,17 @@ export function Chat(props: {
     [desk, navigate, props.workspace.slug],
   );
   const setDesk = useCallback(
-    (next: OfficeSearch) => goToBot(props.botId, next),
-    [goToBot, props.botId],
+    (next: OfficeSearch) => {
+      if (props.roomId) {
+        const focused = next.bot || focusedBotId;
+        return goToRoom(
+          props.roomId,
+          focused ? officeSearch({ ...next, bot: focused }) : next,
+        );
+      }
+      if (props.botId) return goToBot(props.botId, next);
+    },
+    [focusedBotId, goToBot, goToRoom, props.botId, props.roomId],
   );
 
   useEffect(() => {
@@ -403,22 +478,35 @@ export function Chat(props: {
   }, [bot, rosterOpen]);
 
   useEffect(() => {
-    if (!activeId) return;
-    const next = rememberThinkKeepAlive(
-      thinkKeepAlive,
-      thinkLruRef.current,
-      activeId,
+    if (isRoom || !bot?.id) return;
+    const next = rememberOfficeKeepAlive(
+      officeKeepAlive,
+      officeLruRef.current,
+      bot.id,
     );
-    thinkLruRef.current = next.lru;
-    setThinkKeepAlive((prev) =>
-      sameThinkKeepAlive(prev, next.mounted) ? prev : next.mounted,
+    officeLruRef.current = next.lru;
+    setOfficeKeepAlive((prev) =>
+      sameOfficeKeepAlive(prev, next.mounted) ? prev : next.mounted,
     );
-  }, [activeId, thinkKeepAlive]);
+  }, [bot?.id, isRoom, officeKeepAlive]);
+
+  useEffect(() => {
+    if (!props.roomId) return;
+    const next = rememberOfficeKeepAlive(
+      roomKeepAlive,
+      roomLruRef.current,
+      props.roomId,
+    );
+    roomLruRef.current = next.lru;
+    setRoomKeepAlive((prev) =>
+      sameOfficeKeepAlive(prev, next.mounted) ? prev : next.mounted,
+    );
+  }, [props.roomId, roomKeepAlive]);
 
   useEffect(() => {
     const live = new Set(bots.map((item) => item.id));
-    thinkLruRef.current = thinkLruRef.current.filter((id) => live.has(id));
-    setThinkKeepAlive((prev) => {
+    officeLruRef.current = officeLruRef.current.filter((id) => live.has(id));
+    setOfficeKeepAlive((prev) => {
       const next = prev.filter((id) => live.has(id));
       return next.length === prev.length ? prev : next;
     });
@@ -431,8 +519,8 @@ export function Chat(props: {
 
   async function refreshBots(selectId?: string) {
     await botsCollection.utils.refetch();
-    const next = selectId ?? props.botId ?? firstLiveBot(peekBots())?.id;
-    if (next && next !== props.botId) {
+    const next = selectId ?? currentBotId ?? firstLiveBot(peekBots())?.id;
+    if (next && next !== currentBotId) {
       await goToBot(next);
     }
   }
@@ -441,18 +529,18 @@ export function Chat(props: {
     async (next: Bot) => {
       cacheBot(next);
       if (!next.archivedAt) {
-        if (next.id !== props.botId) {
+        if (next.id !== currentBotId) {
           await goToBot(next.id);
         }
         return;
       }
       const fallback =
         firstLiveBot(peekBots().filter((item) => item.id !== next.id)) ?? next;
-      if (fallback.id !== props.botId) {
+      if (fallback.id !== currentBotId) {
         await goToBot(fallback.id, deskClosed());
       }
     },
-    [goToBot, props.botId],
+    [currentBotId, goToBot],
   );
 
   const onNeedsModel = useCallback(() => {
@@ -477,32 +565,36 @@ export function Chat(props: {
   async function deleteTeammate(botId: string) {
     const snapshot = peekBots().find((item) => item.id === botId);
     if (!snapshot) return;
-    const keepAlive = thinkKeepAlive;
-    const lru = [...thinkLruRef.current];
-    const currentId = props.botId;
+    const keepAlive = officeKeepAlive;
+    const lru = [...officeLruRef.current];
+    const currentId = currentBotId;
 
-    setThinkKeepAlive((prev) => dropThinkKeepAlive(prev, botId));
-    thinkLruRef.current = dropThinkKeepAlive(thinkLruRef.current, botId);
+    setOfficeKeepAlive((prev) => dropOfficeKeepAlive(prev, botId));
+    officeLruRef.current = dropOfficeKeepAlive(officeLruRef.current, botId);
     removeBot(botId);
 
-    const nextId = nextBotIdAfterDelete(peekBots(), botId, currentId);
-    const leave = !nextId
-      ? navigate({ to: "/onboarding", search: {} })
-      : nextId !== currentId
-        ? goToBot(nextId, deskClosed())
-        : undefined;
+    const nextId = currentId
+      ? nextBotIdAfterDelete(peekBots(), botId, currentId)
+      : null;
+    const leave = !currentId
+      ? undefined
+      : !nextId
+        ? navigate({ to: "/onboarding", search: {} })
+        : nextId !== currentId
+          ? goToBot(nextId, deskClosed())
+          : undefined;
 
     try {
       await client.bots.delete({ botId });
       dropThreadMeta(botId);
-      forgetThinkMessages(botId);
+      forgetOfficeMessages(snapshot.homeRoomId || botId);
       void appsCollection.utils.refetch();
       await leave;
     } catch (caught: unknown) {
       await leave;
       cacheBot(snapshot);
-      setThinkKeepAlive(keepAlive);
-      thinkLruRef.current = lru;
+      setOfficeKeepAlive(keepAlive);
+      officeLruRef.current = lru;
       patchThreadMeta(botId, {
         error: userFacingError(caught, "Could not delete"),
       });
@@ -549,21 +641,24 @@ export function Chat(props: {
       hiring.current = true;
       setHireOpen(false);
       const id = crypto.randomUUID();
+      const homeRoomId = crypto.randomUUID();
       const roster = peekBots();
       const avatarColor = nextAvatarColor(roster);
       const draft = draftCreatedBot({
         id,
+        homeRoomId,
         workspaceId: props.workspace.id,
         name: trimmed,
         avatarColor,
       });
       try {
         await cacheCreatedBot(draft);
-        setThinkMessages(id, []);
+        setOfficeMessages(homeRoomId, []);
         patchThreadMeta(id, { opening: true });
         void goToBot(id, deskClosed());
         const created = await client.bots.create({
           id,
+          homeRoomId,
           name: trimmed,
           avatarColor,
         });
@@ -577,7 +672,7 @@ export function Chat(props: {
           patchThreadMeta(fallback.id, {
             error: userFacingError(caught, "Could not create"),
           });
-          if (fallback.id !== props.botId) {
+          if (fallback.id !== currentBotId) {
             void goToBot(fallback.id, deskClosed());
           }
         }
@@ -585,25 +680,46 @@ export function Chat(props: {
         hiring.current = false;
       }
     },
-    [goToBot, props.botId, props.workspace.id],
+    [currentBotId, goToBot, props.workspace.id],
+  );
+
+  const createRoom = useCallback(
+    async (input: { name: string; memberBotIds: string[] }) => {
+      setRoomOpen(false);
+      try {
+        const created = await client.rooms.create(input);
+        upsertRoom(created);
+        void goToRoom(created.id, deskClosed());
+      } catch (caught) {
+        if (activeId) {
+          patchThreadMeta(activeId, {
+            error: userFacingError(caught, "Could not create room"),
+          });
+        }
+      }
+    },
+    [activeId, goToRoom],
   );
 
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
 
-  const blocking = hireOpen || settingsOpen || pluginsOpen || paletteOpen;
+  const blocking =
+    hireOpen || roomOpen || settingsOpen || pluginsOpen || paletteOpen;
   const cycleBots = useCallback(
     (delta: 1 | -1) => {
+      const current = bot?.id;
+      if (!current) return;
       const nextId = neighborBotId(
         liveBots.map((item) => item.id),
-        activeId,
+        current,
         delta,
       );
-      if (!nextId || nextId === activeId) return;
+      if (!nextId || nextId === current) return;
       void goToBot(nextId);
     },
-    [liveBots, activeId, goToBot],
+    [liveBots, bot?.id, goToBot],
   );
   const runPaletteAction = useCallback(
     (id: PaletteActionId) => {
@@ -738,7 +854,7 @@ export function Chat(props: {
   }, [pokeView, activeId]);
 
   useEffect(() => {
-    if (!activeId || hiringThis) return;
+    if (!activeId || hiringThis || isRoom) return;
     let cancelled = false;
     let iterator: AsyncIterator<ProductEvent> | undefined;
     let cursor = readCursor(activeId);
@@ -769,7 +885,7 @@ export function Chat(props: {
       cancelled = true;
       void iterator?.return?.();
     };
-  }, [activeId, hiringThis]);
+  }, [activeId, hiringThis, isRoom]);
 
   const openDocument = useCallback(
     (app: { appId: string }) => {
@@ -783,10 +899,11 @@ export function Chat(props: {
   } | null>(null);
   const openComputerFile = useCallback(
     (path: string) => {
-      setComputerFile({ botId: props.botId, path });
+      if (!bot?.id) return;
+      setComputerFile({ botId: bot.id, path });
       setDesk(deskComputer());
     },
-    [props.botId, setDesk],
+    [bot?.id, setDesk],
   );
   const openKnowledgeFile = useCallback(
     (path: string) => {
@@ -795,7 +912,7 @@ export function Chat(props: {
     [setDesk],
   );
   const computerOpenPath =
-    computerFile && computerFile.botId === props.botId
+    computerFile && bot && computerFile.botId === bot.id
       ? computerFile.path
       : null;
 
@@ -877,9 +994,11 @@ export function Chat(props: {
                 <BotRow
                   key={item.id}
                   item={item}
-                  selected={item.id === bot?.id}
+                  selected={!isRoom && item.id === currentBotId}
                   working={
-                    item.id === bot?.id && (hiringThis || Boolean(working))
+                    !isRoom &&
+                    item.id === currentBotId &&
+                    (hiringThis || Boolean(working))
                   }
                   desk={desk}
                   workspaceSlug={props.workspace.slug}
@@ -890,6 +1009,49 @@ export function Chat(props: {
               {liveBots.length === 0 && archivedBots.length === 0 ? (
                 <p className="empty">No teammates yet.</p>
               ) : null}
+              <div className="mt-2">
+                <div className="flex items-center justify-between px-2 py-2">
+                  <span className="text-[12px] text-muted">Rooms</span>
+                  <Button
+                    variant="icon"
+                    type="button"
+                    aria-label="New room"
+                    title="New room"
+                    on={roomOpen}
+                    onClick={() => setRoomOpen(true)}
+                  >
+                    <PlusIcon />
+                  </Button>
+                </div>
+                {rooms.map((item: Room) => (
+                  <Link
+                    key={item.id}
+                    to={ROOM_TO}
+                    params={{
+                      workspaceSlug: props.workspace.slug,
+                      roomId: item.id,
+                    }}
+                    search={desk}
+                    preload="intent"
+                    preloadDelay={300}
+                    onClick={closeRoster}
+                    className={cn(
+                      "flex w-full items-center gap-2.5 rounded-xl border-0 px-2 py-2 text-left text-inherit no-underline hover:bg-hover",
+                      item.id === props.roomId ? "bg-hover" : "bg-transparent",
+                    )}
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13px] font-medium">
+                        {item.name}
+                      </span>
+                      <span className="mt-0.5 block overflow-hidden text-xs text-ellipsis whitespace-nowrap text-muted">
+                        {item.lastPreview ||
+                          item.members.map((member) => member.name).join(", ")}
+                      </span>
+                    </span>
+                  </Link>
+                ))}
+              </div>
               {workspaceApps.length > 0 ? (
                 <div className="mt-2">
                   <div className="px-2 py-2 text-[12px] text-muted">Apps</div>
@@ -1012,7 +1174,7 @@ export function Chat(props: {
                         />
                       ) : null}
                       <strong className="truncate text-[15px] font-semibold tracking-tight">
-                        {bot?.name ?? "—"}
+                        {isRoom ? (room?.name ?? "Room") : (bot?.name ?? "—")}
                       </strong>
                     </button>
                   </div>
@@ -1022,7 +1184,7 @@ export function Chat(props: {
                     <Button
                       variant="mini"
                       type="button"
-                      onClick={() => stopThink.current?.()}
+                      onClick={() => stopOffice.current?.()}
                     >
                       Stop now
                     </Button>
@@ -1101,9 +1263,50 @@ export function Chat(props: {
                     </p>
                   </div>
                 </>
+              ) : isRoom && props.roomId && room ? (
+                <div className="relative flex min-h-0 flex-1 flex-col">
+                  {mountedRoomIds.map((id) => {
+                    const item = rooms.find((row: Room) => row.id === id);
+                    if (!item) return null;
+                    const isActive = item.id === props.roomId;
+                    const itemMeta = isActive ? meta : readThreadMeta(item.id);
+                    const itemError = isActive
+                      ? error
+                      : (itemMeta?.error ?? "");
+                    const talking = isActive
+                      ? bot
+                      : bots.find((row) => row.id === item.members[0]?.botId);
+                    return (
+                      <KeptRoomThread
+                        key={item.id}
+                        roomId={item.id}
+                        roomName={item.name}
+                        targetBotId={
+                          isActive ? focusedBotId : item.members[0]?.botId
+                        }
+                        targetName={talking?.name}
+                        active={isActive}
+                        needsModel={Boolean(me?.needsModel)}
+                        userId={me?.userId}
+                        userName={me?.name}
+                        userImage={me?.image ?? undefined}
+                        placeholder={
+                          me?.needsModel
+                            ? "Add a model key to send"
+                            : talking
+                              ? `Message ${talking.name}`
+                              : `Message ${item.name}`
+                        }
+                        error={itemError}
+                        onNeedsModel={onNeedsModel}
+                        stopRef={stopOffice}
+                      />
+                    );
+                  })}
+                </div>
               ) : bot ? (
                 <div className="relative flex min-h-0 flex-1 flex-col">
-                  {mountedThinkIds.map((id) => {
+                  {mountedOfficeIds.map((id) => {
                     const item = bots.find((row) => row.id === id);
                     if (!item) return null;
                     const isActive = item.id === bot.id;
@@ -1113,9 +1316,10 @@ export function Chat(props: {
                       ? error
                       : (itemMeta?.error ?? "");
                     return (
-                      <KeptThinkThread
+                      <KeptOfficeThread
                         key={item.id}
                         botId={item.id}
+                        roomId={item.homeRoomId || item.id}
                         botName={item.name}
                         active={isActive}
                         archived={Boolean(item.archivedAt)}
@@ -1132,7 +1336,7 @@ export function Chat(props: {
                         error={itemError}
                         onNeedsModel={onNeedsModel}
                         onUnarchive={onUnarchiveBot}
-                        stopRef={stopThink}
+                        stopRef={stopOffice}
                       />
                     );
                   })}
@@ -1251,6 +1455,12 @@ export function Chat(props: {
             open={hireOpen}
             onClose={() => setHireOpen(false)}
             onHire={(name) => void hire(name)}
+          />
+          <CreateRoomDialog
+            open={roomOpen}
+            bots={liveBots}
+            onClose={() => setRoomOpen(false)}
+            onCreate={(input) => void createRoom(input)}
           />
           {botMenu ? (
             <>

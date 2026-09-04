@@ -53,7 +53,7 @@ function hasFilePart(message: UIMessage): boolean {
 }
 
 /** Latest visible line for the sidebar — not used to reorder the list. */
-export function lastThinkPreview(messages: UIMessage[]): string {
+export function lastOfficePreview(messages: UIMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
     const row = messages[i];
     if (!row) continue;
@@ -120,8 +120,8 @@ export function coalesceAssistantMessages(messages: UIMessage[]): UIMessage[] {
 }
 
 /**
- * While a turn is in flight, extra user submits sit in Think's queue.
- * useAgentChat may park them before the streaming assistant — pull them
+ * While a turn is in flight, extra user submits sit in the office queue.
+ * The live assistant may land before waiting follow-ups — pull them
  * out so the UI can show prompt → live reply → waiting follow-ups.
  */
 export function splitQueuedFollowUps(

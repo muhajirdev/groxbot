@@ -1,10 +1,10 @@
 /** Cloudflare-only. Excluded from `tsc`. */
-import { createFetchTools } from "@cloudflare/think/tools/fetch";
 import { tool, type ToolSet } from "ai";
 import { z } from "zod";
 import type { WorkersAiBinding } from "@groxbot/adapters/edge";
 import {
   PUBLIC_FETCH_ALLOWLIST,
+  runPublicFetch,
   runToMarkdown,
   sanitizeComputerPath,
   type MarkdownBytes,
@@ -34,15 +34,27 @@ export function createPageTools(opts: {
   workspace: PageWorkspace;
   convert?: (file: MarkdownBytes) => Promise<unknown>;
 }): ToolSet {
-  const toMarkdown = createToMarkdownTool(opts);
   return {
-    ...createFetchTools({
-      allowlist: [...PUBLIC_FETCH_ALLOWLIST],
-      workspace: opts.workspace,
-      spillToWorkspace: true,
-    }),
-    to_markdown: toMarkdown,
+    fetch_url: createFetchUrlTool(opts.workspace),
+    to_markdown: createToMarkdownTool(opts),
   };
+}
+
+function createFetchUrlTool(workspace: PageWorkspace) {
+  return tool({
+    description:
+      "GET a public http(s) URL. Loopback and private nets are blocked. Large or binary bodies land in inbox/fetch on this computer.",
+    inputSchema: z.object({
+      url: z.string().min(1).describe("Public http(s) URL to read."),
+    }),
+    execute: async ({ url }) =>
+      runPublicFetch({
+        url,
+        allowlist: PUBLIC_FETCH_ALLOWLIST,
+        workspace,
+        spillToWorkspace: true,
+      }),
+  });
 }
 
 function createToMarkdownTool(opts: {

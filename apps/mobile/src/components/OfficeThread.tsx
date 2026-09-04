@@ -14,13 +14,11 @@ import {
   useAui,
   useAuiState,
 } from "@assistant-ui/react-native";
-import { useAgentChat } from "@cloudflare/ai-chat/react";
 import {
   officeUserFromActor,
   PRESENT_TOOL_NAME,
   withOfficeUserMetadata,
 } from "@groxbot/contracts";
-import { useAgent } from "agents/react";
 import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -33,13 +31,12 @@ import {
   Text,
   View,
 } from "react-native";
-import { waitForAgentReady } from "../lib/agent-ready";
-import { appCardsFromThinkMessage } from "../lib/app-cards";
+import { appCardsFromOfficeMessage } from "../lib/app-cards";
 import { createWorkspaceAttachmentAdapter } from "../lib/attachment-adapter";
 import { sessionCookie } from "../lib/auth";
 import { lastUiPreview } from "../lib/chat-messages";
 import { composerBannerError } from "../lib/errors";
-import { agentSocketHost, officeAppUrl } from "../lib/host";
+import { officeAppUrl } from "../lib/host";
 import { FIRST_TASK } from "../lib/jobs";
 import { officeUserMessageSender } from "../lib/office-sender";
 import { orpc, queryClient } from "../lib/orpc";
@@ -47,6 +44,7 @@ import { seedOutgoingUserMessage } from "../lib/outgoing-user-message";
 import { pickOfficeFiles, pickOfficePhotos } from "../lib/pick-file";
 import { client } from "../lib/rpc";
 import { isWaitingForAssistantTurn } from "../lib/thread-waiting";
+import { useOfficeChat } from "../lib/use-office-chat";
 import { colors, radius } from "../theme";
 import { useSetWorking } from "../working";
 import { AppCard } from "./AppCard";
@@ -59,7 +57,7 @@ async function copyToClipboard(text: string) {
   if (!didCopy) throw new Error("Clipboard write failed");
 }
 
-export function ThinkThread(props: {
+export function OfficeThread(props: {
   botId: string;
   botName: string;
   archived: boolean;
@@ -73,7 +71,7 @@ export function ThinkThread(props: {
   const [error, setError] = useState("");
   return (
     <View style={styles.fill}>
-      <ThinkThreadRuntime
+      <OfficeThreadRuntime
         botId={props.botId}
         botName={props.botName}
         archived={props.archived}
@@ -100,7 +98,7 @@ export function ThinkThread(props: {
   );
 }
 
-function ThinkThreadRuntime(props: {
+function OfficeThreadRuntime(props: {
   botId: string;
   botName: string;
   archived: boolean;
@@ -112,12 +110,10 @@ function ThinkThreadRuntime(props: {
   onError: (error: string) => void;
   onNeedsModel: () => void;
 }) {
-  const socket = agentSocketHost();
   const [cookie, setCookie] = useState("");
   useEffect(() => {
     void sessionCookie().then(setCookie);
   }, []);
-  const headers: Record<string, string> = cookie ? { Cookie: cookie } : {};
   const onErrorRef = useRef(props.onError);
   onErrorRef.current = props.onError;
   const onNeedsModelRef = useRef(props.onNeedsModel);
@@ -136,20 +132,9 @@ function ThinkThreadRuntime(props: {
   senderRef.current = sender;
   const setWorking = useSetWorking();
 
-  const agent = useAgent({
-    agent: "BotActor",
-    name: props.botId,
-    host: socket.host,
-    query: cookie ? { Cookie: cookie } : undefined,
-    queryDeps: [cookie],
-  });
-
-  const chat = useAgentChat({
-    agent,
-    credentials: "omit",
-    headers,
-    syncMessagesToServer: false,
-    getInitialMessages: null,
+  const chat = useOfficeChat({
+    botId: props.botId,
+    cookie,
   });
   const {
     status,
@@ -162,8 +147,6 @@ function ThinkThreadRuntime(props: {
   } = chat;
   const busy = status === "submitted" || status === "streaming" || isStreaming;
   const [pending, setPending] = useState(false);
-  const agentRef = useRef(agent);
-  agentRef.current = agent;
   const abortSendRef = useRef<AbortController | null>(null);
   const inFlight = busy || pending;
 
@@ -179,7 +162,7 @@ function ThinkThreadRuntime(props: {
         );
         return Promise.reject(new Error("Model required"));
       }
-      const [payload, ...rest] = args;
+      const [payload] = args;
       const labeled = withOfficeUserMetadata(
         payload,
         senderRef.current,
@@ -202,9 +185,6 @@ function ThinkThreadRuntime(props: {
 
       let handedOff = false;
       try {
-        await waitForAgentReady(() => agentRef.current, {
-          signal: abort.signal,
-        });
         if (archivedRef.current) {
           throw new Error("Archived");
         }
@@ -214,7 +194,6 @@ function ThinkThreadRuntime(props: {
           seeded
             ? ({ ...labeled, messageId: seededId } as typeof payload)
             : labeled,
-          ...rest,
         );
       } catch (caught) {
         if (!handedOff && seeded) {
@@ -281,6 +260,7 @@ function ThinkThreadRuntime(props: {
     agentError: error?.message || "",
     connectionError: connectionError?.message || "",
     persisted: props.error,
+    needsModel: props.needsModel,
   });
   useEffect(() => {
     if (banner === props.error) return;
@@ -461,7 +441,7 @@ function AssistantMessage(props: { botId: string; botName: string }) {
         )}
         renderReasoning={({ part }) => <Reasoning text={part.text} />}
       />
-      <ThinkAppCards botId={props.botId} />
+      <OfficeAppCards botId={props.botId} />
       <ErrorPrimitive.Root style={styles.errorBox}>
         <ErrorPrimitive.Message style={styles.errorText} />
       </ErrorPrimitive.Root>
@@ -530,9 +510,9 @@ function PartFile(props: { name?: string; mimeType?: string }) {
   );
 }
 
-function ThinkAppCards(props: { botId: string }) {
+function OfficeAppCards(props: { botId: string }) {
   const parts = useAuiState((s) => s.message.parts);
-  const cards = appCardsFromThinkMessage({
+  const cards = appCardsFromOfficeMessage({
     id: "msg",
     role: "assistant",
     parts: (parts ?? []) as never,

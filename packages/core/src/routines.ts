@@ -1,4 +1,4 @@
-/** This bot’s recurring jobs. Agents `this.schedule` on BotActor — not a product table. */
+/** This bot’s recurring jobs. Agents `this.schedule` on the home RoomActor — not a product table. */
 
 import type { Routine } from "@groxbot/contracts";
 import { newId } from "./ids.js";
@@ -180,8 +180,8 @@ export function parseRoutineSchedule(
   const body = (inline?.[1] ?? trimmed).trim();
   const fromInline = inline?.[2];
   const zone = normalizeTimezone(fromInline ?? timezone);
-  const think = tryParseThinkSchedule(body, zone);
-  if (think) return think;
+  const parsed = tryParseWallClockSchedule(body, zone);
+  if (parsed) return parsed;
   const cron = tryParseCronSchedule(body, zone);
   if (cron) return cron;
   throw new RoutineScheduleError();
@@ -213,7 +213,7 @@ export function normalizeTimezone(raw?: string): string {
   return trimmed;
 }
 
-function tryParseThinkSchedule(
+function tryParseWallClockSchedule(
   raw: string,
   timezone: string,
 ): ParsedRoutineSchedule | null {
@@ -271,7 +271,7 @@ function tryParseThinkSchedule(
   return null;
 }
 
-/** Think wall-clock times are `HH:mm` with hours 00–23. */
+/** Wall-clock times are `HH:mm` with hours 00–23. */
 function parseWallClockTime(raw: string | undefined): string | null {
   if (!raw) return null;
   const match = /^(\d{1,2}):([0-5]\d)$/.exec(raw);

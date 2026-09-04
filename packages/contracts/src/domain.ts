@@ -20,6 +20,7 @@ export const BotSchema = z.object({
   avatarShape: AvatarShape,
   parentBotId: Id.nullable(),
   threadId: Id,
+  homeRoomId: Id,
   guestKind: GuestKind,
   guestOnline: z.boolean(),
   /** Empty = workspace default model. */
@@ -43,6 +44,8 @@ export const CreateBotInput = z.object({
   instructions: z.string().max(20000).default(""),
   avatarColor: z.string().max(32).default("#5b7cff"),
   avatarShape: AvatarShape.default("circle"),
+  /** Client-generated home RoomActor id so 1:1 can open at /room/$homeRoomId. */
+  homeRoomId: Id.max(64).optional(),
 });
 
 export const UpdateBotInput = z.object({
@@ -54,6 +57,35 @@ export const UpdateBotInput = z.object({
   avatarColor: z.string().max(32).optional(),
   avatarShape: AvatarShape.optional(),
   model: z.string().max(200).optional(),
+});
+
+export const RoomMemberSchema = z.object({
+  botId: Id,
+  homeRoomId: Id,
+  name: z.string(),
+  title: z.string(),
+  avatarColor: z.string(),
+  avatarShape: AvatarShape,
+  archivedAt: z.string().nullable(),
+});
+export type RoomMember = z.infer<typeof RoomMemberSchema>;
+
+export const RoomSchema = z.object({
+  id: Id,
+  workspaceId: Id,
+  name: z.string(),
+  members: z.array(RoomMemberSchema),
+  lastPreview: z.string(),
+  lastAt: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type Room = z.infer<typeof RoomSchema>;
+
+export const CreateRoomInput = z.object({
+  id: Id.max(64).optional(),
+  name: z.string().min(1).max(80),
+  memberBotIds: z.array(Id).min(1).max(32),
 });
 
 /** Sidebar chrome. Identity still lives on the App Durable Object + chat card. */
@@ -132,12 +164,12 @@ export const RoutineSchema = z.object({
 });
 export type Routine = z.infer<typeof RoutineSchema>;
 
-/** Human-attached files land here on this bot’s Think workspace. */
+/** Human-attached files land here on this bot’s Computer workspace. */
 export const COMPUTER_INBOX_DIR = "inbox";
 export const MAX_COMPUTER_ATTACHMENTS = 6;
 export const MAX_COMPUTER_WRITE_BYTES = 4 * 1024 * 1024;
 
-/** One path on this bot’s Think workspace. Not a computers catalog. */
+/** One path on this bot’s Computer workspace. Not a computers catalog. */
 export const ComputerEntrySchema = z.object({
   path: z.string(),
   kind: z.enum(["file", "dir"]),

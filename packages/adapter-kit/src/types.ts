@@ -8,7 +8,7 @@ export interface AdapterContext {
 }
 
 export interface WakeupJob {
-  /** Actor key — the bot, never the room. */
+  /** Person product id. The Worker addresses that bot’s own RoomActor, never the group room. */
   botId: string;
   name: string;
   payload: Record<string, unknown>;
@@ -21,13 +21,15 @@ export interface WakeupJob {
 export interface WakeupDriver {
   enqueue(job: WakeupJob): Promise<void>;
   start(
-    handlers?: Record<string, (payload: Record<string, unknown>) => Promise<void>>,
+    handlers?: Record<
+      string,
+      (payload: Record<string, unknown>) => Promise<void>
+    >,
   ): Promise<void>;
   stop(): Promise<void>;
 }
 
-
-/** Send a job to the bot actor. The Worker implements this with a Durable Object stub. */
+/** Send a job to that bot’s own RoomActor. The Worker implements this with a Durable Object stub. */
 export type EnqueueJob = (job: WakeupJob) => Promise<void>;
 
 /** Stamp a live app on AppRuntime. The Worker implements this with a Durable Object stub. */
@@ -35,6 +37,17 @@ export type InitApp = (
   appId: string,
   templateId: string,
   opts: { workspaceId: string; title: string },
+) => Promise<void>;
+
+/** Stamp a RoomActor. `botId` present ⇒ that person’s own room (Pi + computer). Otherwise a group: log only, no Pi. */
+export type InitRoom = (
+  roomId: string,
+  opts: {
+    workspaceId: string;
+    name: string;
+    botId?: string;
+    members: Array<{ id: string; name: string; homeRoomId?: string }>;
+  },
 ) => Promise<void>;
 
 export interface PokeTeammate {

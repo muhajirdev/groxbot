@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { matchOfficeSkills } from "../lib/knowledge-slash";
 import { officeSkills } from "../lib/knowledge-tree";
 import { orpc } from "../lib/orpc";
-import { THINK_MESSAGES_GC_TIME } from "../lib/think-messages";
+import { OFFICE_MESSAGES_GC_TIME } from "../lib/office-messages";
 
 const MAX_HITS = 8;
 
@@ -13,7 +13,7 @@ export function OfficeSkillSlash() {
   const listing = useQuery({
     ...orpc.knowledge.list.queryOptions(),
     enabled: value.trimStart().startsWith("/"),
-    gcTime: THINK_MESSAGES_GC_TIME,
+    gcTime: OFFICE_MESSAGES_GC_TIME,
   });
   const hits = matchOfficeSkills(
     value,

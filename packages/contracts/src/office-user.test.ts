@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { OFFICE_REVIEW_SOURCE } from "./office-review.js";
 import {
   OFFICE_USER_ID_HEADER,
   OFFICE_USER_NAME_HEADER,
@@ -11,7 +12,6 @@ import {
   withOfficeUserMetadata,
   withOfficeUserRequest,
 } from "./office-user.js";
-import { OFFICE_REVIEW_SOURCE } from "./office-review.js";
 
 const alex = { userId: "usr_1", name: "Alex" };
 
@@ -36,9 +36,9 @@ describe("parseOfficeUser", () => {
   });
 
   it("drops a non-http profile photo", () => {
-    expect(
-      parseOfficeUser({ ...alex, image: "javascript:alert(1)" }),
-    ).toEqual(alex);
+    expect(parseOfficeUser({ ...alex, image: "javascript:alert(1)" })).toEqual(
+      alex,
+    );
   });
 
   it("reads metadata.user", () => {
@@ -163,7 +163,7 @@ describe("withOfficeUserMetadata", () => {
 describe("office user headers", () => {
   it("round-trips unicode names", () => {
     const request = withOfficeUserRequest(
-      new Request("https://api.example/agents/BotActor/bot_1"),
+      new Request("https://api.example/agents/RoomActor/room_1"),
       { userId: "usr_1", name: "José" },
     );
     expect(request.headers.get(OFFICE_USER_ID_HEADER)).toBe("usr_1");
@@ -179,7 +179,7 @@ describe("office user headers", () => {
   it("round-trips a profile photo", () => {
     const photo = "https://avatars.githubusercontent.com/u/1";
     const request = withOfficeUserRequest(
-      new Request("https://api.example/agents/BotActor/bot_1"),
+      new Request("https://api.example/agents/RoomActor/room_1"),
       { userId: "usr_1", name: "Alex", image: photo },
     );
     expect(officeUserFromHeaders(request.headers)).toEqual({

@@ -29,6 +29,27 @@
       "when": 1788412878275,
       "tag": "0003_curved_chronomancer",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788500777217,
+      "tag": "0004_funny_solo",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788505489884,
+      "tag": "0005_woozy_zzzax",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788507085687,
+      "tag": "0006_little_wild_pack",
+      "breakpoints": true
     }
   ]
 }

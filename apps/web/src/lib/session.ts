@@ -71,7 +71,7 @@ export async function redirectAuthedHome(): Promise<never> {
   if (!me.workspaceSlug) throw redirect({ to: "/onboarding", search: {} });
   throw redirect({
     to: OFFICE_TO,
-    params: officeParams(me.workspaceSlug, first.id),
+    params: officeParams(me.workspaceSlug, first.homeRoomId || first.id),
   });
 }
 
@@ -80,7 +80,7 @@ export async function enterActiveWorkspace(opts: {
   queryClient: QueryClient;
   invalidateRouter: () => Promise<unknown>;
   goOnboarding: () => Promise<unknown>;
-  goBot: (botId: string) => Promise<unknown>;
+  goBot: (roomId: string) => Promise<unknown>;
 }): Promise<void> {
   clearThreadStore();
   await opts.queryClient.invalidateQueries();
@@ -95,5 +95,5 @@ export async function enterActiveWorkspace(opts: {
     await opts.goOnboarding();
     return;
   }
-  await opts.goBot(dest.botId);
+  await opts.goBot(dest.roomId);
 }

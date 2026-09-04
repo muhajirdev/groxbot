@@ -2,18 +2,18 @@ import type { WakeupDriver, WakeupJob } from "@groxbot/adapter-kit";
 
 type Handler = (payload: Record<string, unknown>) => Promise<void>;
 
-interface BotActor {
+interface QueuedActor {
   tail: Promise<void>;
   timers: Map<string, NodeJS.Timeout>;
 }
 
 /**
  * In-process queue per bot: serial runs + named delayed schedules.
- * Product cron is Agents `this.schedule` on BotActor, not this driver.
+ * Product cron is Agents `this.schedule` on the home RoomActor, not this driver.
  */
 export class InProcessWakeupDriver implements WakeupDriver {
   private handlers: Record<string, Handler> = {};
-  private actors = new Map<string, BotActor>();
+  private actors = new Map<string, QueuedActor>();
 
   async enqueue(job: WakeupJob): Promise<void> {
     if (!job.botId) throw new Error("WakeupJob.botId is required");
@@ -47,7 +47,7 @@ export class InProcessWakeupDriver implements WakeupDriver {
     this.handlers = {};
   }
 
-  private actor(botId: string): BotActor {
+  private actor(botId: string): QueuedActor {
     let actor = this.actors.get(botId);
     if (!actor) {
       actor = { tail: Promise.resolve(), timers: new Map() };

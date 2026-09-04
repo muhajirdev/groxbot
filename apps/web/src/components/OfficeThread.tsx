@@ -1,11 +1,9 @@
 import { useAISDKRuntime } from "@assistant-ui/ai-sdk";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
-import { useAgentChat } from "@cloudflare/ai-chat/react";
 import {
   officeUserFromActor,
   withOfficeUserMetadata,
 } from "@groxbot/contracts";
-import { useAgent } from "agents/react";
 import type { UIMessage } from "ai";
 import {
   type MutableRefObject,
@@ -18,33 +16,32 @@ import {
   useState,
 } from "react";
 import { Thread } from "@/components/assistant-ui/elements/thread.aui";
-import { waitForAgentReady } from "../lib/agent-ready";
-import { lastThinkPreview } from "../lib/chat-messages";
+import { lastOfficePreview } from "../lib/chat-messages";
 import { patchBot } from "../lib/collections";
 import { createWorkspaceAttachmentAdapter } from "../lib/computer-attachment";
 import { composerBannerError } from "../lib/errors";
-import { agentSocketHost } from "../lib/host";
 import { FIRST_TASK } from "../lib/jobs";
+import { peekOfficeMessages, setOfficeMessages } from "../lib/office-messages";
 import { orpc, queryClient } from "../lib/orpc";
 import {
   seedOutgoingUserMessage,
   textFromOutgoingPayload,
 } from "../lib/outgoing-user-message";
 import { client } from "../lib/rpc";
-import { peekThinkMessages, setThinkMessages } from "../lib/think-messages";
-import { patchThreadMeta, THINK_WORKING } from "../lib/thread-cache";
+import { OFFICE_WORKING, patchThreadMeta } from "../lib/thread-cache";
+import { useOfficeChat } from "../lib/use-office-chat";
 import { cn } from "../lib/utils";
 import { Button } from "../ui";
 import { PresentToolUI } from "./PresentToolUI";
 
-function rememberPreview(botId: string, messages: UIMessage[]) {
-  setThinkMessages(botId, messages);
-  const preview = lastThinkPreview(messages);
+function rememberPreview(botId: string, roomId: string, messages: UIMessage[]) {
+  setOfficeMessages(roomId, messages);
+  const preview = lastOfficePreview(messages);
   if (!preview) return;
   patchBot(botId, { lastPreview: preview });
 }
 
-function ThinkWelcome() {
+function OfficeWelcome() {
   return (
     <p className="px-1 text-left text-[13px] leading-normal text-muted-foreground">
       First message is a real task. A good handoff has an outcome, sources, and
@@ -53,10 +50,11 @@ function ThinkWelcome() {
   );
 }
 
-const THREAD_COMPONENTS = { Welcome: ThinkWelcome };
+const THREAD_COMPONENTS = { Welcome: OfficeWelcome };
 
-export const KeptThinkThread = memo(function KeptThinkThread(props: {
+export const KeptOfficeThread = memo(function KeptOfficeThread(props: {
   botId: string;
+  roomId?: string;
   botName: string;
   archived: boolean;
   needsModel: boolean;
@@ -79,8 +77,9 @@ export const KeptThinkThread = memo(function KeptThinkThread(props: {
     props.onUnarchive(props.botId);
   }, [props.botId, props.onUnarchive]);
   return (
-    <ThinkThread
+    <OfficeThread
       botId={props.botId}
+      roomId={props.roomId}
       botName={props.botName}
       archived={props.archived}
       needsModel={props.needsModel}
@@ -99,8 +98,9 @@ export const KeptThinkThread = memo(function KeptThinkThread(props: {
   );
 });
 
-export function ThinkThread(props: {
+export function OfficeThread(props: {
   botId: string;
+  roomId?: string;
   botName: string;
   archived: boolean;
   needsModel: boolean;
@@ -151,8 +151,9 @@ export function ThinkThread(props: {
       )}
       aria-hidden={!active}
     >
-      <ThinkThreadRuntime
+      <OfficeThreadRuntime
         botId={props.botId}
+        roomId={props.roomId}
         botName={props.botName}
         archived={props.archived}
         needsModel={props.needsModel}
@@ -187,8 +188,9 @@ export function ThinkThread(props: {
   );
 }
 
-const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
+const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
   botId: string;
+  roomId?: string;
   botName: string;
   archived: boolean;
   needsModel: boolean;
@@ -202,7 +204,6 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
   onNeedsModel: () => void;
   stopHolder: MutableRefObject<(() => void) | null>;
 }) {
-  const host = agentSocketHost();
   const onErrorRef = useRef(props.onError);
   onErrorRef.current = props.onError;
   const onNeedsModelRef = useRef(props.onNeedsModel);
@@ -220,24 +221,14 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
   });
   const senderRef = useRef(sender);
   senderRef.current = sender;
-  const seed = useRef(peekThinkMessages(props.botId) ?? []).current;
+  const chatId = props.roomId || props.botId;
+  const seed = useRef(peekOfficeMessages(chatId) ?? []).current;
   const opening = Boolean(props.opening);
 
-  const agent = useAgent({
-    agent: "BotActor",
-    name: props.botId,
-    // Stay connected while mounted so switching back is a visibility toggle,
-    // not a full Think remount + get-messages hydrate.
+  const chat = useOfficeChat({
+    botId: chatId,
     enabled: !opening,
-    ...(host ? { host } : {}),
-  });
-
-  const chat = useAgentChat({
-    agent,
-    credentials: "include",
-    syncMessagesToServer: false,
-    getInitialMessages: null,
-    messages: seed,
+    seed,
   });
   const {
     messages,
@@ -254,8 +245,6 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
   const busy = status === "submitted" || status === "streaming" || isStreaming;
   const wasBusy = useRef(false);
   const [pending, setPending] = useState(false);
-  const agentRef = useRef(agent);
-  agentRef.current = agent;
   const abortSendRef = useRef<AbortController | null>(null);
   const inFlight = busy || pending;
 
@@ -271,7 +260,7 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
         );
         return Promise.reject(new Error("Model required"));
       }
-      const [payload, ...rest] = args;
+      const [payload] = args;
       const labeled = withOfficeUserMetadata(
         payload,
         senderRef.current,
@@ -284,7 +273,7 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
       const abort = new AbortController();
       abortSendRef.current = abort;
       setPending(true);
-      patchThreadMeta(botIdRef.current, { working: THINK_WORKING });
+      patchThreadMeta(botIdRef.current, { working: OFFICE_WORKING });
 
       const seededId = crypto.randomUUID();
       const seeded = seedOutgoingUserMessage(labeled, seededId);
@@ -298,9 +287,6 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
 
       let handedOff = false;
       try {
-        await waitForAgentReady(() => agentRef.current, {
-          signal: abort.signal,
-        });
         if (archivedRef.current) {
           throw new Error("Archived");
         }
@@ -313,7 +299,6 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
                 messageId: seededId,
               } as typeof payload)
             : labeled,
-          ...rest,
         );
       } catch (caught) {
         if (!handedOff && seeded) {
@@ -368,7 +353,7 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
 
   useEffect(() => {
     patchThreadMeta(props.botId, {
-      working: inFlight ? THINK_WORKING : "",
+      working: inFlight ? OFFICE_WORKING : "",
     });
     return () => {
       patchThreadMeta(props.botId, { working: "" });
@@ -377,22 +362,23 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
 
   useEffect(() => {
     if (wasBusy.current && !busy) {
-      rememberPreview(props.botId, messagesRef.current);
+      rememberPreview(props.botId, chatId, messagesRef.current);
     }
     wasBusy.current = busy;
-  }, [busy, props.botId]);
+  }, [busy, chatId, props.botId]);
 
   useEffect(() => {
     return () => {
-      rememberPreview(props.botId, messagesRef.current);
+      rememberPreview(props.botId, chatId, messagesRef.current);
     };
-  }, [props.botId]);
+  }, [chatId, props.botId]);
 
   const banner = composerBannerError({
     inFlight,
     agentError: error?.message || "",
     connectionError: opening ? "" : connectionError?.message || "",
     persisted: props.error,
+    needsModel: props.needsModel,
   });
   useEffect(() => {
     if (banner === props.error) return;

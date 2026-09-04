@@ -14,7 +14,7 @@ Library UI still filters the tree client-side. The ranked index is for the agent
 
 ## Self-improving office
 
-Search + `knowledge.write` let a playbook compound. The hosted brain is still Think `chat()` on `BotActor` — no second gateway client.
+Search + `knowledge.write` let a playbook compound. v1 office chat is Pi on the home `RoomActor`. Poke / guest / REST turns use the same person. Do not add a second office transcript.
 
 After ~15 settled UI tool parts, the actor appends a hidden user nudge (`metadata.source = office-review`) and runs another turn on the same session. If it files or patches a playbook, it says the path in one short line. If nothing belongs in the office, it replies `Skip` and the thread stays quiet.
 
@@ -75,7 +75,7 @@ The agent searches **keywords**, not `Dimana James Hepburn meninggal?`. AND-on-t
 
 ## Do not
 
-- Put office FTS in `BotActor` SQLite.
+- Put office FTS in home `RoomActor` SQLite.
 - Raise the cap to 10k without paged rebuild or D1.
 - Check in eval dumps or Sastrawi.
 - Silent background `generateText` / a second OpenAI-compatible client for filing.

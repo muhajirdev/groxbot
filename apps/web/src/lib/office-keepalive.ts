@@ -1,14 +1,14 @@
-/** How many Think threads to keep mounted for instant bot switches. */
-export const THINK_KEEPALIVE_LIMIT = 8;
+/** How many office threads to keep mounted for instant bot switches. */
+export const OFFICE_KEEPALIVE_LIMIT = 8;
 
 /**
  * LRU touch: move `botId` to the front, drop the oldest past `limit`.
  * First visit still mounts cold; return visits reuse the React tree.
  */
-export function touchThinkKeepAlive(
+export function touchOfficeKeepAlive(
   mounted: readonly string[],
   botId: string,
-  limit: number = THINK_KEEPALIVE_LIMIT,
+  limit: number = OFFICE_KEEPALIVE_LIMIT,
 ): string[] {
   const id = botId.trim();
   if (!id || limit < 1) return [...mounted];
@@ -16,7 +16,7 @@ export function touchThinkKeepAlive(
   return next.slice(0, limit);
 }
 
-export type ThinkKeepAlive = {
+export type OfficeKeepAlive = {
   /** Stable React mount order. Existing ids keep their index. */
   mounted: string[];
   /** Most-recent first; used only to decide who to evict. */
@@ -27,13 +27,13 @@ export type ThinkKeepAlive = {
  * Keep existing mount order so switching a cached bot does not shuffle DOM.
  * New ids append; eviction follows `lru`, not mount order.
  */
-export function rememberThinkKeepAlive(
+export function rememberOfficeKeepAlive(
   mounted: readonly string[],
   lru: readonly string[],
   botId: string,
-  limit: number = THINK_KEEPALIVE_LIMIT,
-): ThinkKeepAlive {
-  const nextLru = touchThinkKeepAlive(lru, botId, limit);
+  limit: number = OFFICE_KEEPALIVE_LIMIT,
+): OfficeKeepAlive {
+  const nextLru = touchOfficeKeepAlive(lru, botId, limit);
   const keep = new Set(nextLru);
   const nextMounted = mounted.filter((id) => keep.has(id));
   for (const id of nextLru) {
@@ -42,7 +42,7 @@ export function rememberThinkKeepAlive(
   return { mounted: nextMounted, lru: nextLru };
 }
 
-export function dropThinkKeepAlive(
+export function dropOfficeKeepAlive(
   mounted: readonly string[],
   botId: string,
 ): string[] {
@@ -51,7 +51,7 @@ export function dropThinkKeepAlive(
   return mounted.filter((item) => item !== id);
 }
 
-export function sameThinkKeepAlive(
+export function sameOfficeKeepAlive(
   left: readonly string[],
   right: readonly string[],
 ): boolean {

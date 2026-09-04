@@ -53,10 +53,13 @@ export function composerBannerError(input: {
   agentError: string;
   connectionError: string;
   persisted: string;
+  needsModel?: boolean;
 }): string {
   if (input.inFlight) return "";
   if (input.agentError) return humanizeRunError(input.agentError);
   if (input.connectionError) return humanizeRunError(input.connectionError);
-  if (isModelSetupError(input.persisted)) return input.persisted;
+  if (isModelSetupError(input.persisted) && input.needsModel !== false) {
+    return input.persisted;
+  }
   return "";
 }

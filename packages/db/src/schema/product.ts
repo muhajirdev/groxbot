@@ -42,6 +42,10 @@ export const bots = pgTable(
       (): AnyPgColumn => threads.id,
       { onDelete: "set null" },
     ),
+    /** That bot’s own RoomActor (`rooms.id`). Instance name is this id, not bots.id. */
+    homeRoomId: text("home_room_id").references((): AnyPgColumn => rooms.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -49,7 +53,10 @@ export const bots = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [uniqueIndex("bots_home_thread_id_unique").on(t.homeThreadId)],
+  (t) => [
+    uniqueIndex("bots_home_thread_id_unique").on(t.homeThreadId),
+    uniqueIndex("bots_home_room_id_unique").on(t.homeRoomId),
+  ],
 );
 
 export const threads = pgTable(
@@ -391,5 +398,48 @@ export const mcpConnections = pgTable(
     uniqueIndex("mcp_connections_workspace_name").on(t.workspaceId, t.name),
     uniqueIndex("mcp_connections_workspace_url").on(t.workspaceId, t.url),
     index("mcp_connections_host_bot_id").on(t.hostBotId),
+  ],
+);
+
+/** Workspace catalog of places. Transcript lives on RoomActor, not here. */
+export const rooms = pgTable(
+  "rooms",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .references(() => user.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("rooms_workspace_id").on(t.workspaceId)],
+);
+
+/** Bots seated at a room. Unique pair; the live log is on RoomActor. */
+export const roomMembers = pgTable(
+  "room_members",
+  {
+    id: text("id").primaryKey(),
+    roomId: text("room_id")
+      .notNull()
+      .references(() => rooms.id, { onDelete: "cascade" }),
+    botId: text("bot_id")
+      .notNull()
+      .references(() => bots.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("room_members_room_bot").on(t.roomId, t.botId),
+    index("room_members_bot_id").on(t.botId),
   ],
 );

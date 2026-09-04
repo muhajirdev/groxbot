@@ -11,10 +11,10 @@ import { enterActiveWorkspace } from "../lib/session";
 import {
   readCachedWorkspace,
   resolveWorkspace,
-  writeCachedWorkspace,
   type WorkspaceMenuItem,
   workspaceDisplayName,
   workspaceMenuItems,
+  writeCachedWorkspace,
 } from "../lib/workspace-switcher";
 import { cn } from "../ui";
 import { CreateWorkspaceDialog } from "./CreateWorkspaceDialog";
@@ -62,10 +62,10 @@ export function WorkspaceSwitcher(props: {
       invalidateRouter: () => router.invalidate(),
       goOnboarding: () =>
         navigate({ to: "/onboarding", search: {}, viewTransition: true }),
-      goBot: (botId) =>
+      goBot: (roomId) =>
         navigate({
           to: OFFICE_TO,
-          params: officeParams(slug, botId),
+          params: officeParams(slug, roomId),
           viewTransition: true,
         }),
     });

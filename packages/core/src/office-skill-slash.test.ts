@@ -39,6 +39,17 @@ describe("lastUserText", () => {
       ]),
     ).toBe("/agreements");
   });
+
+  it("reads UIMessage parts when content is missing", () => {
+    expect(
+      lastUserText([
+        {
+          role: "user",
+          parts: [{ type: "text", text: "/weekly-update" }],
+        },
+      ]),
+    ).toBe("/weekly-update");
+  });
 });
 
 describe("catalogHasSkill", () => {
@@ -49,7 +60,7 @@ describe("catalogHasSkill", () => {
     "- weekly-update: Five-bullet Monday.",
   ].join("\n");
 
-  it("matches Think's catalog bullets", () => {
+  it("matches skill catalog bullets", () => {
     expect(catalogHasSkill(catalog, "agreements")).toBe(true);
     expect(catalogHasSkill(catalog, "missing")).toBe(false);
   });
@@ -105,7 +116,7 @@ describe("officeSkillSlashTurn", () => {
     ).toBe(false);
   });
 
-  it("does not force on continuations or missing skill tools", () => {
+  it("does not force on continuations", () => {
     expect(
       officeSkillSlashTurn({
         system,
@@ -114,12 +125,17 @@ describe("officeSkillSlashTurn", () => {
         continuation: true,
       }).forceActivate,
     ).toBe(false);
-    expect(
-      officeSkillSlashTurn({
-        system,
-        messages,
-        hasActivateSkill: false,
-      }).forceActivate,
-    ).toBe(false);
+  });
+
+  it("hints knowledge.read when activate_skill is gone", () => {
+    const next = officeSkillSlashTurn({
+      system: "You are Reja.",
+      messages,
+      hasActivateSkill: false,
+    });
+    expect(next.forceActivate).toBe(false);
+    expect(next.system).toContain("knowledge.read");
+    expect(next.system).toContain("skills/agreements/SKILL.md");
+    expect(next.system).not.toContain("activate_skill");
   });
 });

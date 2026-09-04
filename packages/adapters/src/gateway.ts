@@ -313,6 +313,71 @@ export function deltaText(payload: unknown): string {
   return textFromPart(record);
 }
 
+export type GatewayToolCallDelta = {
+  index: number;
+  id?: string;
+  name?: string;
+  arguments?: string;
+};
+
+export function deltaToolCalls(payload: unknown): GatewayToolCallDelta[] {
+  const body = unwrapGatewayPayload(payload);
+  if (!body || typeof body !== "object") return [];
+  const choices = (body as { choices?: unknown }).choices;
+  if (
+    !Array.isArray(choices) ||
+    !choices[0] ||
+    typeof choices[0] !== "object"
+  ) {
+    return [];
+  }
+  const choice = choices[0] as Record<string, unknown>;
+  const container =
+    (choice.delta && typeof choice.delta === "object"
+      ? (choice.delta as Record<string, unknown>)
+      : null) ??
+    (choice.message && typeof choice.message === "object"
+      ? (choice.message as Record<string, unknown>)
+      : null);
+  const calls = container?.tool_calls;
+  if (!Array.isArray(calls)) return [];
+  const out: GatewayToolCallDelta[] = [];
+  for (const [fallback, raw] of calls.entries()) {
+    if (!raw || typeof raw !== "object") continue;
+    const row = raw as Record<string, unknown>;
+    const fn =
+      row.function && typeof row.function === "object"
+        ? (row.function as Record<string, unknown>)
+        : {};
+    const index =
+      typeof row.index === "number" && Number.isFinite(row.index)
+        ? row.index
+        : fallback;
+    out.push({
+      index,
+      id: typeof row.id === "string" && row.id ? row.id : undefined,
+      name: typeof fn.name === "string" && fn.name ? fn.name : undefined,
+      arguments: typeof fn.arguments === "string" ? fn.arguments : undefined,
+    });
+  }
+  return out;
+}
+
+export function finishReason(payload: unknown): string | null {
+  const body = unwrapGatewayPayload(payload);
+  if (!body || typeof body !== "object") return null;
+  const choices = (body as { choices?: unknown }).choices;
+  if (
+    !Array.isArray(choices) ||
+    !choices[0] ||
+    typeof choices[0] !== "object"
+  ) {
+    return null;
+  }
+  const reason = (choices[0] as { finish_reason?: unknown }).finish_reason;
+  return typeof reason === "string" && reason ? reason : null;
+}
+
 export function gatewayErrorMessage(status: number, body: string): string {
   try {
     const json = JSON.parse(body) as Record<string, unknown>;

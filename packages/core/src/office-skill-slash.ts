@@ -22,9 +22,13 @@ export function lastUserText(messages: readonly unknown[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
     if (!msg || typeof msg !== "object") continue;
-    const row = msg as { role?: unknown; content?: unknown };
+    const row = msg as {
+      role?: unknown;
+      content?: unknown;
+      parts?: unknown;
+    };
     if (row.role !== "user") continue;
-    const text = modelContentText(row.content);
+    const text = modelContentText(row.parts) || modelContentText(row.content);
     if (text) return text;
   }
   return "";
@@ -37,16 +41,21 @@ export function catalogHasSkill(system: string, name: string): boolean {
 export function withOfficeSkillSlashHint(
   system: string,
   skill: OfficeSkillSlash,
+  options?: { hasActivateSkill?: boolean },
 ): string {
   const rest = skill.input
     ? ` Remaining text after /${skill.name} is the user's input for this skill.`
     : "";
-  const hint = `The user invoked the /${skill.name} office skill. Call activate_skill with name "${skill.name}" before any other tool.${rest}`;
+  const action =
+    options?.hasActivateSkill === false
+      ? `knowledge.search then knowledge.read the playbook for "${skill.name}" (usually skills/${skill.name}/SKILL.md) before any other tool.`
+      : `Call activate_skill with name "${skill.name}" before any other tool.`;
+  const hint = `The user invoked the /${skill.name} office skill. ${action}${rest}`;
   if (system.includes(hint)) return system;
   return `${system.trimEnd()}\n\n${hint}`;
 }
 
-/** Force `activate_skill` when the user sent a cataloged `/skill`. */
+/** Hint (and optionally force `activate_skill`) when the user sent a cataloged `/skill`. */
 export function officeSkillSlashTurn(input: {
   system: string;
   messages: readonly unknown[];
@@ -56,21 +65,28 @@ export function officeSkillSlashTurn(input: {
   const system = input.system;
   if (input.continuation) return { system, forceActivate: false };
   const invoked = parseOfficeSkillSlash(lastUserText(input.messages));
-  if (
-    !invoked ||
-    !input.hasActivateSkill ||
-    !catalogHasSkill(system, invoked.name)
-  ) {
-    return { system, forceActivate: false };
+  if (!invoked) return { system, forceActivate: false };
+  if (input.hasActivateSkill) {
+    if (!catalogHasSkill(system, invoked.name)) {
+      return { system, forceActivate: false };
+    }
+    return {
+      system: withOfficeSkillSlashHint(system, invoked, {
+        hasActivateSkill: true,
+      }),
+      forceActivate: true,
+    };
   }
   return {
-    system: withOfficeSkillSlashHint(system, invoked),
-    forceActivate: true,
+    system: withOfficeSkillSlashHint(system, invoked, {
+      hasActivateSkill: false,
+    }),
+    forceActivate: false,
   };
 }
 
 function modelContentText(content: unknown): string {
-  if (typeof content === "string") return content;
+  if (typeof content === "string") return content.trim();
   if (!Array.isArray(content)) return "";
   const parts: string[] = [];
   for (const part of content) {
@@ -80,7 +96,7 @@ function modelContentText(content: unknown): string {
       parts.push(row.text);
     }
   }
-  return parts.join("");
+  return parts.join("").trim();
 }
 
 function escapeRegExp(value: string): string {

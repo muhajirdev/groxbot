@@ -36,12 +36,14 @@
 	"durable_objects": {
 		"bindings": [
 			{
-				"name": "BOT_ACTOR",
-				"class_name": "BotActor"
-			},
-			{
 				"name": "APP_RUNTIME",
 				"class_name": "AppRuntime"
+			},
+			{
+				"name": "ROOM_ACTOR",
+				// SQLite class is still the v1 BotActor. versions upload cannot
+				// apply new_sqlite_classes / deleted_classes (API 10211).
+				"class_name": "BotActor"
 			}
 		]
 	},
