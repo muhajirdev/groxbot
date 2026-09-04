@@ -9,7 +9,7 @@ Source of truth is never the browser:
 | Data | Truth |
 |---|---|
 | Team, bots, members, models | Postgres |
-| Office chat | Think session on `BotActor` (DO SQLite) |
+| Office chat | DO SQLite `office_chat` on `BotActor`, streamed over Cap’n Web |
 | This bot’s files | `@cloudflare/computer` `Workspace` on `BotActor` |
 | Office knowledge | R2 `{workspaceId}/…` |
 
@@ -40,7 +40,7 @@ Code:
 |---|---|
 | QueryClient + oRPC utils | `apps/web/src/lib/orpc.ts` |
 | Persist whitelist + restore | `apps/web/src/lib/think-persist.ts` |
-| Think message bag | `apps/web/src/lib/think-messages.ts` |
+| Office transcript bag (IndexedDB key still `think-messages`) | `apps/web/src/lib/think-messages.ts` |
 | Collections | `apps/web/src/lib/collections.ts` |
 | Roster preview overlay | `apps/web/src/lib/bot-preview.ts` |
 | Workspace name hint | `apps/web/src/lib/workspace-switcher.ts` |
@@ -60,8 +60,8 @@ Catalog collections set `gcTime` to `THINK_MESSAGES_GC_TIME` (7 days) so rows ou
 
 | Query | Why |
 |---|---|
-| `["think-messages", botId]` | Last office transcript per bot. Seeded into `useAgentChat`. Written with `setThinkMessages`, not a `queryFn`. |
-| `bots.list` | Roster. Query collection. Last line overlaid from Think cache so a refetch that sends `""` does not blank the sidebar. |
+| `["think-messages", botId]` | Last office transcript per bot. Seeded into `useOfficeChat`. Written with `setThinkMessages`, not a `queryFn`. |
+| `bots.list` | Roster. Query collection. Last line overlaid from the office transcript cache so a refetch that sends `""` does not blank the sidebar. |
 | `apps.list` | Live app cards. Query collection. |
 | `plugins.list` / `mcp.list` | Connectors. Query collections. Refetch on window focus. |
 | `knowledge.list` | Office tree. `useQuery` only (no collection). |

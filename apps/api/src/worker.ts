@@ -1,4 +1,4 @@
-/** Product API: Cloudflare Worker + Neon HTTP + Durable Object BotActor (Think). */
+/** Product API: Cloudflare Worker + Neon HTTP + Durable Object BotActor. */
 import { officeUserFromActor, withOfficeUserRequest } from "@groxbot/contracts";
 import { createSkillImportHttp } from "@groxbot/core";
 import { bots } from "@groxbot/db";
@@ -16,8 +16,8 @@ import {
   readBotComputer,
   writeBotComputer,
 } from "./bot-computer.js";
-import { enqueueOnBot } from "./bot-enqueue.js";
 import { addBotMcp, oauthBotMcp, removeBotMcp } from "./bot-mcp.js";
+import { connectBotOffice } from "./bot-office-rpc.js";
 import {
   createBotRoutine,
   listBotRoutines,
@@ -69,6 +69,8 @@ export default {
       initApp: (appId, templateId, opts) => apps.init(appId, templateId, opts),
       connectApp: (appId, request, workspaceId) =>
         apps.connect(appId, request, workspaceId),
+      connectBot: (botId, request, workspaceId) =>
+        connectBotOffice(env.BOT_ACTOR, botId, request, workspaceId),
       computer: {
         list: (botId, path) => listBotComputer(env.BOT_ACTOR, botId, path),
         read: (botId, path) => readBotComputer(env.BOT_ACTOR, botId, path),

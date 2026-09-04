@@ -1,11 +1,9 @@
 import { useAISDKRuntime } from "@assistant-ui/ai-sdk";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
-import { useAgentChat } from "@cloudflare/ai-chat/react";
 import {
   officeUserFromActor,
   withOfficeUserMetadata,
 } from "@groxbot/contracts";
-import { useAgent } from "agents/react";
 import type { UIMessage } from "ai";
 import {
   type MutableRefObject,
@@ -18,12 +16,10 @@ import {
   useState,
 } from "react";
 import { Thread } from "@/components/assistant-ui/elements/thread.aui";
-import { waitForAgentReady } from "../lib/agent-ready";
 import { lastThinkPreview } from "../lib/chat-messages";
 import { patchBot } from "../lib/collections";
 import { createWorkspaceAttachmentAdapter } from "../lib/computer-attachment";
 import { composerBannerError } from "../lib/errors";
-import { agentSocketHost } from "../lib/host";
 import { FIRST_TASK } from "../lib/jobs";
 import { orpc, queryClient } from "../lib/orpc";
 import {
@@ -33,6 +29,7 @@ import {
 import { client } from "../lib/rpc";
 import { peekThinkMessages, setThinkMessages } from "../lib/think-messages";
 import { patchThreadMeta, THINK_WORKING } from "../lib/thread-cache";
+import { useOfficeChat } from "../lib/use-office-chat";
 import { cn } from "../lib/utils";
 import { Button } from "../ui";
 import { PresentToolUI } from "./PresentToolUI";
@@ -202,7 +199,6 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
   onNeedsModel: () => void;
   stopHolder: MutableRefObject<(() => void) | null>;
 }) {
-  const host = agentSocketHost();
   const onErrorRef = useRef(props.onError);
   onErrorRef.current = props.onError;
   const onNeedsModelRef = useRef(props.onNeedsModel);
@@ -223,21 +219,10 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
   const seed = useRef(peekThinkMessages(props.botId) ?? []).current;
   const opening = Boolean(props.opening);
 
-  const agent = useAgent({
-    agent: "BotActor",
-    name: props.botId,
-    // Stay connected while mounted so switching back is a visibility toggle,
-    // not a full Think remount + get-messages hydrate.
+  const chat = useOfficeChat({
+    botId: props.botId,
     enabled: !opening,
-    ...(host ? { host } : {}),
-  });
-
-  const chat = useAgentChat({
-    agent,
-    credentials: "include",
-    syncMessagesToServer: false,
-    getInitialMessages: null,
-    messages: seed,
+    seed,
   });
   const {
     messages,
@@ -254,8 +239,6 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
   const busy = status === "submitted" || status === "streaming" || isStreaming;
   const wasBusy = useRef(false);
   const [pending, setPending] = useState(false);
-  const agentRef = useRef(agent);
-  agentRef.current = agent;
   const abortSendRef = useRef<AbortController | null>(null);
   const inFlight = busy || pending;
 
@@ -271,7 +254,7 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
         );
         return Promise.reject(new Error("Model required"));
       }
-      const [payload, ...rest] = args;
+      const [payload] = args;
       const labeled = withOfficeUserMetadata(
         payload,
         senderRef.current,
@@ -298,9 +281,6 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
 
       let handedOff = false;
       try {
-        await waitForAgentReady(() => agentRef.current, {
-          signal: abort.signal,
-        });
         if (archivedRef.current) {
           throw new Error("Archived");
         }
@@ -313,7 +293,6 @@ const ThinkThreadRuntime = memo(function ThinkThreadRuntime(props: {
                 messageId: seededId,
               } as typeof payload)
             : labeled,
-          ...rest,
         );
       } catch (caught) {
         if (!handedOff && seeded) {

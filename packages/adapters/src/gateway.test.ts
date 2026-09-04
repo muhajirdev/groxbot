@@ -14,6 +14,8 @@ import {
   cloudflareChatUrl,
   completionUsage,
   deltaText,
+  deltaToolCalls,
+  finishReason,
   gatewayChatUrl,
   gatewayConfigured,
   gatewayErrorMessage,
@@ -149,6 +151,38 @@ describe("deltaText", () => {
         result: { choices: [{ message: { content: "Done" } }] },
       }),
     ).toBe("Done");
+  });
+});
+
+describe("deltaToolCalls", () => {
+  it("reads streamed function-call chunks", () => {
+    expect(
+      deltaToolCalls({
+        choices: [
+          {
+            delta: {
+              tool_calls: [
+                {
+                  index: 0,
+                  id: "call_1",
+                  function: { name: "present", arguments: '{"$type"' },
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        index: 0,
+        id: "call_1",
+        name: "present",
+        arguments: '{"$type"',
+      },
+    ]);
+    expect(finishReason({ choices: [{ finish_reason: "tool_calls" }] })).toBe(
+      "tool_calls",
+    );
   });
 });
 
@@ -499,6 +533,8 @@ describe("createAgentRuntime", () => {
 
   it("rejects unknown runtimes", () => {
     expect(() => createAgentRuntime("flue")).toThrow(/Unknown agent runtime/);
-    expect(() => createAgentRuntime("mystery")).toThrow(/Unknown agent runtime/);
+    expect(() => createAgentRuntime("mystery")).toThrow(
+      /Unknown agent runtime/,
+    );
   });
 });

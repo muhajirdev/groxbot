@@ -33,10 +33,7 @@ function cleanImage(value: unknown): string | undefined {
   return url;
 }
 
-function sameOfficeUser(
-  a: OfficeUserMeta | null,
-  b: OfficeUserMeta,
-): boolean {
+function sameOfficeUser(a: OfficeUserMeta | null, b: OfficeUserMeta): boolean {
   return (
     a?.userId === b.userId &&
     a?.name === b.name &&
@@ -89,9 +86,7 @@ function decodeHeader(value: string | null): string {
   }
 }
 
-export function officeUserFromHeaders(
-  headers: Headers,
-): OfficeUserMeta | null {
+export function officeUserFromHeaders(headers: Headers): OfficeUserMeta | null {
   return officeUserFromActor({
     userId: decodeHeader(headers.get(OFFICE_USER_ID_HEADER)),
     name: decodeHeader(headers.get(OFFICE_USER_NAME_HEADER)),
@@ -161,12 +156,17 @@ export function stampIncomingOfficeUser<
   return stampOfficeUser(message, connected);
 }
 
-/** Attach sender metadata to a useAgentChat / sendMessage payload. */
+/** Attach sender metadata to an office sendMessage payload. */
 export function withOfficeUserMetadata(
   payload: unknown,
   user: OfficeUserMeta | null,
 ): unknown {
-  if (!user || !payload || typeof payload !== "object" || Array.isArray(payload)) {
+  if (
+    !user ||
+    !payload ||
+    typeof payload !== "object" ||
+    Array.isArray(payload)
+  ) {
     return payload;
   }
   const row = payload as Record<string, unknown>;

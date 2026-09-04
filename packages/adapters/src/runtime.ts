@@ -8,12 +8,19 @@ import {
 } from "./gateway.js";
 import { GatewayAgentRuntime } from "./runtime-core.js";
 
+export {
+  applyOfficeAgentEvent,
+  emptyOfficeDraft,
+  officeDraftMessage,
+  officeLogToPiMessages,
+} from "./office-pi.js";
 export { PiAgentRuntime } from "./pi-runtime.js";
 export {
   createGatewayStreamFn,
   piCompletionsModel,
   runOwnedPiTurn,
   runPiTurn,
+  scriptedPiSequenceStreamFn,
   scriptedPiStreamFn,
 } from "./pi-turn.js";
 export {

@@ -1,9 +1,10 @@
-import { runAgentLoopContinue } from "@earendil-works/pi-agent-core";
 import type {
   AgentEvent,
   AgentMessage,
+  AgentTool,
   StreamFn,
 } from "@earendil-works/pi-agent-core";
+import { runAgentLoopContinue } from "@earendil-works/pi-agent-core";
 import type {
   Api,
   AssistantMessage,
@@ -11,17 +12,20 @@ import type {
   Message,
   Model,
   StopReason,
+  ToolCall,
   Usage,
 } from "@earendil-works/pi-ai";
 import {
-  createAssistantMessageEventStream,
   contentText,
+  createAssistantMessageEventStream,
 } from "@earendil-works/pi-ai";
 import type { OwnedPiLine, OwnedPiTurn } from "@groxbot/adapter-kit";
 import type { ChatMessage, GatewayConfig } from "./gateway.js";
 import {
   completionUsage,
   deltaText,
+  deltaToolCalls,
+  finishReason,
   gatewayChatUrl,
   gatewayErrorMessage,
   gatewayHeaders,
@@ -92,10 +96,7 @@ export function assistantPiMessage(
   };
 }
 
-function toPiMessages(
-  lines: OwnedPiLine[],
-  model: Model<Api>,
-): Message[] {
+function toPiMessages(lines: OwnedPiLine[], model: Model<Api>): Message[] {
   const now = Date.now();
   return lines.map((line, index) => {
     if (line.role === "user") {
@@ -125,11 +126,30 @@ export interface PiTurnResult {
   errorMessage?: string;
 }
 
+function isPiMessage(value: OwnedPiLine | Message): value is Message {
+  return (
+    "timestamp" in value ||
+    value.role === "toolResult" ||
+    (value.role === "assistant" && Array.isArray(value.content))
+  );
+}
+
+function toLoopMessages(
+  messages: Array<OwnedPiLine | Message>,
+  model: Model<Api>,
+): Message[] {
+  if (messages.length > 0 && messages.every((row) => isPiMessage(row))) {
+    return messages as Message[];
+  }
+  return toPiMessages(messages as OwnedPiLine[], model);
+}
+
 export async function runPiTurn(input: {
   systemPrompt: string;
-  messages: OwnedPiLine[];
+  messages: Array<OwnedPiLine | Message>;
   model: Model<Api>;
   streamFn: StreamFn;
+  tools?: AgentTool[];
   signal?: AbortSignal;
   onEvent?: (event: AgentEvent) => void | Promise<void>;
 }): Promise<PiTurnResult> {
@@ -140,7 +160,8 @@ export async function runPiTurn(input: {
   await runAgentLoopContinue(
     {
       systemPrompt: input.systemPrompt,
-      messages: toPiMessages(input.messages, input.model),
+      messages: toLoopMessages(input.messages, input.model),
+      tools: input.tools,
     },
     {
       model: input.model,
@@ -163,12 +184,14 @@ export async function runPiTurn(input: {
   return { text, usage, stopReason, errorMessage };
 }
 
-export async function runOwnedPiTurn(input: OwnedPiTurn & {
-  model: Model<Api>;
-  streamFn: StreamFn;
-  signal?: AbortSignal;
-  onEvent?: (event: AgentEvent) => void | Promise<void>;
-}): Promise<PiTurnResult> {
+export async function runOwnedPiTurn(
+  input: OwnedPiTurn & {
+    model: Model<Api>;
+    streamFn: StreamFn;
+    signal?: AbortSignal;
+    onEvent?: (event: AgentEvent) => void | Promise<void>;
+  },
+): Promise<PiTurnResult> {
   return runPiTurn(input);
 }
 
@@ -240,8 +263,61 @@ export function scriptedPiStreamFn(text: string): StreamFn {
   };
 }
 
-export function piContextToChatMessages(context: Context): ChatMessage[] {
-  const messages: ChatMessage[] = [];
+/** Offline StreamFn that plays a sequence of text and/or tool-call turns. */
+export function scriptedPiSequenceStreamFn(
+  steps: Array<{
+    text?: string;
+    tool?: { id: string; name: string; arguments?: Record<string, unknown> };
+  }>,
+): StreamFn {
+  let index = 0;
+  return (model, _context, options) => {
+    const stream = createAssistantMessageEventStream();
+    queueMicrotask(() => {
+      if (options?.signal?.aborted) {
+        emitAssistantStream(stream, model, "", "aborted", {
+          errorMessage: "Request was aborted",
+        });
+        return;
+      }
+      const step = steps[index] ?? { text: "" };
+      index += 1;
+      if (step.tool) {
+        emitAssistantStream(stream, model, step.text ?? "", "toolUse", {
+          toolCalls: [
+            {
+              type: "toolCall",
+              id: step.tool.id,
+              name: step.tool.name,
+              arguments: step.tool.arguments ?? {},
+            },
+          ],
+        });
+        return;
+      }
+      emitAssistantStream(stream, model, step.text ?? "", "stop");
+    });
+    return stream;
+  };
+}
+
+export type GatewayChatMessage =
+  | ChatMessage
+  | {
+      role: "assistant";
+      content: string | null;
+      tool_calls: Array<{
+        id: string;
+        type: "function";
+        function: { name: string; arguments: string };
+      }>;
+    }
+  | { role: "tool"; tool_call_id: string; content: string };
+
+export function piContextToChatMessages(
+  context: Context,
+): GatewayChatMessage[] {
+  const messages: GatewayChatMessage[] = [];
   const system = context.systemPrompt?.trim();
   if (system) messages.push({ role: "system", content: system });
   for (const item of context.messages) {
@@ -254,8 +330,34 @@ export function piContextToChatMessages(context: Context): ChatMessage[] {
       continue;
     }
     if (item.role === "assistant") {
-      const content = contentText(item.content).trim();
-      if (content) messages.push({ role: "assistant", content });
+      const text = contentText(item.content).trim();
+      const calls = item.content.filter(
+        (part): part is ToolCall => part.type === "toolCall",
+      );
+      if (calls.length > 0) {
+        messages.push({
+          role: "assistant",
+          content: text || null,
+          tool_calls: calls.map((call) => ({
+            id: call.id,
+            type: "function",
+            function: {
+              name: call.name,
+              arguments: JSON.stringify(call.arguments ?? {}),
+            },
+          })),
+        });
+        continue;
+      }
+      if (text) messages.push({ role: "assistant", content: text });
+      continue;
+    }
+    if (item.role === "toolResult") {
+      messages.push({
+        role: "tool",
+        tool_call_id: item.toolCallId,
+        content: contentText(item.content) || stringifyUnknown(item.details),
+      });
     }
   }
   if (messages.length === 0) {
@@ -264,14 +366,109 @@ export function piContextToChatMessages(context: Context): ChatMessage[] {
   return messages;
 }
 
+function stringifyUnknown(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value == null) return "";
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function openaiTools(context: Context): unknown[] | undefined {
+  if (!context.tools?.length) return undefined;
+  return context.tools.map((tool) => ({
+    type: "function",
+    function: {
+      name: tool.name,
+      description: tool.description,
+      parameters: jsonSchemaFromParameters(tool.parameters),
+    },
+  }));
+}
+
+function jsonSchemaFromParameters(
+  parameters: unknown,
+): Record<string, unknown> {
+  try {
+    const raw = JSON.parse(JSON.stringify(parameters)) as unknown;
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      return raw as Record<string, unknown>;
+    }
+  } catch {
+    // TypeBox symbols or cycles.
+  }
+  return { type: "object", additionalProperties: true };
+}
+
+type PendingToolCall = {
+  id: string;
+  name: string;
+  arguments: string;
+};
+
+function mergeToolCallDelta(
+  pending: PendingToolCall[],
+  delta: { index: number; id?: string; name?: string; arguments?: string },
+): void {
+  const current = pending[delta.index] ?? {
+    id: delta.id || `call_${delta.index}`,
+    name: delta.name || "",
+    arguments: "",
+  };
+  pending[delta.index] = {
+    id: delta.id || current.id,
+    name: delta.name || current.name,
+    arguments: `${current.arguments}${delta.arguments ?? ""}`,
+  };
+}
+
+function parsedToolCalls(pending: PendingToolCall[]): ToolCall[] {
+  return pending
+    .filter((row) => row?.name)
+    .map((row) => ({
+      type: "toolCall" as const,
+      id: row.id,
+      name: row.name,
+      arguments: parseToolArguments(row.arguments),
+    }));
+}
+
+function parseToolArguments(raw: string): Record<string, unknown> {
+  const trimmed = raw.trim();
+  if (!trimmed) return {};
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    return { raw: trimmed };
+  }
+  return { raw: trimmed };
+}
+
 function emitAssistantStream(
   stream: ReturnType<typeof createAssistantMessageEventStream>,
   model: Model<Api>,
   text: string,
-  stopReason: Extract<StopReason, "stop" | "error" | "aborted">,
-  options?: { usage?: Usage | null; errorMessage?: string },
+  stopReason: Extract<StopReason, "stop" | "error" | "aborted" | "toolUse">,
+  options?: {
+    usage?: Usage | null;
+    errorMessage?: string;
+    toolCalls?: ToolCall[];
+  },
 ): void {
-  const message = assistantPiMessage(model, text, stopReason, options);
+  const toolCalls = options?.toolCalls ?? [];
+  const content: AssistantMessage["content"] = [];
+  if (text) content.push({ type: "text", text });
+  content.push(...toolCalls);
+  const message: AssistantMessage = {
+    ...assistantPiMessage(model, text, stopReason, options),
+    content,
+    stopReason,
+  };
   if (stopReason === "error" || stopReason === "aborted") {
     stream.push({
       type: "error",
@@ -287,30 +484,54 @@ function emitAssistantStream(
     stopReason: "pending",
   };
   stream.push({ type: "start", partial: pending });
+  let contentIndex = 0;
   if (text) {
     const started: AssistantMessage = {
       ...pending,
       content: [{ type: "text", text: "" }],
     };
-    stream.push({ type: "text_start", contentIndex: 0, partial: started });
+    stream.push({ type: "text_start", contentIndex, partial: started });
     const filled: AssistantMessage = {
       ...pending,
       content: [{ type: "text", text }],
     };
     stream.push({
       type: "text_delta",
-      contentIndex: 0,
+      contentIndex,
       delta: text,
       partial: filled,
     });
     stream.push({
       type: "text_end",
-      contentIndex: 0,
+      contentIndex,
       content: text,
       partial: filled,
     });
+    contentIndex += 1;
   }
-  stream.push({ type: "done", reason: "stop", message });
+  const built: AssistantMessage["content"] = text
+    ? [{ type: "text", text }]
+    : [];
+  for (const call of toolCalls) {
+    built.push(call);
+    const partial: AssistantMessage = {
+      ...pending,
+      content: built.slice(),
+    };
+    stream.push({ type: "toolcall_start", contentIndex, partial });
+    stream.push({
+      type: "toolcall_end",
+      contentIndex,
+      toolCall: call,
+      partial,
+    });
+    contentIndex += 1;
+  }
+  stream.push({
+    type: "done",
+    reason: stopReason === "toolUse" ? "toolUse" : "stop",
+    message,
+  });
   stream.end(message);
 }
 
@@ -326,6 +547,7 @@ export function createGatewayStreamFn(
     const stream = createAssistantMessageEventStream();
     void (async () => {
       try {
+        const tools = openaiTools(context);
         const response = await config.fetch(gatewayChatUrl(config), {
           method: "POST",
           headers: gatewayHeaders(config, metadata),
@@ -334,6 +556,7 @@ export function createGatewayStreamFn(
             stream: true,
             stream_options: { include_usage: true },
             messages: piContextToChatMessages(context),
+            ...(tools ? { tools } : {}),
           }),
           signal: options?.signal,
         });
@@ -342,38 +565,39 @@ export function createGatewayStreamFn(
           const text =
             raw.text ||
             (raw.stream ? await new Response(raw.stream).text() : "");
-          emitAssistantStream(
-            stream,
-            model,
-            "",
-            "error",
-            { errorMessage: gatewayErrorMessage(response.status, text) },
-          );
+          emitAssistantStream(stream, model, "", "error", {
+            errorMessage: gatewayErrorMessage(response.status, text),
+          });
           return;
         }
         let reply = "";
         let usage: Usage | null = null;
+        const pendingCalls: PendingToolCall[] = [];
+        let reason: string | null = null;
+        const absorb = (payload: unknown) => {
+          const counted = completionUsage(payload);
+          if (counted) usage = usageFromGateway(counted);
+          const ended = finishReason(payload);
+          if (ended) reason = ended;
+          const chunk = deltaText(payload);
+          if (chunk) reply += chunk;
+          for (const call of deltaToolCalls(payload)) {
+            mergeToolCallDelta(pendingCalls, call);
+          }
+        };
         if (raw.stream) {
           for await (const data of readSseData(raw.stream, options?.signal)) {
             if (options?.signal?.aborted) break;
-            let payload: unknown;
             try {
-              payload = JSON.parse(data) as unknown;
-            } catch {
-              continue;
-            }
-            const counted = completionUsage(payload);
-            if (counted) usage = usageFromGateway(counted);
-            const chunk = deltaText(payload);
-            if (!chunk) continue;
-            reply += chunk;
+              absorb(JSON.parse(data) as unknown);
+            } catch {}
           }
         } else {
           try {
-            const payload = JSON.parse(raw.text) as unknown;
-            const counted = completionUsage(payload);
-            if (counted) usage = usageFromGateway(counted);
-            reply = deltaText(payload).trim() || raw.text.trim();
+            absorb(JSON.parse(raw.text) as unknown);
+            if (!reply && pendingCalls.length === 0) {
+              reply = deltaText(JSON.parse(raw.text)).trim() || raw.text.trim();
+            }
           } catch {
             reply = raw.text.trim();
           }
@@ -382,6 +606,14 @@ export function createGatewayStreamFn(
           emitAssistantStream(stream, model, reply, "aborted", {
             usage,
             errorMessage: "Request was aborted",
+          });
+          return;
+        }
+        const toolCalls = parsedToolCalls(pendingCalls);
+        if (toolCalls.length > 0 || reason === "tool_calls") {
+          emitAssistantStream(stream, model, reply, "toolUse", {
+            usage,
+            toolCalls,
           });
           return;
         }

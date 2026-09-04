@@ -30,6 +30,12 @@ export function agentSocketHost(origin = apiOrigin()): {
   };
 }
 
+export function officeRpcUrl(botId: string, origin = apiOrigin()): string {
+  const http = origin.replace(/\/$/, "");
+  const ws = http.replace(/^http:/, "ws:").replace(/^https:/, "wss:");
+  return `${ws}/bots/${encodeURIComponent(botId)}/rpc`;
+}
+
 export function agentMessagesUrl(botId: string, origin = apiOrigin()): string {
   const prefix = origin.replace(/\/$/, "");
   return `${prefix}/agents/bot-actor/${encodeURIComponent(botId)}/get-messages`;

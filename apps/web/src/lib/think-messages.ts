@@ -9,7 +9,7 @@ const THINK_MESSAGES_KEY = [THINK_MESSAGES_ROOT] as const;
 /** Keep restored threads for the IndexedDB persist window. */
 export const THINK_MESSAGES_GC_TIME = 7 * 24 * 60 * 60 * 1000;
 
-/** Durable Object instance name: `bots.id`, same as `useAgent({ name })`. */
+/** Durable Object instance name: `bots.id`, same as Cap’n Web `/bots/:botId/rpc`. */
 export function thinkAgentId(botId: string): string {
   const id = botId.trim();
   if (!id) throw new Error("think agent id required");

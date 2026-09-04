@@ -5,6 +5,7 @@ import {
   agentWebSocketUrl,
   apiOrigin,
   officeAppUrl,
+  officeRpcUrl,
   officeThreadUrl,
   webOrigin,
 } from "./host";
@@ -45,6 +46,7 @@ describe("Think URLs", () => {
     expect(agentWebSocketUrl("bot_1")).toBe(
       "ws://127.0.0.1:3100/agents/bot-actor/bot_1",
     );
+    expect(officeRpcUrl("bot_1")).toBe("ws://127.0.0.1:3100/bots/bot_1/rpc");
   });
 });
 

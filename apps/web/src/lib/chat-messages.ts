@@ -120,8 +120,8 @@ export function coalesceAssistantMessages(messages: UIMessage[]): UIMessage[] {
 }
 
 /**
- * While a turn is in flight, extra user submits sit in Think's queue.
- * useAgentChat may park them before the streaming assistant — pull them
+ * While a turn is in flight, extra user submits sit in the office queue.
+ * The live assistant may land before waiting follow-ups — pull them
  * out so the UI can show prompt → live reply → waiting follow-ups.
  */
 export function splitQueuedFollowUps(

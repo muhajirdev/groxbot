@@ -1,27 +1,23 @@
-/** Cloudflare-only. Excluded from `tsc`. Disk is Computer; Think still owns office chat. */
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+/** Cloudflare-only. Excluded from `tsc`. Disk is Computer; office chat is Pi over Cap'n Web. */
 import { createAITools } from "@cloudflare/computer/tools";
-import {
-  type ChatResponseResult,
-  type MessageConcurrency,
-  skills,
-  Think,
-  type ToolCallResultContext,
-  type TurnContext,
-} from "@cloudflare/think";
 import { createExecuteTool } from "@cloudflare/think/tools/execute";
 import type { WorkersAiBinding } from "@groxbot/adapters/edge";
 import {
-  gatewayChatUrl,
+  applyOfficeAgentEvent,
+  createGatewayStreamFn,
+  emptyOfficeDraft,
   gatewayConfigured,
   gatewayRequestModel,
   loadGatewayConfig,
+  officeDraftMessage,
+  officeLogToPiMessages,
+  piCompletionsModel,
+  runPiTurn,
 } from "@groxbot/adapters/edge";
 import {
   HOSTED_STARTER_MODEL,
   labelForModel,
   officeUserFromHeaders,
-  parseOfficeUser,
   type Routine,
   stampIncomingOfficeUser,
 } from "@groxbot/contracts";
@@ -45,7 +41,6 @@ import {
   encryptionSecret,
   formatRoutinePrompt,
   healThinkWorkspaceFileRows,
-  hostedChatMessages,
   isoUnixSeconds,
   listComputerEntries,
   MCP_OAUTH_SETTLE_MS,
@@ -53,11 +48,16 @@ import {
   mcpConnectionIsExecutable,
   mcpServersForExecute,
   newId,
+  OFFICE_GENERATION_STORAGE,
   OFFICE_REVIEW_STORAGE,
+  OFFICE_WORKSPACE_HEADER,
+  type OfficeChatMessage,
+  officeChatShouldRun,
   officeReviewDue,
   officeReviewUserMessage,
   officeSkillSlashTurn,
-  officeThinkSkillSources,
+  parseOfficeChatMessage,
+  parseOfficeChatMessages,
   parseOfficeReviewCounters,
   patchComputerWorkspace,
   prepareRoutineCreate,
@@ -66,7 +66,6 @@ import {
   RoutineScheduleError,
   readComputerFile,
   resolveRunModel,
-  rewriteThinkCapability,
   type StoredRoutine,
   saveMcpConnection,
   shouldEnqueueOfficeReview,
@@ -80,29 +79,28 @@ import {
 } from "@groxbot/core";
 import { bots } from "@groxbot/db";
 import { createNeonHttpDb } from "@groxbot/db/neon";
-import { getCurrentAgent } from "agents";
+import { Agent } from "agents";
 import { AgentContextProvider } from "agents/experimental/memory/session";
 import type { ToolSet } from "ai";
+import { tool } from "ai";
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 import { createBotComputer } from "./bot-computer-workspace.js";
 import { createBundlingExecutor } from "./bot-execute.js";
 import { KnowledgeConnector } from "./bot-knowledge.js";
 import { bindToMarkdown, createPageTools } from "./bot-markdown.js";
 import { WorkspaceMcpConnector } from "./bot-mcp-connector.js";
+import {
+  type OfficeChatSubscriber,
+  officeRpcResponse,
+} from "./bot-office-rpc.js";
+import { aiToolsToPi } from "./bot-office-tools.js";
 import { createPresentTool } from "./bot-present.js";
 import { RoutinesConnector } from "./bot-routines-connector.js";
 import { agentRuntimeSource, productEnv, type RuntimeSource } from "./env.js";
 import { r2KnowledgeDisk } from "./knowledge-r2.js";
 import type { SendEmailBinding } from "./mail.js";
 import { mcpCallbackPage } from "./mcp-callback-page.js";
-
-function connectedOfficeUser() {
-  const { connection, request } = getCurrentAgent();
-  return (
-    parseOfficeUser(connection?.state) ??
-    officeUserFromHeaders(request?.headers ?? new Headers())
-  );
-}
 
 export interface WorkerEnv {
   DATABASE_URL: string;
@@ -244,84 +242,31 @@ function storedRoutine(
   };
 }
 
-export class BotActor extends Think<WorkerEnv> {
+export class BotActor extends Agent<WorkerEnv> {
   computer = createBotComputer({
     storage: this.ctx.storage,
     loader: this.env.LOADER,
     ctx: this.ctx,
   });
-  /** Computer VFS only — Think never gets its own `@cloudflare/shell` disk. */
-  override workspace = diskFromComputerFs(this.computer.fs);
-  /** Computer Worker shell owns bash; do not merge Think `workspaceBash`. */
-  override workspaceBash = false;
-  override messageConcurrency: MessageConcurrency = "queue";
-  /** MCP is tools.* / named connectors inside execute, not a dumped AI SDK catalog. */
-  override includeMcpTools = false;
-  override waitForMcpConnections = { timeout: MCP_OAUTH_SETTLE_MS };
+  /** Computer VFS — Code Mode execute and the office pane share this tree. */
+  workspace = diskFromComputerFs(this.computer.fs);
   private soulPrompt = "You are a helpful teammate.";
   private turnModel = HOSTED_STARTER_MODEL;
-  private turnHosted = true;
   private turnEnv: RuntimeSource = {};
-  /** Memory writes wait in SQLite until we refresh the frozen prompt. */
-  private memoryDirty = false;
   private botLoaded = false;
   private botLoading: Promise<void> | null = null;
   private officeId = "";
   /** Claimed a due review; other waitUntil callbacks should not start another. */
   private reviewQueued = false;
-  /** saveMessages review turn in flight. */
+  /** Office review turn in flight. */
   private reviewBusy = false;
-
-  getModel() {
-    const id = gatewayRequestModel(this.turnModel);
-    if (this.turnHosted || id.startsWith("@cf/")) return id;
-    if (!gatewayConfigured(this.turnEnv)) return id;
-    const config = loadGatewayConfig(this.turnEnv);
-    const chatUrl = gatewayChatUrl(config);
-    const baseURL = chatUrl.replace(/\/chat\/completions$/, "");
-    const provider = createOpenAICompatible({
-      name: config.provider,
-      apiKey: config.apiKey,
-      baseURL,
-    });
-    return provider.chatModel(id);
-  }
-
-  async beforeTurn(ctx: TurnContext) {
-    await this.ensureBotLoaded();
-    const slash = officeSkillSlashTurn({
-      system: rewriteThinkCapability(ctx.system),
-      messages: ctx.messages,
-      continuation: ctx.continuation,
-      hasActivateSkill: "activate_skill" in ctx.tools,
-    });
-    return slash.forceActivate
-      ? {
-          system: slash.system,
-          toolChoice: { type: "tool" as const, toolName: "activate_skill" },
-        }
-      : { system: slash.system };
-  }
-
-  /** Strip file parts before `convertToModelMessages` calls `new URL(part.url)`. */
-  async _repairTranscriptForProvider(messages) {
-    return super._repairTranscriptForProvider(hostedChatMessages(messages));
-  }
-
-  beforeStep(ctx: Parameters<Think["beforeStep"]>[0]) {
-    const messages = hostedChatMessages(ctx.messages);
-    if (messages === ctx.messages) return;
-    return { messages };
-  }
-
-  afterToolCall(ctx: ToolCallResultContext) {
-    if (ctx.success && ctx.toolName === "set_context") this.memoryDirty = true;
-  }
-
-  async onChatResponse(result: ChatResponseResult): Promise<void> {
-    await this.flushMemory();
-    this.enqueueOfficeReview(result);
-  }
+  private soulOverlay = new AgentContextProvider(this, "soul-evolved");
+  private memoryBlock = new AgentContextProvider(this, "memory");
+  private officeSubscribers = new Set<OfficeChatSubscriber>();
+  private officeStatus: "ready" | "submitted" | "streaming" | "error" = "ready";
+  private officeError = "";
+  private officeTurn: AbortController | null = null;
+  private officeQueue: Promise<void> = Promise.resolve();
 
   async onStart(): Promise<void> {
     const stored = await this.ctx.storage.get<string>("officeId");
@@ -330,59 +275,13 @@ export class BotActor extends Think<WorkerEnv> {
     }
     this.ensureMcpOAuthCallback();
     this.sql`DROP TABLE IF EXISTS groxbot_routines`;
+    this.sql`CREATE TABLE IF NOT EXISTS office_chat (
+      seq INTEGER PRIMARY KEY AUTOINCREMENT,
+      id TEXT NOT NULL UNIQUE,
+      payload TEXT NOT NULL
+    )`;
     await this.healComputerFiles();
-    console.log(`[bot ${this.name}] onStart after think hydrate`);
-  }
-
-  async onConnect(connection, ctx) {
-    const user =
-      officeUserFromHeaders(ctx.request.headers) ??
-      parseOfficeUser(connection.state);
-    if (user) connection.setState(user);
-    return super.onConnect(connection, ctx);
-  }
-
-  /**
-   * Chat-request persist. Stamp only new user rows — `_rowSafe` also runs on
-   * history upserts and would otherwise rewrite other humans as the sender.
-   */
-  async _persistIncomingMessage(msg, serverMessages) {
-    const existing =
-      msg && typeof msg === "object" && "id" in msg
-        ? serverMessages.find((row) => row.id === msg.id)
-        : undefined;
-    return super._persistIncomingMessage(
-      stampIncomingOfficeUser(msg, connectedOfficeUser(), existing),
-      serverMessages,
-    );
-  }
-
-  configureSession(session: Parameters<Think["configureSession"]>[0]) {
-    console.log(`[bot ${this.name}] configureSession`);
-    const evolved = new AgentContextProvider(this, "soul-evolved");
-    return session
-      .withContext("soul", {
-        description:
-          "Who you are and how you sound. Starts as your name plus how this office works. Grow it with set_context as you learn this desk. Keep it dense. Keep your name. Facts about people and work go in memory.",
-        maxTokens: 2000,
-        provider: {
-          get: async () => {
-            // Do not block Think hydrate / get-messages on Neon. Chat turns
-            // still wait in beforeTurn; loadBot refreshes the prompt after.
-            void this.ensureBotLoaded();
-            return composeSoul(this.soulPrompt, (await evolved.get()) ?? "");
-          },
-          set: async (content: string) => {
-            await evolved.set(soulOverlayFromWrite(this.soulPrompt, content));
-          },
-        },
-      })
-      .withContext("memory", {
-        description:
-          "Short facts about this office, people, and work. Update with set_context. Keep it dense.",
-        maxTokens: 2000,
-      })
-      .withCachedPrompt();
+    console.log(`[bot ${this.name}] onStart`);
   }
 
   getTools(): ToolSet {
@@ -411,6 +310,7 @@ export class BotActor extends Think<WorkerEnv> {
       ),
       ...pageTools,
       present: createPresentTool(),
+      set_context: this.setContextTool(),
       execute: {
         ...execute,
         description: withOfficeExecuteDescription(
@@ -428,26 +328,23 @@ export class BotActor extends Think<WorkerEnv> {
     return this.computer.stub();
   }
 
-  async getSkills() {
-    // Think hydrates skills before BotActor.onStart. Load officeId first or
-    // office playbooks never enter the catalog (slash menu still lists them).
-    await this.ensureOfficeId();
-    return officeThinkSkillSources({
-      knowledge: this.officeKnowledge(),
-      officeId: this.officeId,
-      workspace: this.workspace,
-    });
-  }
-
-  getSkillScriptRunner() {
-    return skills.runner({
-      loader: this.env.LOADER,
-      workspaceInstance: this.workspace,
-    });
-  }
-
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
+    if (
+      request.headers.get("Upgrade") === "websocket" &&
+      url.pathname.endsWith("/rpc")
+    ) {
+      await this.ensureOfficeId();
+      const claimed = request.headers.get(OFFICE_WORKSPACE_HEADER);
+      if (!this.officeId || claimed !== this.officeId) {
+        return new Response("Forbidden", { status: 403 });
+      }
+      return officeRpcResponse(
+        this,
+        request,
+        officeUserFromHeaders(request.headers),
+      );
+    }
     if (request.method === "POST" && url.pathname === "/wakeup") {
       return this.handleWakeup(request);
     }
@@ -497,15 +394,257 @@ export class BotActor extends Think<WorkerEnv> {
     await this.dispatch(job);
   }
 
-  private async flushMemory(): Promise<void> {
-    if (!this.memoryDirty) return;
-    this.memoryDirty = false;
-    try {
-      await this.session.refreshSystemPrompt();
-    } catch (error) {
-      this.memoryDirty = true;
-      console.error("bot actor memory", this.name, error);
+  async subscribeOffice(subscriber: OfficeChatSubscriber): Promise<void> {
+    const live = subscriber.dup?.() ?? subscriber;
+    this.officeSubscribers.add(live);
+    live.onRpcBroken?.(() => {
+      this.officeSubscribers.delete(live);
+    });
+    const generation =
+      (await this.ctx.storage.get<number>(OFFICE_GENERATION_STORAGE)) ?? 0;
+    await live.streamGeneration(generation);
+    for (const row of this.readOfficeLog()) {
+      await live.message(row);
     }
+    if (this.officeError) await live.error(this.officeError);
+    await live.status(this.officeStatus);
+  }
+
+  async runOffice(
+    messages: OfficeChatMessage[],
+    user: ReturnType<typeof officeUserFromHeaders>,
+  ): Promise<void> {
+    const stamped = messages.map((row) => {
+      if (row.role !== "user") return row;
+      const existing = this.readOfficeLog().find((item) => item.id === row.id);
+      return (
+        parseOfficeChatMessage(stampIncomingOfficeUser(row, user, existing)) ??
+        row
+      );
+    });
+    this.writeOfficeLog(stamped);
+    await this.broadcastOfficeLog(stamped);
+    if (!officeChatShouldRun(stamped)) {
+      this.officeStatus = "ready";
+      await this.broadcastOfficeStatus();
+      return;
+    }
+    await this.enqueueOfficeTurn(stamped);
+  }
+
+  async stopOffice(): Promise<void> {
+    this.officeTurn?.abort();
+    this.officeTurn = null;
+    this.officeStatus = "ready";
+    await this.broadcastOfficeStatus();
+  }
+
+  async appendOfficeAndRun(messages: OfficeChatMessage[]): Promise<void> {
+    const next = [...this.readOfficeLog(), ...messages];
+    this.writeOfficeLog(next);
+    await this.broadcastOfficeLog(next);
+    if (officeChatShouldRun(next)) await this.enqueueOfficeTurn(next);
+  }
+
+  private enqueueOfficeTurn(messages: OfficeChatMessage[]): Promise<void> {
+    const run = this.officeQueue.then(() => this.runOfficeTurn(messages));
+    this.officeQueue = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
+  private async runOfficeTurn(messages: OfficeChatMessage[]): Promise<void> {
+    this.officeTurn?.abort();
+    const abort = new AbortController();
+    this.officeTurn = abort;
+    this.officeError = "";
+    this.officeStatus = "submitted";
+    await this.bumpOfficeGeneration();
+    await this.broadcastOfficeStatus();
+    await this.ensureBotLoaded();
+    if (abort.signal.aborted) return;
+    if (!gatewayConfigured(this.turnEnv)) {
+      this.officeStatus = "error";
+      this.officeError =
+        "Add a model key, or use Groxbot’s included gateway, to talk to teammates.";
+      await this.broadcastOfficeError();
+      await this.broadcastOfficeStatus();
+      return;
+    }
+    const assistantId = crypto.randomUUID();
+    let draft = emptyOfficeDraft(assistantId);
+    this.officeStatus = "streaming";
+    await this.broadcastOfficeStatus();
+    const model = piCompletionsModel(gatewayRequestModel(this.turnModel));
+    const streamFn = createGatewayStreamFn(loadGatewayConfig(this.turnEnv), {
+      workspaceId: this.officeId,
+      botId: this.name,
+    });
+    const system = await this.officeSystemPrompt(messages);
+    try {
+      const result = await runPiTurn({
+        systemPrompt: system,
+        messages: officeLogToPiMessages(messages, model),
+        model,
+        streamFn,
+        tools: aiToolsToPi(this.getTools()),
+        signal: abort.signal,
+        onEvent: async (event) => {
+          draft = applyOfficeAgentEvent(draft, event);
+          if (
+            event.type === "message_update" ||
+            event.type === "tool_execution_start" ||
+            event.type === "tool_execution_end"
+          ) {
+            await this.broadcastOfficeStream(officeDraftMessage(draft));
+          }
+        },
+      });
+      const assistant = officeDraftMessage(draft);
+      const next = [...messages, assistant];
+      this.writeOfficeLog(next);
+      await this.broadcastOfficeMessage(assistant);
+      if (result.stopReason === "aborted" || abort.signal.aborted) {
+        this.officeStatus = "ready";
+        await this.broadcastOfficeStatus();
+        return;
+      }
+      if (result.stopReason === "error") {
+        this.officeStatus = "error";
+        this.officeError = result.errorMessage || "The model run failed.";
+        await this.broadcastOfficeError();
+        await this.broadcastOfficeStatus();
+        return;
+      }
+      this.officeStatus = "ready";
+      await this.broadcastOfficeStatus();
+      this.enqueueOfficeReview({
+        status: "completed",
+        message: assistant,
+        continuation: false,
+      });
+    } catch (error) {
+      if (abort.signal.aborted) {
+        this.officeStatus = "ready";
+        await this.broadcastOfficeStatus();
+        return;
+      }
+      this.officeStatus = "error";
+      this.officeError =
+        error instanceof Error ? error.message : "The model run failed.";
+      await this.broadcastOfficeError();
+      await this.broadcastOfficeStatus();
+    } finally {
+      if (this.officeTurn === abort) this.officeTurn = null;
+    }
+  }
+
+  private async officeSystemPrompt(
+    messages: OfficeChatMessage[],
+  ): Promise<string> {
+    const overlay = (await this.soulOverlay.get()) ?? "";
+    const memory = (await this.memoryBlock.get()) ?? "";
+    let system = composeSoul(this.soulPrompt, overlay);
+    if (memory.trim()) system = `${system}\n\nMemory:\n${memory.trim()}`;
+    return officeSkillSlashTurn({
+      system,
+      messages,
+      hasActivateSkill: false,
+    }).system;
+  }
+
+  private setContextTool() {
+    return tool({
+      description:
+        "Save who you are (soul) or short facts about this office (memory). Keep it dense. Keep your name on soul.",
+      inputSchema: z.object({
+        label: z.enum(["soul", "memory"]),
+        content: z.string(),
+        mode: z.enum(["replace", "append"]).optional(),
+      }),
+      execute: async ({ label, content, mode }) => {
+        const block = label === "soul" ? this.soulOverlay : this.memoryBlock;
+        const previous = (await block.get()) ?? "";
+        const next =
+          mode === "append" && previous
+            ? `${previous.trim()}\n${content.trim()}`
+            : content;
+        await block.set(
+          label === "soul"
+            ? soulOverlayFromWrite(this.soulPrompt, next)
+            : next.trim(),
+        );
+        return { ok: true, label };
+      },
+    });
+  }
+
+  private readOfficeLog(): OfficeChatMessage[] {
+    const rows = this.sql<{ payload: string }>`
+      SELECT payload FROM office_chat ORDER BY seq ASC
+    `;
+    return parseOfficeChatMessages(
+      rows.map((row) => {
+        try {
+          return JSON.parse(row.payload) as unknown;
+        } catch {
+          return null;
+        }
+      }),
+    );
+  }
+
+  private writeOfficeLog(messages: OfficeChatMessage[]): void {
+    this.sql`DELETE FROM office_chat`;
+    for (const row of messages) {
+      this
+        .sql`INSERT INTO office_chat (id, payload) VALUES (${row.id}, ${JSON.stringify(row)})`;
+    }
+  }
+
+  private async bumpOfficeGeneration(): Promise<number> {
+    const current =
+      (await this.ctx.storage.get<number>(OFFICE_GENERATION_STORAGE)) ?? 0;
+    const next = current > 0 ? current + 1 : 1;
+    await this.ctx.storage.put(OFFICE_GENERATION_STORAGE, next);
+    await this.broadcastOffice((sub) => sub.streamGeneration(next));
+    return next;
+  }
+
+  private async broadcastOffice(
+    fn: (subscriber: OfficeChatSubscriber) => void | Promise<void>,
+  ): Promise<void> {
+    for (const subscriber of [...this.officeSubscribers]) {
+      try {
+        await fn(subscriber);
+      } catch {
+        this.officeSubscribers.delete(subscriber);
+      }
+    }
+  }
+
+  private broadcastOfficeLog(messages: OfficeChatMessage[]): Promise<void> {
+    return this.broadcastOffice(async (sub) => {
+      for (const row of messages) await sub.message(row);
+    });
+  }
+
+  private broadcastOfficeMessage(row: OfficeChatMessage): Promise<void> {
+    return this.broadcastOffice((sub) => sub.message(row));
+  }
+
+  private broadcastOfficeStream(row: OfficeChatMessage): Promise<void> {
+    return this.broadcastOffice((sub) => sub.stream({ message: row }));
+  }
+
+  private broadcastOfficeStatus(): Promise<void> {
+    return this.broadcastOffice((sub) => sub.status(this.officeStatus));
+  }
+
+  private broadcastOfficeError(): Promise<void> {
+    return this.broadcastOffice((sub) => sub.error(this.officeError));
   }
 
   private async ensureOfficeId(): Promise<void> {
@@ -524,13 +663,8 @@ export class BotActor extends Think<WorkerEnv> {
       const t0 = Date.now();
       console.log(`[bot ${this.name}] loadBot begin`);
       this.botLoading = this.loadBot()
-        .then(async () => {
+        .then(() => {
           this.botLoaded = true;
-          try {
-            await this.session.refreshSystemPrompt();
-          } catch (error) {
-            console.error("bot actor soul", this.name, error);
-          }
           console.log(`[bot ${this.name}] loadBot done +${Date.now() - t0}ms`);
         })
         .catch((error) => {
@@ -562,7 +696,6 @@ export class BotActor extends Think<WorkerEnv> {
       encryptionSecret(source, env.production),
     );
     this.turnModel = overlay.model || HOSTED_STARTER_MODEL;
-    this.turnHosted = overlay.hosted;
     this.turnEnv = overlay.env;
     this.soulPrompt = teammatePrompt({
       ...bot,
@@ -648,7 +781,7 @@ export class BotActor extends Think<WorkerEnv> {
 
   private async handleDestroy(): Promise<Response> {
     try {
-      this.cancelAllChats();
+      await this.stopOffice();
     } catch (error) {
       console.error("bot actor cancel", this.name, error);
     }
@@ -678,18 +811,23 @@ export class BotActor extends Think<WorkerEnv> {
   }
 
   /**
-   * After enough tool work, same Think brain files a playbook if one belongs
-   * in the office. waitUntil + a 0-timer lets auto-continue admit first;
-   * saveMessages then queues behind that stretch. The trigger user is hidden;
-   * a real write shows one line with the path.
+   * After enough tool work, the same Pi loop files a playbook if one belongs
+   * in the office. The trigger user is hidden; a real write shows one line
+   * with the path.
    */
-  private enqueueOfficeReview(result: ChatResponseResult): void {
+  private enqueueOfficeReview(result: {
+    status: string;
+    message?: OfficeChatMessage;
+    continuation?: boolean;
+  }): void {
     this.ctx.waitUntil(this.maybeRunOfficeReview(result));
   }
 
-  private async maybeRunOfficeReview(
-    result: ChatResponseResult,
-  ): Promise<void> {
+  private async maybeRunOfficeReview(result: {
+    status: string;
+    message?: OfficeChatMessage;
+    continuation?: boolean;
+  }): Promise<void> {
     await this.bumpOfficeReviewTools(result);
     if (result.status !== "completed") return;
     if (!this.officeKnowledge()) return;
@@ -727,10 +865,12 @@ export class BotActor extends Think<WorkerEnv> {
           OFFICE_REVIEW_STORAGE,
           emptyOfficeReviewCounters(),
         );
-        await this.saveMessages((messages) => [
-          ...messages,
-          officeReviewUserMessage(),
-        ]);
+        const review = officeReviewUserMessage();
+        const parsed = parseOfficeChatMessage({
+          ...review,
+          createdAt: review.createdAt.getTime(),
+        });
+        if (parsed) await this.appendOfficeAndRun([parsed]);
       } catch (error) {
         await this.ctx.storage.put(OFFICE_REVIEW_STORAGE, counters);
         console.error("bot actor office review", this.name, error);
@@ -742,9 +882,11 @@ export class BotActor extends Think<WorkerEnv> {
     }
   }
 
-  private async bumpOfficeReviewTools(
-    result: ChatResponseResult,
-  ): Promise<void> {
+  private async bumpOfficeReviewTools(result: {
+    status: string;
+    message?: OfficeChatMessage;
+    continuation?: boolean;
+  }): Promise<void> {
     if (result.status !== "completed") return;
     if (this.reviewBusy) return;
     const tools = countUiToolParts(result.message?.parts);
@@ -769,14 +911,14 @@ export class BotActor extends Think<WorkerEnv> {
     const body = routinePayload(payload);
     if (!body) return;
     if (await this.routinesSuspended()) return;
-    await this.submitMessages([
+    await this.appendOfficeAndRun([
       {
         id: crypto.randomUUID(),
         role: "user",
         parts: [
           { type: "text", text: formatRoutinePrompt(body.name, body.prompt) },
         ],
-        createdAt: new Date(),
+        createdAt: Date.now(),
         metadata: { source: "routine", custom: { source: "routine" } },
       },
     ]);
@@ -1188,47 +1330,10 @@ export class BotActor extends Think<WorkerEnv> {
   private async dispatch(job: StoredJob): Promise<void> {
     try {
       if (job.name === "run.abort") {
-        this.cancelAllChats();
+        await this.stopOffice();
       }
     } catch (error) {
       console.error("bot actor", job.botId, job.name, error);
     }
   }
-}
-
-silenceThinkSystemPromptFallbackWarning();
-
-/**
- * Think warns when getSkills() is set and getSystemPrompt looks replaced.
- * BotActor never overrides it — always-on instructions are the soul/memory
- * context blocks. Workerd binds Durable Object methods, so Think's identity
- * check false-positives; drop that one warning around skill init.
- */
-function silenceThinkSystemPromptFallbackWarning() {
-  const proto = Think.prototype as unknown as {
-    _initializeSkills: (this: Think) => Promise<void>;
-  };
-  const original = proto._initializeSkills;
-  const nativeWarn = console.warn;
-  let depth = 0;
-  proto._initializeSkills = async function (this: Think) {
-    depth += 1;
-    if (depth === 1) {
-      console.warn = (...args: unknown[]) => {
-        if (
-          typeof args[0] === "string" &&
-          args[0].includes("getSystemPrompt() is only used as a fallback")
-        ) {
-          return;
-        }
-        nativeWarn.apply(console, args);
-      };
-    }
-    try {
-      return await original.call(this);
-    } finally {
-      depth -= 1;
-      if (depth === 0) console.warn = nativeWarn;
-    }
-  };
 }
