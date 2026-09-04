@@ -10,8 +10,6 @@ import {
 } from "@cloudflare/codemode";
 import { toolSetConnector } from "@cloudflare/codemode/ai";
 import { createWorker } from "@cloudflare/worker-bundler";
-import { createWorkspaceStateBackend } from "@cloudflare/shell";
-import { stateConnector } from "@cloudflare/shell/workers";
 import { splitExecuteNpmImports } from "@groxbot/core";
 import type { Tool, ToolSet } from "ai";
 
@@ -149,20 +147,15 @@ export function createBundlingExecutor(
   };
 }
 
-type WorkspaceFsLike = Parameters<typeof createWorkspaceStateBackend>[0];
-
-/** Code Mode execute — `state.*` is this computer, plus office connectors. */
+/** Code Mode execute — office connectors only. Files and bash are Computer tools. */
 export function createOfficeExecuteTool(opts: {
   ctx: DurableObjectState;
   executor: Executor;
-  fs: WorkspaceFsLike;
   tools?: ToolSet;
   connectors?: CodemodeConnector[];
   name?: string;
 }): Tool {
-  const connectors: CodemodeConnector[] = [
-    stateConnector(opts.ctx, createWorkspaceStateBackend(opts.fs)),
-  ];
+  const connectors: CodemodeConnector[] = [];
   if (opts.tools && Object.keys(opts.tools).length > 0) {
     connectors.push(
       toolSetConnector(opts.ctx, { name: "tools", tools: opts.tools }),

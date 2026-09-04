@@ -66,7 +66,7 @@ describe("withOfficeExecuteDescription", () => {
     "",
     "## Available connectors",
     "",
-    "- `state` — the workspace filesystem.",
+    "- `tools` — page helpers.",
     "- `knowledge`",
     "- `routines`",
     "- `github`",
@@ -75,6 +75,7 @@ describe("withOfficeExecuteDescription", () => {
   it("hints knowledge on a bare connector bullet", () => {
     const next = withOfficeExecuteDescription(generated, true);
     expect(next).toMatch(/- `knowledge` — shared office library/);
+    expect(next).not.toMatch(/state\.\*/);
     expect(next).toMatch(/knowledge\.search\(\{ query \}\)/);
     expect(next).toContain("- `github`");
     expect(next).toContain("- `routines`");

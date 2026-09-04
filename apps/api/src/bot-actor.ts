@@ -296,9 +296,6 @@ export class BotActor extends Agent<WorkerEnv> {
     const execute = createOfficeExecuteTool({
       ctx: this.ctx,
       executor: createBundlingExecutor(this.env.LOADER, { timeout: 120_000 }),
-      fs: this.computer.fs as Parameters<
-        typeof createOfficeExecuteTool
-      >[0]["fs"],
       tools: pageTools,
       connectors,
     });

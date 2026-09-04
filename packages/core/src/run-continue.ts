@@ -89,7 +89,7 @@ export function teammatePrompt(bot: {
  * so the model does not have to `codemode.search` to learn the office library.
  */
 export const KNOWLEDGE_EXECUTE_HINT =
-  "`knowledge` — shared office library, not this computer (`state.*`). `await knowledge.search({ query })` then `read` / `write`. Playbooks at `skills/<name>/SKILL.md`.";
+  "`knowledge` — shared office library, not this computer. `await knowledge.search({ query })` then `read` / `write`. Playbooks at `skills/<name>/SKILL.md`.";
 
 export const ROUTINES_EXECUTE_HINT =
   "`routines` — this bot’s recurring jobs. `await routines.list()` / `create({ name, prompt, schedule })`. Schedules like `every weekday at 09:00`.";

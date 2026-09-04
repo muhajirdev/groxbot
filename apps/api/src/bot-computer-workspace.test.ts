@@ -26,17 +26,20 @@ describe("Computer Worker shell wiring", () => {
     expect(actor).toMatch(/createAITools\(/);
     expect(actor).toMatch(/computerWorkerShell\(\)/);
     expect(actor).toMatch(/__getWorkspaceStub/);
-    expect(actor).not.toMatch(/from "@cloudflare\/shell"/);
+    expect(actor).not.toMatch(/@cloudflare\/shell/);
     expect(actor).not.toMatch(/from "@cloudflare\/think"/);
     expect(actor).toMatch(/createOfficeExecuteTool\(/);
     expect(actor).not.toMatch(/workspaceBash/);
   });
 
-  it("builds execute from Code Mode, not Think", () => {
+  it("builds execute from Code Mode, not Think or @cloudflare/shell", () => {
     const execute = readSrc("bot-execute.ts");
     const markdown = readSrc("bot-markdown.ts");
     expect(execute).toMatch(/createCodemodeRuntime/);
-    expect(execute).toMatch(/stateConnector/);
+    expect(execute).toMatch(/toolSetConnector/);
+    expect(execute).not.toMatch(/stateConnector/);
+    expect(execute).not.toMatch(/createWorkspaceStateBackend/);
+    expect(execute).not.toMatch(/@cloudflare\/shell/);
     expect(execute).not.toMatch(/@cloudflare\/think/);
     expect(markdown).toMatch(/runPublicFetch/);
     expect(markdown).not.toMatch(/@cloudflare\/think/);
@@ -48,9 +51,10 @@ describe("Computer Worker shell wiring", () => {
     );
   });
 
-  it("enables experimental so the Worker loader can run just-bash", () => {
-    const wrangler = readFileSync(join(src, "../wrangler.jsonc"), "utf8");
-    expect(wrangler).toMatch(/"experimental"/);
-    expect(wrangler).toMatch(/"binding": "LOADER"/);
+  it("does not depend on @cloudflare/shell", () => {
+    const pkg = JSON.parse(
+      readFileSync(join(src, "../package.json"), "utf8"),
+    ) as { dependencies?: Record<string, string> };
+    expect(pkg.dependencies).not.toHaveProperty("@cloudflare/shell");
   });
 });

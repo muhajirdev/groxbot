@@ -2,7 +2,7 @@
 
 Each bot **has a computer**. Sell that. Architecturally it is already the bot: `@cloudflare/computer` `Workspace` on `BotActor` (instance name = `botId`). Files live in that Durable Object’s SQLite (`vfs_*`), not R2, not a second Durable Object.
 
-Office chat is Pi over Cap’n Web. `BotActor` keeps a `this.workspace` adapter over `computer.fs` so Code Mode `execute`, skills, and the office pane share one tree. File tools come from `@cloudflare/computer/tools` (`createAITools`). Bash is Computer **Worker shell** (`just-bash` in a Dynamic Worker: `LOADER` + `experimental` + exported `WorkspaceServiceProxy`).
+Office chat is Pi over Cap’n Web. `BotActor` keeps a `this.workspace` adapter over `computer.fs` so skills, page tools, and the office pane share one tree. File tools come from `@cloudflare/computer/tools` (`createAITools`). Bash is Computer **Worker shell** (`just-bash` in a Dynamic Worker: `LOADER` + `experimental` + exported `WorkspaceServiceProxy`). Code Mode `execute` is office connectors (knowledge / routines / MCP) — not a second filesystem and not `@cloudflare/shell`.
 
 The office UI may show `{Bot}'s screen` and **Open computer** from a chat card. That pane is this teammate’s workspace — not a second identity you hire.
 
