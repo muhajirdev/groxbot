@@ -24,8 +24,9 @@ export interface WorkersAiBinding {
   run(
     model: string,
     input: {
-      messages: Array<{ role: string; content: string }>;
+      messages: unknown;
       stream?: boolean;
+      tools?: unknown;
     },
     options?: { gateway?: WorkersAiGatewayOptions },
   ): Promise<unknown>;

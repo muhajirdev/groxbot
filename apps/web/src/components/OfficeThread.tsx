@@ -378,6 +378,7 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
     agentError: error?.message || "",
     connectionError: opening ? "" : connectionError?.message || "",
     persisted: props.error,
+    needsModel: props.needsModel,
   });
   useEffect(() => {
     if (banner === props.error) return;

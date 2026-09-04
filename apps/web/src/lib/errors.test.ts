@@ -35,6 +35,15 @@ describe("composerBannerError", () => {
         persisted: message,
       }),
     ).toBe(message);
+    expect(
+      composerBannerError({
+        inFlight: false,
+        agentError: "",
+        connectionError: "",
+        persisted: message,
+        needsModel: false,
+      }),
+    ).toBe("");
   });
 });
 

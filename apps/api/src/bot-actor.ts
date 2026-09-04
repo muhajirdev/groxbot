@@ -3,14 +3,12 @@ import { createAITools } from "@cloudflare/computer/tools";
 import type { WorkersAiBinding } from "@groxbot/adapters/edge";
 import {
   applyOfficeAgentEvent,
-  createGatewayStreamFn,
   emptyOfficeDraft,
-  gatewayConfigured,
   gatewayRequestModel,
-  loadGatewayConfig,
   officeDraftMessage,
   officeLogToPiMessages,
   piCompletionsModel,
+  resolvePiStreamFn,
   runPiTurn,
 } from "@groxbot/adapters/edge";
 import {
@@ -474,7 +472,8 @@ export class RoomHome extends Agent<WorkerEnv> {
     await this.broadcastOfficeStatus();
     await this.ensureBotLoaded();
     if (abort.signal.aborted) return;
-    if (!gatewayConfigured(this.turnEnv)) {
+    const streamFn = this.turnStreamFn();
+    if (!streamFn) {
       this.officeStatus = "error";
       this.officeError =
         "Add a model key, or use Groxbot’s included gateway, to talk to teammates.";
@@ -487,10 +486,6 @@ export class RoomHome extends Agent<WorkerEnv> {
     this.officeStatus = "streaming";
     await this.broadcastOfficeStatus();
     const model = piCompletionsModel(gatewayRequestModel(this.turnModel));
-    const streamFn = createGatewayStreamFn(loadGatewayConfig(this.turnEnv), {
-      workspaceId: this.officeId,
-      botId: this.botKey(),
-    });
     const system = await this.officeSystemPrompt(messages);
     try {
       const result = await runPiTurn({
@@ -567,7 +562,8 @@ export class RoomHome extends Agent<WorkerEnv> {
       if (!this.env.ROOM_ACTOR || !workspaceId) return;
       await postRoomTurn(this.env.ROOM_ACTOR, roomId, workspaceId, path, body);
     };
-    if (!gatewayConfigured(this.turnEnv)) {
+    const streamFn = this.turnStreamFn();
+    if (!streamFn) {
       await notify("error", {
         message:
           "Add a model key, or use Groxbot’s included gateway, to talk to teammates.",
@@ -577,10 +573,6 @@ export class RoomHome extends Agent<WorkerEnv> {
     const assistantId = crypto.randomUUID();
     let draft = emptyOfficeDraft(assistantId);
     const model = piCompletionsModel(gatewayRequestModel(this.turnModel));
-    const streamFn = createGatewayStreamFn(loadGatewayConfig(this.turnEnv), {
-      workspaceId,
-      botId: this.botKey(),
-    });
     const overlay = (await this.soulOverlay.get()) ?? "";
     const memory = (await this.memoryBlock.get()) ?? "";
     let soul = composeSoul(this.soulPrompt, overlay);
@@ -822,6 +814,17 @@ export class RoomHome extends Agent<WorkerEnv> {
 
   private botKey(): string {
     return this.personId || this.name;
+  }
+
+  private turnStreamFn() {
+    return resolvePiStreamFn(this.turnEnv, {
+      ai: this.env.AI,
+      gatewayId: this.turnEnv.CLOUDFLARE_AI_GATEWAY_ID,
+      metadata: {
+        workspaceId: this.officeId,
+        botId: this.botKey(),
+      },
+    });
   }
 
   private async loadBot(): Promise<void> {

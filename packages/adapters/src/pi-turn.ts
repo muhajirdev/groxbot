@@ -20,18 +20,26 @@ import {
   createAssistantMessageEventStream,
 } from "@earendil-works/pi-ai";
 import type { OwnedPiLine, OwnedPiTurn } from "@groxbot/adapter-kit";
-import type { ChatMessage, GatewayConfig } from "./gateway.js";
+import {
+  DEFAULT_AI_GATEWAY_ID,
+  HOSTED_STARTER_MODEL,
+  hostedAiEnabled,
+} from "@groxbot/contracts";
+import type { ChatMessage, GatewayConfig, GatewayEnv } from "./gateway.js";
 import {
   completionUsage,
   deltaText,
   deltaToolCalls,
   finishReason,
   gatewayChatUrl,
+  gatewayConfigured,
   gatewayErrorMessage,
   gatewayHeaders,
   gatewayRequestModel,
+  loadGatewayConfig,
   readSseData,
 } from "./gateway.js";
+import type { WorkersAiBinding } from "./workers-ai.js";
 
 export type { StreamFn };
 
@@ -636,6 +644,147 @@ export function createGatewayStreamFn(
     })();
     return stream;
   };
+}
+
+/**
+ * Same OpenAI-compatible stream as the REST gateway, through `env.AI`.
+ * Hosted Groxbot has the binding and no CLOUDFLARE_ACCOUNT_ID token.
+ */
+export function createWorkersAiStreamFn(
+  ai: WorkersAiBinding,
+  options?: {
+    gatewayId?: string;
+    defaultModel?: string;
+    metadata?: Record<string, string | undefined>;
+  },
+): StreamFn {
+  const gatewayId = options?.gatewayId?.trim() || DEFAULT_AI_GATEWAY_ID;
+  const metadata = Object.fromEntries(
+    Object.entries(options?.metadata ?? {}).flatMap(([key, value]) =>
+      value?.trim() ? [[key, value.trim()] as [string, string]] : [],
+    ),
+  );
+  const fallback = options?.defaultModel?.trim() || HOSTED_STARTER_MODEL;
+  return (model, context, streamOptions) => {
+    const stream = createAssistantMessageEventStream();
+    void (async () => {
+      try {
+        const tools = openaiTools(context);
+        const result = await ai.run(
+          gatewayRequestModel(model.id.trim() || fallback),
+          {
+            messages: piContextToChatMessages(context),
+            stream: true,
+            ...(tools ? { tools } : {}),
+          },
+          {
+            gateway: {
+              id: gatewayId,
+              ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
+            },
+          },
+        );
+        if (streamOptions?.signal?.aborted) {
+          emitAssistantStream(stream, model, "", "aborted", {
+            errorMessage: "Request was aborted",
+          });
+          return;
+        }
+        let reply = "";
+        let usage: Usage | null = null;
+        const pendingCalls: PendingToolCall[] = [];
+        let reason: string | null = null;
+        const absorb = (payload: unknown) => {
+          const counted = completionUsage(payload);
+          if (counted) usage = usageFromGateway(counted);
+          const ended = finishReason(payload);
+          if (ended) reason = ended;
+          const chunk = deltaText(payload);
+          if (chunk) reply += chunk;
+          for (const call of deltaToolCalls(payload)) {
+            mergeToolCallDelta(pendingCalls, call);
+          }
+        };
+        if (isReadableStream(result)) {
+          for await (const data of readSseData(result, streamOptions?.signal)) {
+            if (streamOptions?.signal?.aborted) break;
+            try {
+              absorb(JSON.parse(data) as unknown);
+            } catch {}
+          }
+        } else {
+          absorb(result);
+          if (!reply && pendingCalls.length === 0) {
+            reply = deltaText(result).trim();
+          }
+        }
+        if (streamOptions?.signal?.aborted) {
+          emitAssistantStream(stream, model, reply, "aborted", {
+            usage,
+            errorMessage: "Request was aborted",
+          });
+          return;
+        }
+        const toolCalls = parsedToolCalls(pendingCalls);
+        if (toolCalls.length > 0 || reason === "tool_calls") {
+          emitAssistantStream(stream, model, reply, "toolUse", {
+            usage,
+            toolCalls,
+          });
+          return;
+        }
+        if (!reply.trim()) {
+          emitAssistantStream(stream, model, "", "error", {
+            usage,
+            errorMessage: "The hosted model returned an empty reply",
+          });
+          return;
+        }
+        emitAssistantStream(stream, model, reply, "stop", { usage });
+      } catch (error) {
+        if (isAbortError(error) || streamOptions?.signal?.aborted) {
+          emitAssistantStream(stream, model, "", "aborted", {
+            errorMessage: "Request was aborted",
+          });
+          return;
+        }
+        emitAssistantStream(stream, model, "", "error", {
+          errorMessage:
+            error instanceof Error ? error.message : "The hosted model failed",
+        });
+      }
+    })();
+    return stream;
+  };
+}
+
+/** REST keys win; otherwise the Worker `AI` binding is the included gateway. */
+export function resolvePiStreamFn(
+  source: GatewayEnv,
+  options?: {
+    ai?: WorkersAiBinding;
+    metadata?: Record<string, string | undefined>;
+    gatewayId?: string;
+  },
+): StreamFn | null {
+  if (gatewayConfigured(source)) {
+    return createGatewayStreamFn(loadGatewayConfig(source), options?.metadata);
+  }
+  if (options?.ai && hostedAiEnabled(source)) {
+    return createWorkersAiStreamFn(options.ai, {
+      gatewayId: options.gatewayId ?? source.CLOUDFLARE_AI_GATEWAY_ID,
+      metadata: options.metadata,
+    });
+  }
+  return null;
+}
+
+function isReadableStream(value: unknown): value is ReadableStream<Uint8Array> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as ReadableStream<Uint8Array>).getReader === "function"
+  );
 }
 
 async function readGatewayBody(response: Response): Promise<{

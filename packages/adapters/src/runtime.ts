@@ -18,7 +18,9 @@ export {
 export { PiAgentRuntime } from "./pi-runtime.js";
 export {
   createGatewayStreamFn,
+  createWorkersAiStreamFn,
   piCompletionsModel,
+  resolvePiStreamFn,
   runOwnedPiTurn,
   runPiTurn,
   scriptedPiSequenceStreamFn,

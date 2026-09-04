@@ -34,7 +34,9 @@ export {
 } from "./office-pi.js";
 export {
   createGatewayStreamFn,
+  createWorkersAiStreamFn,
   piCompletionsModel,
+  resolvePiStreamFn,
   runOwnedPiTurn,
   runPiTurn,
   scriptedPiSequenceStreamFn,

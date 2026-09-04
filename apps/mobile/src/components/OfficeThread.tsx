@@ -260,6 +260,7 @@ function OfficeThreadRuntime(props: {
     agentError: error?.message || "",
     connectionError: connectionError?.message || "",
     persisted: props.error,
+    needsModel: props.needsModel,
   });
   useEffect(() => {
     if (banner === props.error) return;

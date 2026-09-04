@@ -3,6 +3,11 @@ import { describe, expect, it } from "vitest";
 import { bindEdgeAgentRuntime } from "./edge-runtime.js";
 import { CLOUDFLARE_DEEPSEEK_V4_FLASH } from "./gateway.js";
 import {
+  piCompletionsModel,
+  resolvePiStreamFn,
+  runPiTurn,
+} from "./pi-turn.js";
+import {
   createHostedAgentRuntime,
   PiAgentRuntime,
 } from "./runtime-core.js";
@@ -177,5 +182,58 @@ describe("bindEdgeAgentRuntime", () => {
       },
     );
     expect(runtime).toBeInstanceOf(PiAgentRuntime);
+  });
+});
+
+describe("resolvePiStreamFn", () => {
+  it("needs REST keys or the Worker AI binding", () => {
+    expect(resolvePiStreamFn({})).toBeNull();
+    expect(
+      resolvePiStreamFn({ [HOSTED_AI_ENV]: HOSTED_AI_FLAG }),
+    ).toBeNull();
+    expect(
+      resolvePiStreamFn(
+        { [HOSTED_AI_ENV]: HOSTED_AI_FLAG },
+        {
+          ai: {
+            async run() {
+              return { response: "from binding" };
+            },
+          },
+        },
+      ),
+    ).not.toBeNull();
+    expect(
+      resolvePiStreamFn({
+        CLOUDFLARE_ACCOUNT_ID: "acct",
+        CLOUDFLARE_AI_GATEWAY_TOKEN: "tok",
+      }),
+    ).not.toBeNull();
+  });
+
+  it("runs an office turn through env.AI when hosted", async () => {
+    const seen: string[] = [];
+    const streamFn = resolvePiStreamFn(
+      { [HOSTED_AI_ENV]: HOSTED_AI_FLAG, CLOUDFLARE_AI_GATEWAY_ID: "office" },
+      {
+        ai: {
+          async run(model, _input, options) {
+            seen.push(model);
+            expect(options?.gateway?.id).toBe("office");
+            return { response: "GLM says hi" };
+          },
+        },
+      },
+    );
+    expect(streamFn).not.toBeNull();
+    const result = await runPiTurn({
+      systemPrompt: "You are Piper.",
+      messages: [{ role: "user", content: "hello" }],
+      model: piCompletionsModel(CLOUDFLARE_DEEPSEEK_V4_FLASH),
+      streamFn: streamFn!,
+    });
+    expect(seen).toEqual([CLOUDFLARE_DEEPSEEK_V4_FLASH]);
+    expect(result.text).toBe("GLM says hi");
+    expect(result.stopReason).toBe("stop");
   });
 });
