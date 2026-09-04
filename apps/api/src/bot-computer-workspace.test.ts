@@ -1,10 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { COMPUTER_SHELL_BACKEND, computerWorkerShell } from "@groxbot/core";
 import { describe, expect, it } from "vitest";
-import {
-  COMPUTER_SHELL_BACKEND,
-  computerWorkerShell,
-} from "@groxbot/core";
 
 const src = join(import.meta.dirname);
 
@@ -39,10 +36,7 @@ describe("Computer Worker shell wiring", () => {
   });
 
   it("enables experimental so the Worker loader can run just-bash", () => {
-    const wrangler = readFileSync(
-      join(src, "../wrangler.jsonc"),
-      "utf8",
-    );
+    const wrangler = readFileSync(join(src, "../wrangler.jsonc"), "utf8");
     expect(wrangler).toMatch(/"experimental"/);
     expect(wrangler).toMatch(/"binding": "LOADER"/);
   });

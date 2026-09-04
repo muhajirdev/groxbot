@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { listComputerEntries, readComputerFile } from "./computer.js";
 import {
   COMPUTER_SHELL_BACKEND,
+  type ComputerFs,
   computerAbsolutePath,
   computerRelativePath,
   computerWorkerShell,
   copyThinkWorkspaceToComputer,
-  type ComputerFs,
   diskFromComputerFs,
   withComputerOfficeTools,
 } from "./computer-fs.js";
