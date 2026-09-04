@@ -8,6 +8,7 @@
   "exclude": [
     "src/worker.ts",
     "src/bot-actor.ts",
+    "src/bot-computer-workspace.ts",
     "src/bot-enqueue.ts",
     "src/bot-computer.ts",
     "src/bot-mcp.ts",

@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { listComputerEntries, readComputerFile } from "./computer.js";
 import {
+  COMPUTER_SHELL_BACKEND,
   computerAbsolutePath,
   computerRelativePath,
+  computerWorkerShell,
   copyThinkWorkspaceToComputer,
   type ComputerFs,
   diskFromComputerFs,
+  withComputerOfficeTools,
 } from "./computer-fs.js";
 
 class MemoryComputerFs implements ComputerFs {
@@ -255,5 +258,29 @@ describe("copyThinkWorkspaceToComputer", () => {
     await expect(copyThinkWorkspaceToComputer({ sql, disk })).resolves.toBe(
       "empty",
     );
+  });
+});
+
+describe("withComputerOfficeTools", () => {
+  it("aliases ls onto Think’s list name", () => {
+    const ls = { description: "list files" };
+    expect(withComputerOfficeTools({ ls, exec: true })).toEqual({
+      ls,
+      exec: true,
+      list: ls,
+    });
+  });
+});
+
+describe("computerWorkerShell", () => {
+  it("names Worker shell as the only exec backend", () => {
+    expect(computerWorkerShell()).toEqual({
+      defaultBackend: COMPUTER_SHELL_BACKEND,
+      backends: {
+        [COMPUTER_SHELL_BACKEND]: {
+          description: expect.stringMatching(/just-bash/i),
+        },
+      },
+    });
   });
 });

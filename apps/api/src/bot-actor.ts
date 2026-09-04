@@ -1,6 +1,6 @@
 /** Cloudflare-only. Excluded from `tsc`. Disk is Computer; Think still owns office chat. */
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import { Workspace } from "@cloudflare/computer";
+import { createAITools } from "@cloudflare/computer/tools";
 import {
   type ChatResponseResult,
   type MessageConcurrency,
@@ -33,6 +33,7 @@ import {
   ComputerWriteError,
   COMPUTER_DISK_DOFS,
   COMPUTER_DISK_FLAG,
+  computerWorkerShell,
   composeSoul,
   copyThinkWorkspaceToComputer,
   countUiToolParts,
@@ -73,6 +74,7 @@ import {
   teammatePrompt,
   thinkMcpServerId,
   toRoutineDto,
+  withComputerOfficeTools,
   withOfficeExecuteDescription,
   writeInboxFile,
 } from "@groxbot/core";
@@ -82,6 +84,7 @@ import { getCurrentAgent } from "agents";
 import { AgentContextProvider } from "agents/experimental/memory/session";
 import type { ToolSet } from "ai";
 import { eq } from "drizzle-orm";
+import { createBotComputer } from "./bot-computer-workspace.js";
 import { createBundlingExecutor } from "./bot-execute.js";
 import { KnowledgeConnector } from "./bot-knowledge.js";
 import { bindToMarkdown, createPageTools } from "./bot-markdown.js";
@@ -242,8 +245,15 @@ function storedRoutine(
 }
 
 export class BotActor extends Think<WorkerEnv> {
-  computer = new Workspace({ storage: this.ctx.storage });
+  computer = createBotComputer({
+    storage: this.ctx.storage,
+    loader: this.env.LOADER,
+    ctx: this.ctx,
+  });
+  /** Computer VFS only — Think never gets its own `@cloudflare/shell` disk. */
   override workspace = diskFromComputerFs(this.computer.fs);
+  /** Computer Worker shell owns bash; do not merge Think `workspaceBash`. */
+  override workspaceBash = false;
   override messageConcurrency: MessageConcurrency = "queue";
   /** MCP is tools.* / named connectors inside execute, not a dumped AI SDK catalog. */
   override includeMcpTools = false;
@@ -393,6 +403,12 @@ export class BotActor extends Think<WorkerEnv> {
       .filter((row) => row instanceof WorkspaceMcpConnector)
       .map((row) => row.name());
     return {
+      ...withComputerOfficeTools(
+        createAITools({
+          workspace: this.computer,
+          shell: computerWorkerShell(),
+        }),
+      ),
       ...pageTools,
       present: createPresentTool(),
       execute: {
@@ -404,6 +420,12 @@ export class BotActor extends Think<WorkerEnv> {
         ),
       },
     };
+  }
+
+  /** Worker shell HOST (`WorkspaceServiceProxy`) reaches this DO’s Computer VFS. */
+  async __getWorkspaceStub() {
+    await this.computer.ready();
+    return this.computer.stub();
   }
 
   async getSkills() {

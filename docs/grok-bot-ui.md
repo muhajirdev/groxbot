@@ -161,9 +161,9 @@ Label: **Agent Computer** (we can say **Computer**).
 - Live view: clicks, typing, navigation, status (**Working** / **Idle**).
 - Marketing line: each Bot already has a computer; you can ignore it.
 - Closing the pane or the laptop does not stop cloud work.
-- Files live in that bot’s Think workspace; conversation still gets the final artifact or a link.
+- Files live in that bot’s Cloudflare Computer workspace; conversation still gets the final artifact or a link.
 
-**Grok:** one VM, many screens. **Groxbot v1:** the computer **is** the bot (Think workspace). Pane shows **this** teammate’s screen. Same UX. Not a second Durable Object. No takeover in v1.
+**Grok:** one VM, many screens. **Groxbot v1:** the computer **is** the bot (`@cloudflare/computer` Workspace + Worker shell). Pane shows **this** teammate’s screen. Same UX. Not a second Durable Object. No takeover in v1.
 
 ---
 
@@ -207,7 +207,7 @@ Empty composer and New Agent must still work without those.
 1. Welcome → sign in → **create or join a workspace** → tour → tools → **models (BYOK)** → “meet a teammate” (name, title, description, color+shape).
 2. Sidebar of Bots; click = that office thread.
 3. Chat transcript with inline “working,” files, approval.
-4. Computer pane: this bot’s Think workspace (empty first). No takeover, no desk RPC. Wakeup is the bot’s actor, not a queue UI.
+4. Computer pane: this bot’s Cloudflare Computer workspace (empty first). No takeover, no desk RPC. Wakeup is the bot’s actor, not a queue UI.
 5. Edit profile on the Bot, not a separate admin app.
 6. First-run does not require Composio.
 7. **Models on first-run + Settings → Models**: Groxbot hosted Workers AI (`env.AI` through Cloudflare AI Gateway) plus workspace BYOK keys (encrypted). BYOK wins. Default model is hosted Workers AI when no key is pasted. A bot can override. Hosted token usage is counted per workspace. Messaging fails closed until a matching key or the hosted gateway exists (office banner as fallback).

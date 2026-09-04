@@ -8,6 +8,37 @@ import {
 
 export const COMPUTER_DISK_FLAG = "computer.disk";
 export const COMPUTER_DISK_DOFS = "dofs";
+/** `@cloudflare/computer` WorkerShellBackend default id. */
+export const COMPUTER_SHELL_BACKEND = "worker-shell";
+export const COMPUTER_SHELL_DESCRIPTION =
+  "Fast Worker shell (just-bash) on this bot’s computer. Core text commands only — no Linux container.";
+
+export type ComputerWorkerShell = {
+  defaultBackend: typeof COMPUTER_SHELL_BACKEND;
+  backends: Record<string, { description: string }>;
+};
+
+/** `createAITools({ shell })` — Worker shell is the only bash backend. */
+export function computerWorkerShell(): ComputerWorkerShell {
+  return {
+    defaultBackend: COMPUTER_SHELL_BACKEND,
+    backends: {
+      [COMPUTER_SHELL_BACKEND]: { description: COMPUTER_SHELL_DESCRIPTION },
+    },
+  };
+}
+
+/**
+ * Computer file tools use `ls`. Think still injects `list` first.
+ * Alias so the office catalog has one directory tool.
+ */
+export function withComputerOfficeTools<T extends Record<string, unknown>>(
+  computerTools: T,
+): T {
+  const ls = computerTools.ls;
+  if (ls === undefined) return computerTools;
+  return { ...computerTools, list: ls };
+}
 
 export type ComputerFsDirent = {
   name: string;
