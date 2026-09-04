@@ -46,6 +46,12 @@ export const PALETTE_ACTIONS = [
     keywords: ["new", "room", "group", "create", "table"],
   },
   {
+    id: "delete-room",
+    label: "Delete room",
+    shortcut: "",
+    keywords: ["delete", "remove", "room"],
+  },
+  {
     id: "section",
     label: "New section",
     shortcut: "",
@@ -178,6 +184,7 @@ export function rankPaletteItems(
   apps: readonly PaletteApp[],
   rooms: readonly PaletteRoom[] = [],
   files: readonly PaletteFile[] = [],
+  opts?: { roomName?: string },
 ): PaletteItem[] {
   const raw = query.trim();
   const filesOnly = raw.startsWith("#");
@@ -240,12 +247,16 @@ export function rankPaletteItems(
 
   if (!filesOnly) {
     for (const action of PALETTE_ACTIONS) {
+      if (action.id === "delete-room" && !opts?.roomName) continue;
       const score = actionScore(action, needle);
       if (score <= 0) continue;
       ranked.push({
         kind: "action",
         key: `action:${action.id}`,
-        action,
+        action:
+          action.id === "delete-room" && opts?.roomName
+            ? { ...action, label: `Delete ${opts.roomName}` }
+            : action,
         score,
         order: order++,
       });

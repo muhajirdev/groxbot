@@ -26,6 +26,7 @@ import {
   RoomIcon,
   SearchIcon,
   SkillsIcon,
+  TrashIcon,
 } from "./Icons";
 
 function HotkeyHint(props: { hotkey: string; className?: string }) {
@@ -42,6 +43,7 @@ function ActionGlyph(props: { id: PaletteActionId }) {
   if (props.id === "hire" || props.id === "section") {
     return <PlusIcon className={className} />;
   }
+  if (props.id === "delete-room") return <TrashIcon className={className} />;
   if (props.id === "room") return <RoomIcon className={className} />;
   if (props.id === "computer") return <MonitorIcon className={className} />;
   if (props.id === "plugins") return <PlugIcon className={className} />;
@@ -68,6 +70,7 @@ function itemDetail(item: PaletteItem): string {
   }
   if (item.kind === "app") return APP_KIND_LABEL[item.app.templateId];
   if (item.kind === "file") return item.file.path;
+  if (item.action.id === "delete-room") return "Remove this group";
   return "Command";
 }
 
@@ -94,6 +97,7 @@ export function CommandPalette(props: {
   rooms: Room[];
   apps: WorkspaceApp[];
   files?: PaletteFile[];
+  roomName?: string;
   onClose: () => void;
   onBot: (botId: string) => void;
   onRoom: (roomId: string) => void;
@@ -118,8 +122,9 @@ export function CommandPalette(props: {
         props.apps,
         paletteRooms,
         props.files ?? [],
+        { roomName: props.roomName },
       ),
-    [query, props.bots, props.apps, paletteRooms, props.files],
+    [query, props.bots, props.apps, paletteRooms, props.files, props.roomName],
   );
   const activeItem = items[active];
   const prefetchPaths = useMemo(

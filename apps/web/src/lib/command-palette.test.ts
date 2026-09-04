@@ -72,6 +72,27 @@ describe("rankPaletteItems", () => {
     ]);
   });
 
+  it("offers delete room only while a group room is open", () => {
+    expect(
+      rankPaletteItems("", [piper], [], [standup]).some(
+        (row) => row.kind === "action" && row.action.id === "delete-room",
+      ),
+    ).toBe(false);
+    const rows = rankPaletteItems(
+      "delete",
+      [piper],
+      [],
+      [standup],
+      [],
+      { roomName: "Standup" },
+    );
+    expect(rows[0]).toMatchObject({
+      kind: "action",
+      key: "action:delete-room",
+      action: { label: "Delete Standup" },
+    });
+  });
+
   it("matches a teammate by name and hides unrelated commands", () => {
     const rows = rankPaletteItems("pip", [piper, archived], [brief]);
     expect(rows).toHaveLength(1);

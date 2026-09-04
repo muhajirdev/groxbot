@@ -2,7 +2,7 @@ import type { Room } from "@groxbot/contracts";
 import { Menu } from "@base-ui/react/menu";
 import { useMemo, useRef } from "react";
 import { type RoomMenuPhase, roomMenuItems } from "../lib/sidebar";
-import { cn } from "../ui";
+import { Button, cn, ModalShell } from "../ui";
 import { TrashIcon } from "./Icons";
 
 const itemClass = cn(
@@ -89,5 +89,49 @@ export function RoomContextMenu(props: {
         </Menu.Positioner>
       </Menu.Portal>
     </Menu.Root>
+  );
+}
+
+export function ConfirmRoomDeleteDialog(props: {
+  room: Room | null;
+  onClose: () => void;
+  onConfirm: (room: Room) => void;
+}) {
+  const room = props.room;
+  return (
+    <ModalShell
+      open={Boolean(room)}
+      className="w-[min(340px,calc(100%-48px))] p-4"
+      onClose={props.onClose}
+    >
+      <div className="grid gap-3">
+        <h2 className="m-0 text-[15px] font-semibold tracking-tight">
+          Delete {room?.name ?? "room"}?
+        </h2>
+        <p className="m-0 text-[13px] text-muted">
+          This removes the group thread. Teammates and their own rooms stay.
+        </p>
+        <div className="flex justify-end gap-2">
+          <Button
+            className="px-3 py-1.5 text-[13px]"
+            variant="ghost"
+            type="button"
+            onClick={props.onClose}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="border-0 bg-danger px-3 py-1.5 text-[13px] text-white"
+            type="button"
+            onClick={() => {
+              if (!room) return;
+              props.onConfirm(room);
+            }}
+          >
+            Delete
+          </Button>
+        </div>
+      </div>
+    </ModalShell>
   );
 }

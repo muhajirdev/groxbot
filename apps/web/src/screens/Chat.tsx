@@ -25,7 +25,10 @@ import { AppSettings } from "../components/AppSettings";
 import { AvatarMark, MemberStack } from "../components/Avatar";
 import { BotSettingsPane } from "../components/BotSettingsPane";
 import { BotContextMenu } from "../components/BotContextMenu";
-import { RoomContextMenu } from "../components/RoomContextMenu";
+import {
+  ConfirmRoomDeleteDialog,
+  RoomContextMenu,
+} from "../components/RoomContextMenu";
 import { SectionContextMenu } from "../components/SectionContextMenu";
 import {
   ComputerFileOpenProvider,
@@ -468,6 +471,7 @@ export function Chat(props: {
   const [pluginsOpen, setPluginsOpen] = useState(false);
   const [hireOpen, setHireOpen] = useState(false);
   const [roomOpen, setRoomOpen] = useState(false);
+  const [roomDelete, setRoomDelete] = useState<Room | null>(null);
   const [sectionOpen, setSectionOpen] = useState(false);
   const [sectionRename, setSectionRename] = useState<SidebarSection | null>(
     null,
@@ -1180,7 +1184,8 @@ export function Chat(props: {
     Boolean(sectionRename) ||
     settingsOpen ||
     pluginsOpen ||
-    paletteOpen;
+    paletteOpen ||
+    Boolean(roomDelete);
   const cycleBots = useCallback(
     (delta: 1 | -1) => {
       const current = bot?.id;
@@ -1204,6 +1209,10 @@ export function Chat(props: {
       }
       if (id === "room") {
         setRoomOpen(true);
+        return;
+      }
+      if (id === "delete-room") {
+        if (room) setRoomDelete(room);
         return;
       }
       if (id === "section") {
@@ -1233,7 +1242,7 @@ export function Chat(props: {
       }
       setDesk(deskComputer());
     },
-    [desk, setDesk],
+    [desk, room, setDesk],
   );
 
   useHotkeys([
@@ -2061,6 +2070,7 @@ export function Chat(props: {
             rooms={rooms}
             apps={workspaceApps}
             files={knowledgeListQuery.data?.entries ?? []}
+            roomName={isRoom ? room?.name : undefined}
             onClose={() => setPaletteOpen(false)}
             onBot={(botId) => {
               setPaletteOpen(false);
@@ -2094,6 +2104,14 @@ export function Chat(props: {
             bots={liveBots}
             onClose={() => setRoomOpen(false)}
             onCreate={(input) => void createRoom(input)}
+          />
+          <ConfirmRoomDeleteDialog
+            room={roomDelete}
+            onClose={() => setRoomDelete(null)}
+            onConfirm={(item) => {
+              setRoomDelete(null);
+              void deleteRoom(item);
+            }}
           />
           <SectionDialog
             open={sectionOpen}
