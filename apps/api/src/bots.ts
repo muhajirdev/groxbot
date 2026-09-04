@@ -3,6 +3,7 @@ import {
   appendEvent,
   createRoom,
   encryptionSecret,
+  ensureBotOwnRoom,
   getHomeThread,
   missingModelMessage,
   newId,
@@ -56,7 +57,7 @@ export async function getBotThread(
   if (!bot) throw new ORPCError("NOT_FOUND", { message: "Bot not found" });
   const thread = await getHomeThread(context.db, bot);
   if (!thread) throw new ORPCError("NOT_FOUND", { message: "Thread missing" });
-  return { bot, thread };
+  return { bot: await withOwnRoom(context, actor, bot), thread };
 }
 
 function assertBotActive(bot: { archivedAt: Date | null }) {
@@ -65,6 +66,30 @@ function assertBotActive(bot: { archivedAt: Date | null }) {
       message: "This teammate is archived.",
     });
   }
+}
+
+async function withOwnRoom(
+  context: RpcContext,
+  actor: Actor,
+  bot: typeof bots.$inferSelect,
+): Promise<typeof bots.$inferSelect> {
+  if (bot.homeRoomId) return bot;
+  const homeRoomId = await ensureBotOwnRoom(context.db, {
+    workspaceId: actor.workspaceId,
+    userId: actor.userId,
+    botId: bot.id,
+    name: bot.name,
+    homeRoomId: bot.homeRoomId,
+  });
+  if (context.initRoom) {
+    await context.initRoom(homeRoomId, {
+      workspaceId: actor.workspaceId,
+      name: bot.name,
+      botId: bot.id,
+      members: [{ id: bot.id, name: bot.name, homeRoomId }],
+    });
+  }
+  return { ...bot, homeRoomId };
 }
 
 export async function listBots(
@@ -126,18 +151,21 @@ export async function listBots(
       });
     }
   }
-  return rows.flatMap((bot) => {
+  const listed: Bot[] = [];
+  for (const bot of rows) {
     const threadId = threadByBot.get(bot.id);
-    if (!threadId) return [];
+    if (!threadId) continue;
+    const withHome = await withOwnRoom(context, actor, bot);
     const last = lastByThread.get(threadId);
-    return [
-      toBotDto(bot, threadId, {
+    listed.push(
+      toBotDto(withHome, threadId, {
         online: onlineByBot.get(bot.id),
         lastPreview: last?.preview,
         lastAt: last?.at,
       }),
-    ];
-  });
+    );
+  }
+  return listed;
 }
 
 export async function createBot(

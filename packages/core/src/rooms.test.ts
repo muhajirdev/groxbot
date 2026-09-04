@@ -1,3 +1,4 @@
+import { BotSchema } from "@groxbot/contracts";
 import { describe, expect, it } from "vitest";
 import {
   isListedGroupRoom,
@@ -114,6 +115,13 @@ describe("isListedGroupRoom", () => {
       true,
     );
     expect(isListedGroupRoom("standup", [null, undefined])).toBe(true);
+  });
+});
+
+describe("BotSchema.homeRoomId", () => {
+  it("rejects the empty string used when home_room_id is null", () => {
+    expect(BotSchema.shape.homeRoomId.safeParse("").success).toBe(false);
+    expect(BotSchema.shape.homeRoomId.safeParse("home-1").success).toBe(true);
   });
 });
 

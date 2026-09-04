@@ -226,7 +226,9 @@ export async function createRoom(
     const bot = byId.get(id);
     if (!bot)
       throw new RoomError("Every seat must be a teammate in this office.");
-    if (bot.archivedAt) throw new RoomError(`${bot.name} is archived.`);
+    if (!input.own && bot.archivedAt) {
+      throw new RoomError(`${bot.name} is archived.`);
+    }
     if (!input.own && !bot.homeRoomId) {
       throw new RoomError(`${bot.name} has no room yet.`);
     }
@@ -263,6 +265,33 @@ export async function createRoom(
         : [];
     }),
   );
+}
+
+/** Teammates hired before home rooms get a room on first list/get. */
+export async function ensureBotOwnRoom(
+  db: Database,
+  input: {
+    workspaceId: string;
+    userId: string;
+    botId: string;
+    name: string;
+    homeRoomId?: string | null;
+  },
+): Promise<string> {
+  const existing = input.homeRoomId?.trim();
+  if (existing) return existing;
+  const home = await createRoom(db, {
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    name: input.name,
+    memberBotIds: [input.botId],
+    own: true,
+  });
+  await db
+    .update(bots)
+    .set({ homeRoomId: home.id, updatedAt: new Date() })
+    .where(eq(bots.id, input.botId));
+  return home.id;
 }
 
 export async function listRooms(
