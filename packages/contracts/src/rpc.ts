@@ -40,8 +40,8 @@ import {
   ToolkitSlug,
   UpdateAccountInput,
   UpdateBotInput,
-  Visibility,
   UpdateWorkspaceInput,
+  Visibility,
   WorkspaceAppSchema,
   WorkspaceInvitationSchema,
   WorkspaceInvitePeekSchema,
@@ -178,6 +178,7 @@ export const appContract = oc.router({
           botId: Id.optional(),
           name: z.string().min(1).max(80),
           url: z.string().min(8).max(500),
+          visibility: Visibility.optional(),
         }),
       )
       .output(McpConnectResultSchema),

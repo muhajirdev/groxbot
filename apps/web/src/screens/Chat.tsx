@@ -1009,8 +1009,8 @@ export function Chat(props: {
   }
 
   const hire = useCallback(
-    async (name: string) => {
-      const trimmed = name.trim();
+    async (input: { name: string; visibility: "private" | "shared" }) => {
+      const trimmed = input.name.trim();
       if (!trimmed || hiring.current) return;
       hiring.current = true;
       setHireOpen(false);
@@ -1025,6 +1025,7 @@ export function Chat(props: {
         name: trimmed,
         avatarColor,
         userId: me?.userId,
+        visibility: input.visibility,
       });
       try {
         await cacheCreatedBot(draft);
@@ -1036,6 +1037,7 @@ export function Chat(props: {
           homeRoomId,
           name: trimmed,
           avatarColor,
+          visibility: input.visibility,
         });
         cacheBot(created);
         patchThreadMeta(id, { opening: false });
@@ -2144,7 +2146,7 @@ export function Chat(props: {
           <HireDialog
             open={hireOpen}
             onClose={() => setHireOpen(false)}
-            onHire={(name) => void hire(name)}
+            onHire={(input) => void hire(input)}
           />
           <CreateRoomDialog
             open={roomOpen}

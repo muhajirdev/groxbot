@@ -75,7 +75,7 @@ export async function getMcpHostBot(
   botId?: string,
   opts?: { mcpVisibility?: string },
 ) {
-  const privateMcp = parseVisibility(opts?.mcpVisibility ?? "private") === "private";
+  const privateMcp = parseVisibility(opts?.mcpVisibility ?? "shared") === "private";
   if (botId) {
     const { bot } = await getBotThread(context, actor, botId);
     if (!bot.archivedAt) {
@@ -281,7 +281,7 @@ export async function createBot(
     avatarColor: input.avatarColor,
     avatarShape: input.avatarShape,
     guestKind: "off",
-    visibility: parseVisibility(input.visibility ?? "private"),
+    visibility: parseVisibility(input.visibility ?? "shared"),
     createdAt: now,
     updatedAt: now,
   });

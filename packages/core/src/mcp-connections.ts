@@ -134,7 +134,7 @@ export async function addMcpConnection(
 ): Promise<McpConnection> {
   const name = parseMcpName(input.name);
   const url = parseMcpUrl(input.url);
-  const visibility = parseVisibility(input.visibility ?? "private");
+  const visibility = parseVisibility(input.visibility ?? "shared");
   const scope =
     visibility === "private"
       ? and(

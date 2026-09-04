@@ -55,13 +55,18 @@ export async function listMcp(context: RpcContext): Promise<McpConnection[]> {
 
 export async function addMcp(
   context: RpcContext,
-  input: { botId?: string; name: string; url: string },
+  input: {
+    botId?: string;
+    name: string;
+    url: string;
+    visibility?: "private" | "shared";
+  },
 ): Promise<McpConnectResult> {
   const actor = await requireActor(context);
   try {
     const row = await addMcpConnection(context.db, actor, {
       ...input,
-      visibility: "private",
+      visibility: parseVisibility(input.visibility ?? "shared"),
     });
     return connectMcp(context, { id: row.id, botId: input.botId });
   } catch (error) {

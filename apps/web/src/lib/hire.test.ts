@@ -42,10 +42,21 @@ describe("draftCreatedBot", () => {
     expect(bot.threadId).toBe("bot-1");
     expect(bot.homeRoomId).toBe("bot-1");
     expect(bot.guestKind).toBe("off");
-    expect(bot.visibility).toBe("private");
+    expect(bot.visibility).toBe("shared");
     expect(bot.userId).toBe("user");
     expect(bot.archivedAt).toBeNull();
     expect(bot.pinnedAt).toBeNull();
     expect(bot.sectionId).toBeNull();
+  });
+
+  it("can draft a private teammate", () => {
+    const bot = draftCreatedBot({
+      id: "bot-1",
+      workspaceId: "ws-1",
+      name: "Inbox",
+      avatarColor: "#e45c9a",
+      visibility: "private",
+    });
+    expect(bot.visibility).toBe("private");
   });
 });

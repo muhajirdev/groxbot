@@ -30,13 +30,14 @@ export function draftCreatedBot(input: {
   avatarColor: string;
   homeRoomId?: string;
   userId?: string;
+  visibility?: "private" | "shared";
 }): Bot {
   const now = new Date().toISOString();
   return {
     id: input.id,
     workspaceId: input.workspaceId,
     userId: input.userId ?? "user",
-    visibility: "private",
+    visibility: input.visibility ?? "shared",
     name: input.name,
     title: "",
     description: "",

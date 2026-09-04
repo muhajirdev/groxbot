@@ -1,7 +1,7 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { StyleSheet, Text } from "react-native";
+import { Pressable, StyleSheet, Text } from "react-native";
 import { Button } from "../components/Button";
 import { Field } from "../components/Field";
 import { Header } from "../components/Header";
@@ -20,6 +20,7 @@ export function HireScreen({ navigation }: Props) {
   const botsQuery = useQuery(orpc.bots.list.queryOptions());
   const meQuery = useQuery(orpc.me.queryOptions());
   const [name, setName] = useState(nextHireName(botsQuery.data ?? []));
+  const [asPrivate, setAsPrivate] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -32,6 +33,7 @@ export function HireScreen({ navigation }: Props) {
       const bot = await client.bots.create({
         name: next,
         avatarColor: nextAvatarColor(botsQuery.data ?? []),
+        visibility: asPrivate ? "private" : "shared",
       });
       await queryClient.invalidateQueries({ queryKey: orpc.bots.list.key() });
       navigation.replace("Thread", { botId: bot.id });
@@ -57,6 +59,16 @@ export function HireScreen({ navigation }: Props) {
         placeholder="Piper"
         autoCapitalize="words"
       />
+      <Pressable
+        onPress={() => setAsPrivate((value) => !value)}
+        style={styles.privateRow}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: asPrivate }}
+        accessibilityLabel="Private"
+      >
+        <Text style={styles.privateMark}>{asPrivate ? "☑" : "☐"}</Text>
+        <Text style={styles.privateLabel}>Private</Text>
+      </Pressable>
       <Button
         label="Hire"
         onPress={() => void hire()}
@@ -70,4 +82,12 @@ export function HireScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   error: { color: colors.danger },
   warn: { color: colors.muted },
+  privateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 4,
+  },
+  privateMark: { color: colors.muted, fontSize: 16, lineHeight: 20 },
+  privateLabel: { color: colors.muted, fontSize: 13 },
 });

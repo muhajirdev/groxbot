@@ -35,7 +35,7 @@ export const bots = pgTable(
     model: text("model").notNull().default(""),
     /**
      * private = owner’s teammate. shared = office contact.
-     * Existing rows default shared; new hires insert private.
+     * New hires insert shared unless the create form opts into private.
      */
     visibility: text("visibility").notNull().default("shared"),
     /** Set when the teammate is archived (hidden + paused). Null = active. */
@@ -399,7 +399,7 @@ export const mcpConnections = pgTable(
     status: text("status").notNull(),
     /**
      * private = owner’s MCP. shared = office phone.
-     * Existing rows default shared; new connections insert private.
+     * New connections insert shared unless the form opts into private.
      */
     visibility: text("visibility").notNull().default("shared"),
     lastError: text("last_error"),

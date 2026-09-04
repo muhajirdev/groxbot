@@ -44,6 +44,7 @@ export function PluginsModal(props: {
   const [error, setError] = useState("");
   const [mcpName, setMcpName] = useState("");
   const [mcpUrl, setMcpUrl] = useState("");
+  const [mcpPrivate, setMcpPrivate] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [probes, setProbes] = useState<Record<string, McpProbeResult>>({});
   const listRef = useRef<HTMLDivElement>(null);
@@ -178,10 +179,12 @@ export function PluginsModal(props: {
         ...(props.botId ? { botId: props.botId } : {}),
         name,
         url,
+        visibility: mcpPrivate ? "private" : "shared",
       });
       mcpCollection.utils.writeUpsert(result.connection);
       setMcpName("");
       setMcpUrl("");
+      setMcpPrivate(false);
       setAdvancedOpen(false);
       if (result.redirectUrl) {
         window.open(
@@ -425,10 +428,12 @@ export function PluginsModal(props: {
                 open={advancedOpen}
                 name={mcpName}
                 url={mcpUrl}
+                asPrivate={mcpPrivate}
                 busy={busy === "mcp-add"}
                 onToggle={() => setAdvancedOpen((open) => !open)}
                 onName={setMcpName}
                 onUrl={setMcpUrl}
+                onPrivate={setMcpPrivate}
                 onSubmit={() => void addRemoteMcp()}
               />
             ) : null}
@@ -597,10 +602,12 @@ function AdvancedMcpForm(props: {
   open: boolean;
   name: string;
   url: string;
+  asPrivate: boolean;
   busy: boolean;
   onToggle: () => void;
   onName: (value: string) => void;
   onUrl: (value: string) => void;
+  onPrivate: (value: boolean) => void;
   onSubmit: () => void;
 }) {
   return (
@@ -645,10 +652,16 @@ function AdvancedMcpForm(props: {
               </button>
             </div>
           </div>
-          <p className="m-0 text-xs text-muted">
-            New MCP is private to you and needs a private teammate to host
-            it. Share it with the office from the card.
-          </p>
+          <label className="flex w-fit cursor-pointer select-none items-center gap-1.5 text-[12px] text-muted">
+            <input
+              type="checkbox"
+              checked={props.asPrivate}
+              className="size-3.5"
+              title="Only you. Hosted on a private teammate."
+              onChange={(event) => props.onPrivate(event.target.checked)}
+            />
+            Private
+          </label>
         </form>
       ) : null}
     </section>
