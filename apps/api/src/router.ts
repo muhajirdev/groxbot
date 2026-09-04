@@ -56,7 +56,7 @@ import {
   rotateGuest,
 } from "./guests.js";
 import { healthPayload } from "./health.js";
-import { addMcp, connectMcp, listMcp, removeMcp } from "./mcp.js";
+import { addMcp, connectMcp, listMcp, probeMcp, removeMcp } from "./mcp.js";
 import {
   addPlugin,
   connectPlugin,
@@ -473,6 +473,9 @@ export const appRouter = os.router({
     ),
     remove: os.mcp.remove.handler(async ({ context, input }) =>
       removeMcp(context, input.id),
+    ),
+    probe: os.mcp.probe.handler(async ({ context, input }) =>
+      probeMcp(context, input.id),
     ),
   },
   routines: {

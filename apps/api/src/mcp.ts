@@ -125,6 +125,39 @@ export async function removeMcp(context: RpcContext, id: string) {
   }
 }
 
+export async function probeMcp(
+  context: RpcContext,
+  id: string,
+): Promise<McpProbeResult> {
+  const actor = await requireActor(context);
+  const row = await getMcpConnection(context.db, actor.workspaceId, id);
+  if (!row) {
+    throw new ORPCError("NOT_FOUND", {
+      message: "Add the MCP server first.",
+    });
+  }
+  if (!row.hostBotId) {
+    return {
+      ok: false,
+      tools: [],
+      error: "Connect this server first.",
+    };
+  }
+  if (!context.mcp?.probe) {
+    throw new McpError("Remote MCP is only available on the Cloudflare API.");
+  }
+  try {
+    const tools = await context.mcp.probe(
+      row.hostBotId,
+      actor.workspaceId,
+      row.id,
+    );
+    return { ok: true, tools: mcpToolNames(tools), error: null };
+  } catch (error) {
+    return { ok: false, tools: [], error: mcpProbeError(error) };
+  }
+}
+
 export async function completeMcpOAuth(
   context: Pick<RpcContext, "db" | "mcp">,
   request: Request,
