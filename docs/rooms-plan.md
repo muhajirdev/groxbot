@@ -29,7 +29,7 @@ BotActor  [name = botId]      Think
 | Bot (person) | yes — `BotActor` | `botId` | yes |
 | Room (place) | yes — `RoomActor` | `roomId` | **no** |
 | Membership / listing | Postgres | workspace | no |
-| Computer | built into the bot | `botId` | `this.workspace` |
+| Computer | built into the bot | `botId` | `@cloudflare/computer` `Workspace` |
 
 `RoomActor` is a coordinator, the same job as `AppRuntime` for a doc: one writer, one log, many subscribers. It is **not** a bot doing impressions.
 

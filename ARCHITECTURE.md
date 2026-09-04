@@ -16,7 +16,7 @@ UI: copy Grok Bot simplicity — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). R
           |
           +---- BotActor [name = botId]     <-- Think
           |       queue / schedule / one turn
-          |       computer = this.workspace (sell this)
+          |       computer = @cloudflare/computer Workspace (sell this)
           |
           +---- RoomActor [name = roomId]   <-- later, not Think
           |       members, floor, room log, websockets
@@ -33,7 +33,7 @@ UI: copy Grok Bot simplicity — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). R
 | Thread | Postgres `threadId` | v1 poke / guest. Listing + membership. |
 | Session | that bot | Think working memory on `BotActor`. Not the panel catalog. |
 | App | `appId` | Live doc. Own Durable Object. |
-| Computer | `botId` | Built into the bot. Think `this.workspace`. Sell it. Not a second Durable Object. |
+| Computer | `botId` | Built into the bot. `@cloudflare/computer` `Workspace` on `BotActor`. Sell it. Not a second Durable Object. |
 
 ## Locked
 
@@ -41,7 +41,7 @@ UI: copy Grok Bot simplicity — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). R
 - **Durable place = room (later), not Think.** `RoomActor` coordinates the log, members, floor, and websockets. See [docs/rooms-plan.md](./docs/rooms-plan.md).
 - **Think Session on the bot.** Default DO SQLite. v1 is **one** session (home office). A poke is still a Postgres thread that enqueues onto that bot. Do not use Session as the room catalog.
 - **Each app has its own Durable Object.** Talk → chat card → Open. Listing from cards, not a Postgres apps table.
-- **Computer is the bot.** Each teammate has a computer (Think workspace). Sell that. No `computers` table, no shared vs isolated hire, no takeover, no `computer.sleep`, no Computer DO.
+- **Computer is the bot.** Each teammate has a computer (`@cloudflare/computer` `Workspace` on `BotActor`). Sell that. No `computers` table, no shared vs isolated hire, no takeover, no `computer.sleep`, no Computer DO.
 - **Postgres** is the team catalog (auth, bots, threads, messages, skills). Office UI is oRPC, not Think’s `useAgentChat`.
 - **One queue per bot.** Two humans in one office share it. Two bots in a poke are two queues.
 - Product is **Cloudflare Workers** + Neon.

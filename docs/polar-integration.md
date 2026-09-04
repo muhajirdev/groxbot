@@ -180,7 +180,7 @@ Hosted groxbot.com (strawman — pricing TBD):
 
 Meters that match our costs:
 
-- **`computer_minutes`** — hosted bot computers (Think `this.workspace`). Polar [delta-time ingestion](https://polar.sh/docs/features/usage-based-billing/ingestion-strategies/delta-time-strategy) is the right *idea*; implement with `events.ingest` from the worker on computer stop, `externalCustomerId = workspaceId`, metadata `{ deltaTime, botId }`. Do not trust the browser.
+- **`computer_minutes`** — hosted bot computers (`@cloudflare/computer` `Workspace` on `BotActor`). Polar [delta-time ingestion](https://polar.sh/docs/features/usage-based-billing/ingestion-strategies/delta-time-strategy) is the right *idea*; implement with `events.ingest` from the worker on computer stop, `externalCustomerId = workspaceId`, metadata `{ deltaTime, botId }`. Do not trust the browser.
 - **`hosted_tokens`** — only if we sell model access. Polar’s [LLM strategy](https://polar.sh/docs/features/usage-based-billing/ingestion-strategies/llm-strategy) wraps Vercel AI SDK. We use Think / Workers AI. Ingest after a run from the worker (`inputTokens`, `outputTokens`, `model`). Never meter BYOK keys.
 
 Usage is billed on a **subscription** (Polar meters attach to subscription products). Unit price is linear; Polar volume pricing for meters is still “coming soon.” Put included allowance in Polar [credits](https://polar.sh/docs/features/usage-based-billing/credits) / credited units, or a monthly cap on the metered price.

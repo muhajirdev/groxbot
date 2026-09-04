@@ -1,5 +1,6 @@
-/** Cloudflare-only. Excluded from `tsc`. BotActor is Think. */
+/** Cloudflare-only. Excluded from `tsc`. Disk is Computer; Think still owns office chat. */
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { Workspace } from "@cloudflare/computer";
 import {
   type ChatResponseResult,
   type MessageConcurrency,
@@ -30,10 +31,14 @@ import {
   ComputerFileError,
   ComputerPathError,
   ComputerWriteError,
+  COMPUTER_DISK_DOFS,
+  COMPUTER_DISK_FLAG,
   composeSoul,
+  copyThinkWorkspaceToComputer,
   countUiToolParts,
   DEFAULT_ROUTINE_TIMEZONE,
   decodeComputerBytes,
+  diskFromComputerFs,
   downloadComputerFile,
   emptyOfficeReviewCounters,
   encryptionSecret,
@@ -237,6 +242,8 @@ function storedRoutine(
 }
 
 export class BotActor extends Think<WorkerEnv> {
+  computer = new Workspace({ storage: this.ctx.storage });
+  override workspace = diskFromComputerFs(this.computer.fs);
   override messageConcurrency: MessageConcurrency = "queue";
   /** MCP is tools.* / named connectors inside execute, not a dumped AI SDK catalog. */
   override includeMcpTools = false;
@@ -313,8 +320,7 @@ export class BotActor extends Think<WorkerEnv> {
     }
     this.ensureMcpOAuthCallback();
     this.sql`DROP TABLE IF EXISTS groxbot_routines`;
-    patchComputerWorkspace(this.workspace);
-    healThinkWorkspaceFileRows(this.ctx.storage.sql);
+    await this.healComputerFiles();
     console.log(`[bot ${this.name}] onStart after think hydrate`);
   }
 
@@ -542,9 +548,20 @@ export class BotActor extends Think<WorkerEnv> {
     });
   }
 
-  private healComputerFiles() {
+  private async healComputerFiles() {
     patchComputerWorkspace(this.workspace);
     healThinkWorkspaceFileRows(this.ctx.storage.sql);
+    await this.ensureComputerDisk();
+  }
+
+  private async ensureComputerDisk() {
+    const flag = await this.ctx.storage.get<string>(COMPUTER_DISK_FLAG);
+    if (flag === COMPUTER_DISK_DOFS) return;
+    await copyThinkWorkspaceToComputer({
+      sql: this.ctx.storage.sql,
+      disk: this.workspace,
+    });
+    await this.ctx.storage.put(COMPUTER_DISK_FLAG, COMPUTER_DISK_DOFS);
   }
 
   private async handleWorkspaceList(request: Request): Promise<Response> {
@@ -552,7 +569,7 @@ export class BotActor extends Think<WorkerEnv> {
     const path = typeof body.path === "string" ? body.path : "";
     const t0 = Date.now();
     try {
-      this.healComputerFiles();
+      await this.healComputerFiles();
       const listed = await listComputerEntries(this.workspace, path);
       console.log(
         `[bot ${this.name}] workspace list ${listed.entries.length} +${Date.now() - t0}ms`,
@@ -571,7 +588,7 @@ export class BotActor extends Think<WorkerEnv> {
     const body = (await request.json().catch(() => ({}))) as { path?: unknown };
     const path = typeof body.path === "string" ? body.path : "";
     try {
-      this.healComputerFiles();
+      await this.healComputerFiles();
       return Response.json(await readComputerFile(this.workspace, path));
     } catch (error) {
       return workspaceError(error);
@@ -582,7 +599,7 @@ export class BotActor extends Think<WorkerEnv> {
     const body = (await request.json().catch(() => ({}))) as { path?: unknown };
     const path = typeof body.path === "string" ? body.path : "";
     try {
-      this.healComputerFiles();
+      await this.healComputerFiles();
       return Response.json(await downloadComputerFile(this.workspace, path));
     } catch (error) {
       return workspaceError(error);
@@ -597,6 +614,7 @@ export class BotActor extends Think<WorkerEnv> {
     const filename = typeof body.filename === "string" ? body.filename : "";
     const content = typeof body.content === "string" ? body.content : "";
     try {
+      await this.healComputerFiles();
       const bytes = decodeComputerBytes(content);
       return Response.json(
         await writeInboxFile(this.workspace, filename, bytes),

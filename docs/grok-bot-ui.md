@@ -1,6 +1,6 @@
 # Grok Bot UI copy-brief
 
-Groxbot should **feel like Grok Bot**: a messaging app of named teammates, not a workflow builder, IDE, or Discord. Product/architecture stays ours (Postgres for team data, one Think actor per bot, sessions per thread, live apps as their own Durable Objects, oRPC, Composio). **Each bot has a computer** (Think workspace on that actor) — ship the pane, sell it. Do not copy their shared desk, takeover, or a second Computer product. **Implement on web first**; desktop reuses that UI; Expo gets the same contract later.
+Groxbot should **feel like Grok Bot**: a messaging app of named teammates, not a workflow builder, IDE, or Discord. Product/architecture stays ours (Postgres for team data, one Think actor per bot, sessions per thread, live apps as their own Durable Objects, oRPC, Composio). **Each bot has a computer** (`@cloudflare/computer` Workspace on that actor) — ship the pane, sell it. Do not copy their shared desk, takeover, or a second Computer product. **Implement on web first**; desktop reuses that UI; Expo gets the same contract later.
 
 We could not screenshot the live desktop app (paywalled: SuperGrok Heavy / Cursor Ultra). This brief is from official docs and marketing as of 11–15 Aug 2026.
 

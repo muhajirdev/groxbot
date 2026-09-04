@@ -2,6 +2,7 @@ export * from "./app-intent.js";
 export * from "./apps.js";
 export * from "./avatar.js";
 export * from "./computer.js";
+export * from "./computer-fs.js";
 export * from "./execute-imports.js";
 export * from "./guest-http.js";
 export * from "./guest-hub.js";

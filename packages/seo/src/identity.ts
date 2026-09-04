@@ -92,7 +92,7 @@ export const GROXBOT_STACK = [
   "Postgres + Drizzle for team data (Neon on hosted Cloudflare)",
   "Hosted brains: Think on BotActor (tests: ScriptedAgentRuntime)",
   "One wakeup queue per bot — Durable Object BotActor (Think)",
-  "Each bot’s computer is Think workspace on that actor — not a computers table",
+  "Each bot’s computer is Cloudflare Computer workspace on that actor — not a computers table",
   "Better Auth (magic-link email, Google, GitHub)",
   "Live apps: docs / slides / sheets on AppRuntime Durable Objects",
 ] as const;
