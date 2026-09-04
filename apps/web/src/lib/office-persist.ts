@@ -7,18 +7,29 @@ import {
   OFFICE_MESSAGES_ROOT,
 } from "./office-messages";
 import { orpc, queryClient } from "./orpc";
+import { PLUGIN_CATALOG_KEY } from "./plugins";
 import { hydrateRoomPreviews, ROOM_MESSAGES_ROOT } from "./room-messages";
+import { sessionQueryOptions } from "./session-query";
 
 export const OFFICE_CACHE_KEY = "groxbot-query-cache";
 export const OFFICE_CACHE_BUSTER = "6";
 
+export function workspaceListQueryOptions() {
+  return {
+    ...orpc.workspaces.list.queryOptions(),
+    gcTime: OFFICE_MESSAGES_GC_TIME,
+  };
+}
+
 const CATALOG_KEYS = new Set([
   JSON.stringify(orpc.bots.list.queryOptions().queryKey),
   JSON.stringify(orpc.rooms.list.queryOptions().queryKey),
+  JSON.stringify(orpc.workspaces.list.queryOptions().queryKey),
   JSON.stringify(orpc.apps.list.queryOptions().queryKey),
   JSON.stringify(orpc.plugins.list.queryOptions().queryKey),
   JSON.stringify(orpc.mcp.list.queryOptions().queryKey),
   JSON.stringify(orpc.knowledge.list.queryOptions().queryKey),
+  JSON.stringify(PLUGIN_CATALOG_KEY),
 ]);
 
 const COMPUTER_LIST_KEY_PREFIX = queryKeyWithoutBot(
@@ -92,6 +103,17 @@ export async function clearPersistedOfficeCache(): Promise<void> {
 export function officeCacheEnabled(): boolean {
   return persister !== null;
 }
+
+/** Cookie session is not in IDB — start it while restore runs so boot is one wait. */
+function warmSessionQueries(): void {
+  if (typeof document === "undefined") return;
+  void queryClient.ensureQueryData(sessionQueryOptions).then((session) => {
+    if (!session) return;
+    void queryClient.ensureQueryData(orpc.me.queryOptions());
+  });
+}
+
+warmSessionQueries();
 
 if (persistOptions) {
   const [, restored] = persistQueryClient(persistOptions);

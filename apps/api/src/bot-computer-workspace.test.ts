@@ -21,7 +21,12 @@ describe("Computer Worker shell wiring", () => {
     expect(home).toMatch(/isPersonRoom/);
     expect(room).not.toMatch(/parseRoomKind/);
     expect(room).not.toMatch(/storage\.put\("kind"/);
-    expect(room).toMatch(/enqueueOnActor\(this\.env\.ROOM_ACTOR, homeRoomId/);
+    expect(room).toMatch(/runGuestTurn/);
+    expect(room).toMatch(/personDoorContext/);
+    expect(room).not.toMatch(/enqueueOnActor\(this\.env\.ROOM_ACTOR, homeRoomId/);
+    expect(home).toMatch(/\/door\/context/);
+    expect(home).toMatch(/handleDoorTool/);
+    expect(home).not.toMatch(/runRoomTurn/);
   });
 
   it("constructs Computer with WorkerShellBackend, not Think bash", () => {
@@ -39,8 +44,21 @@ describe("Computer Worker shell wiring", () => {
     expect(actor).toMatch(/__getWorkspaceStub/);
     expect(actor).not.toMatch(/@cloudflare\/shell/);
     expect(actor).not.toMatch(/from "@cloudflare\/think"/);
-    expect(actor).toMatch(/createOfficeExecuteTool\(/);
+    expect(actor).toMatch(/createPageAgentTools\(/);
+    expect(actor).toMatch(/createSkillTool\(/);
+    expect(actor).toMatch(/applyOfficeSkillsToSystem/);
+    expect(actor).toMatch(/loadOfficeSkillCatalog/);
+    expect(actor).not.toMatch(/hasActivateSkill/);
+    expect(actor).not.toMatch(/activate_skill/);
+    expect(readSrc("bot-skill.ts")).toMatch(/SKILL_TOOL_NAME/);
+    expect(actor).toMatch(/officeAgentTool/);
+    expect(actor).not.toMatch(/from "ai"/);
+    expect(actor).not.toMatch(/officeToolSet/);
     expect(actor).not.toMatch(/workspaceBash/);
+    expect(actor).toMatch(/sqliteSessionStore|DurableSessionStorage/);
+    expect(actor).toMatch(/ensureComputerHome/);
+    expect(actor).toMatch(/jsonClone/);
+    expect(actor).not.toMatch(/writeOfficeLog\(/);
   });
 
   it("builds execute from Code Mode, not Think or @cloudflare/shell", () => {
@@ -48,6 +66,10 @@ describe("Computer Worker shell wiring", () => {
     const markdown = readSrc("bot-markdown.ts");
     expect(execute).toMatch(/createCodemodeRuntime/);
     expect(execute).toMatch(/toolSetConnector/);
+    expect(execute).toMatch(/from "ai"/);
+    expect(markdown).not.toMatch(/from "ai"/);
+    expect(readSrc("bot-present.ts")).not.toMatch(/from "ai"/);
+    expect(readSrc("bot-skill.ts")).not.toMatch(/from "ai"/);
     expect(execute).not.toMatch(/stateConnector/);
     expect(execute).not.toMatch(/createWorkspaceStateBackend/);
     expect(execute).not.toMatch(/@cloudflare\/shell/);
@@ -60,6 +82,7 @@ describe("Computer Worker shell wiring", () => {
     expect(readSrc("worker.ts")).toMatch(
       /export \{ WorkspaceServiceProxy \} from "@cloudflare\/computer"/,
     );
+    expect(readSrc("bot-office-tools.ts")).toMatch(/resolveAiSdkToolResult/);
   });
 
   it("binds ROOM_ACTOR to the provisioned BotActor class", () => {

@@ -30,10 +30,10 @@ export function CreateWorkspaceDialog(props: {
           props.onCreate(next);
         }}
       >
-        <h2 className="m-0 text-lg font-semibold tracking-tight">
+        <h2 className="m-0 text-[15px] font-semibold tracking-tight">
           Create workspace
         </h2>
-        <Field label="Workspace name">
+        <Field label="Workspace name" className="mb-0">
           <Input
             autoFocus
             value={name}
@@ -49,10 +49,19 @@ export function CreateWorkspaceDialog(props: {
           </p>
         ) : null}
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" type="button" onClick={props.onClose}>
+          <Button
+            className="px-3 py-1.5 text-[13px]"
+            variant="ghost"
+            type="button"
+            onClick={props.onClose}
+          >
             Cancel
           </Button>
-          <Button type="submit" disabled={!ready}>
+          <Button
+            className="px-3 py-1.5 text-[13px]"
+            type="submit"
+            disabled={!ready}
+          >
             {props.busy ? "Creating…" : "Create"}
           </Button>
         </div>

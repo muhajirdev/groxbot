@@ -1,10 +1,13 @@
-import { useAISDKRuntime } from "@assistant-ui/ai-sdk";
-import { AssistantRuntimeProvider } from "@assistant-ui/react";
+import { AssistantRuntimeProvider, useExternalStoreRuntime } from "@assistant-ui/react";
 import {
   officeUserFromActor,
   withOfficeUserMetadata,
 } from "@groxbot/contracts";
-import type { UIMessage } from "ai";
+import {
+  lastProjectedPreview,
+  type PiBoundMessage,
+  projectPiBoundMessages,
+} from "@groxbot/core/browser";
 import {
   type MutableRefObject,
   memo,
@@ -16,27 +19,23 @@ import {
   useState,
 } from "react";
 import { Thread } from "@/components/assistant-ui/elements/thread.aui";
-import { lastOfficePreview } from "../lib/chat-messages";
 import { patchBot } from "../lib/collections";
 import { createWorkspaceAttachmentAdapter } from "../lib/computer-attachment";
 import { composerBannerError } from "../lib/errors";
 import { FIRST_TASK } from "../lib/jobs";
 import { peekOfficeMessages, setOfficeMessages } from "../lib/office-messages";
 import { orpc, queryClient } from "../lib/orpc";
-import {
-  seedOutgoingUserMessage,
-  textFromOutgoingPayload,
-} from "../lib/outgoing-user-message";
 import { client } from "../lib/rpc";
 import { OFFICE_WORKING, patchThreadMeta } from "../lib/thread-cache";
 import { useOfficeChat } from "../lib/use-office-chat";
+import { projectedToThreadMessage } from "../lib/use-pi-thread";
 import { cn } from "../lib/utils";
 import { Button } from "../ui";
 import { PresentToolUI } from "./PresentToolUI";
 
-function rememberPreview(botId: string, roomId: string, messages: UIMessage[]) {
+function rememberPreview(botId: string, roomId: string, messages: PiBoundMessage[]) {
   setOfficeMessages(roomId, messages);
-  const preview = lastOfficePreview(messages);
+  const preview = lastProjectedPreview(projectPiBoundMessages(messages));
   if (!preview) return;
   patchBot(botId, { lastPreview: preview });
 }
@@ -232,11 +231,11 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
   });
   const {
     messages,
+    projected,
     status,
     stop,
     error,
-    sendMessage,
-    setMessages,
+    onNew,
     isStreaming,
     connectionError,
   } = chat;
@@ -249,7 +248,7 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
   const inFlight = busy || pending;
 
   const send = useCallback(
-    async (...args: Parameters<typeof sendMessage>) => {
+    async (message: Parameters<typeof onNew>[0]) => {
       if (archivedRef.current) {
         return Promise.reject(new Error("Archived"));
       }
@@ -260,14 +259,27 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
         );
         return Promise.reject(new Error("Model required"));
       }
-      const [payload] = args;
-      const labeled = withOfficeUserMetadata(
-        payload,
+      const stamped = withOfficeUserMetadata(
+        { role: "user", metadata: message.metadata },
         senderRef.current,
-      ) as typeof payload;
-      const preview = textFromOutgoingPayload(labeled);
-      if (preview) {
-        patchBot(botIdRef.current, { lastPreview: preview.slice(0, 140) });
+      ) as { metadata?: unknown };
+      const preview =
+        typeof message.content === "string"
+          ? message.content
+          : Array.isArray(message.content)
+            ? message.content
+                .flatMap((part) =>
+                  part &&
+                  typeof part === "object" &&
+                  part.type === "text" &&
+                  typeof part.text === "string"
+                    ? [part.text]
+                    : [],
+                )
+                .join(" ")
+            : "";
+      if (preview.trim()) {
+        patchBot(botIdRef.current, { lastPreview: preview.trim().slice(0, 140) });
       }
 
       const abort = new AbortController();
@@ -275,44 +287,18 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
       setPending(true);
       patchThreadMeta(botIdRef.current, { working: OFFICE_WORKING });
 
-      const seededId = crypto.randomUUID();
-      const seeded = seedOutgoingUserMessage(labeled, seededId);
-      if (seeded) {
-        setMessages((current) =>
-          current.some((message) => message.id === seededId)
-            ? current
-            : [...current, seeded],
-        );
-      }
-
-      let handedOff = false;
       try {
         if (archivedRef.current) {
           throw new Error("Archived");
         }
-        handedOff = true;
         setPending(false);
-        return await sendMessage(
-          seeded
-            ? ({
-                ...labeled,
-                messageId: seededId,
-              } as typeof payload)
-            : labeled,
-        );
-      } catch (caught) {
-        if (!handedOff && seeded) {
-          setMessages((current) =>
-            current.filter((message) => message.id !== seededId),
-          );
-        }
-        throw caught;
+        return await onNew(message, stamped.metadata);
       } finally {
         if (abortSendRef.current === abort) abortSendRef.current = null;
         setPending(false);
       }
     },
-    [sendMessage, setMessages],
+    [onNew],
   );
 
   const halt = useCallback(() => {
@@ -320,10 +306,6 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
     return stop();
   }, [stop]);
 
-  const helpers = useMemo(
-    () => ({ ...chat, sendMessage: send, stop: halt }),
-    [chat, send, halt],
-  );
   const attachments = useMemo(
     () =>
       createWorkspaceAttachmentAdapter({
@@ -339,10 +321,14 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
       }),
     [props.botId],
   );
-  const runtime = useAISDKRuntime(
-    helpers as Parameters<typeof useAISDKRuntime>[0],
-    { adapters: { attachments } },
-  );
+  const runtime = useExternalStoreRuntime({
+    messages: projected,
+    convertMessage: projectedToThreadMessage,
+    isRunning: inFlight,
+    onNew: send,
+    onCancel: halt,
+    adapters: { attachments },
+  });
 
   useEffect(() => {
     props.stopHolder.current = halt;

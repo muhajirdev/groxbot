@@ -12,15 +12,14 @@
     "cf-typegen": "wrangler types",
     "check": "tsc --noEmit -p tsconfig.json"
   },
-  "dependencies": {
-    "@ai-sdk/react": "^4.0.88",
-    "@assistant-ui/ai-sdk": "^0.0.3",
+    "dependencies": {
     "@assistant-ui/react": "^0.15.17",
     "@assistant-ui/react-generative-ui": "^0.0.16",
     "@assistant-ui/react-markdown": "^0.14.13",
     "@base-ui/react": "^1.7.0",
     "@cloudflare/ai-chat": "^0.11.0",
     "@groxbot/contracts": "workspace:*",
+    "@groxbot/core": "workspace:*",
     "@groxbot/mascot": "workspace:*",
     "@groxbot/rpc": "workspace:*",
     "@orpc/tanstack-query": "^1.10.0",
@@ -33,7 +32,6 @@
     "@tanstack/react-query": "^5.102.8",
     "@tanstack/react-router": "^1.170.29",
     "agents": "^0.21.0",
-    "ai": "^7.0.85",
     "better-auth": "^1.3.8",
     "capnweb": "^0.12.0",
     "class-variance-authority": "^0.7.1",

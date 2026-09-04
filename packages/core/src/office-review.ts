@@ -120,7 +120,7 @@ export function shouldEnqueueOfficeReview(input: {
 export function officeReviewUserText(): string {
   return [
     "Office review.",
-    "If this stretch taught a reusable how-to, knowledge.search then knowledge.read, then knowledge.write — patch an existing playbook first, class-level path like skills/weekly-update/SKILL.md.",
+    "If this stretch taught a reusable how-to, knowledge.search then knowledge.read, then skill_manage patch or create — patch an existing skill first (skills/<name>/SKILL.md).",
     "If you filed or updated a file, mention that path in one short line. No recap.",
     `If nothing belongs in the office, reply with exactly ${OFFICE_REVIEW_SKIP}.`,
   ].join(" ");

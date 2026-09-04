@@ -53,6 +53,10 @@ export type SkillContent = SkillDescriptor & {
   body: string;
   rawContent?: string;
   resources?: SkillResourceDescriptor[];
+  /** Office-root or computer-root path to SKILL.md. */
+  path?: string;
+  /** Parent directory of SKILL.md. */
+  directory?: string;
 };
 
 export type SkillResource = SkillResourceDescriptor & { content: string };
@@ -183,6 +187,8 @@ export function workspaceSkillSource(
           body: parsed.body,
           rawContent: raw,
           resources: resources.map((resource) => ({ ...resource })),
+          path: skillPath,
+          directory: `${SKILLS_ROOT}/${directory}`,
         },
         resources,
       });

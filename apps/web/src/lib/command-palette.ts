@@ -14,12 +14,31 @@ export type PaletteBot = Pick<
 
 export type PaletteApp = Pick<WorkspaceApp, "id" | "title" | "templateId">;
 
+export type PaletteRoom = {
+  id: string;
+  name: string;
+  lastPreview: string;
+  memberNames: string;
+};
+
 export const PALETTE_ACTIONS = [
   {
     id: "hire",
     label: "New bot",
     shortcut: "Mod+N",
     keywords: ["new", "hire", "create", "bot", "teammate"],
+  },
+  {
+    id: "room",
+    label: "New room",
+    shortcut: "",
+    keywords: ["new", "room", "group", "create", "table"],
+  },
+  {
+    id: "section",
+    label: "New section",
+    shortcut: "",
+    keywords: ["new", "section", "group", "folder", "create"],
   },
   {
     id: "settings",
@@ -43,7 +62,13 @@ export const PALETTE_ACTIONS = [
     id: "knowledge",
     label: "Knowledge",
     shortcut: "",
-    keywords: ["knowledge", "skills", "notes", "library", "office"],
+    keywords: ["knowledge", "notes", "library", "office"],
+  },
+  {
+    id: "skills",
+    label: "Skills",
+    shortcut: "",
+    keywords: ["skills", "playbook", "skill"],
   },
   {
     id: "workspace",
@@ -58,6 +83,7 @@ export type PaletteAction = (typeof PALETTE_ACTIONS)[number];
 
 export type PaletteItem =
   | { kind: "bot"; key: string; bot: PaletteBot }
+  | { kind: "room"; key: string; room: PaletteRoom }
   | { kind: "app"; key: string; app: PaletteApp }
   | { kind: "action"; key: string; action: PaletteAction };
 
@@ -91,6 +117,14 @@ function appScore(app: PaletteApp, needle: string): number {
   );
 }
 
+function roomScore(room: PaletteRoom, needle: string): number {
+  return Math.max(
+    matchScore(room.name, needle),
+    matchScore(room.lastPreview, needle),
+    matchScore(room.memberNames, needle) * 0.5,
+  );
+}
+
 function actionScore(action: PaletteAction, needle: string): number {
   return Math.max(
     matchScore(action.label, needle),
@@ -103,11 +137,12 @@ function byRank(a: Ranked, b: Ranked): number {
   return a.order - b.order;
 }
 
-/** Empty query lists live teammates, then apps, then commands. A query ranks matches. */
+/** Empty query lists live teammates, then rooms, apps, then commands. A query ranks matches. */
 export function rankPaletteItems(
   query: string,
   bots: readonly PaletteBot[],
   apps: readonly PaletteApp[],
+  rooms: readonly PaletteRoom[] = [],
 ): PaletteItem[] {
   const needle = query.trim();
   const ranked: Ranked[] = [];
@@ -121,6 +156,18 @@ export function rankPaletteItems(
       kind: "bot",
       key: `bot:${bot.id}`,
       bot,
+      score,
+      order: order++,
+    });
+  }
+
+  for (const room of rooms) {
+    const score = roomScore(room, needle);
+    if (score <= 0) continue;
+    ranked.push({
+      kind: "room",
+      key: `room:${room.id}`,
+      room,
       score,
       order: order++,
     });

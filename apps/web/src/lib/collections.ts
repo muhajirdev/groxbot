@@ -3,6 +3,7 @@ import type {
   McpConnection,
   PluginConnection,
   Room,
+  SidebarSection,
   WorkspaceApp,
 } from "@groxbot/contracts";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
@@ -68,6 +69,24 @@ export const roomsCollection = createCollection(
 
 export function peekRooms(): Room[] {
   return [...roomsCollection.values()];
+}
+
+export const sectionsCollection = createCollection(
+  queryCollectionOptions<SidebarSection>({
+    id: "sidebar-sections",
+    queryClient,
+    queryKey: orpc.sections.list.queryOptions().queryKey,
+    queryFn: () => client.sections.list(),
+    getKey: (section) => section.id,
+    staleTime: 30_000,
+    gcTime: OFFICE_MESSAGES_GC_TIME,
+    retry: false,
+    refetchOnWindowFocus: false,
+  }),
+);
+
+export function peekSections(): SidebarSection[] {
+  return [...sectionsCollection.values()];
 }
 
 export const appsCollection = createCollection(
@@ -142,12 +161,46 @@ export function removeBot(id: string): void {
   }
 }
 
+export function removeRoom(id: string): void {
+  if (!roomsCollection.has(id)) return;
+  try {
+    roomsCollection.utils.writeDelete([id]);
+  } catch {
+    // Query sync never started; there is nothing durable to drop.
+  }
+}
+
 export function patchBot(id: string, patch: Partial<Omit<Bot, "id">>): void {
   if (!botsCollection.has(id)) return;
   try {
     botsCollection.utils.writeUpdate({ id, ...patch });
   } catch {
     // Row is not in the synced store yet (preload in flight).
+  }
+}
+
+export function upsertSection(section: SidebarSection): void {
+  sectionsCollection.utils.writeUpsert(section);
+}
+
+export function patchSection(
+  id: string,
+  patch: Partial<Omit<SidebarSection, "id">>,
+): void {
+  if (!sectionsCollection.has(id)) return;
+  try {
+    sectionsCollection.utils.writeUpdate({ id, ...patch });
+  } catch {
+    // Row is not in the synced store yet (preload in flight).
+  }
+}
+
+export function removeSection(id: string): void {
+  if (!sectionsCollection.has(id)) return;
+  try {
+    sectionsCollection.utils.writeDelete([id]);
+  } catch {
+    // Query sync never started; there is nothing durable to drop.
   }
 }
 
@@ -160,6 +213,7 @@ export function clearThreadStore(): void {
   if (metaKeys.length > 0) threadMetaCollection.delete(metaKeys);
   dropSyncedKeys(botsCollection);
   dropSyncedKeys(roomsCollection);
+  dropSyncedKeys(sectionsCollection);
   dropSyncedKeys(appsCollection);
   dropSyncedKeys(pluginsCollection);
   dropSyncedKeys(mcpCollection);

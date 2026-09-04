@@ -38,7 +38,7 @@ export function Select(props: {
       <BaseSelect.Trigger
         aria-label={props["aria-label"]}
         className={cn(
-          "flex w-full items-center justify-between gap-2 rounded-xl border border-line bg-card px-3 py-2.5 text-left text-ink outline-none",
+          "flex w-full items-center justify-between gap-2 rounded-lg border border-line bg-card px-3 py-2 text-left text-[14px] text-ink outline-none",
           props.className,
         )}
       >
@@ -53,7 +53,7 @@ export function Select(props: {
           sideOffset={4}
           alignItemWithTrigger={false}
         >
-          <BaseSelect.Popup className="max-h-[min(320px,50vh)] w-[var(--anchor-width)] overflow-auto rounded-xl border border-line bg-card py-1 shadow-modal outline-none">
+          <BaseSelect.Popup className="popover-popup max-h-[min(320px,50vh)] w-[var(--anchor-width)] overflow-auto rounded-xl border border-line bg-card py-1 outline-none">
             {props.groups.map((group) => (
               <BaseSelect.Group key={group.label}>
                 <BaseSelect.GroupLabel className="px-3 py-1.5 text-xs text-muted">

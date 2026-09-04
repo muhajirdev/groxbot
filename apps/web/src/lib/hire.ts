@@ -50,6 +50,7 @@ export function draftCreatedBot(input: {
     lastAt: now,
     archivedAt: null,
     pinnedAt: null,
+    sectionId: null,
     createdAt: now,
     updatedAt: now,
   };

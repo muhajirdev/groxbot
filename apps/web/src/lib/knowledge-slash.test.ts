@@ -15,10 +15,14 @@ describe("matchOfficeSkills", () => {
     expect(matchOfficeSkills("/", skills)).toEqual(skills);
   });
 
-  it("filters by name", () => {
-    expect(matchOfficeSkills("/week", skills).map((row) => row.name)).toEqual([
-      "weekly-update",
-    ]);
+  it("lists all office skills for /skill:", () => {
+    expect(matchOfficeSkills("/skill:", skills)).toEqual(skills);
+  });
+
+  it("filters by name after /skill:", () => {
+    expect(
+      matchOfficeSkills("/skill:week", skills).map((row) => row.name),
+    ).toEqual(["weekly-update"]);
   });
 
   it("hides once the composer has more than a slash token", () => {

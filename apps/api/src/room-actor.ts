@@ -1,25 +1,60 @@
 /** Cloudflare-only. Excluded from `tsc`. One RoomActor class: that person’s own room, or a group. */
+import type { AgentTool } from "@earendil-works/pi-agent-core";
 import {
+  gatewayConfigured,
+  gatewayRequestModel,
+  loadGatewayConfig,
+  piCompletionsModel,
+  resolvePiAiModel,
+  resolvePiStreamFn,
+  runPiTurn,
+} from "@groxbot/adapters/edge";
+import {
+  HOSTED_STARTER_MODEL,
+  labelForModel,
   officeUserFromHeaders,
   stampIncomingOfficeUser,
 } from "@groxbot/contracts";
 import {
+  applyPiOfficeEvent,
+  composePersonDoorSoul,
+  emptyPiOfficeView,
+  encryptionSecret,
+  jsonClone,
   mentionFromText,
   OFFICE_GENERATION_STORAGE,
   OFFICE_WORKSPACE_HEADER,
-  type OfficeChatMessage,
-  officeChatShouldRun,
-  officeChatText,
-  parseOfficeChatMessage,
-  parseOfficeChatMessages,
+  parsePiClientEvent,
+  parsePiLogMessages,
+  piGroupLoopMessages,
+  type PiBoundMessage,
+  type PiClientEvent,
+  type PiOfficeSnapshot,
+  type PiSendMessageInput,
+  piLogShouldRun,
+  piUserText,
+  piViewMessages,
   RoomError,
-  resolveRoomTarget,
-  roomWakeJob,
+  resolveRoomTargets,
+  resolveRunModel,
+  roomTurnSystem,
   sanitizeComputerPath,
+  teammatePrompt,
+  withRoomSpeaker,
 } from "@groxbot/core";
+import { bots } from "@groxbot/db";
+import { createNeonHttpDb } from "@groxbot/db/neon";
+import { eq } from "drizzle-orm";
+import { z } from "zod";
 import { RoomHome, type WorkerEnv } from "./bot-actor.js";
-import { enqueueOnActor } from "./bot-enqueue.js";
-import { type RoomChatSubscriber, roomRpcResponse } from "./room-rpc.js";
+import { officeAgentTool } from "./bot-office-tools.js";
+import { agentRuntimeSource, productEnv } from "./env.js";
+import {
+  personDoorContext,
+  personDoorTool,
+  personDoorTools,
+} from "./person-door.js";
+import { roomFileOp, type RoomChatSubscriber, roomRpcResponse } from "./room-rpc.js";
 
 type RoomMemberRow = { id: string; name: string; homeRoomId?: string };
 
@@ -28,6 +63,8 @@ export class RoomActor extends RoomHome {
   private status: "ready" | "submitted" | "streaming" | "error" = "ready";
   private error = "";
   private floorBotId = "";
+  private roomSeq = 0;
+  private guestTurn: AbortController | null = null;
 
   constructor(ctx: DurableObjectState, env: WorkerEnv) {
     super(ctx, env);
@@ -113,40 +150,79 @@ export class RoomActor extends RoomHome {
     const generation =
       (await this.ctx.storage.get<number>(OFFICE_GENERATION_STORAGE)) ?? 0;
     await live.streamGeneration(generation);
-    for (const row of this.readLog()) {
-      await live.message(row);
+    const snapshot = jsonClone(await this.snapshotRoom());
+    if (snapshot) {
+      await live.event({
+        type: "snapshot",
+        snapshot,
+        threadId: this.name,
+        seq: this.roomSeq,
+      });
     }
     if (this.error) await live.error(this.error);
     await live.status(this.status);
   }
 
-  async runRoom(
-    messages: OfficeChatMessage[],
+  async snapshotRoom(): Promise<PiOfficeSnapshot> {
+    const status =
+      this.status === "error"
+        ? "failed"
+        : this.status === "ready"
+          ? "idle"
+          : "running";
+    const snapshot: PiOfficeSnapshot = {
+      metadata: { id: this.name, status },
+      messages: this.readLog(),
+    };
+    if (this.error) snapshot.lastError = this.error;
+    return snapshot;
+  }
+
+  async sendRoom(
+    input: PiSendMessageInput,
     user: ReturnType<typeof officeUserFromHeaders>,
-    opts: { targetBotId?: string },
   ): Promise<void> {
-    const stamped = messages.map((row) => {
-      if (row.role !== "user") return row;
-      const existing = this.readLog().find((item) => item.id === row.id);
-      return (
-        parseOfficeChatMessage(stampIncomingOfficeUser(row, user, existing)) ??
-        row
-      );
+    const id = input.id?.trim() || crypto.randomUUID();
+    const log = this.readLog();
+    const existing = log.find((row) => row.id === id);
+    const stamped = stampIncomingOfficeUser(
+      { role: "user", metadata: input.metadata },
+      user,
+      existing,
+    );
+    const row: PiBoundMessage = {
+      id,
+      metadata: stamped.metadata,
+      message: {
+        role: "user",
+        content: input.content,
+        timestamp: Date.now(),
+      },
+    };
+    const next = existing
+      ? log.map((item) => (item.id === id ? row : item))
+      : [...log, row];
+    this.writeLog(next);
+    await this.broadcastEvent({
+      type: "message_end",
+      id,
+      message: row.message,
+      metadata: row.metadata,
     });
-    this.writeLog(stamped);
-    await this.broadcastLog(stamped);
-    if (!officeChatShouldRun(stamped)) {
+    if (!piLogShouldRun(next)) {
       this.status = "ready";
       await this.broadcastStatus();
       return;
     }
     const members = await this.members();
-    const last = stamped.at(-1);
-    const mention = last ? mentionFromText(officeChatText(last)) : null;
-    let target: RoomMemberRow;
+    const mention = mentionFromText(
+      piUserText(row.message),
+      members.map((seat) => seat.name),
+    );
+    let targets: RoomMemberRow[];
     try {
-      target = resolveRoomTarget(members, {
-        targetBotId: opts.targetBotId,
+      targets = resolveRoomTargets(members, {
+        targetBotId: input.targetBotId,
         mention,
       });
     } catch (error) {
@@ -159,48 +235,300 @@ export class RoomActor extends RoomHome {
     }
     this.error = "";
     this.status = "submitted";
-    this.floorBotId = target.id;
-    await this.ctx.storage.put("floorBotId", target.id);
+    this.floorBotId = targets[0]?.id ?? "";
+    if (this.floorBotId) await this.ctx.storage.put("floorBotId", this.floorBotId);
     await this.bumpGeneration();
     await this.broadcastStatus();
-    const roomId = (await this.ctx.storage.get<string>("roomId")) || "";
-    if (!roomId) {
-      this.status = "error";
-      this.error = "This room is not ready yet.";
-      await this.broadcastError();
-      await this.broadcastStatus();
-      return;
-    }
-    const homeRoomId = target.homeRoomId || target.id;
-    const job = roomWakeJob({
-      roomId,
-      roomName: (await this.ctx.storage.get<string>("name")) || "Room",
-      members,
-      messages: stamped,
-      targetBotId: target.id,
-      targetHomeRoomId: homeRoomId,
-    });
-    await enqueueOnActor(this.env.ROOM_ACTOR, homeRoomId, job);
+    const abort = new AbortController();
+    this.guestTurn?.abort();
+    this.guestTurn = abort;
+    this.ctx.waitUntil(
+      this.runGuestRound(targets, abort).catch((error) => {
+        console.error("room guest turn", this.name, error);
+      }),
+    );
   }
 
   async stopRoom(): Promise<void> {
-    const floor =
-      this.floorBotId ||
-      (await this.ctx.storage.get<string>("floorBotId")) ||
-      "";
+    this.guestTurn?.abort();
+    this.guestTurn = null;
     this.status = "ready";
     this.floorBotId = "";
     await this.ctx.storage.delete("floorBotId");
     await this.broadcastStatus();
-    if (!floor) return;
-    const seated = await this.members();
-    const homeRoomId =
-      seated.find((row) => row.id === floor)?.homeRoomId || floor;
-    await enqueueOnActor(this.env.ROOM_ACTOR, homeRoomId, {
-      botId: floor,
-      name: "run.abort",
-      payload: {},
+  }
+
+  private async runGuestRound(
+    targets: RoomMemberRow[],
+    abort: AbortController,
+  ): Promise<void> {
+    try {
+      for (let i = 0; i < targets.length; i++) {
+        const target = targets[i];
+        if (!target || abort.signal.aborted || this.guestTurn !== abort) return;
+        this.floorBotId = target.id;
+        await this.ctx.storage.put("floorBotId", target.id);
+        await this.broadcastStatus();
+        const halted = await this.runGuestTurn(
+          target,
+          this.readLog(),
+          abort,
+          i === targets.length - 1,
+          targets.length > 1,
+        );
+        if (halted) return;
+      }
+    } finally {
+      if (this.guestTurn === abort) this.guestTurn = null;
+    }
+  }
+
+  private async runGuestTurn(
+    target: RoomMemberRow,
+    messages: PiBoundMessage[],
+    abort: AbortController,
+    settle: boolean,
+    around: boolean,
+  ): Promise<boolean> {
+    const workspaceId = await this.workspaceId();
+    const ns = this.env.ROOM_ACTOR;
+    const homeRoomId = target.homeRoomId || target.id;
+    if (!ns || !workspaceId) {
+      this.status = "error";
+      this.error = "This room is not ready yet.";
+      await this.broadcastError();
+      await this.broadcastStatus();
+      return true;
+    }
+    const brain = await this.loadGuestBrain(target.id, workspaceId);
+    if (abort.signal.aborted) return true;
+    if (!brain.streamFn) {
+      this.status = "error";
+      this.error =
+        "Add a model key, or use Groxbot’s included gateway, to talk to teammates.";
+      await this.broadcastError();
+      await this.broadcastStatus();
+      return true;
+    }
+    const door = await personDoorContext(ns, homeRoomId, workspaceId);
+    const members = await this.members();
+    const roomName = (await this.ctx.storage.get<string>("name")) || "Room";
+    const system = await this.withOfficeSkills(
+      roomTurnSystem(
+        composePersonDoorSoul({
+          soulPrompt: brain.soulPrompt || door.soulPrompt,
+          overlay: door.overlay,
+          memory: door.memory,
+        }),
+        {
+          name: roomName,
+          selfName: target.name,
+          members,
+          around,
+        },
+      ),
+      messages.map((row) => row.message),
+    );
+    const tools: AgentTool[] = [
+      ...(await this.guestTools(homeRoomId, workspaceId)),
+      ...this.roomFileTools(this.name, workspaceId),
+    ];
+    const assistantId = crypto.randomUUID();
+    let firstAssistant = true;
+    this.status = "streaming";
+    await this.broadcastStatus();
+    try {
+      const result = await runPiTurn({
+        systemPrompt: system,
+        messages: piGroupLoopMessages(messages, target.id),
+        model: brain.model,
+        streamFn: brain.streamFn,
+        tools,
+        signal: abort.signal,
+        onEvent: async (event) => {
+          const draftId = firstAssistant ? assistantId : undefined;
+          if (
+            event.type === "message_end" &&
+            event.message.role === "assistant"
+          ) {
+            firstAssistant = false;
+          }
+          const cloned = jsonClone(event);
+          if (!cloned) return;
+          const parsed = parsePiClientEvent({
+            ...cloned,
+            threadId: this.name,
+            seq: this.roomSeq + 1,
+            ...(event.type === "message_update" ||
+            event.type === "message_end" ||
+            event.type === "message_start"
+              ? { metadata: withRoomSpeaker(cloned.metadata, target) }
+              : {}),
+            ...(draftId &&
+            (event.type === "message_update" ||
+              event.type === "message_end" ||
+              event.type === "message_start")
+              ? { id: draftId }
+              : {}),
+          });
+          if (!parsed) return;
+          this.applyTurnEvent(parsed);
+          await this.broadcastEvent(parsed);
+        },
+      });
+      if (this.guestTurn !== abort) return true;
+      if (result.stopReason === "aborted" || abort.signal.aborted) {
+        this.status = "ready";
+        this.floorBotId = "";
+        await this.ctx.storage.delete("floorBotId");
+        await this.broadcastStatus();
+        return true;
+      }
+      if (result.stopReason === "error") {
+        this.status = "error";
+        this.error = result.errorMessage || "The model run failed.";
+        await this.broadcastError();
+        await this.broadcastStatus();
+        return true;
+      }
+      if (!settle) return false;
+      this.status = "ready";
+      this.error = "";
+      this.floorBotId = "";
+      await this.ctx.storage.delete("floorBotId");
+      await this.broadcastStatus();
+      return false;
+    } catch (error) {
+      if (this.guestTurn !== abort || abort.signal.aborted) {
+        this.status = "ready";
+        this.floorBotId = "";
+        await this.ctx.storage.delete("floorBotId");
+        await this.broadcastStatus();
+        return true;
+      }
+      this.status = "error";
+      this.error =
+        error instanceof Error ? error.message : "The model run failed.";
+      await this.broadcastError();
+      await this.broadcastStatus();
+      return true;
+    }
+  }
+
+  private async loadGuestBrain(botId: string, workspaceId: string) {
+    const env = productEnv(this.env);
+    const source = agentRuntimeSource(env);
+    const { db } = createNeonHttpDb(env.databaseUrl);
+    const [bot] = await db
+      .select()
+      .from(bots)
+      .where(eq(bots.id, botId))
+      .limit(1);
+    if (!bot) {
+      return {
+        streamFn: null,
+        model: piCompletionsModel(HOSTED_STARTER_MODEL),
+        soulPrompt: "",
+      };
+    }
+    const overlay = await resolveRunModel(
+      db,
+      bot,
+      source,
+      encryptionSecret(source, env.production),
+    );
+    const turnModel = overlay.model || HOSTED_STARTER_MODEL;
+    const turnEnv = overlay.env;
+    const streamFn = resolvePiStreamFn(turnEnv, {
+      ai: this.env.AI,
+      gatewayId: turnEnv.CLOUDFLARE_AI_GATEWAY_ID,
+      metadata: {
+        workspaceId,
+        botId,
+      },
     });
+    const model = gatewayConfigured(turnEnv)
+      ? resolvePiAiModel(loadGatewayConfig(turnEnv), turnModel)
+      : piCompletionsModel(gatewayRequestModel(turnModel));
+    return {
+      streamFn,
+      model,
+      soulPrompt: teammatePrompt({
+        ...bot,
+        modelLabel: labelForModel(turnModel),
+      }),
+    };
+  }
+
+  private async guestTools(
+    homeRoomId: string,
+    workspaceId: string,
+  ): Promise<AgentTool[]> {
+    const ns = this.env.ROOM_ACTOR;
+    if (!ns) return [];
+    const specs = await personDoorTools(ns, homeRoomId, workspaceId);
+    return specs.map((spec) => ({
+      name: spec.name,
+      label: spec.name,
+      description: spec.description,
+      parameters: (spec.parameters && typeof spec.parameters === "object"
+        ? spec.parameters
+        : { type: "object" }) as AgentTool["parameters"],
+      execute: async (toolCallId, params) => {
+        const result = await personDoorTool(ns, homeRoomId, workspaceId, {
+          name: spec.name,
+          params,
+          toolCallId,
+        });
+        if (result && typeof result === "object" && "content" in result) {
+          return result as Awaited<ReturnType<AgentTool["execute"]>>;
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(result ?? {}) }],
+          details: result,
+        };
+      },
+    }));
+  }
+
+  private roomFileTools(roomId: string, workspaceId: string): AgentTool[] {
+    const ns = this.env.ROOM_ACTOR;
+    if (!ns) return [];
+    return [
+      officeAgentTool({
+        name: "room_list",
+        description:
+          "List papers in this room. Not your computer. Paths are room-root.",
+        parameters: z.object({ path: z.string().optional() }),
+        execute: async ({ path }) =>
+          roomFileOp(ns, roomId, workspaceId, "list", {
+            path: typeof path === "string" ? path : "",
+          }),
+      }),
+      officeAgentTool({
+        name: "room_read",
+        description: "Read a paper in this room.",
+        parameters: z.object({ path: z.string() }),
+        execute: async ({ path }) =>
+          roomFileOp(ns, roomId, workspaceId, "read", {
+            path: String(path ?? ""),
+          }),
+      }),
+      officeAgentTool({
+        name: "room_write",
+        description:
+          "Write a paper in this room. Shared with everyone seated here.",
+        parameters: z.object({
+          path: z.string(),
+          content: z.string(),
+        }),
+        execute: async ({ path, content }) =>
+          roomFileOp(ns, roomId, workspaceId, "write", {
+            path: String(path ?? ""),
+            content: String(content ?? ""),
+          }),
+      }),
+    ];
   }
 
   private async handleInit(request: Request): Promise<Response> {
@@ -264,13 +592,20 @@ export class RoomActor extends RoomHome {
     if (!(await this.requireWorkspace(request))) {
       return new Response("Forbidden", { status: 403 });
     }
-    const message = parseOfficeChatMessage(
-      ((await request.json().catch(() => ({}))) as { message?: unknown })
-        .message,
-    );
-    if (!message) return Response.json({ ok: true });
+    const body = (await request.json().catch(() => ({}))) as {
+      event?: unknown;
+    };
+    const event = parsePiClientEvent({
+      threadId: this.name,
+      seq: this.roomSeq + 1,
+      ...((body.event && typeof body.event === "object"
+        ? body.event
+        : {}) as Record<string, unknown>),
+    });
+    if (!event) return Response.json({ ok: true });
     this.status = "streaming";
-    await this.broadcast((sub) => sub.stream({ message }));
+    this.applyTurnEvent(event);
+    await this.broadcastEvent(event);
     await this.broadcastStatus();
     return Response.json({ ok: true });
   }
@@ -279,17 +614,19 @@ export class RoomActor extends RoomHome {
     if (!(await this.requireWorkspace(request))) {
       return new Response("Forbidden", { status: 403 });
     }
-    const message = parseOfficeChatMessage(
-      ((await request.json().catch(() => ({}))) as { message?: unknown })
-        .message,
-    );
-    if (message) {
-      const next = [
-        ...this.readLog().filter((row) => row.id !== message.id),
-        message,
-      ];
-      this.writeLog(next);
-      await this.broadcast((sub) => sub.message(message));
+    const body = (await request.json().catch(() => ({}))) as {
+      event?: unknown;
+    };
+    const event = parsePiClientEvent({
+      threadId: this.name,
+      seq: this.roomSeq + 1,
+      ...((body.event && typeof body.event === "object"
+        ? body.event
+        : { type: "agent_end" }) as Record<string, unknown>),
+    });
+    if (event) {
+      this.applyTurnEvent(event);
+      await this.broadcastEvent(event);
     }
     this.status = "ready";
     this.error = "";
@@ -370,7 +707,7 @@ export class RoomActor extends RoomHome {
     }
     if (!path) {
       return Response.json(
-        { error: "Pick a paper on this table." },
+        { error: "Pick a paper in this room." },
         { status: 400 },
       );
     }
@@ -405,7 +742,7 @@ export class RoomActor extends RoomHome {
     }
     if (!path) {
       return Response.json(
-        { error: "Name a paper on this table." },
+        { error: "Name a paper in this room." },
         { status: 400 },
       );
     }
@@ -433,7 +770,19 @@ export class RoomActor extends RoomHome {
     return rows;
   }
 
-  private readLog(): OfficeChatMessage[] {
+  private applyTurnEvent(event: PiClientEvent): void {
+    const view = applyPiOfficeEvent(
+      {
+        ...emptyPiOfficeView(this.name),
+        messages: this.readLog(),
+        seq: this.roomSeq,
+      },
+      event,
+    );
+    this.writeLog(piViewMessages(view));
+  }
+
+  private readLog(): PiBoundMessage[] {
     const cursor = this.ctx.storage.sql.exec(
       `SELECT payload FROM room_chat ORDER BY seq ASC`,
     );
@@ -446,16 +795,18 @@ export class RoomActor extends RoomHome {
         payloads.push(null);
       }
     }
-    return parseOfficeChatMessages(payloads);
+    return parsePiLogMessages(payloads);
   }
 
-  private writeLog(messages: OfficeChatMessage[]): void {
+  private writeLog(messages: PiBoundMessage[]): void {
     this.ctx.storage.sql.exec(`DELETE FROM room_chat`);
     for (const row of messages) {
+      const safe = jsonClone(row);
+      if (!safe) continue;
       this.ctx.storage.sql.exec(
         `INSERT INTO room_chat (id, payload) VALUES (?, ?)`,
         row.id,
-        JSON.stringify(row),
+        JSON.stringify(safe),
       );
     }
   }
@@ -481,10 +832,20 @@ export class RoomActor extends RoomHome {
     }
   }
 
-  private broadcastLog(messages: OfficeChatMessage[]): Promise<void> {
-    return this.broadcast(async (sub) => {
-      for (const row of messages) await sub.message(row);
+  private async broadcastEvent(
+    event: Omit<PiClientEvent, "threadId" | "seq"> & {
+      threadId?: string;
+      seq?: number;
+    },
+  ): Promise<void> {
+    this.roomSeq += 1;
+    const payload = jsonClone({
+      ...event,
+      threadId: event.threadId || this.name,
+      seq: event.seq ?? this.roomSeq,
     });
+    if (!payload) return;
+    await this.broadcast((sub) => sub.event(payload));
   }
 
   private broadcastStatus(): Promise<void> {

@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  catalogWithInstalledPlaceholders,
   groupVisiblePlugins,
   matchesMcpQuery,
   mcpHostLabel,
+  pluginGridColumns,
+  pluginListRows,
   visiblePluginCards,
 } from "./plugin-modal";
 import type { PluginCard } from "./plugins";
@@ -66,6 +69,49 @@ describe("groupVisiblePlugins", () => {
     expect([...groupVisiblePlugins("installed", []).keys()]).toEqual([]);
     const groups = groupVisiblePlugins("installed", [gmail, canvas]);
     expect([...groups.keys()]).toEqual(["Installed", "Skills"]);
+  });
+});
+
+describe("catalogWithInstalledPlaceholders", () => {
+  it("fills in connected toolkits before the GitHub catalog arrives", () => {
+    const next = catalogWithInstalledPlaceholders([], new Set(["gmail"]));
+    expect(next.map((item) => item.id)).toEqual(["gmail"]);
+    expect(next[0]?.name).toBe("Gmail");
+  });
+
+  it("does not duplicate a toolkit that is already in the catalog", () => {
+    const next = catalogWithInstalledPlaceholders(
+      [gmail],
+      new Set(["gmail"]),
+    );
+    expect(next).toEqual([gmail]);
+  });
+});
+
+describe("pluginListRows", () => {
+  it("chunks a category into grid rows", () => {
+    const groups = groupVisiblePlugins("search", [gmail, github, canvas]);
+    const rows = pluginListRows(groups, 2);
+    expect(rows.filter((row) => row.type === "label").map((row) => row.category)).toEqual([
+      "Email",
+      "Developer Tools",
+      "Canvas",
+    ]);
+    const cards = rows.flatMap((row) => (row.type === "row" ? row.items : []));
+    expect(cards.map((item) => item.id)).toEqual([
+      "gmail",
+      "github",
+      "docs-canvas",
+    ]);
+  });
+});
+
+describe("pluginGridColumns", () => {
+  it("fits as many 200px cards as the pane allows", () => {
+    expect(pluginGridColumns(0)).toBe(1);
+    expect(pluginGridColumns(200)).toBe(1);
+    expect(pluginGridColumns(410)).toBe(2);
+    expect(pluginGridColumns(630)).toBe(3);
   });
 });
 

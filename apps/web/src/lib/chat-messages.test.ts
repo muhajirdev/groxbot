@@ -1,5 +1,5 @@
 import { OFFICE_REVIEW_SOURCE } from "@groxbot/contracts";
-import type { UIMessage } from "ai";
+import type { PiProjectedMessage } from "@groxbot/core/browser";
 import { describe, expect, it } from "vitest";
 import {
   coalesceAssistantMessages,
@@ -11,19 +11,19 @@ import {
   usedTools,
 } from "./chat-messages";
 
-function assistant(id: string, ...texts: string[]): UIMessage {
+function assistant(id: string, ...texts: string[]): PiProjectedMessage {
   return {
     id,
     role: "assistant",
-    parts: texts.map((text) => ({ type: "text", text })),
+    content: texts.map((text) => ({ type: "text", text })),
   };
 }
 
-function user(id: string, text: string): UIMessage {
+function user(id: string, text: string): PiProjectedMessage {
   return {
     id,
     role: "user",
-    parts: [{ type: "text", text }],
+    content: [{ type: "text", text }],
   };
 }
 
@@ -78,26 +78,18 @@ describe("coalesceAssistantMessages", () => {
 });
 
 describe("usedTools", () => {
-  it("ignores step-start, which every turn gets from the AI SDK", () => {
-    const message: UIMessage = {
+  it("detects a projected tool-call part", () => {
+    const message: PiProjectedMessage = {
       id: "a",
       role: "assistant",
-      parts: [{ type: "step-start" }],
-    };
-    expect(usedTools(message)).toBe(false);
-  });
-
-  it("detects a real workspace tool part", () => {
-    const message: UIMessage = {
-      id: "a",
-      role: "assistant",
-      parts: [
+      content: [
         {
-          type: "tool-list",
+          type: "tool-call",
           toolCallId: "1",
-          state: "output-available",
-          input: {},
-          output: [],
+          toolName: "list",
+          args: {},
+          argsText: "{}",
+          result: [],
         },
       ],
     };
@@ -121,33 +113,9 @@ describe("lastOfficePreview", () => {
         {
           id: "u1",
           role: "user",
-          parts: [
+          content: [
             { type: "text", text: "can you read this pdf" },
             { type: "text", text: "On this computer: inbox/a.pdf" },
-            {
-              type: "file",
-              filename: "a.pdf",
-              mediaType: "application/pdf",
-              url: "inbox/a.pdf",
-            },
-          ],
-        },
-      ]),
-    ).toBe("can you read this pdf");
-  });
-
-  it("ignores the old saved-as sentence", () => {
-    expect(
-      lastOfficePreview([
-        {
-          id: "u1",
-          role: "user",
-          parts: [
-            { type: "text", text: "can you read this pdf" },
-            {
-              type: "text",
-              text: "Saved on this computer as inbox/agreement-cas-2026.pdf.",
-            },
           ],
         },
       ]),
@@ -160,13 +128,13 @@ describe("lastOfficePreview", () => {
         {
           id: "a1",
           role: "assistant",
-          parts: [
+          content: [
             {
-              type: "tool-present",
+              type: "tool-call",
               toolCallId: "1",
-              state: "output-available",
-              input: { $type: "Card", title: "Hiring shortlist" },
-              output: { ok: true },
+              toolName: "present",
+              args: { $type: "Card", title: "Hiring shortlist" },
+              argsText: "{}",
             },
           ],
         },
@@ -181,8 +149,8 @@ describe("lastOfficePreview", () => {
         {
           id: "u-review",
           role: "user",
-          parts: [{ type: "text", text: "Office review." }],
-          metadata: { source: OFFICE_REVIEW_SOURCE },
+          content: [{ type: "text", text: "Office review." }],
+          metadata: { custom: { source: OFFICE_REVIEW_SOURCE } },
         },
         assistant("a2", "Skip"),
       ]),
@@ -196,7 +164,7 @@ describe("isVisibleChatMessage", () => {
       isVisibleChatMessage({
         id: "u",
         role: "user",
-        parts: [{ type: "text", text: "Office review." }],
+        content: [{ type: "text", text: "Office review." }],
         metadata: { custom: { source: OFFICE_REVIEW_SOURCE } },
       }),
     ).toBe(false);

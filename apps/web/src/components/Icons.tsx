@@ -3,9 +3,12 @@ import {
   CaretDownIcon,
   CaretLeftIcon,
   CaretLineLeftIcon,
+  CaretUpDownIcon,
   CheckIcon as PhosphorCheck,
+  CopySimpleIcon,
   DotsThreeIcon,
   DownloadSimpleIcon,
+  UploadSimpleIcon,
   FileIcon as PhosphorFile,
   FileMdIcon,
   FunnelIcon,
@@ -16,12 +19,15 @@ import {
   MagnifyingGlassIcon,
   MicrophoneIcon,
   MonitorIcon as PhosphorMonitor,
+  LightningIcon as PhosphorLightning,
   PlugIcon as PhosphorPlug,
   PlusIcon as PhosphorPlus,
   BooksIcon as PhosphorBooks,
+  SquaresFourIcon as PhosphorSquaresFour,
   PushPinIcon,
   SignOutIcon as PhosphorSignOut,
   TrashSimpleIcon,
+  UsersThreeIcon,
   XIcon as PhosphorX,
 } from "@phosphor-icons/react";
 
@@ -41,6 +47,18 @@ export function PlugIcon(props: IconProps) {
 
 export function KnowledgeIcon(props: IconProps) {
   return <PhosphorBooks className={props.className} />;
+}
+
+export function SkillsIcon(props: IconProps) {
+  return <PhosphorLightning className={props.className} />;
+}
+
+export function LiveAppsIcon(props: IconProps) {
+  return <PhosphorSquaresFour className={props.className} />;
+}
+
+export function RoomIcon(props: IconProps) {
+  return <UsersThreeIcon className={props.className} />;
 }
 
 export function GraphIcon(props: IconProps) {
@@ -67,6 +85,10 @@ export function ChevronDownIcon(props: IconProps) {
   return <CaretDownIcon className={props.className} />;
 }
 
+export function CaretSwapIcon(props: IconProps) {
+  return <CaretUpDownIcon className={props.className} />;
+}
+
 export function CollapseIcon(props: IconProps) {
   return <CaretLineLeftIcon className={props.className} />;
 }
@@ -87,8 +109,16 @@ export function MoreIcon(props: IconProps) {
   return <DotsThreeIcon className={props.className} />;
 }
 
+export function CopyIcon(props: IconProps) {
+  return <CopySimpleIcon className={props.className} />;
+}
+
 export function DownloadIcon(props: IconProps) {
   return <DownloadSimpleIcon className={props.className} />;
+}
+
+export function UploadIcon(props: IconProps) {
+  return <UploadSimpleIcon className={props.className} />;
 }
 
 export function PinIcon(props: IconProps & { weight?: "regular" | "fill" }) {

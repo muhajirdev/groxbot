@@ -3,23 +3,33 @@ import {
   isOfficeReviewUserMessage,
   presentPreviewFromParts,
 } from "@groxbot/contracts";
-import type { UIMessage } from "ai";
+import type { PiProjectedMessage } from "@groxbot/core/browser";
+import {
+  coalesceProjectedAssistants,
+  isVisibleProjectedMessage,
+  lastProjectedPreview,
+  projectedText,
+  splitQueuedProjectedFollowUps,
+  usedProjectedTools,
+} from "@groxbot/core/browser";
 import { isComputerFileNote } from "./computer-attachment";
 
-type TextPart = { type: "text"; text: string };
-
-function isTextPart(part: UIMessage["parts"][number]): part is TextPart {
-  return part.type === "text" && "text" in part;
-}
-
-/** Prefer the longest text part when a stream replay left a prefix duplicate. */
-export function collapseTextParts(message: UIMessage): UIMessage {
-  const parts = message.parts;
+export function collapseTextParts(
+  message: PiProjectedMessage,
+): PiProjectedMessage {
+  const parts = message.content;
+  const textParts = parts.filter((part) => part.type === "text");
+  if (textParts.length <= 1) return message;
   const nextParts = parts.filter((part, index) => {
-    if (!isTextPart(part) || !part.text) return true;
+    if (part.type !== "text" || !part.text) return true;
     return !parts.some((candidate, candidateIndex) => {
-      if (candidateIndex === index || !isTextPart(candidate) || !candidate.text)
+      if (
+        candidateIndex === index ||
+        candidate.type !== "text" ||
+        !candidate.text
+      ) {
         return false;
+      }
       return (
         candidate.text.startsWith(part.text) &&
         (candidate.text.length > part.text.length || candidateIndex > index)
@@ -28,149 +38,86 @@ export function collapseTextParts(message: UIMessage): UIMessage {
   });
   return nextParts.length === parts.length
     ? message
-    : { ...message, parts: nextParts };
+    : { ...message, content: nextParts };
 }
 
-export function textFromMessage(message: UIMessage): string {
-  return collapseTextParts(message)
-    .parts.filter(isTextPart)
-    .map((part) => part.text)
-    .join("");
+export function textFromMessage(message: PiProjectedMessage): string {
+  return projectedText(collapseTextParts(message));
 }
 
-function visibleTextFromMessage(message: UIMessage): string {
+function visibleTextFromMessage(message: PiProjectedMessage): string {
   return collapseTextParts(message)
-    .parts.filter(isTextPart)
+    .content.filter(
+      (part): part is { type: "text"; text: string } => part.type === "text",
+    )
     .map((part) => part.text)
     .filter((text) => !isComputerFileNote(text))
     .join("");
 }
 
-function hasFilePart(message: UIMessage): boolean {
-  return message.parts.some(
-    (part) => part.type === "file" || part.type === "image",
-  );
+export function lastOfficePreview(messages: PiProjectedMessage[]): string {
+  return lastProjectedPreview(messages.map(collapseTextParts));
 }
 
-/** Latest visible line for the sidebar — not used to reorder the list. */
-export function lastOfficePreview(messages: UIMessage[]): string {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const row = messages[i];
-    if (!row) continue;
-    if (!isVisibleChatMessage(row)) continue;
-    const text = visibleTextFromMessage(row).replace(/\s+/g, " ").trim();
-    if (text) return text.slice(0, 140);
-    const presented = presentPreviewFromParts(row.parts);
-    if (presented) return presented;
-  }
-  return "";
-}
-
-export function usedTools(message: UIMessage): boolean {
-  return message.parts.some(
-    (part) => part.type.startsWith("tool-") || part.type === "dynamic-tool",
-  );
+export function usedTools(message: PiProjectedMessage): boolean {
+  return usedProjectedTools(message);
 }
 
 export function isVisibleChatMessage(message: {
+  id?: string;
   role?: string;
   metadata?: unknown;
-  parts?: UIMessage["parts"];
+  content?: PiProjectedMessage["content"];
+  parts?: ReadonlyArray<{ type: string; text?: string; toolName?: string }>;
 }): boolean {
   if (isOfficeReviewUserMessage(message)) return false;
-  if (!message.parts) return true;
-  const asMessage = message as UIMessage;
-  if (
-    message.role === "assistant" &&
-    isOfficeReviewSkip(textFromMessage(asMessage))
-  ) {
+  const parts = message.content ?? message.parts ?? [];
+  const text = parts
+    .filter(
+      (part): part is { type: "text"; text: string } =>
+        part.type === "text" && typeof part.text === "string",
+    )
+    .map((part) => part.text)
+    .join("");
+  if (message.role === "assistant" && isOfficeReviewSkip(text)) {
     return false;
   }
   if (message.role === "user") {
+    const visible = parts
+      .filter(
+        (part): part is { type: "text"; text: string } =>
+          part.type === "text" && typeof part.text === "string",
+      )
+      .map((part) => part.text)
+      .filter((value) => !isComputerFileNote(value))
+      .join("");
     return (
-      visibleTextFromMessage(asMessage).length > 0 || hasFilePart(asMessage)
+      visible.length > 0 ||
+      parts.some((part) => part.type === "image" || part.type === "file")
     );
   }
-  return textFromMessage(asMessage).length > 0 || usedTools(asMessage);
+  return (
+    text.length > 0 ||
+    parts.some(
+      (part) =>
+        part.type === "tool-call" ||
+        part.type === "dynamic-tool" ||
+        part.type.startsWith("tool-"),
+    )
+  );
 }
 
-/**
- * Cloudflare sometimes keeps a local streaming assistant and the server
- * snapshot as two ids. Drop the shorter when one text contains the other.
- */
-export function coalesceAssistantMessages(messages: UIMessage[]): UIMessage[] {
-  const out: UIMessage[] = [];
-  for (const raw of messages) {
-    const message = collapseTextParts(raw);
-    const prev = out.at(-1);
-    if (prev?.role === "assistant" && message.role === "assistant") {
-      const prevText = textFromMessage(prev);
-      const nextText = textFromMessage(message);
-      if (prevText && nextText && nextText.includes(prevText)) {
-        out[out.length - 1] = message;
-        continue;
-      }
-      if (prevText && nextText && prevText.includes(nextText)) {
-        continue;
-      }
-    }
-    out.push(message);
-  }
-  return out;
+export function coalesceAssistantMessages(
+  messages: PiProjectedMessage[],
+): PiProjectedMessage[] {
+  return coalesceProjectedAssistants(messages.map(collapseTextParts));
 }
 
-/**
- * While a turn is in flight, extra user submits sit in the office queue.
- * The live assistant may land before waiting follow-ups — pull them
- * out so the UI can show prompt → live reply → waiting follow-ups.
- */
 export function splitQueuedFollowUps(
-  messages: UIMessage[],
+  messages: PiProjectedMessage[],
   busy: boolean,
-): { thread: UIMessage[]; queued: UIMessage[] } {
-  if (!busy) return { thread: messages, queued: [] };
-
-  let lastAssistant = -1;
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i]?.role === "assistant") {
-      lastAssistant = i;
-      break;
-    }
-  }
-
-  if (lastAssistant < 0) {
-    let firstUser = -1;
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i]?.role !== "user") {
-        firstUser = i + 1;
-        break;
-      }
-      if (i === 0) firstUser = 0;
-    }
-    if (firstUser < 0 || firstUser >= messages.length - 1) {
-      return { thread: messages, queued: [] };
-    }
-    return {
-      thread: messages.slice(0, firstUser + 1),
-      queued: messages.slice(firstUser + 1),
-    };
-  }
-
-  const trailing = messages
-    .slice(lastAssistant + 1)
-    .filter((message) => message.role === "user");
-  const usersBefore: UIMessage[] = [];
-  let cursor = lastAssistant - 1;
-  while (cursor >= 0 && messages[cursor]?.role === "user") {
-    usersBefore.unshift(messages[cursor]!);
-    cursor -= 1;
-  }
-  const prompt = usersBefore[0];
-  const queued = [...usersBefore.slice(1), ...trailing];
-  const thread = [
-    ...messages.slice(0, cursor + 1),
-    ...(prompt ? [prompt] : []),
-    messages[lastAssistant]!,
-  ];
-  return { thread, queued };
+): { thread: PiProjectedMessage[]; queued: PiProjectedMessage[] } {
+  return splitQueuedProjectedFollowUps(messages, busy);
 }
+
+export { isVisibleProjectedMessage, presentPreviewFromParts };

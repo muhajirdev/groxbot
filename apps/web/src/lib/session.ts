@@ -1,32 +1,78 @@
-import type { Bot } from "@groxbot/contracts";
+import type { Bot, Room } from "@groxbot/contracts";
 import type { QueryClient } from "@tanstack/react-query";
 import { redirect } from "@tanstack/react-router";
-import { authClient } from "./auth";
 import {
   botsCollection,
   clearThreadStore,
   peekBots,
+  peekRooms,
+  roomsCollection,
   upsertBot,
 } from "./collections";
 import { OFFICE_TO, officeParams } from "./office-route";
 import { orpc, queryClient } from "./orpc";
+import { sessionQueryKey, sessionQueryOptions } from "./session-query";
 import { destinationAfterWorkspaceChange } from "./workspace-switcher";
 
-export const sessionQueryKey = ["auth", "session"] as const;
+export { sessionQueryKey };
+
+/** Footer chip: a real name, never the login email. */
+export function officeProfileLabel(me?: {
+  name?: string | null;
+  email?: string | null;
+} | null): string {
+  const name = me?.name?.trim() || "";
+  const email = me?.email?.trim() || "";
+  if (!name || name === email || name.includes("@")) return "You";
+  return name;
+}
 
 export function readSession(client: QueryClient) {
   return client.getQueryData(sessionQueryKey);
 }
 
 export async function loadSession(client: QueryClient) {
-  return client.ensureQueryData({
-    queryKey: sessionQueryKey,
-    queryFn: async () => {
-      const { data } = await authClient.getSession();
-      return data ?? null;
-    },
-    staleTime: 5 * 60_000,
-  });
+  return client.ensureQueryData(sessionQueryOptions);
+}
+
+/** Group rooms plus each person's home (and legacy `/bot/$botId` ids). */
+export function catalogHasRoom(
+  roomId: string,
+  rooms: { id: string }[],
+  bots: { id: string; homeRoomId?: string }[],
+): boolean {
+  return (
+    rooms.some((room) => room.id === roomId) ||
+    bots.some((bot) => bot.homeRoomId === roomId || bot.id === roomId)
+  );
+}
+
+/**
+ * Home rooms are not in `rooms.list`. Preload both catalogs, and only refetch
+ * when the id is in neither — otherwise every office reload waits on the net.
+ */
+export async function loadOfficeRoomCatalog(roomId: string): Promise<{
+  rooms: Room[];
+  bots: Bot[];
+}> {
+  let rooms = peekRooms();
+  let bots = peekBots();
+  if (catalogHasRoom(roomId, rooms, bots)) {
+    return { rooms, bots };
+  }
+
+  await Promise.all([roomsCollection.preload(), botsCollection.preload()]);
+  rooms = peekRooms();
+  bots = peekBots();
+  if (catalogHasRoom(roomId, rooms, bots)) {
+    return { rooms, bots };
+  }
+
+  await Promise.all([
+    roomsCollection.utils.refetch(),
+    botsCollection.utils.refetch(),
+  ]);
+  return { rooms: peekRooms(), bots: peekBots() };
 }
 
 export function isArchivedBot(bot: Bot): boolean {
@@ -49,8 +95,15 @@ export async function cacheCreatedBot(bot: Bot) {
 }
 
 export async function loadBotsForRoute(requiredBotId?: string): Promise<Bot[]> {
-  await botsCollection.preload();
   let bots = peekBots();
+  const haveRequired =
+    requiredBotId === undefined
+      ? bots.length > 0 || botsCollection.isReady()
+      : bots.some((bot) => bot.id === requiredBotId);
+  if (!haveRequired) {
+    await botsCollection.preload();
+    bots = peekBots();
+  }
   const missingRequired =
     requiredBotId !== undefined &&
     !bots.some((bot) => bot.id === requiredBotId);

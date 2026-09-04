@@ -50,6 +50,13 @@
       "when": 1788507085687,
       "tag": "0006_little_wild_pack",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788539400264,
+      "tag": "0007_sidebar_sections",
+      "breakpoints": true
     }
   ]
 }

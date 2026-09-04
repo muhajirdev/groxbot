@@ -1,44 +1,37 @@
-import { useAISDKRuntime } from "@assistant-ui/ai-sdk";
-import { AssistantRuntimeProvider } from "@assistant-ui/react";
+import { AssistantRuntimeProvider, useExternalStoreRuntime } from "@assistant-ui/react";
 import {
   officeUserFromActor,
   withOfficeUserMetadata,
 } from "@groxbot/contracts";
-import type { UIMessage } from "ai";
+import type { PiBoundMessage } from "@groxbot/core/browser";
 import {
   type MutableRefObject,
   memo,
   useCallback,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
 import { Thread } from "@/components/assistant-ui/elements/thread.aui";
-import { lastOfficePreview } from "../lib/chat-messages";
 import { composerBannerError } from "../lib/errors";
 import { FIRST_TASK } from "../lib/jobs";
-import {
-  seedOutgoingUserMessage,
-  textFromOutgoingPayload,
-} from "../lib/outgoing-user-message";
 import { peekRoomMessages, setRoomMessages } from "../lib/room-messages";
 import { patchThreadMeta, OFFICE_WORKING } from "../lib/thread-cache";
 import { useRoomChat } from "../lib/use-room-chat";
+import { projectedToThreadMessage } from "../lib/use-pi-thread";
 import { cn } from "../lib/utils";
 import { PresentToolUI } from "./PresentToolUI";
 
-function rememberPreview(roomId: string, messages: UIMessage[]) {
+function rememberPreview(roomId: string, messages: PiBoundMessage[]) {
   setRoomMessages(roomId, messages);
-  lastOfficePreview(messages);
 }
 
 function RoomWelcome() {
   return (
     <p className="px-1 text-left text-[13px] leading-normal text-muted-foreground">
-      This log is the table. @name someone, or talk to the teammate whose
-      computer is open.
+      This log is the table. Say something and everyone answers. @name
+      someone to talk to one person.
     </p>
   );
 }
@@ -193,11 +186,11 @@ const RoomThreadRuntime = memo(function RoomThreadRuntime(props: {
   });
   const {
     messages,
+    projected,
     status,
     stop,
     error,
-    sendMessage,
-    setMessages,
+    onNew,
     isStreaming,
     connectionError,
   } = chat;
@@ -210,7 +203,7 @@ const RoomThreadRuntime = memo(function RoomThreadRuntime(props: {
   const inFlight = busy || pending;
 
   const send = useCallback(
-    async (...args: Parameters<typeof sendMessage>) => {
+    async (message: Parameters<typeof onNew>[0]) => {
       if (needsModelRef.current) {
         onNeedsModelRef.current();
         onErrorRef.current(
@@ -218,53 +211,25 @@ const RoomThreadRuntime = memo(function RoomThreadRuntime(props: {
         );
         return Promise.reject(new Error("Model required"));
       }
-      const [payload] = args;
-      const labeled = withOfficeUserMetadata(
-        payload,
+      const stamped = withOfficeUserMetadata(
+        { role: "user", metadata: message.metadata },
         senderRef.current,
-      ) as typeof payload;
-      textFromOutgoingPayload(labeled);
+      ) as { metadata?: unknown };
 
       const abort = new AbortController();
       abortSendRef.current = abort;
       setPending(true);
       patchThreadMeta(roomIdRef.current, { working: OFFICE_WORKING });
 
-      const seededId = crypto.randomUUID();
-      const seeded = seedOutgoingUserMessage(labeled, seededId);
-      if (seeded) {
-        setMessages((current) =>
-          current.some((message) => message.id === seededId)
-            ? current
-            : [...current, seeded],
-        );
-      }
-
-      let handedOff = false;
       try {
-        handedOff = true;
         setPending(false);
-        return await sendMessage(
-          seeded
-            ? ({
-                ...labeled,
-                messageId: seededId,
-              } as typeof payload)
-            : labeled,
-        );
-      } catch (caught) {
-        if (!handedOff && seeded) {
-          setMessages((current) =>
-            current.filter((message) => message.id !== seededId),
-          );
-        }
-        throw caught;
+        return await onNew(message, stamped.metadata);
       } finally {
         if (abortSendRef.current === abort) abortSendRef.current = null;
         setPending(false);
       }
     },
-    [sendMessage, setMessages],
+    [onNew],
   );
 
   const halt = useCallback(() => {
@@ -272,13 +237,13 @@ const RoomThreadRuntime = memo(function RoomThreadRuntime(props: {
     return stop();
   }, [stop]);
 
-  const helpers = useMemo(
-    () => ({ ...chat, sendMessage: send, stop: halt }),
-    [chat, send, halt],
-  );
-  const runtime = useAISDKRuntime(
-    helpers as Parameters<typeof useAISDKRuntime>[0],
-  );
+  const runtime = useExternalStoreRuntime({
+    messages: projected,
+    convertMessage: projectedToThreadMessage,
+    isRunning: inFlight,
+    onNew: send,
+    onCancel: halt,
+  });
 
   useEffect(() => {
     props.stopHolder.current = halt;

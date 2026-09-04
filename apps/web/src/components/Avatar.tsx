@@ -1,6 +1,43 @@
 import type { AvatarShape } from "@groxbot/contracts";
 import { MascotMark, type MascotMood } from "@groxbot/mascot";
 
+export function MemberStack(props: {
+  faces: readonly {
+    botId: string;
+    name: string;
+    avatarColor: string;
+    avatarShape: AvatarShape;
+  }[];
+}) {
+  const faces = props.faces.slice(0, 3);
+  if (faces.length <= 1) {
+    const face = faces[0];
+    if (!face) return <span className="inline-grid size-7 shrink-0" />;
+    return (
+      <AvatarMark
+        name={face.name}
+        color={face.avatarColor}
+        shape={face.avatarShape}
+        size="sm"
+      />
+    );
+  }
+  return (
+    <span className="member-stack" data-n={faces.length}>
+      {faces.map((face) => (
+        <span key={face.botId} className="member-stack-face">
+          <AvatarMark
+            name={face.name}
+            color={face.avatarColor}
+            shape={face.avatarShape}
+            size="xs"
+          />
+        </span>
+      ))}
+    </span>
+  );
+}
+
 export function AvatarMark(props: {
   name: string;
   color: string;

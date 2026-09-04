@@ -43,3 +43,28 @@ export function readAutoReviewRules(): string {
 export function writeAutoReviewRules(value: string): void {
   localStorage.setItem("groxbot.autoReviewRules", value);
 }
+
+const collapsedSectionsKey = (workspaceId: string) =>
+  `groxbot.sections.collapsed.${workspaceId}`;
+
+export function readCollapsedSections(workspaceId: string): string[] {
+  try {
+    const raw = localStorage.getItem(collapsedSectionsKey(workspaceId));
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((id): id is string => typeof id === "string");
+  } catch {
+    return [];
+  }
+}
+
+export function writeCollapsedSections(
+  workspaceId: string,
+  ids: readonly string[],
+): void {
+  localStorage.setItem(
+    collapsedSectionsKey(workspaceId),
+    JSON.stringify([...ids]),
+  );
+}

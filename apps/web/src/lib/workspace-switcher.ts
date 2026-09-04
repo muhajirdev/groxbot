@@ -68,6 +68,28 @@ export function readCachedWorkspace(): CachedWorkspace | null {
   return parseCachedWorkspace(workspaceStorage()?.getItem(WORKSPACE_CACHE_KEY));
 }
 
+export function workspaceFromList<T extends { id: string; slug: string }>(
+  workspaces: T[],
+  slug: string,
+): T | undefined {
+  return (
+    workspaces.find((item) => item.slug === slug) ??
+    workspaces.find((item) => item.id === slug)
+  );
+}
+
+/** URL slug matches the last office in localStorage — enough to stamp RPC early. */
+export function workspaceFromCache(
+  cached: CachedWorkspace | null,
+  slug: string,
+): { id: string; name: string; slug: string } | null {
+  if (!cached) return null;
+  if (cached.slug === slug || cached.id === slug) {
+    return { id: cached.id, name: cached.name, slug: cached.slug ?? slug };
+  }
+  return null;
+}
+
 export function writeCachedWorkspace(input: {
   id?: string | null;
   name?: string | null;

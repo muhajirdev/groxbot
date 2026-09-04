@@ -3,11 +3,18 @@ import { AvatarShape, type Room, type RoomMember } from "@groxbot/contracts";
 import { bots, type Database, roomMembers, rooms } from "@groxbot/db";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { newId } from "./ids.js";
-import type { OfficeChatMessage } from "./office-chat.js";
-import { officeChatText, parseOfficeChatMessages } from "./office-chat.js";
+import type { PiBoundMessage } from "./pi-transcript.js";
+import { parsePiLogMessages, piUserText } from "./pi-transcript.js";
 import { iso } from "./threads.js";
 
 export const ROOM_TURN_JOB = "room.turn";
+
+export class RoomError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RoomError";
+  }
+}
 
 /** Listing hides rooms that are someone’s `bots.homeRoomId`. */
 export function isListedGroupRoom(
@@ -20,10 +27,13 @@ export function isListedGroupRoom(
   return true;
 }
 
-export class RoomError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "RoomError";
+/** Home rooms are a person’s office. Delete only listed groups. */
+export function assertDeletableGroupRoom(
+  roomId: string,
+  homeRoomIds: Iterable<string | null | undefined>,
+): void {
+  if (!isListedGroupRoom(roomId, homeRoomIds)) {
+    throw new RoomError("That's someone's office, not a group.");
   }
 }
 
@@ -39,42 +49,78 @@ export type RoomTurnPayload = {
   roomId: string;
   roomName: string;
   members: Array<{ id: string; name: string }>;
-  messages: OfficeChatMessage[];
+  messages: PiBoundMessage[];
 };
 
-export function mentionFromText(text: string): string | null {
-  const match = text.match(/(?:^|\s)@([A-Za-z0-9._-]+)/u);
-  const name = match?.[1]?.trim();
-  return name ? name : null;
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-export function resolveRoomTarget(
+/** Prefer a seated full name (`@Alexander the Great`), then the first @token. */
+export function mentionFromText(
+  text: string,
+  names: readonly string[] = [],
+): string | null {
+  const seated = [...names]
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+  for (const name of seated) {
+    const pattern = new RegExp(
+      `(^|\\s)@${escapeRegExp(name)}(?=$|[\\s,!?:;.])`,
+      "iu",
+    );
+    if (pattern.test(text)) return name;
+  }
+  const match = text.match(/(?:^|\s)@([A-Za-z0-9._-]+)/u);
+  const token = match?.[1]?.trim();
+  return token ? token : null;
+}
+
+function matchLiveSeat(
+  live: readonly RoomSeat[],
+  needle: string,
+): RoomSeat | undefined {
+  const lowered = needle.replace(/^@/u, "").trim().toLowerCase();
+  if (!lowered) return undefined;
+  const byId = live.find((row) => row.id === needle);
+  if (byId) return byId;
+  const exact = live.find((row) => row.name.toLowerCase() === lowered);
+  if (exact) return exact;
+  const firstWord = live.filter(
+    (row) => row.name.toLowerCase().split(/\s+/u)[0] === lowered,
+  );
+  if (firstWord.length === 1) return firstWord[0];
+  if (firstWord.length > 1) {
+    throw new RoomError(
+      `${needle} matches more than one person. Use the full name.`,
+    );
+  }
+  return undefined;
+}
+
+export function resolveRoomTargets(
   members: readonly RoomSeat[],
   target?: { targetBotId?: string | null; mention?: string | null },
-): RoomSeat {
+): RoomSeat[] {
   const live = members.filter((row) => !row.archivedAt);
   if (live.length === 0) {
     throw new RoomError("This room has no teammates.");
   }
-  const needle = (target?.targetBotId ?? target?.mention ?? "").trim();
-  if (live.length === 1 && !needle) {
-    const only = live[0];
-    if (only) return only;
-  }
-  if (!needle) {
-    const names = live.map((row) => row.name).join(", ");
-    throw new RoomError(
-      `Name who should answer. Several people are at this table: ${names}.`,
-    );
-  }
-  const lowered = needle.replace(/^@/u, "").toLowerCase();
-  const match =
-    live.find((row) => row.id === needle) ??
-    live.find((row) => row.name.toLowerCase() === lowered);
+  const mention = (target?.mention ?? "").trim();
+  const focused = (target?.targetBotId ?? "").trim();
+  const needle = mention || focused;
+  if (!needle) return live;
+  const match = matchLiveSeat(live, needle);
   if (!match) {
+    const lowered = needle.replace(/^@/u, "").toLowerCase();
     const archived = members.find((row) => {
       if (!row.archivedAt) return false;
-      return row.id === needle || row.name.toLowerCase() === lowered;
+      return (
+        row.id === needle ||
+        row.name.toLowerCase() === lowered ||
+        row.name.toLowerCase().split(/\s+/u)[0] === lowered
+      );
     });
     if (archived) throw new RoomError(`${archived.name} is archived.`);
     const names = live.map((row) => row.name).join(", ");
@@ -82,7 +128,16 @@ export function resolveRoomTarget(
       `${needle} is not in this room.${names ? ` Seated: ${names}.` : ""}`,
     );
   }
-  return match;
+  return [match];
+}
+
+export function resolveRoomTarget(
+  members: readonly RoomSeat[],
+  target?: { targetBotId?: string | null; mention?: string | null },
+): RoomSeat {
+  const [first] = resolveRoomTargets(members, target);
+  if (!first) throw new RoomError("This room has no teammates.");
+  return first;
 }
 
 export function roomTurnSystem(
@@ -91,20 +146,24 @@ export function roomTurnSystem(
     name: string;
     selfName: string;
     members: Array<{ name: string }>;
+    around?: boolean;
   },
 ): string {
   const seated = room.members.map((row) => row.name).join(", ");
+  const around = room.around
+    ? " The table is going around — everyone here will answer. Keep it short. Do not recap the others."
+    : "";
   return `${soul.trim()}
 
 You are ${room.selfName} at the table "${room.name}". Also here: ${seated || room.selfName}.
-This log is the shared table, not your private office. Speak as yourself. Do not impersonate the others. Papers on the table are this room’s files. Your computer is still yours.`;
+This log is the shared table, not your private office. Speak as yourself. Do not impersonate the others.${around} Papers on the table are this room’s files. Your computer is still yours.`;
 }
 
 export function roomWakeJob(input: {
   roomId: string;
   roomName: string;
   members: Array<{ id: string; name: string; homeRoomId?: string }>;
-  messages: OfficeChatMessage[];
+  messages: PiBoundMessage[];
   targetBotId: string;
   targetHomeRoomId: string;
 }): WakeupJob {
@@ -140,7 +199,7 @@ export function parseRoomTurnPayload(value: unknown): RoomTurnPayload | null {
     roomId,
     roomName,
     members,
-    messages: parseOfficeChatMessages(row.messages),
+    messages: parsePiLogMessages(row.messages),
   };
 }
 
@@ -334,6 +393,29 @@ export async function listRooms(
   return listed.map((row) => toRoomDto(row, membersByRoom.get(row.id) ?? []));
 }
 
+export async function deleteRoom(
+  db: Database,
+  workspaceId: string,
+  roomId: string,
+): Promise<{ ok: true }> {
+  const [row] = await db
+    .select({ id: rooms.id })
+    .from(rooms)
+    .where(and(eq(rooms.id, roomId), eq(rooms.workspaceId, workspaceId)))
+    .limit(1);
+  if (!row) throw new RoomError("That room is missing.");
+  const [home] = await db
+    .select({ id: bots.id })
+    .from(bots)
+    .where(and(eq(bots.homeRoomId, roomId), eq(bots.workspaceId, workspaceId)))
+    .limit(1);
+  assertDeletableGroupRoom(roomId, home ? [roomId] : []);
+  await db
+    .delete(rooms)
+    .where(and(eq(rooms.id, roomId), eq(rooms.workspaceId, workspaceId)));
+  return { ok: true };
+}
+
 export async function getRoom(
   db: Database,
   workspaceId: string,
@@ -371,14 +453,24 @@ export function liveRoomSeats(room: Pick<Room, "members">): RoomSeat[] {
   }));
 }
 
-export function lastRoomPreview(
-  messages: readonly OfficeChatMessage[],
-): string {
+export function lastRoomPreview(messages: readonly PiBoundMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
     const row = messages[i];
     if (!row) continue;
-    const text = officeChatText(row);
+    const text = piUserText(row.message) || assistantText(row.message);
     if (text) return text.slice(0, 140);
   }
   return "";
+}
+
+function assistantText(message: PiBoundMessage["message"]): string {
+  if (message.role !== "assistant" || !Array.isArray(message.content)) return "";
+  return message.content
+    .flatMap((part) =>
+      part && typeof part === "object" && part.type === "text" && part.text
+        ? [part.text]
+        : [],
+    )
+    .join("")
+    .trim();
 }

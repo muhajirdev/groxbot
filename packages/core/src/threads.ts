@@ -68,6 +68,7 @@ export function toBotDto(
     lastAt,
     archivedAt: iso(bot.archivedAt),
     pinnedAt: iso(bot.pinnedAt),
+    sectionId: bot.sectionId ?? null,
     createdAt: bot.createdAt.toISOString(),
     updatedAt: bot.updatedAt.toISOString(),
   };

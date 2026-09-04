@@ -46,12 +46,13 @@ describe("teammatePrompt", () => {
     expect(prompt).not.toMatch(/Do not change who you are/);
     expect(prompt).toMatch(/memory\.md/);
     expect(prompt).toMatch(/knowledge\.search/);
-    expect(prompt).toMatch(/knowledge\.write/);
+    expect(prompt).toMatch(/skill_manage/);
+    expect(prompt).toMatch(/\/skill:name/);
     expect(prompt).toMatch(/routines\.list/);
     expect(prompt).toMatch(/every weekday at 09:00/);
     expect(prompt).toMatch(/present a File/);
     expect(prompt).toMatch(/place` knowledge/);
-    expect(prompt).toMatch(/Patch an existing playbook/);
+    expect(prompt).toMatch(/Patch an existing skill/);
     expect(prompt).toMatch(/skills\/<name>\/SKILL\.md/);
     expect(prompt).toMatch(/how-we-work\/constraints\.md/);
     expect(prompt).toMatch(/not \[\[wikilinks\]\]/);

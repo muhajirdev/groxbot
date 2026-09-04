@@ -4,7 +4,7 @@ import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { userFacingError } from "../lib/errors";
 import { OFFICE_TO, officeParams } from "../lib/office-route";
-import { orpc } from "../lib/orpc";
+import { workspaceListQueryOptions } from "../lib/office-persist";
 import { client } from "../lib/rpc";
 import { setRpcWorkspaceId } from "../lib/rpc-workspace";
 import { enterActiveWorkspace } from "../lib/session";
@@ -39,7 +39,7 @@ export function WorkspaceSwitcher(props: {
     cached,
   });
   const label = workspaceDisplayName(remembered.name);
-  const listQuery = useQuery(orpc.workspaces.list.queryOptions());
+  const listQuery = useQuery(workspaceListQueryOptions());
   const items = workspaceMenuItems({
     currentId: remembered.id,
     currentName: remembered.name,
@@ -117,7 +117,7 @@ export function WorkspaceSwitcher(props: {
         }}
       >
         <Menu.Trigger
-          className="group no-drag flex w-full min-w-0 items-center gap-1 rounded-lg border-0 bg-transparent px-1.5 py-1 text-left text-ink outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent data-popup-open:bg-hover"
+          className="group no-drag flex w-full min-w-0 items-center gap-1 rounded-lg border-0 bg-transparent px-1.5 py-1 text-left text-ink outline-none transition-[background-color] duration-[var(--dur-popover)] ease-[var(--ease-dialog)] hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent data-popup-open:bg-hover"
           aria-label="Switch workspace"
         >
           <span className="min-w-0 truncate text-sm font-semibold">
@@ -132,7 +132,7 @@ export function WorkspaceSwitcher(props: {
             sideOffset={6}
             align="start"
           >
-            <Menu.Popup className="min-w-[200px] max-w-[260px] rounded-[10px] border border-line bg-card p-1 shadow-modal outline-none">
+            <Menu.Popup className="popover-popup min-w-[200px] max-w-[260px] rounded-[10px] border border-line bg-card p-1 outline-none">
               {items.map((item, index) => {
                 if (item.kind === "create") {
                   return (

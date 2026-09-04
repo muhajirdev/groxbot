@@ -91,10 +91,30 @@ export function deskLibrary(
   });
 }
 
+/** Playbooks live in the knowledge tree (`SKILL.md` anywhere, often under `skills/`). */
+export const SKILLS_LIBRARY_PATH = "skills";
+
+export function libraryShowsSkills(desk: OfficeSearch): boolean {
+  if (!desk.library) return false;
+  const path = desk.knowledge ?? "";
+  return (
+    path === SKILLS_LIBRARY_PATH ||
+    path.startsWith(`${SKILLS_LIBRARY_PATH}/`) ||
+    path === "SKILL.md" ||
+    path.endsWith("/SKILL.md")
+  );
+}
+
 export function closeLibrary(current: OfficeSearch): OfficeSearch {
   const next = { ...current };
   delete next.library;
   return officeSearch(next);
+}
+
+/** Roster links leave the knowledge place so a teammate opens their thread. */
+export function deskAwayFromLibrary(current: OfficeSearch): OfficeSearch {
+  if (!current.library) return current;
+  return deskClosed();
 }
 
 export function closePeek(current: OfficeSearch): OfficeSearch {

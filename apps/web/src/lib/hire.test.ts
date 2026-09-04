@@ -44,5 +44,6 @@ describe("draftCreatedBot", () => {
     expect(bot.guestKind).toBe("off");
     expect(bot.archivedAt).toBeNull();
     expect(bot.pinnedAt).toBeNull();
+    expect(bot.sectionId).toBeNull();
   });
 });

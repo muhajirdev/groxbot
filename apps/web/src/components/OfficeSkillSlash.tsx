@@ -21,16 +21,20 @@ export function OfficeSkillSlash() {
   ).slice(0, MAX_HITS);
   if (hits.length === 0) return null;
   return (
-    <ul className="skill-slash" role="listbox" aria-label="Office skills">
+    <ul
+      className="skill-slash popover-popup popover-mount rounded-[10px] border border-line bg-card"
+      role="listbox"
+      aria-label="Office skills"
+    >
       {hits.map((skill) => (
         <li key={skill.name}>
           <button
             className="skill-slash-item"
             type="button"
             onMouseDown={(event) => event.preventDefault()}
-            onClick={() => setText(`/${skill.name} `)}
+            onClick={() => setText(`/skill:${skill.name} `)}
           >
-            <span className="skill-slash-name">/{skill.name}</span>
+            <span className="skill-slash-name">/skill:{skill.name}</span>
             {skill.description ? (
               <span className="skill-slash-desc">{skill.description}</span>
             ) : null}

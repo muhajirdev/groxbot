@@ -1,6 +1,6 @@
 import { isOfficeReviewUserMessage } from "./office-review.js";
 
-/** Who sent an office message. Lives on UIMessage.metadata.user. */
+/** Who sent an office message. Lives on projected `metadata.custom.user`. */
 
 export type OfficeUserMeta = {
   userId: string;

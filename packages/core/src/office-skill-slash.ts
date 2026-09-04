@@ -1,21 +1,27 @@
-/** `/skill` in office chat is an explicit playbook invoke, not a file search. */
+/**
+ * Pi skills on the office library: catalog in the system prompt, `/skill:name`
+ * injects SKILL.md. No activate_skill — the model reads the file (knowledge.read).
+ */
+
+import type { OfficeSkillCatalogEntry } from "./office-skill.js";
 
 export type OfficeSkillSlash = {
   name: string;
   input: string;
 };
 
-export type OfficeSkillSlashTurn = {
-  system: string;
-  forceActivate: boolean;
-};
-
-const SKILL_SLASH = /^\/([a-z0-9][a-z0-9_-]{0,63})(?:\s+([\s\S]*))?$/u;
+const SKILL_SLASH_PI =
+  /^\/skill:([a-z0-9][a-z0-9_-]{0,63})(?:\s+([\s\S]*))?$/u;
+const SKILL_SLASH_SHORT =
+  /^\/([a-z0-9][a-z0-9_-]{0,63})(?:\s+([\s\S]*))?$/u;
 
 export function parseOfficeSkillSlash(text: string): OfficeSkillSlash | null {
-  const match = text.trim().match(SKILL_SLASH);
-  if (!match?.[1]) return null;
-  return { name: match[1], input: (match[2] ?? "").trim() };
+  const trimmed = text.trim();
+  const pi = trimmed.match(SKILL_SLASH_PI);
+  if (pi?.[1]) return { name: pi[1], input: (pi[2] ?? "").trim() };
+  const short = trimmed.match(SKILL_SLASH_SHORT);
+  if (!short?.[1] || short[1] === "skill") return null;
+  return { name: short[1], input: (short[2] ?? "").trim() };
 }
 
 export function lastUserText(messages: readonly unknown[]): string {
@@ -34,55 +40,84 @@ export function lastUserText(messages: readonly unknown[]): string {
   return "";
 }
 
-export function catalogHasSkill(system: string, name: string): boolean {
-  return new RegExp(`^- ${escapeRegExp(name)}:`, "m").test(system);
-}
+/** Pi / Agent Skills: names + descriptions only. Full SKILL.md loads on demand. */
+export const OFFICE_SKILL_CATALOG_INSTRUCTIONS = [
+  "The following skills provide specialized instructions for specific tasks.",
+  "When a task matches a skill's description, load the SKILL.md at the listed location with knowledge.read (inside execute) before proceeding.",
+  "When a skill references relative paths, resolve them against the skill directory (the parent of SKILL.md) in the office library.",
+].join(" ");
 
-export function withOfficeSkillSlashHint(
-  system: string,
-  skill: OfficeSkillSlash,
-  options?: { hasActivateSkill?: boolean },
+export function formatAvailableSkillsXml(
+  skills: readonly OfficeSkillCatalogEntry[],
 ): string {
-  const rest = skill.input
-    ? ` Remaining text after /${skill.name} is the user's input for this skill.`
-    : "";
-  const action =
-    options?.hasActivateSkill === false
-      ? `knowledge.search then knowledge.read the playbook for "${skill.name}" (usually skills/${skill.name}/SKILL.md) before any other tool.`
-      : `Call activate_skill with name "${skill.name}" before any other tool.`;
-  const hint = `The user invoked the /${skill.name} office skill. ${action}${rest}`;
-  if (system.includes(hint)) return system;
-  return `${system.trimEnd()}\n\n${hint}`;
+  if (skills.length === 0) return "";
+  const rows = skills.map((skill) => {
+    return [
+      "  <skill>",
+      `    <name>${xmlText(skill.name)}</name>`,
+      `    <description>${xmlText(skill.description)}</description>`,
+      `    <location>${xmlText(skill.path)}</location>`,
+      "  </skill>",
+    ].join("\n");
+  });
+  return `<available_skills>\n${rows.join("\n")}\n</available_skills>`;
 }
 
-/** Hint (and optionally force `activate_skill`) when the user sent a cataloged `/skill`. */
-export function officeSkillSlashTurn(input: {
+export function withOfficeSkillCatalog(
+  system: string,
+  skills: readonly OfficeSkillCatalogEntry[],
+): string {
+  if (skills.length === 0) return system;
+  const block = `${OFFICE_SKILL_CATALOG_INSTRUCTIONS}\n\n${formatAvailableSkillsXml(skills)}`;
+  if (system.includes("<available_skills>")) return system;
+  return `${system.trimEnd()}\n\n${block}`;
+}
+
+/** Pi `/skill:name`: harness loads SKILL.md; leftover args become `User:`. */
+export function withForcedSkillContent(
+  system: string,
+  skill: OfficeSkillCatalogEntry,
+  input: string,
+): string {
+  const user = input.trim() ? `\n\nUser: ${input.trim()}` : "";
+  const block = [
+    `<skill_content name="${xmlText(skill.name)}">`,
+    skill.body.trim(),
+    "",
+    `Skill directory: ${skill.directory || "."}`,
+    "Relative paths in this skill are relative to the skill directory in the office library.",
+    user,
+    "</skill_content>",
+  ]
+    .filter((row) => row !== "")
+    .join("\n");
+  if (system.includes(`<skill_content name="${xmlText(skill.name)}">`)) {
+    return system;
+  }
+  return `${system.trimEnd()}\n\n${block}`;
+}
+
+export function applyOfficeSkillsToSystem(opts: {
   system: string;
   messages: readonly unknown[];
+  catalog: readonly OfficeSkillCatalogEntry[];
   continuation?: boolean;
-  hasActivateSkill: boolean;
-}): OfficeSkillSlashTurn {
-  const system = input.system;
-  if (input.continuation) return { system, forceActivate: false };
-  const invoked = parseOfficeSkillSlash(lastUserText(input.messages));
-  if (!invoked) return { system, forceActivate: false };
-  if (input.hasActivateSkill) {
-    if (!catalogHasSkill(system, invoked.name)) {
-      return { system, forceActivate: false };
-    }
-    return {
-      system: withOfficeSkillSlashHint(system, invoked, {
-        hasActivateSkill: true,
-      }),
-      forceActivate: true,
-    };
-  }
-  return {
-    system: withOfficeSkillSlashHint(system, invoked, {
-      hasActivateSkill: false,
-    }),
-    forceActivate: false,
-  };
+}): string {
+  let system = withOfficeSkillCatalog(opts.system, opts.catalog);
+  if (opts.continuation) return system;
+  const invoked = parseOfficeSkillSlash(lastUserText(opts.messages));
+  if (!invoked) return system;
+  const skill = opts.catalog.find((row) => row.name === invoked.name);
+  if (!skill) return system;
+  return withForcedSkillContent(system, skill, invoked.input);
+}
+
+function xmlText(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
 }
 
 function modelContentText(content: unknown): string {
@@ -97,8 +132,4 @@ function modelContentText(content: unknown): string {
     }
   }
   return parts.join("").trim();
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

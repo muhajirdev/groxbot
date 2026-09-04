@@ -814,6 +814,71 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
     expect(restored.pinnedAt).toBeNull();
   }, 30_000);
 
+  it("groups bots into sidebar sections", async () => {
+    cookie = "";
+    const email = `section-${Date.now()}@example.com`;
+    const signUp = await handles.app.request(
+      new Request(`${origin}/api/auth/sign-up/email`, {
+        method: "POST",
+        headers: {
+          origin,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "Section Tester",
+          email,
+          password: "password1",
+        }),
+      }),
+    );
+    cookie = cookieHeader(signUp, cookie);
+    expect(signUp.status, await signUp.text()).toBe(200);
+
+    const rpc = client();
+    const office = await rpc.workspaces.create({ name: "Section office" });
+    const lookout = await rpc.bots.create({
+      name: "Lookout",
+      title: "Watch",
+      description: "Gets grouped.",
+      instructions: "Gets grouped.",
+    });
+    expect(lookout.sectionId).toBeNull();
+
+    const sales = await rpc.sections.create({ name: "Sales" });
+    const ops = await rpc.sections.create({ name: "Ops" });
+    const sections = await rpc.sections.list();
+    expect(sections.map((row) => row.id)).toEqual([sales.id, ops.id]);
+    expect(sales.position).toBeLessThan(ops.position);
+
+    const moved = await rpc.bots.move({
+      botId: lookout.id,
+      sectionId: sales.id,
+    });
+    expect(moved.sectionId).toBe(sales.id);
+    expect(
+      (await rpc.bots.list()).find((item) => item.id === lookout.id)?.sectionId,
+    ).toBe(sales.id);
+
+    const ungrouped = await rpc.bots.move({
+      botId: lookout.id,
+      sectionId: null,
+    });
+    expect(ungrouped.sectionId).toBeNull();
+
+    await rpc.bots.move({ botId: lookout.id, sectionId: sales.id });
+    await rpc.sections.remove({ sectionId: sales.id });
+    expect(
+      (await rpc.bots.list()).find((item) => item.id === lookout.id)?.sectionId,
+    ).toBeNull();
+
+    await rpc.workspaces.create({ name: "Other office" });
+    const foreign = await rpc.sections.create({ name: "Foreign" });
+    await rpc.workspaces.activate({ workspaceId: office.id });
+    await expect(
+      rpc.bots.move({ botId: lookout.id, sectionId: foreign.id }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  }, 30_000);
+
   it("deletes a bot and drops it from the roster", async () => {
     cookie = "";
     const email = `delete-${Date.now()}@example.com`;
@@ -866,6 +931,64 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
 
     await rpc.bots.delete({ botId: piper.id });
     expect(await rpc.bots.list()).toEqual([]);
+  }, 60_000);
+
+  it("deletes a group room and refuses a home office", async () => {
+    cookie = "";
+    const email = `room-delete-${Date.now()}@example.com`;
+    const signUp = await handles.app.request(
+      new Request(`${origin}/api/auth/sign-up/email`, {
+        method: "POST",
+        headers: {
+          origin,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "Room Delete Tester",
+          email,
+          password: "password1",
+        }),
+      }),
+    );
+    cookie = cookieHeader(signUp, cookie);
+    expect(signUp.status, await signUp.text()).toBe(200);
+
+    const rpc = client();
+    await rpc.workspaces.create({ name: "Delete room office" });
+    const piper = await rpc.bots.create({
+      name: "Piper",
+      title: "Product",
+      description: "Stays.",
+      instructions: "Stays.",
+    });
+    const scout = await rpc.bots.create({
+      name: "Scout",
+      title: "Talent",
+      description: "Also stays.",
+      instructions: "Also stays.",
+    });
+    const board = await rpc.rooms.create({
+      name: "Board",
+      memberBotIds: [piper.id, scout.id],
+    });
+
+    const gone = await rpc.rooms.delete({ roomId: board.id });
+    expect(gone).toEqual({ ok: true });
+    expect((await rpc.rooms.list()).map((item) => item.id)).toEqual([]);
+    await expect(rpc.rooms.get({ roomId: board.id })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    await expect(rpc.rooms.delete({ roomId: board.id })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+
+    const homeId = piper.homeRoomId;
+    expect(homeId).toBeTruthy();
+    await expect(rpc.rooms.delete({ roomId: homeId })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    const still = await rpc.bots.get({ botId: piper.id });
+    expect(still.homeRoomId).toBe(homeId);
   }, 60_000);
 
   it("lets a teammate join with an invite", async () => {

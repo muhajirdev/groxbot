@@ -1,40 +1,49 @@
 /** Cloudflare-only. Excluded from `tsc`. Disk is Computer; office chat is Pi over Cap'n Web. */
 import { createAITools } from "@cloudflare/computer/tools";
+import type { AgentTool } from "@earendil-works/pi-agent-core";
 import type { WorkersAiBinding } from "@groxbot/adapters/edge";
 import {
-  applyOfficeAgentEvent,
-  emptyOfficeDraft,
+  appendOfficeUserText,
+  DurableSessionStorage,
+  gatewayConfigured,
   gatewayRequestModel,
-  officeDraftMessage,
-  officeLogToPiMessages,
+  loadGatewayConfig,
+  migrateOfficeChatToSession,
+  persistOfficeSessionEvent,
+  piBoundFromSessionEntries,
   piCompletionsModel,
+  resolvePiAiModel,
   resolvePiStreamFn,
   runPiTurn,
+  Session,
+  sqliteSessionStore,
 } from "@groxbot/adapters/edge";
 import {
   HOSTED_STARTER_MODEL,
   labelForModel,
+  OFFICE_REVIEW_SOURCE,
   officeUserFromHeaders,
   type Routine,
   stampIncomingOfficeUser,
 } from "@groxbot/contracts";
 import {
   applyOfficeReviewTurn,
-  assistantTurnSettled,
   ComputerFileError,
   ComputerPathError,
   ComputerWriteError,
   composeSoul,
   computerWorkerShell,
-  countUiToolParts,
+  countPiToolCallsSinceLastUser,
   DEFAULT_ROUTINE_TIMEZONE,
   decodeComputerBytes,
   diskFromComputerFs,
   downloadComputerFile,
   emptyOfficeReviewCounters,
   encryptionSecret,
+  ensureComputerHome,
   formatRoutinePrompt,
   isoUnixSeconds,
+  jsonClone,
   listComputerEntries,
   MCP_OAUTH_SETTLE_MS,
   mcpCatalogStatusFromLive,
@@ -46,23 +55,25 @@ import {
   OFFICE_REVIEW_STORAGE,
   OFFICE_WORKSPACE_HEADER,
   type OfficeChatMessage,
-  officeChatShouldRun,
   officeReviewDue,
-  officeReviewUserMessage,
-  officeSkillSlashTurn,
-  parseOfficeChatMessage,
+  officeReviewUserText,
+  applyOfficeSkillsToSystem,
+  loadOfficeSkillCatalog,
   parseOfficeChatMessages,
   parseOfficeReviewCounters,
-  parseRoomTurnPayload,
   patchComputerWorkspace,
+  piAssistantTurnSettled,
+  type PiBoundMessage,
+  type PiClientEvent,
+  type PiOfficeSnapshot,
+  type PiSendMessageInput,
+  piLogShouldRun,
   prepareRoutineCreate,
-  ROOM_TURN_JOB,
   RoutineError,
   RoutineNotFoundError,
   RoutineScheduleError,
   readComputerFile,
   resolveRunModel,
-  roomTurnSystem,
   type StoredRoutine,
   saveMcpConnection,
   shouldEnqueueOfficeReview,
@@ -77,8 +88,6 @@ import { bots } from "@groxbot/db";
 import { createNeonHttpDb } from "@groxbot/db/neon";
 import { Agent } from "agents";
 import { AgentContextProvider } from "agents/experimental/memory/session";
-import type { ToolSet } from "ai";
-import { tool } from "ai";
 import { eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { createBotComputer } from "./bot-computer-workspace.js";
@@ -87,21 +96,20 @@ import {
   createOfficeExecuteTool,
 } from "./bot-execute.js";
 import { KnowledgeConnector } from "./bot-knowledge.js";
-import { bindToMarkdown, createPageTools } from "./bot-markdown.js";
+import { bindToMarkdown, createPageAgentTools } from "./bot-markdown.js";
 import { WorkspaceMcpConnector } from "./bot-mcp-connector.js";
 import {
   type OfficeChatSubscriber,
   officeRpcResponse,
 } from "./bot-office-rpc.js";
-import { aiToolsToPi } from "./bot-office-tools.js";
+import { aiToolsToPi, officeAgentTool } from "./bot-office-tools.js";
 import { createPresentTool } from "./bot-present.js";
+import { createSkillTool } from "./bot-skill.js";
 import { RoutinesConnector } from "./bot-routines-connector.js";
 import { agentRuntimeSource, productEnv, type RuntimeSource } from "./env.js";
 import { r2KnowledgeDisk } from "./knowledge-r2.js";
 import type { SendEmailBinding } from "./mail.js";
 import { mcpCallbackPage } from "./mcp-callback-page.js";
-import { boardFileOp, postRoomTurn } from "./room-rpc.js";
-
 export interface WorkerEnv {
   DATABASE_URL: string;
   BETTER_AUTH_SECRET: string;
@@ -270,6 +278,8 @@ export class RoomHome extends Agent<WorkerEnv> {
   private officeError = "";
   private officeTurn: AbortController | null = null;
   private officeQueue: Promise<void> = Promise.resolve();
+  private officeSession: Session | null = null;
+  private officeSeq = 0;
 
   async onStart(): Promise<void> {
     const stored = await this.ctx.storage.get<string>("officeId");
@@ -283,46 +293,56 @@ export class RoomHome extends Agent<WorkerEnv> {
       id TEXT NOT NULL UNIQUE,
       payload TEXT NOT NULL
     )`;
+    await this.ensureOfficeSession();
     await this.healComputerFiles();
     console.log(`[bot ${this.name}] onStart`);
   }
 
-  getTools(): ToolSet {
-    const pageTools = createPageTools({
+  getAgentTools(): AgentTool[] {
+    const page = {
       workspace: this.workspace,
       convert: bindToMarkdown(this.env.AI),
-    });
+    };
     const connectors = this.executeConnectors();
     const execute = createOfficeExecuteTool({
       ctx: this.ctx,
       executor: createBundlingExecutor(this.env.LOADER, { timeout: 120_000 }),
-      tools: pageTools,
+      page,
       connectors,
     });
-    const description =
-      typeof execute.description === "string" ? execute.description : "";
     const mcp = connectors
       .filter((row) => row instanceof WorkspaceMcpConnector)
       .map((row) => row.name());
-    return {
-      ...withComputerOfficeTools(
-        createAITools({
-          workspace: this.computer,
-          shell: computerWorkerShell(),
-        }),
+    const knowledge = this.officeKnowledge();
+    const skill =
+      knowledge && this.officeId
+        ? createSkillTool({
+            disk: knowledge,
+            workspaceId: () => this.officeId,
+          })
+        : null;
+    return [
+      ...aiToolsToPi(
+        withComputerOfficeTools(
+          createAITools({
+            workspace: this.computer,
+            shell: computerWorkerShell(),
+          }),
+        ),
       ),
-      ...pageTools,
-      present: createPresentTool(),
-      set_context: this.setContextTool(),
-      execute: {
+      ...createPageAgentTools(page),
+      createPresentTool(),
+      this.setContextTool(),
+      ...(skill ? [skill] : []),
+      {
         ...execute,
         description: withOfficeExecuteDescription(
-          description,
+          typeof execute.description === "string" ? execute.description : "",
           Boolean(this.env.KNOWLEDGE),
           { routines: true, mcp },
         ),
       },
-    };
+    ];
   }
 
   /** Worker shell HOST (`WorkspaceServiceProxy`) reaches this DO’s Computer VFS. */
@@ -350,6 +370,15 @@ export class RoomHome extends Agent<WorkerEnv> {
     }
     if (request.method === "POST" && url.pathname === "/wakeup") {
       return this.handleWakeup(request);
+    }
+    if (request.method === "POST" && url.pathname === "/door/context") {
+      return this.handleDoorContext(request);
+    }
+    if (request.method === "POST" && url.pathname === "/door/tools") {
+      return this.handleDoorTools(request);
+    }
+    if (request.method === "POST" && url.pathname === "/door/tool") {
+      return this.handleDoorTool(request);
     }
     if (request.method === "POST" && url.pathname === "/workspace/list") {
       return this.handleWorkspaceList(request);
@@ -406,33 +435,71 @@ export class RoomHome extends Agent<WorkerEnv> {
     const generation =
       (await this.ctx.storage.get<number>(OFFICE_GENERATION_STORAGE)) ?? 0;
     await live.streamGeneration(generation);
-    for (const row of this.readOfficeLog()) {
-      await live.message(row);
+    const snapshot = jsonClone(await this.officeSnapshot());
+    if (snapshot) {
+      await live.event({
+        type: "snapshot",
+        snapshot,
+        threadId: this.name,
+        seq: this.officeSeq,
+      });
     }
     if (this.officeError) await live.error(this.officeError);
     await live.status(this.officeStatus);
   }
 
-  async runOffice(
-    messages: OfficeChatMessage[],
+  async officeSnapshot(): Promise<PiOfficeSnapshot> {
+    const session = await this.ensureOfficeSession();
+    const status =
+      this.officeStatus === "error"
+        ? "failed"
+        : this.officeStatus === "ready"
+          ? "idle"
+          : "running";
+    const snapshot: PiOfficeSnapshot = {
+      metadata: { id: this.name, status },
+      messages: await this.officeBound(session),
+    };
+    if (this.officeError) snapshot.lastError = this.officeError;
+    return snapshot;
+  }
+
+  async sendOffice(
+    input: PiSendMessageInput,
     user: ReturnType<typeof officeUserFromHeaders>,
   ): Promise<void> {
-    const stamped = messages.map((row) => {
-      if (row.role !== "user") return row;
-      const existing = this.readOfficeLog().find((item) => item.id === row.id);
-      return (
-        parseOfficeChatMessage(stampIncomingOfficeUser(row, user, existing)) ??
-        row
-      );
+    const session = await this.ensureOfficeSession();
+    const id = input.id?.trim() || crypto.randomUUID();
+    const existing = (await this.officeBound(session)).find(
+      (row) => row.id === id,
+    );
+    const stamped = stampIncomingOfficeUser(
+      { role: "user", metadata: input.metadata },
+      user,
+      existing,
+    );
+    await appendOfficeUserText(session, {
+      id,
+      content: input.content,
+      metadata: stamped.metadata,
     });
-    this.writeOfficeLog(stamped);
-    await this.broadcastOfficeLog(stamped);
-    if (!officeChatShouldRun(stamped)) {
+    await this.broadcastOfficeEvent({
+      type: "message_end",
+      id,
+      message: {
+        role: "user",
+        content: input.content,
+        timestamp: Date.now(),
+      },
+      metadata: stamped.metadata,
+    });
+    const bound = await this.officeBound(session);
+    if (!piLogShouldRun(bound)) {
       this.officeStatus = "ready";
       await this.broadcastOfficeStatus();
       return;
     }
-    await this.enqueueOfficeTurn(stamped);
+    await this.enqueueOfficeTurn();
   }
 
   async stopOffice(): Promise<void> {
@@ -442,15 +509,28 @@ export class RoomHome extends Agent<WorkerEnv> {
     await this.broadcastOfficeStatus();
   }
 
-  async appendOfficeAndRun(messages: OfficeChatMessage[]): Promise<void> {
-    const next = [...this.readOfficeLog(), ...messages];
-    this.writeOfficeLog(next);
-    await this.broadcastOfficeLog(next);
-    if (officeChatShouldRun(next)) await this.enqueueOfficeTurn(next);
+  async appendOfficeUserAndRun(input: {
+    id: string;
+    content: string;
+    metadata?: unknown;
+  }): Promise<void> {
+    const session = await this.ensureOfficeSession();
+    await appendOfficeUserText(session, input);
+    await this.broadcastOfficeEvent({
+      type: "message_end",
+      id: input.id,
+      message: {
+        role: "user",
+        content: input.content,
+        timestamp: Date.now(),
+      },
+      metadata: input.metadata,
+    });
+    await this.enqueueOfficeTurn();
   }
 
-  private enqueueOfficeTurn(messages: OfficeChatMessage[]): Promise<void> {
-    return this.enqueueTurn(() => this.runOfficeTurn(messages));
+  private enqueueOfficeTurn(): Promise<void> {
+    return this.enqueueTurn(() => this.runOfficeTurn());
   }
 
   private enqueueTurn(work: () => Promise<void>): Promise<void> {
@@ -462,7 +542,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     return run;
   }
 
-  private async runOfficeTurn(messages: OfficeChatMessage[]): Promise<void> {
+  private async runOfficeTurn(): Promise<void> {
     this.officeTurn?.abort();
     const abort = new AbortController();
     this.officeTurn = abort;
@@ -472,6 +552,8 @@ export class RoomHome extends Agent<WorkerEnv> {
     await this.broadcastOfficeStatus();
     await this.ensureBotLoaded();
     if (abort.signal.aborted) return;
+    await this.healComputerFiles();
+    const session = await this.ensureOfficeSession();
     const streamFn = this.turnStreamFn();
     if (!streamFn) {
       this.officeStatus = "error";
@@ -482,34 +564,43 @@ export class RoomHome extends Agent<WorkerEnv> {
       return;
     }
     const assistantId = crypto.randomUUID();
-    let draft = emptyOfficeDraft(assistantId);
+    let firstAssistant = true;
     this.officeStatus = "streaming";
     await this.broadcastOfficeStatus();
-    const model = piCompletionsModel(gatewayRequestModel(this.turnModel));
-    const system = await this.officeSystemPrompt(messages);
+    const model = this.turnPiModel();
+    const bound = await this.officeBound(session);
+    const system = await this.officeSystemPrompt(bound);
     try {
+      const context = await session.buildContext();
       const result = await runPiTurn({
         systemPrompt: system,
-        messages: officeLogToPiMessages(messages, model),
+        messages: context.messages,
         model,
         streamFn,
-        tools: aiToolsToPi(this.getTools()),
+        tools: this.getAgentTools(),
         signal: abort.signal,
         onEvent: async (event) => {
-          draft = applyOfficeAgentEvent(draft, event);
+          const draftId = firstAssistant ? assistantId : undefined;
+          await persistOfficeSessionEvent(session, event, draftId);
           if (
-            event.type === "message_update" ||
-            event.type === "tool_execution_start" ||
-            event.type === "tool_execution_end"
+            event.type === "message_end" &&
+            event.message.role === "assistant"
           ) {
-            await this.broadcastOfficeStream(officeDraftMessage(draft));
+            firstAssistant = false;
           }
+          const cloned = jsonClone(event);
+          if (!cloned) return;
+          await this.broadcastOfficeEvent({
+            ...cloned,
+            ...(draftId &&
+            (event.type === "message_update" ||
+              event.type === "message_end" ||
+              event.type === "message_start")
+              ? { id: draftId }
+              : {}),
+          });
         },
       });
-      const assistant = officeDraftMessage(draft);
-      const next = [...messages, assistant];
-      this.writeOfficeLog(next);
-      await this.broadcastOfficeMessage(assistant);
       if (result.stopReason === "aborted" || abort.signal.aborted) {
         this.officeStatus = "ready";
         await this.broadcastOfficeStatus();
@@ -526,7 +617,6 @@ export class RoomHome extends Agent<WorkerEnv> {
       await this.broadcastOfficeStatus();
       this.enqueueOfficeReview({
         status: "completed",
-        message: assistant,
         continuation: false,
       });
     } catch (error) {
@@ -545,166 +635,154 @@ export class RoomHome extends Agent<WorkerEnv> {
     }
   }
 
-  private async runRoomTurn(
-    payload: NonNullable<ReturnType<typeof parseRoomTurnPayload>>,
-  ): Promise<void> {
-    this.officeTurn?.abort();
-    const abort = new AbortController();
-    this.officeTurn = abort;
-    await this.ensureBotLoaded();
-    if (abort.signal.aborted) return;
-    const roomId = payload.roomId;
-    const workspaceId = this.officeId;
-    const notify = async (
-      path: "stream" | "complete" | "error" | "abort",
-      body: Record<string, unknown>,
-    ) => {
-      if (!this.env.ROOM_ACTOR || !workspaceId) return;
-      await postRoomTurn(this.env.ROOM_ACTOR, roomId, workspaceId, path, body);
-    };
-    const streamFn = this.turnStreamFn();
-    if (!streamFn) {
-      await notify("error", {
-        message:
-          "Add a model key, or use Groxbot’s included gateway, to talk to teammates.",
-      });
-      return;
-    }
-    const assistantId = crypto.randomUUID();
-    let draft = emptyOfficeDraft(assistantId);
-    const model = piCompletionsModel(gatewayRequestModel(this.turnModel));
-    const overlay = (await this.soulOverlay.get()) ?? "";
-    const memory = (await this.memoryBlock.get()) ?? "";
-    let soul = composeSoul(this.soulPrompt, overlay);
-    if (memory.trim()) soul = `${soul}\n\nMemory:\n${memory.trim()}`;
-    const selfName =
-      payload.members.find((row) => row.id === this.botKey())?.name ??
-      this.botKey();
-    const system = roomTurnSystem(soul, {
-      name: payload.roomName,
-      selfName,
-      members: payload.members,
-    });
-    try {
-      const result = await runPiTurn({
-        systemPrompt: system,
-        messages: officeLogToPiMessages(payload.messages, model),
-        model,
-        streamFn,
-        tools: aiToolsToPi({
-          ...this.getTools(),
-          ...this.boardPaperTools(roomId),
-        }),
-        signal: abort.signal,
-        onEvent: async (event) => {
-          draft = applyOfficeAgentEvent(draft, event);
-          if (
-            event.type === "message_update" ||
-            event.type === "tool_execution_start" ||
-            event.type === "tool_execution_end"
-          ) {
-            await notify("stream", { message: officeDraftMessage(draft) });
-          }
-        },
-      });
-      const assistant = officeDraftMessage(draft);
-      if (result.stopReason === "aborted" || abort.signal.aborted) {
-        await notify("abort", {});
-        return;
-      }
-      if (result.stopReason === "error") {
-        await notify("error", {
-          message: result.errorMessage || "The model run failed.",
-        });
-        return;
-      }
-      await notify("complete", { message: assistant });
-    } catch (error) {
-      if (abort.signal.aborted) {
-        await notify("abort", {});
-        return;
-      }
-      await notify("error", {
-        message:
-          error instanceof Error ? error.message : "The model run failed.",
-      });
-    } finally {
-      if (this.officeTurn === abort) this.officeTurn = null;
-    }
+  private async requireDoorWorkspace(request: Request): Promise<boolean> {
+    await this.ensureOfficeId();
+    const claimed = request.headers.get(OFFICE_WORKSPACE_HEADER);
+    return Boolean(this.officeId && claimed === this.officeId);
   }
 
-  private boardPaperTools(roomId: string): ToolSet {
-    const ns = this.env.ROOM_ACTOR;
-    const workspaceId = () => this.officeId;
-    if (!ns) return {};
-    return {
-      board_list: tool({
-        description:
-          "List papers on this table. Not your computer. Paths are board-root.",
-        inputSchema: z.object({ path: z.string().optional() }),
-        execute: async ({ path }) =>
-          boardFileOp(ns, roomId, workspaceId(), "list", { path: path ?? "" }),
-      }),
-      board_read: tool({
-        description: "Read a paper on this table.",
-        inputSchema: z.object({ path: z.string() }),
-        execute: async ({ path }) =>
-          boardFileOp(ns, roomId, workspaceId(), "read", { path }),
-      }),
-      board_write: tool({
-        description:
-          "Write a paper on this table. Shared with everyone seated here.",
-        inputSchema: z.object({
-          path: z.string(),
-          content: z.string(),
-        }),
-        execute: async ({ path, content }) =>
-          boardFileOp(ns, roomId, workspaceId(), "write", { path, content }),
-      }),
+  /** Other rooms read/write this person’s grown soul and memory. */
+  private async handleDoorContext(request: Request): Promise<Response> {
+    if (!(await this.requireDoorWorkspace(request))) {
+      return new Response("Forbidden", { status: 403 });
+    }
+    await this.ensureBotLoaded();
+    const body = (await request.json().catch(() => ({}))) as {
+      op?: unknown;
+      label?: unknown;
+      content?: unknown;
+      mode?: unknown;
     };
+    if (body.op === "set") {
+      const label = body.label === "soul" ? "soul" : "memory";
+      const block = label === "soul" ? this.soulOverlay : this.memoryBlock;
+      const previous = (await block.get()) ?? "";
+      const text = typeof body.content === "string" ? body.content : "";
+      const next =
+        body.mode === "append" && previous
+          ? `${previous.trim()}\n${text.trim()}`
+          : text;
+      await block.set(
+        label === "soul"
+          ? soulOverlayFromWrite(this.soulPrompt, next)
+          : next.trim(),
+      );
+      return Response.json({ ok: true, label });
+    }
+    return Response.json({
+      soulPrompt: this.soulPrompt,
+      overlay: (await this.soulOverlay.get()) ?? "",
+      memory: (await this.memoryBlock.get()) ?? "",
+    });
+  }
+
+  private async handleDoorTools(request: Request): Promise<Response> {
+    if (!(await this.requireDoorWorkspace(request))) {
+      return new Response("Forbidden", { status: 403 });
+    }
+    await this.ensureBotLoaded();
+    await this.healComputerFiles();
+    const tools = this.getAgentTools().map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      parameters: jsonClone(tool.parameters) ?? { type: "object" },
+    }));
+    return Response.json({ tools });
+  }
+
+  private async handleDoorTool(request: Request): Promise<Response> {
+    if (!(await this.requireDoorWorkspace(request))) {
+      return new Response("Forbidden", { status: 403 });
+    }
+    await this.ensureBotLoaded();
+    await this.healComputerFiles();
+    const body = (await request.json().catch(() => ({}))) as {
+      name?: unknown;
+      params?: unknown;
+      toolCallId?: unknown;
+    };
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const tool = this.getAgentTools().find((row) => row.name === name);
+    if (!tool) {
+      return Response.json({ error: `Unknown tool ${name}` }, { status: 404 });
+    }
+    const toolCallId =
+      typeof body.toolCallId === "string" && body.toolCallId
+        ? body.toolCallId
+        : crypto.randomUUID();
+    const args = tool.prepareArguments
+      ? tool.prepareArguments(body.params)
+      : body.params;
+    const result = await tool.execute(toolCallId, args);
+    return Response.json(jsonClone(result) ?? { content: [] });
   }
 
   private async officeSystemPrompt(
-    messages: OfficeChatMessage[],
+    messages: PiBoundMessage[],
   ): Promise<string> {
     const overlay = (await this.soulOverlay.get()) ?? "";
     const memory = (await this.memoryBlock.get()) ?? "";
     let system = composeSoul(this.soulPrompt, overlay);
     if (memory.trim()) system = `${system}\n\nMemory:\n${memory.trim()}`;
-    return officeSkillSlashTurn({
+    return this.withOfficeSkills(
       system,
-      messages,
-      hasActivateSkill: false,
-    }).system;
+      messages.map((row) => row.message),
+    );
   }
 
-  private setContextTool() {
-    return tool({
+  protected async withOfficeSkills(
+    system: string,
+    messages: readonly unknown[],
+  ): Promise<string> {
+    const disk = this.officeKnowledge();
+    const catalog =
+      disk && this.officeId
+        ? await loadOfficeSkillCatalog(disk, this.officeId)
+        : [];
+    return applyOfficeSkillsToSystem({
+      system,
+      messages,
+      catalog,
+    });
+  }
+
+  private setContextTool(): AgentTool {
+    return officeAgentTool({
       description:
         "Save who you are (soul) or short facts about this office (memory). Keep it dense. Keep your name on soul.",
-      inputSchema: z.object({
+      name: "set_context",
+      parameters: z.object({
         label: z.enum(["soul", "memory"]),
         content: z.string(),
         mode: z.enum(["replace", "append"]).optional(),
       }),
       execute: async ({ label, content, mode }) => {
-        const block = label === "soul" ? this.soulOverlay : this.memoryBlock;
+        const kind = label === "soul" ? "soul" : "memory";
+        const block = kind === "soul" ? this.soulOverlay : this.memoryBlock;
         const previous = (await block.get()) ?? "";
+        const text = String(content ?? "");
         const next =
           mode === "append" && previous
-            ? `${previous.trim()}\n${content.trim()}`
-            : content;
+            ? `${previous.trim()}\n${text.trim()}`
+            : text;
         await block.set(
-          label === "soul"
+          kind === "soul"
             ? soulOverlayFromWrite(this.soulPrompt, next)
             : next.trim(),
         );
-        return { ok: true, label };
+        return { ok: true, label: kind };
       },
     });
   }
 
-  private readOfficeLog(): OfficeChatMessage[] {
+  private async officeBound(session: Session): Promise<PiBoundMessage[]> {
+    return piBoundFromSessionEntries(
+      await session.getBranch(),
+      await session.getStorage().findEntries("custom"),
+    );
+  }
+
+  private readLegacyOfficeChat(): OfficeChatMessage[] {
     const rows = this.sql<{ payload: string }>`
       SELECT payload FROM office_chat ORDER BY seq ASC
     `;
@@ -719,12 +797,18 @@ export class RoomHome extends Agent<WorkerEnv> {
     );
   }
 
-  private writeOfficeLog(messages: OfficeChatMessage[]): void {
-    this.sql`DELETE FROM office_chat`;
-    for (const row of messages) {
-      this
-        .sql`INSERT INTO office_chat (id, payload) VALUES (${row.id}, ${JSON.stringify(row)})`;
-    }
+  private async ensureOfficeSession(): Promise<Session> {
+    if (this.officeSession) return this.officeSession;
+    const storage = new DurableSessionStorage(
+      sqliteSessionStore(this.ctx.storage.sql as never, {
+        id: this.name,
+        createdAt: new Date().toISOString(),
+      }),
+    );
+    const session = new Session(storage);
+    await migrateOfficeChatToSession(session, this.readLegacyOfficeChat());
+    this.officeSession = session;
+    return session;
   }
 
   private async bumpOfficeGeneration(): Promise<number> {
@@ -748,18 +832,17 @@ export class RoomHome extends Agent<WorkerEnv> {
     }
   }
 
-  private broadcastOfficeLog(messages: OfficeChatMessage[]): Promise<void> {
-    return this.broadcastOffice(async (sub) => {
-      for (const row of messages) await sub.message(row);
+  private async broadcastOfficeEvent(
+    event: Omit<PiClientEvent, "threadId" | "seq"> & { seq?: number },
+  ): Promise<void> {
+    this.officeSeq += 1;
+    const payload = jsonClone({
+      ...event,
+      threadId: this.name,
+      seq: event.seq ?? this.officeSeq,
     });
-  }
-
-  private broadcastOfficeMessage(row: OfficeChatMessage): Promise<void> {
-    return this.broadcastOffice((sub) => sub.message(row));
-  }
-
-  private broadcastOfficeStream(row: OfficeChatMessage): Promise<void> {
-    return this.broadcastOffice((sub) => sub.stream({ message: row }));
+    if (!payload) return;
+    await this.broadcastOffice((sub) => sub.event(payload));
   }
 
   private broadcastOfficeStatus(): Promise<void> {
@@ -827,6 +910,13 @@ export class RoomHome extends Agent<WorkerEnv> {
     });
   }
 
+  private turnPiModel() {
+    if (gatewayConfigured(this.turnEnv)) {
+      return resolvePiAiModel(loadGatewayConfig(this.turnEnv), this.turnModel);
+    }
+    return piCompletionsModel(gatewayRequestModel(this.turnModel));
+  }
+
   private async loadBot(): Promise<void> {
     const env = productEnv(this.env);
     const source = agentRuntimeSource(env);
@@ -856,6 +946,12 @@ export class RoomHome extends Agent<WorkerEnv> {
   }
 
   private async healComputerFiles() {
+    try {
+      await this.computer.ready();
+    } catch {
+      // mkdir still works before backends connect.
+    }
+    await ensureComputerHome(this.computer.fs);
     patchComputerWorkspace(this.workspace);
   }
 
@@ -957,7 +1053,6 @@ export class RoomHome extends Agent<WorkerEnv> {
    */
   private enqueueOfficeReview(result: {
     status: string;
-    message?: OfficeChatMessage;
     continuation?: boolean;
   }): void {
     this.ctx.waitUntil(this.maybeRunOfficeReview(result));
@@ -965,13 +1060,14 @@ export class RoomHome extends Agent<WorkerEnv> {
 
   private async maybeRunOfficeReview(result: {
     status: string;
-    message?: OfficeChatMessage;
     continuation?: boolean;
   }): Promise<void> {
     await this.bumpOfficeReviewTools(result);
     if (result.status !== "completed") return;
     if (!this.officeKnowledge()) return;
-    if (!assistantTurnSettled(result.message?.parts)) return;
+    const session = await this.ensureOfficeSession();
+    const bound = await this.officeBound(session);
+    if (!piAssistantTurnSettled(bound)) return;
     const dueNow = parseOfficeReviewCounters(
       await this.ctx.storage.get(OFFICE_REVIEW_STORAGE),
     );
@@ -1005,12 +1101,14 @@ export class RoomHome extends Agent<WorkerEnv> {
           OFFICE_REVIEW_STORAGE,
           emptyOfficeReviewCounters(),
         );
-        const review = officeReviewUserMessage();
-        const parsed = parseOfficeChatMessage({
-          ...review,
-          createdAt: review.createdAt.getTime(),
+        await this.appendOfficeUserAndRun({
+          id: crypto.randomUUID(),
+          content: officeReviewUserText(),
+          metadata: {
+            source: OFFICE_REVIEW_SOURCE,
+            custom: { source: OFFICE_REVIEW_SOURCE },
+          },
         });
-        if (parsed) await this.appendOfficeAndRun([parsed]);
       } catch (error) {
         await this.ctx.storage.put(OFFICE_REVIEW_STORAGE, counters);
         console.error("bot actor office review", this.name, error);
@@ -1024,12 +1122,12 @@ export class RoomHome extends Agent<WorkerEnv> {
 
   private async bumpOfficeReviewTools(result: {
     status: string;
-    message?: OfficeChatMessage;
     continuation?: boolean;
   }): Promise<void> {
     if (result.status !== "completed") return;
     if (this.reviewBusy) return;
-    const tools = countUiToolParts(result.message?.parts);
+    const session = await this.ensureOfficeSession();
+    const tools = countPiToolCallsSinceLastUser(await this.officeBound(session));
     const current = parseOfficeReviewCounters(
       await this.ctx.storage.get(OFFICE_REVIEW_STORAGE),
     );
@@ -1051,17 +1149,11 @@ export class RoomHome extends Agent<WorkerEnv> {
     const body = routinePayload(payload);
     if (!body) return;
     if (await this.routinesSuspended()) return;
-    await this.appendOfficeAndRun([
-      {
-        id: crypto.randomUUID(),
-        role: "user",
-        parts: [
-          { type: "text", text: formatRoutinePrompt(body.name, body.prompt) },
-        ],
-        createdAt: Date.now(),
-        metadata: { source: "routine", custom: { source: "routine" } },
-      },
-    ]);
+    await this.appendOfficeUserAndRun({
+      id: crypto.randomUUID(),
+      content: formatRoutinePrompt(body.name, body.prompt),
+      metadata: { source: "routine", custom: { source: "routine" } },
+    });
   }
 
   async listRoutines(): Promise<Routine[]> {
@@ -1476,11 +1568,6 @@ export class RoomHome extends Agent<WorkerEnv> {
       if (job.name === "run.abort") {
         await this.stopOffice();
         return;
-      }
-      if (job.name === ROOM_TURN_JOB) {
-        const payload = parseRoomTurnPayload(job.payload);
-        if (!payload) return;
-        await this.enqueueTurn(() => this.runRoomTurn(payload));
       }
     } catch (error) {
       console.error("bot actor", job.botId, job.name, error);

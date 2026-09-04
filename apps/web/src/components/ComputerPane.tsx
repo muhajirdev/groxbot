@@ -12,7 +12,7 @@ import { userFacingError } from "../lib/errors";
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
 import { OFFICE_MESSAGES_GC_TIME } from "../lib/office-messages";
-import { ModalShell } from "../ui";
+import { Button, Field, Input, ModalShell, Textarea } from "../ui";
 import { ComputerFilePreview } from "./ComputerFilePreview";
 import {
   ChevronDownIcon,
@@ -306,73 +306,84 @@ export function ComputerPane(props: {
         }}
         onDownload={downloadFile}
       />
-      <ModalShell open={creating} onClose={() => setCreating(false)}>
-        <h2>Create Routine</h2>
-        <label className="field">
-          <span>Name</span>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Nightly Gmail check"
-          />
-        </label>
-        <label className="field">
-          <span>Schedule</span>
-          <select value={cron} onChange={(e) => setCron(e.target.value)}>
-            {CRONS.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          <span>What to do</span>
-          <textarea
-            rows={3}
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-          />
-        </label>
-        {error ? <p className="error">{error}</p> : null}
-        <div className="row">
-          <button
-            className="btn"
-            type="button"
-            disabled={creatingBusy || !name.trim() || !prompt.trim()}
-            onClick={() => {
-              setCreatingBusy(true);
-              setError("");
-              void client.routines
-                .create({
-                  botId: props.bot.id,
-                  name,
-                  prompt,
-                  cron,
-                })
-                .then(async () => {
-                  await queryClient.invalidateQueries({
-                    queryKey: ["routines", props.bot.id],
-                  });
-                  setCreating(false);
-                })
-                .catch((caught: unknown) =>
-                  setError(
-                    userFacingError(caught, "Could not create that routine."),
-                  ),
-                )
-                .finally(() => setCreatingBusy(false));
-            }}
-          >
-            Create
-          </button>
-          <button
-            className="btn ghost"
-            type="button"
-            onClick={() => setCreating(false)}
-          >
-            Close
-          </button>
+      <ModalShell
+        open={creating}
+        className="w-[min(360px,calc(100%-48px))] p-4"
+        onClose={() => setCreating(false)}
+      >
+        <div className="grid gap-3">
+          <h2 className="m-0 text-[15px] font-semibold tracking-tight">
+            Create Routine
+          </h2>
+          <Field label="Name" className="mb-0">
+            <Input
+              value={name}
+              placeholder="Nightly Gmail check"
+              onValueChange={setName}
+            />
+          </Field>
+          <Field label="Schedule" className="mb-0">
+            <select
+              className="w-full rounded-lg border border-line bg-card px-3 py-2 text-[14px] text-ink outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/40"
+              value={cron}
+              onChange={(e) => setCron(e.target.value)}
+            >
+              {CRONS.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="What to do" className="mb-0">
+            <Textarea
+              rows={3}
+              className="min-h-[72px]"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+            />
+          </Field>
+          {error ? <p className="error m-0">{error}</p> : null}
+          <div className="flex justify-end gap-2">
+            <Button
+              className="px-3 py-1.5 text-[13px]"
+              variant="ghost"
+              type="button"
+              onClick={() => setCreating(false)}
+            >
+              Close
+            </Button>
+            <Button
+              className="px-3 py-1.5 text-[13px]"
+              type="button"
+              disabled={creatingBusy || !name.trim() || !prompt.trim()}
+              onClick={() => {
+                setCreatingBusy(true);
+                setError("");
+                void client.routines
+                  .create({
+                    botId: props.bot.id,
+                    name,
+                    prompt,
+                    cron,
+                  })
+                  .then(async () => {
+                    await queryClient.invalidateQueries({
+                      queryKey: ["routines", props.bot.id],
+                    });
+                    setCreating(false);
+                  })
+                  .catch((caught: unknown) =>
+                    setError(
+                      userFacingError(caught, "Could not create that routine."),
+                    ),
+                  )
+                  .finally(() => setCreatingBusy(false));
+              }}
+            >
+              Create
+            </Button>
+          </div>
         </div>
       </ModalShell>
     </aside>

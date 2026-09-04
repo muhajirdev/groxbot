@@ -1,4 +1,4 @@
-/** Office home-thread log. Durable rows are JSON UIMessages. */
+/** Legacy UIMessage-shaped office/group JSON. Live home log is Pi Session. */
 
 export const OFFICE_CHAT_STATUSES = [
   "ready",
@@ -179,9 +179,68 @@ export function toolNameFromPart(part: OfficeChatPart): string | null {
 export function stringifyToolOutput(value: unknown): string {
   if (typeof value === "string") return value;
   if (value == null) return "";
+  if (isAsyncIterable(value)) return "";
   try {
     return JSON.stringify(value);
   } catch {
     return String(value);
   }
+}
+
+export function isAsyncIterable(
+  value: unknown,
+): value is AsyncIterable<unknown> {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      Symbol.asyncIterator in value &&
+      typeof (value as AsyncIterable<unknown>)[Symbol.asyncIterator] ===
+        "function",
+  );
+}
+
+function isGeneratorLike(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const row = value as { next?: unknown; throw?: unknown };
+  if (typeof row.next === "function" && typeof row.throw === "function") {
+    return true;
+  }
+  return Symbol.asyncIterator in value;
+}
+
+/** Cap’n Web / DO SQLite only take JSON. Drop generators, functions, and cycles. */
+export function jsonClone<T>(value: T): T | null {
+  if (value === undefined) return null;
+  if (typeof value === "function" || isGeneratorLike(value)) return null;
+  try {
+    return JSON.parse(
+      JSON.stringify(value, (_key, nested) => {
+        if (typeof nested === "function" || isGeneratorLike(nested)) {
+          return undefined;
+        }
+        return nested;
+      }),
+    ) as T;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * AI SDK tools may return a Promise or an AsyncGenerator (Computer `exec`
+ * streams stdout). Pi `await`s execute() and would otherwise keep the
+ * generator as the tool result.
+ */
+export async function resolveAiSdkToolResult(
+  value: unknown,
+  signal?: AbortSignal,
+): Promise<unknown> {
+  const resolved = await value;
+  if (!isAsyncIterable(resolved)) return jsonClone(resolved) ?? null;
+  let last: unknown;
+  for await (const chunk of resolved) {
+    if (signal?.aborted) break;
+    last = chunk;
+  }
+  return jsonClone(last) ?? null;
 }

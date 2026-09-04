@@ -38,6 +38,7 @@ import {
   deleteBot,
   getBotThread,
   listBots,
+  moveBot,
   pinBot,
   sendMessage,
   stopBotRuns,
@@ -67,9 +68,16 @@ import {
 } from "./plugins.js";
 import {
   createWorkspaceRoom,
+  deleteWorkspaceRoom,
   getWorkspaceRoom,
   listWorkspaceRooms,
 } from "./rooms.js";
+import {
+  createWorkspaceSection,
+  listWorkspaceSections,
+  removeWorkspaceSection,
+  renameWorkspaceSection,
+} from "./sections.js";
 import {
   ensureDeploymentOwner,
   loadWorkspaceRef,
@@ -290,9 +298,31 @@ export const appRouter = os.router({
       const actor = await requireActor(context);
       return unpinBot(context, actor, input.botId);
     }),
+    move: os.bots.move.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      return moveBot(context, actor, input);
+    }),
     delete: os.bots.delete.handler(async ({ context, input }) => {
       const actor = await requireActor(context);
       return deleteBot(context, actor, input.botId);
+    }),
+  },
+  sections: {
+    list: os.sections.list.handler(async ({ context }) => {
+      const actor = await requireActor(context);
+      return listWorkspaceSections(context, actor);
+    }),
+    create: os.sections.create.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      return createWorkspaceSection(context, actor, input);
+    }),
+    rename: os.sections.rename.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      return renameWorkspaceSection(context, actor, input);
+    }),
+    remove: os.sections.remove.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      return removeWorkspaceSection(context, actor, input.sectionId);
     }),
   },
   rooms: {
@@ -307,6 +337,10 @@ export const appRouter = os.router({
     create: os.rooms.create.handler(async ({ context, input }) => {
       const actor = await requireActor(context);
       return createWorkspaceRoom(context, actor, input);
+    }),
+    delete: os.rooms.delete.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      return deleteWorkspaceRoom(context, actor, input.roomId);
     }),
   },
   threads: {

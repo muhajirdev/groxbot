@@ -1,6 +1,7 @@
 import type { KnowledgeList } from "@groxbot/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  type MouseEvent,
   type ReactNode,
   type RefObject,
   useEffect,
@@ -22,6 +23,7 @@ import {
 } from "../lib/knowledge-import";
 import { insertComposerText } from "../lib/knowledge-slash";
 import {
+  coversKnowledgePath,
   filterKnowledgeTree,
   isOfficeSkillPath,
   type KnowledgeTreeNode,
@@ -45,14 +47,19 @@ import {
   GitHubIcon,
   GraphIcon,
   ImageFileIcon,
-  KnowledgeIcon,
   MarkdownFileIcon,
+  MoreIcon,
   PlusIcon,
   SearchIcon,
   TrashIcon,
+  UploadIcon,
 } from "./Icons";
 import { KnowledgeFilePreview } from "./KnowledgeFilePreview";
 import { KnowledgeGraphMap } from "./KnowledgeGraph";
+import {
+  KnowledgeContextMenu,
+  type KnowledgeMenuState,
+} from "./KnowledgeContextMenu";
 
 type Draft = { path: string; content: string };
 
@@ -65,25 +72,49 @@ export function KnowledgeLibrary(props: {
 }) {
   const workspace = useKnowledgeWorkspace(props.path ?? null);
   const selected = workspace.selected;
+  const [fileMenu, setFileMenu] = useState<KnowledgeMenuState | null>(null);
 
   useEffect(() => {
     workspace.syncPath(props.path ?? null);
   }, [props.path, workspace.syncPath]);
 
+  function openFileMenu(event: MouseEvent, node: KnowledgeTreeNode) {
+    event.preventDefault();
+    workspace.pick(node.path);
+    props.onPath(node.path);
+    setFileMenu({
+      node,
+      x: event.clientX,
+      y: event.clientY,
+      phase: "actions",
+    });
+  }
+
   return (
     <div className="knowledge-place">
-      <div className="flex items-center justify-between border-b border-line px-[18px] py-3.5">
-        <h2 className="m-0 flex items-center gap-2 text-lg">
-          <KnowledgeIcon />
-          Knowledge
-        </h2>
-        <button
-          className="btn ghost tight"
-          type="button"
-          onClick={props.onClose}
-        >
-          Back
-        </button>
+      <div className="pane-head">
+        <span className="pane-title">Knowledge</span>
+        <div className="row tight">
+          <button
+            className={cn("icon-btn", workspace.mapOpen && "on")}
+            type="button"
+            aria-pressed={workspace.mapOpen}
+            aria-label="Map"
+            title="Map"
+            onClick={workspace.toggleMap}
+          >
+            <GraphIcon />
+          </button>
+          <button
+            className="icon-btn"
+            type="button"
+            aria-label="Close"
+            title="Close"
+            onClick={props.onClose}
+          >
+            <CloseIcon />
+          </button>
+        </div>
       </div>
       <div className="knowledge-split">
         <KnowledgeNav
@@ -92,8 +123,6 @@ export function KnowledgeLibrary(props: {
           onNew={workspace.startDraft}
           onUpload={() => workspace.fileRef.current?.click()}
           onImport={workspace.startImport}
-          mapOpen={workspace.mapOpen}
-          onMap={workspace.toggleMap}
           fileRef={workspace.fileRef}
           onFile={workspace.uploadFile}
         >
@@ -113,6 +142,7 @@ export function KnowledgeLibrary(props: {
               workspace.pick(path);
               props.onPath(path);
             }}
+            onMenu={openFileMenu}
             onToggle={workspace.toggleCollapsed}
           />
         </KnowledgeNav>
@@ -191,14 +221,32 @@ export function KnowledgeLibrary(props: {
               onRemove={() => void workspace.removeSelected(props.onPath)}
             />
           ) : (
-            <p className="explorer-empty knowledge-hint">
+            <KnowledgeEmpty>
               {selected && !workspace.files.has(selected)
                 ? "A folder. New file or upload lands here."
                 : "Playbooks, notes, and files for the office. Pick one on the left."}
-            </p>
+            </KnowledgeEmpty>
           )}
         </section>
       </div>
+      <KnowledgeContextMenu
+        menu={fileMenu}
+        onClose={() => setFileMenu(null)}
+        onPhase={setFileMenu}
+        onDownload={workspace.downloadPath}
+        onCopyPath={(path) => {
+          void navigator.clipboard?.writeText(path);
+        }}
+        onUse={(node) => {
+          insertComposerText(`/${node.title || node.name} `);
+          props.onClose();
+        }}
+        onNewFile={(folder) => {
+          setFileMenu(null);
+          workspace.startDraft(folder);
+        }}
+        onDelete={(path) => void workspace.removePath(path, props.onPath)}
+      />
     </div>
   );
 }
@@ -213,6 +261,7 @@ export function KnowledgePeek(props: {
   const selected = props.path;
   const entry = workspace.entries.find((row) => row.path === selected) ?? null;
   const canPreview = workspace.files.has(selected);
+  const title = entry?.title ?? selected.split("/").filter(Boolean).at(-1) ?? "Knowledge";
 
   useEffect(() => {
     workspace.syncPath(props.path);
@@ -229,16 +278,16 @@ export function KnowledgePeek(props: {
 
   return (
     <aside className="pane knowledge-peek">
-      <div className="pane-head">
-        <span className="pane-title">Knowledge</span>
-        <div className="row tight">
-          <Button
+      <div className="pane-head drag">
+        <span className="pane-title">{title}</span>
+        <div className="row tight no-drag">
+          <button
+            className="text-btn"
             type="button"
-            variant="mini"
             onClick={() => props.onOpenLibrary(selected)}
           >
-            Open library
-          </Button>
+            Library
+          </button>
           <button
             className="icon-btn"
             type="button"
@@ -253,7 +302,7 @@ export function KnowledgePeek(props: {
       <div className="knowledge-peek-body">
         {workspace.error ? <p className="error">{workspace.error}</p> : null}
         {workspace.listQuery.isPending && workspace.entries.length === 0 ? (
-          <p className="explorer-empty knowledge-hint">Opening…</p>
+          <KnowledgeEmpty>Opening…</KnowledgeEmpty>
         ) : canPreview ? (
           <PreviewPane
             path={selected}
@@ -269,7 +318,7 @@ export function KnowledgePeek(props: {
             onUse={
               isOfficeSkillPath(selected)
                 ? () => {
-                    insertComposerText(`/${entry?.title || selected} `);
+                    insertComposerText(`/skill:${entry?.title || selected} `);
                     props.onClose();
                   }
                 : undefined
@@ -280,11 +329,11 @@ export function KnowledgePeek(props: {
             }
           />
         ) : (
-          <p className="explorer-empty knowledge-hint">
+          <KnowledgeEmpty>
             {selected
               ? "A folder. Open the library to browse it."
               : "Pick a note in chat, or open the library."}
-          </p>
+          </KnowledgeEmpty>
         )}
       </div>
     </aside>
@@ -436,25 +485,35 @@ function useKnowledgeWorkspace(initialPath: string | null) {
     }
   }
 
-  async function removeSelected(onGone: (path: string | null) => void) {
-    if (!selected) return;
+  async function removePath(
+    path: string,
+    onGone: (path: string | null) => void,
+  ) {
     setBusy(true);
     setError("");
     try {
-      await client.knowledge.remove({ path: selected });
+      await client.knowledge.remove({ path });
       setLocalFiles((current) => {
         const next = { ...current };
-        delete next[selected];
+        for (const key of Object.keys(next)) {
+          if (coversKnowledgePath(path, key)) delete next[key];
+        }
         return next;
       });
-      setSelected(null);
+      const gone = coversKnowledgePath(path, selected);
+      if (gone) setSelected(null);
       await refresh();
-      onGone(null);
+      if (gone) onGone(null);
     } catch (caught: unknown) {
       setError(userFacingError(caught, "Could not remove that"));
     } finally {
       setBusy(false);
     }
+  }
+
+  async function removeSelected(onGone: (path: string | null) => void) {
+    if (!selected) return;
+    await removePath(selected, onGone);
   }
 
   function uploadFile(file: File) {
@@ -515,17 +574,17 @@ function useKnowledgeWorkspace(initialPath: string | null) {
       });
   }
 
-  function downloadSelected() {
-    if (!selected || downloading) return;
-    const pending = localFile;
+  function downloadPath(path: string) {
+    if (!path || downloading) return;
+    const pending = localFiles[path];
     if (pending) {
-      saveLocalFile(pending, selected);
+      saveLocalFile(pending, path);
       return;
     }
     setDownloading(true);
     setError("");
     void client.knowledge
-      .download({ path: selected })
+      .download({ path })
       .then((file) => {
         saveComputerDownload(file);
       })
@@ -533,6 +592,11 @@ function useKnowledgeWorkspace(initialPath: string | null) {
         setError(userFacingError(caught, "Could not download that file"));
       })
       .finally(() => setDownloading(false));
+  }
+
+  function downloadSelected() {
+    if (!selected) return;
+    downloadPath(selected);
   }
 
   return {
@@ -566,16 +630,19 @@ function useKnowledgeWorkspace(initialPath: string | null) {
     pick,
     saveDraft,
     importSkill,
+    removePath,
     removeSelected,
     uploadFile,
+    downloadPath,
     downloadSelected,
-    startDraft: () => {
-      const folder =
-        selected && !files.has(selected) ? selected : parentOf(selected);
+    startDraft: (folder?: string) => {
+      const dest =
+        folder ??
+        (selected && !files.has(selected) ? selected : parentOf(selected));
       setImporting(false);
       setMapOpen(false);
       setDraft({
-        path: folder ? `${folder}/` : "skills/",
+        path: dest ? `${dest}/` : "skills/",
         content: "",
       });
       setSelected(null);
@@ -603,65 +670,75 @@ function useKnowledgeWorkspace(initialPath: string | null) {
   };
 }
 
+function KnowledgeEmpty(props: { children: ReactNode }) {
+  return (
+    <div className="knowledge-empty">
+      <p>{props.children}</p>
+    </div>
+  );
+}
+
 function KnowledgeNav(props: {
   query: string;
   onQuery: (query: string) => void;
   onNew: () => void;
   onUpload: () => void;
   onImport: () => void;
-  mapOpen: boolean;
-  onMap: () => void;
   fileRef: RefObject<HTMLInputElement | null>;
   onFile: (file: File) => void;
   children: ReactNode;
 }) {
   return (
     <aside className="knowledge-nav">
-      <label className="search-field explorer-search">
-        <SearchIcon />
-        <input
-          value={props.query}
-          onChange={(event) => props.onQuery(event.target.value)}
-          placeholder="Search the office…"
-          aria-label="Search knowledge"
-        />
-      </label>
-      <div className="knowledge-adds">
-        <button className="btn ghost tight" type="button" onClick={props.onNew}>
-          <PlusIcon /> New
-        </button>
-        <button
-          className="btn ghost tight"
-          type="button"
-          onClick={props.onUpload}
-        >
-          <PlusIcon /> Upload
-        </button>
-        <button
-          className="btn ghost tight"
-          type="button"
-          onClick={props.onImport}
-        >
-          <GitHubIcon /> Import
-        </button>
-        <button
-          className="btn ghost tight"
-          type="button"
-          aria-pressed={props.mapOpen}
-          onClick={props.onMap}
-        >
-          <GraphIcon /> Map
-        </button>
-        <input
-          ref={props.fileRef}
-          className="hidden"
-          type="file"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            event.target.value = "";
-            if (file) props.onFile(file);
-          }}
-        />
+      <div className="knowledge-nav-tools">
+        <label className="search-field explorer-search">
+          <SearchIcon />
+          <input
+            value={props.query}
+            onChange={(event) => props.onQuery(event.target.value)}
+            placeholder="Search…"
+            aria-label="Search knowledge"
+          />
+        </label>
+        <div className="knowledge-adds">
+          <button
+            className="icon-btn"
+            type="button"
+            aria-label="New file"
+            title="New file"
+            onClick={props.onNew}
+          >
+            <PlusIcon />
+          </button>
+          <button
+            className="icon-btn"
+            type="button"
+            aria-label="Upload"
+            title="Upload"
+            onClick={props.onUpload}
+          >
+            <UploadIcon />
+          </button>
+          <button
+            className="icon-btn"
+            type="button"
+            aria-label="Import playbook"
+            title="Import playbook"
+            onClick={props.onImport}
+          >
+            <GitHubIcon />
+          </button>
+          <input
+            ref={props.fileRef}
+            className="hidden"
+            type="file"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (file) props.onFile(file);
+            }}
+          />
+        </div>
       </div>
       <div className="explorer knowledge-tree">{props.children}</div>
     </aside>
@@ -677,6 +754,7 @@ function KnowledgeTree(props: {
   selected: string | null;
   collapsed: Set<string>;
   onSelect: (path: string) => void;
+  onMenu: (event: MouseEvent, node: KnowledgeTreeNode) => void;
   onToggle: (path: string) => void;
 }) {
   if (props.pending) return <p className="explorer-empty">Opening…</p>;
@@ -690,7 +768,7 @@ function KnowledgeTree(props: {
   if (props.empty) {
     return (
       <p className="explorer-empty">
-        Empty office. New file, upload, or import a playbook.
+        Nothing here yet. New, upload, or import a playbook.
       </p>
     );
   }
@@ -705,6 +783,7 @@ function KnowledgeTree(props: {
             selected={props.selected}
             collapsed={props.collapsed}
             onSelect={props.onSelect}
+            onMenu={props.onMenu}
             onToggle={props.onToggle}
           />
         ))}
@@ -727,13 +806,13 @@ function KnowledgeMapPane(props: {
   onOpen: (path: string) => void;
 }) {
   if (props.pending) {
-    return <p className="explorer-empty knowledge-hint">Opening map…</p>;
+    return <KnowledgeEmpty>Opening map…</KnowledgeEmpty>;
   }
   if (props.error) {
     return (
-      <p className="explorer-empty">
+      <KnowledgeEmpty>
         {userFacingError(props.error, "Could not load the map")}
-      </p>
+      </KnowledgeEmpty>
     );
   }
   return (
@@ -784,9 +863,9 @@ function PreviewPane(props: {
         </div>
         <div className="row tight">
           {props.onUse ? (
-            <Button type="button" variant="mini" onClick={props.onUse}>
+            <button className="text-btn" type="button" onClick={props.onUse}>
               Use in chat
-            </Button>
+            </button>
           ) : null}
           <button
             className="icon-btn"
@@ -978,6 +1057,7 @@ function TreeRows(props: {
   selected: string | null;
   collapsed: Set<string>;
   onSelect: (path: string) => void;
+  onMenu: (event: MouseEvent, node: KnowledgeTreeNode) => void;
   onToggle: (path: string) => void;
 }) {
   const node = props.node;
@@ -990,6 +1070,7 @@ function TreeRows(props: {
         <div
           className={cn("explorer-row", on && "on", folder && "dir")}
           style={{ paddingLeft: 8 + props.depth * 16 }}
+          onContextMenu={(event) => props.onMenu(event, node)}
         >
           {folder ? (
             <button
@@ -1017,6 +1098,18 @@ function TreeRows(props: {
           >
             {node.name}
           </button>
+          <button
+            className="explorer-more"
+            type="button"
+            aria-label={`${node.name} actions`}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              props.onMenu(event, node);
+            }}
+          >
+            <MoreIcon />
+          </button>
         </div>
       </li>
       {folder && open
@@ -1028,6 +1121,7 @@ function TreeRows(props: {
               selected={props.selected}
               collapsed={props.collapsed}
               onSelect={props.onSelect}
+              onMenu={props.onMenu}
               onToggle={props.onToggle}
             />
           ))

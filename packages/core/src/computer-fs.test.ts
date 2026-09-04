@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import { listComputerEntries, readComputerFile } from "./computer.js";
 import {
   COMPUTER_SHELL_BACKEND,
+  COMPUTER_VFS_ROOT,
   type ComputerFs,
   computerAbsolutePath,
   computerRelativePath,
   computerWorkerShell,
   diskFromComputerFs,
+  ensureComputerHome,
   withComputerOfficeTools,
 } from "./computer-fs.js";
 
@@ -197,13 +199,21 @@ describe("diskFromComputerFs", () => {
 });
 
 describe("withComputerOfficeTools", () => {
-  it("aliases ls onto list", () => {
+  it("renames ls to list and does not keep both", () => {
     const ls = { description: "list files" };
     expect(withComputerOfficeTools({ ls, exec: true })).toEqual({
-      ls,
       exec: true,
       list: ls,
     });
+  });
+});
+
+describe("ensureComputerHome", () => {
+  it("mkdirs /workspace", async () => {
+    const fs = new MemoryComputerFs();
+    await ensureComputerHome(fs);
+    expect(fs.dirs.has(COMPUTER_VFS_ROOT)).toBe(true);
+    await expect(fs.readdir(COMPUTER_VFS_ROOT)).resolves.toEqual([]);
   });
 });
 

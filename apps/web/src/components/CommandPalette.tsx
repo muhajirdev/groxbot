@@ -1,4 +1,4 @@
-import type { Bot, WorkspaceApp } from "@groxbot/contracts";
+import type { Bot, Room, WorkspaceApp } from "@groxbot/contracts";
 import { Dialog } from "@base-ui/react/dialog";
 import { formatForDisplay, useHotkey } from "@tanstack/react-hotkeys";
 import { useEffect, useId, useMemo, useState } from "react";
@@ -7,6 +7,7 @@ import {
   rankPaletteItems,
   type PaletteActionId,
   type PaletteItem,
+  type PaletteRoom,
 } from "../lib/command-palette";
 import { cn } from "../ui";
 import { AvatarMark } from "./Avatar";
@@ -17,7 +18,9 @@ import {
   MonitorIcon,
   PlugIcon,
   PlusIcon,
+  RoomIcon,
   SearchIcon,
+  SkillsIcon,
 } from "./Icons";
 
 function HotkeyHint(props: { hotkey: string; className?: string }) {
@@ -31,15 +34,20 @@ function HotkeyHint(props: { hotkey: string; className?: string }) {
 
 function ActionGlyph(props: { id: PaletteActionId }) {
   const className = "size-4 text-muted";
-  if (props.id === "hire") return <PlusIcon className={className} />;
+  if (props.id === "hire" || props.id === "section") {
+    return <PlusIcon className={className} />;
+  }
+  if (props.id === "room") return <RoomIcon className={className} />;
   if (props.id === "computer") return <MonitorIcon className={className} />;
   if (props.id === "plugins") return <PlugIcon className={className} />;
   if (props.id === "knowledge") return <KnowledgeIcon className={className} />;
+  if (props.id === "skills") return <SkillsIcon className={className} />;
   return <GearIcon className={className} />;
 }
 
 function itemLabel(item: PaletteItem): string {
   if (item.kind === "bot") return item.bot.name;
+  if (item.kind === "room") return item.room.name;
   if (item.kind === "app") return item.app.title;
   return item.action.label;
 }
@@ -49,31 +57,50 @@ function itemDetail(item: PaletteItem): string {
     if (item.bot.archivedAt) return "Archived";
     return item.bot.title || item.bot.lastPreview || "Teammate";
   }
+  if (item.kind === "room") {
+    return item.room.lastPreview || item.room.memberNames || "Room";
+  }
   if (item.kind === "app") return APP_KIND_LABEL[item.app.templateId];
   return "Command";
 }
 
 function groupLabel(kind: PaletteItem["kind"]): string {
   if (kind === "bot") return "Teammates";
+  if (kind === "room") return "Rooms";
   if (kind === "app") return "Apps";
   return "Commands";
+}
+
+function toPaletteRoom(room: Room): PaletteRoom {
+  return {
+    id: room.id,
+    name: room.name,
+    lastPreview: room.lastPreview,
+    memberNames: room.members.map((member) => member.name).join(" "),
+  };
 }
 
 export function CommandPalette(props: {
   open: boolean;
   bots: Bot[];
+  rooms: Room[];
   apps: WorkspaceApp[];
   onClose: () => void;
   onBot: (botId: string) => void;
+  onRoom: (roomId: string) => void;
   onApp: (appId: string) => void;
   onAction: (id: PaletteActionId) => void;
 }) {
   const listId = useId();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  const paletteRooms = useMemo(
+    () => props.rooms.map(toPaletteRoom),
+    [props.rooms],
+  );
   const items = useMemo(
-    () => rankPaletteItems(query, props.bots, props.apps),
-    [query, props.bots, props.apps],
+    () => rankPaletteItems(query, props.bots, props.apps, paletteRooms),
+    [query, props.bots, props.apps, paletteRooms],
   );
   const activeItem = items[active];
 
@@ -106,6 +133,7 @@ export function CommandPalette(props: {
   function run(item: PaletteItem | undefined) {
     if (!item) return;
     if (item.kind === "bot") props.onBot(item.bot.id);
+    else if (item.kind === "room") props.onRoom(item.room.id);
     else if (item.kind === "app") props.onApp(item.app.id);
     else props.onAction(item.action.id);
   }
@@ -133,7 +161,7 @@ export function CommandPalette(props: {
               autoFocus
               autoComplete="off"
               spellCheck={false}
-              placeholder="Search teammates, apps, commands…"
+              placeholder="Search teammates, rooms, apps, commands…"
               aria-autocomplete="list"
               aria-controls={listId}
               aria-activedescendant={
@@ -205,6 +233,10 @@ export function CommandPalette(props: {
                           }}
                         >
                           <FileIcon />
+                        </span>
+                      ) : item.kind === "room" ? (
+                        <span className="grid size-7 shrink-0 place-items-center rounded-[9px] bg-card-2">
+                          <RoomIcon className="size-4 text-muted" />
                         </span>
                       ) : (
                         <span className="grid size-7 shrink-0 place-items-center rounded-[9px] bg-card-2">

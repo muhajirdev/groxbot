@@ -1,6 +1,21 @@
-import type { PluginCard } from "./plugins";
+import { placeholderConnectorCard, type PluginCard } from "./plugins";
 
 export type PluginTab = "search" | "installed";
+
+/** Installed connections still have a card before the GitHub catalog arrives. */
+export function catalogWithInstalledPlaceholders(
+  catalog: PluginCard[],
+  installedIds: ReadonlySet<string>,
+): PluginCard[] {
+  if (installedIds.size === 0) return catalog;
+  const have = new Set(catalog.map((item) => item.id));
+  const extra: PluginCard[] = [];
+  for (const id of installedIds) {
+    if (have.has(id)) continue;
+    extra.push(placeholderConnectorCard(id));
+  }
+  return extra.length ? [...catalog, ...extra] : catalog;
+}
 
 export function visiblePluginCards(
   catalog: PluginCard[],
@@ -55,4 +70,38 @@ export function mcpHostLabel(url: string): string {
   } catch {
     return url;
   }
+}
+
+export function pluginGridColumns(
+  width: number,
+  minCard = 200,
+  gap = 10,
+): number {
+  if (width <= 0) return 1;
+  return Math.max(1, Math.floor((width + gap) / (minCard + gap)));
+}
+
+export type PluginListRow =
+  | { type: "label"; key: string; category: string }
+  | { type: "row"; key: string; items: PluginCard[] };
+
+export function pluginListRows(
+  groups: Map<string, PluginCard[]>,
+  columns: number,
+): PluginListRow[] {
+  const cols = Math.max(1, Math.floor(columns));
+  const rows: PluginListRow[] = [];
+  for (const [category, items] of groups) {
+    rows.push({ type: "label", key: `label:${category}`, category });
+    for (let i = 0; i < items.length; i += cols) {
+      const slice = items.slice(i, i + cols);
+      const first = slice[0]?.id ?? String(i);
+      rows.push({
+        type: "row",
+        key: `row:${category}:${first}`,
+        items: slice,
+      });
+    }
+  }
+  return rows;
 }

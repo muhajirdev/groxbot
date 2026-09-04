@@ -113,11 +113,13 @@ export function matchOfficeSkills(
   if (!trimmed.startsWith("/")) return [];
   if (/\s/.test(trimmed.slice(1))) return [];
   const needle = trimmed.slice(1).toLowerCase();
-  if (!needle) return [...skills];
+  if (!needle || needle === "skill" || needle === "skill:") return [...skills];
+  const rest = needle.startsWith("skill:") ? needle.slice("skill:".length) : needle;
+  if (!rest) return [...skills];
   return skills.filter(
     (skill) =>
-      skill.name.toLowerCase().includes(needle) ||
-      skill.description.toLowerCase().includes(needle),
+      skill.name.toLowerCase().includes(rest) ||
+      skill.description.toLowerCase().includes(rest),
   );
 }
 

@@ -1,11 +1,13 @@
 import { BotSchema } from "@groxbot/contracts";
 import { describe, expect, it } from "vitest";
 import {
+  assertDeletableGroupRoom,
   isListedGroupRoom,
   mentionFromText,
   parseRoomTurnPayload,
-  RoomError,
   resolveRoomTarget,
+  resolveRoomTargets,
+  RoomError,
   roomTurnSystem,
   roomWakeJob,
 } from "./rooms.js";
@@ -23,11 +25,11 @@ describe("resolveRoomTarget", () => {
     expect(resolveRoomTarget([steve]).id).toBe("steve");
   });
 
-  it("fails closed when several members and no target", () => {
-    expect(() => resolveRoomTarget([steve, hormozi])).toThrow(RoomError);
-    expect(() => resolveRoomTarget([steve, hormozi])).toThrow(
-      /Name who should answer/,
-    );
+  it("goes around the table when nobody is named", () => {
+    expect(resolveRoomTargets([steve, hormozi]).map((row) => row.id)).toEqual([
+      "steve",
+      "hormozi",
+    ]);
   });
 
   it("wakes the named member by id or mention", () => {
@@ -39,6 +41,30 @@ describe("resolveRoomTarget", () => {
     );
   });
 
+  it("lets an @mention beat a focused teammate", () => {
+    expect(
+      resolveRoomTarget([steve, hormozi], {
+        targetBotId: "steve",
+        mention: "Hormozi",
+      }).id,
+    ).toBe("hormozi");
+  });
+
+  it("matches a unique first name for a multi-word seat", () => {
+    const jobs = { id: "jobs", name: "Steve Jobs", archivedAt: null };
+    const alexander = {
+      id: "alexander",
+      name: "Alexander the Great",
+      archivedAt: null,
+    };
+    expect(
+      resolveRoomTarget([jobs, alexander], { mention: "Alexander" }).id,
+    ).toBe("alexander");
+    expect(
+      resolveRoomTarget([jobs, alexander], { mention: "Steve Jobs" }).id,
+    ).toBe("jobs");
+  });
+
   it("refuses an empty room and archived seats", () => {
     expect(() => resolveRoomTarget([])).toThrow(/no teammates/);
     expect(() =>
@@ -48,6 +74,14 @@ describe("resolveRoomTarget", () => {
       resolveRoomTarget([steve, hormozi], { mention: "Maya" }),
     ).toThrow(/not in this room/);
   });
+
+  it("refuses a first name that matches two people", () => {
+    const jobs = { id: "jobs", name: "Steve Jobs", archivedAt: null };
+    const woz = { id: "woz", name: "Steve Wozniak", archivedAt: null };
+    expect(() => resolveRoomTarget([jobs, woz], { mention: "Steve" })).toThrow(
+      /more than one person/,
+    );
+  });
 });
 
 describe("mentionFromText", () => {
@@ -55,6 +89,15 @@ describe("mentionFromText", () => {
     expect(mentionFromText("Hey @Hormozi, jump in")).toBe("Hormozi");
     expect(mentionFromText("@steve go")).toBe("steve");
     expect(mentionFromText("no one")).toBeNull();
+  });
+
+  it("reads a seated full name before the first token", () => {
+    expect(
+      mentionFromText("Hey @Alexander the Great, jump in", [
+        "Steve Jobs",
+        "Alexander the Great",
+      ]),
+    ).toBe("Alexander the Great");
   });
 });
 
@@ -69,6 +112,17 @@ describe("roomTurnSystem", () => {
     expect(prompt).toMatch(/table "Board"/);
     expect(prompt).toMatch(/not your private office/);
     expect(prompt).toMatch(/Hormozi/);
+    expect(prompt).not.toMatch(/going around/);
+  });
+
+  it("tells a go-around seat to keep it short", () => {
+    const prompt = roomTurnSystem("You are Steve.", {
+      name: "Board",
+      selfName: "Steve",
+      members: [{ name: "Steve" }, { name: "Hormozi" }],
+      around: true,
+    });
+    expect(prompt).toMatch(/going around/);
   });
 });
 
@@ -118,6 +172,20 @@ describe("isListedGroupRoom", () => {
   });
 });
 
+describe("assertDeletableGroupRoom", () => {
+  it("lets a listed group go and refuses a home office", () => {
+    expect(() =>
+      assertDeletableGroupRoom("standup", ["home-steve", "home-hormozi"]),
+    ).not.toThrow();
+    expect(() =>
+      assertDeletableGroupRoom("home-steve", ["home-steve", "home-hormozi"]),
+    ).toThrow(RoomError);
+    expect(() =>
+      assertDeletableGroupRoom("home-steve", ["home-steve", "home-hormozi"]),
+    ).toThrow(/someone's office/);
+  });
+});
+
 describe("BotSchema.homeRoomId", () => {
   it("rejects the empty string used when home_room_id is null", () => {
     expect(BotSchema.shape.homeRoomId.safeParse("").success).toBe(false);
@@ -138,7 +206,10 @@ describe("parseRoomTurnPayload", () => {
     expect(parsed?.roomId).toBe("board");
     expect(parsed?.members).toEqual([{ id: "steve", name: "Steve" }]);
     expect(parsed?.messages).toEqual([
-      { id: "u1", role: "user", parts: [{ type: "text", text: "hi" }] },
+      {
+        id: "u1",
+        message: { role: "user", content: "hi", timestamp: 0 },
+      },
     ]);
     expect(parseRoomTurnPayload({ roomId: "board" })).toBeNull();
   });

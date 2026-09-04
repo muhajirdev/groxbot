@@ -5,6 +5,8 @@ import {
   parseCachedWorkspace,
   resolveWorkspace,
   workspaceDisplayName,
+  workspaceFromCache,
+  workspaceFromList,
   workspaceMenuItems,
 } from "./workspace-switcher";
 
@@ -17,6 +19,37 @@ describe("workspaceDisplayName", () => {
   it("falls back when the name is missing", () => {
     expect(workspaceDisplayName(null)).toBe("Workspace");
     expect(workspaceDisplayName("")).toBe("Workspace");
+  });
+});
+
+describe("workspaceFromList", () => {
+  const offices = [
+    { id: "ws-1", name: "Acme", slug: "acme" },
+    { id: "ws-2", name: "Studio", slug: "studio" },
+  ];
+
+  it("matches slug then id", () => {
+    expect(workspaceFromList(offices, "studio")?.id).toBe("ws-2");
+    expect(workspaceFromList(offices, "ws-1")?.slug).toBe("acme");
+    expect(workspaceFromList(offices, "missing")).toBeUndefined();
+  });
+});
+
+describe("workspaceFromCache", () => {
+  it("returns the last office when the URL slug or id matches", () => {
+    expect(
+      workspaceFromCache({ id: "ws-1", name: "Acme", slug: "acme" }, "acme"),
+    ).toEqual({ id: "ws-1", name: "Acme", slug: "acme" });
+    expect(
+      workspaceFromCache({ id: "ws-1", name: "Acme" }, "ws-1"),
+    ).toEqual({ id: "ws-1", name: "Acme", slug: "ws-1" });
+  });
+
+  it("ignores a cached office for a different URL", () => {
+    expect(
+      workspaceFromCache({ id: "ws-1", name: "Acme", slug: "acme" }, "other"),
+    ).toBeNull();
+    expect(workspaceFromCache(null, "acme")).toBeNull();
   });
 });
 

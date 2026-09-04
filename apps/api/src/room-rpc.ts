@@ -2,7 +2,7 @@
 import type { OfficeUserMeta } from "@groxbot/contracts";
 import {
   OFFICE_WORKSPACE_HEADER,
-  parseOfficeChatMessages,
+  parsePiSendMessageInput,
 } from "@groxbot/core";
 import { getAgentByName } from "agents";
 import { newWorkersRpcResponse, RpcTarget } from "capnweb";
@@ -13,11 +13,11 @@ export { OFFICE_WORKSPACE_HEADER };
 export type RoomChatSubscriber = OfficeChatSubscriber;
 
 type RoomChatActor = {
+  snapshotRoom(): Promise<unknown>;
   subscribeRoom(subscriber: RoomChatSubscriber): Promise<void>;
-  runRoom(
-    messages: ReturnType<typeof parseOfficeChatMessages>,
+  sendRoom(
+    input: NonNullable<ReturnType<typeof parsePiSendMessageInput>>,
     user: OfficeUserMeta | null,
-    opts: { targetBotId?: string },
   ): Promise<void>;
   stopRoom(): Promise<void>;
 };
@@ -30,29 +30,23 @@ export class RoomChatHost extends RpcTarget {
     super();
   }
 
+  snapshot(): Promise<unknown> {
+    return this.actor.snapshotRoom();
+  }
+
   subscribe(subscriber: RoomChatSubscriber): Promise<void> {
     return this.actor.subscribeRoom(subscriber);
   }
 
-  run(messages: unknown, targetBotId?: unknown): Promise<void> {
-    const target = readTargetBotId(targetBotId);
-    return this.actor.runRoom(parseOfficeChatMessages(messages), this.user, {
-      targetBotId: target,
-    });
+  send(input: unknown): Promise<void> {
+    const parsed = parsePiSendMessageInput(input);
+    if (!parsed) return Promise.resolve();
+    return this.actor.sendRoom(parsed, this.user);
   }
 
   stop(): Promise<void> {
     return this.actor.stopRoom();
   }
-}
-
-function readTargetBotId(value: unknown): string | undefined {
-  if (typeof value === "string" && value.trim()) return value.trim();
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return undefined;
-  }
-  const id = (value as { targetBotId?: unknown }).targetBotId;
-  return typeof id === "string" && id.trim() ? id.trim() : undefined;
 }
 
 export function roomRpcResponse(
@@ -126,7 +120,7 @@ export async function postRoomTurn(
   }
 }
 
-export async function boardFileOp(
+export async function roomFileOp(
   ns: RoomNamespace,
   roomId: string,
   workspaceId: string,
@@ -146,7 +140,7 @@ export async function boardFileOp(
   );
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    throw new Error(text || `board ${path} ${response.status}`);
+    throw new Error(text || `room ${path} ${response.status}`);
   }
   return response.json();
 }

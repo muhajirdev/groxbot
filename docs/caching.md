@@ -4,13 +4,39 @@ Web’s “instant office” is **one TanStack QueryClient**. TanStack DB collec
 
 Desktop is Electron around this web app, so it gets the same cache. Mobile has a QueryClient and **no** IndexedDB persist.
 
+## Instant paint
+
+This is the product rule, not an office-only trick. **Chrome never waits on the network.** The shell, dialog, or pane opens on the last-known view. A fetch may run in the background and swap numbers in place. The first visit in a browser may show a quiet line in the *body* (“Loading…”). It must not freeze the chrome, block the open animation, or mount a thousand DOM nodes before first paint.
+
+How that is built, in order:
+
+1. **Keep the shell mounted.** Settings and Plugins stay in the tree with `open`. Open/close is visibility + CSS, not a mount that then waits on `useQuery`.
+2. **Paint from Query.** `useQuery` returns cached `data` immediately. `enabled: open` is fine — cached rows still show. Do not gate the whole UI on `isPending`.
+3. **After the first success, persist what is safe.** IndexedDB (`groxbot-query-cache`) is the hot cache across reloads. Next open is a restore, not GitHub, not a cold oRPC.
+4. **Incrementally fill huge lists.** Virtualize. Lazy images. Do not bundle a catalog into the web app so the first JS parse “feels cached.”
+5. **Do not steal boot.** Prefetch on first *open* (or idle after the office is up). Do not `prefetchQuery` a fat catalog during persist restore.
+
+Canonical feel: **Settings**. Cmd+, opens at once. General is `me` already on the client plus localStorage prefs. Updates is the build stamp. Usage & Billing / Models reuse `models.get` — after one fetch in the session, tab switches are cache hits. Same pattern as the roster, a thread reopen, Plugins after the first catalog load.
+
+| Surface | Instant from | Then |
+|---|---|---|
+| Settings → General | `me` in memory; theme / review / local-computer prefs in localStorage | Members list may fill |
+| Settings → Updates | `BUILD_REVISION` | Nothing |
+| Settings → Usage & Billing, Models | `models.get` Query cache (same session) | Refetch when stale. Not in IndexedDB — payload includes key status |
+| Roster, rooms, workspace name, apps, connectors, knowledge tree, computer trees | IndexedDB restore before first paint | Background refetch |
+| Office / room transcripts | IndexedDB bag + keep-alive | Cap’n Web snapshot |
+| Plugins catalog | IndexedDB after first open | GitHub JSON on a cold miss; virtualized grid |
+| Workspace switcher label | `groxbot.workspace` localStorage hint | Live `me` (not persisted) |
+
+A loading spinner that replaces the dialog, a blank settings tab, or a 5s GitHub wait before Plugins “opens” is a bug against this rule.
+
 Source of truth is never the browser:
 
 | Data | Truth |
 |---|---|
 | Team, bots, members, models | Postgres |
-| Office chat | DO SQLite `office_chat` on the home `RoomActor`, streamed over Cap’n Web |
-| Board / room chat | DO SQLite `room_chat` on the board `RoomActor`, streamed over Cap’n Web |
+| Office chat | Pi Session (`sessions` / `entries`) on the home `RoomActor`, streamed over Cap’n Web |
+| Group room chat | DO SQLite `room_chat` on the group `RoomActor`, streamed over Cap’n Web |
 | This bot’s files | `@cloudflare/computer` `Workspace` on the home `RoomActor` |
 | Office knowledge | R2 `{workspaceId}/…` |
 
@@ -18,7 +44,9 @@ R2 `_search/index.json` and `_links/index.json` are **Worker snapshots**, not th
 
 ## Boot
 
-`apps/web/src/main.tsx` imports `./lib/office-persist` **before** `createRoot`. That module `await`s `persistQueryClient` restore, then `hydrateBotPreviews()`. First React paint already has the restored whitelist.
+`apps/web/src/main.tsx` imports `./styles.css` then `./lib/office-persist` **before** `createRoot`. Persist `await`s `persistQueryClient` restore, then `hydrateBotPreviews()`. First React paint already has the restored whitelist.
+
+Session is **not** in that blob. `office-persist` starts `getSession` (then `me`) **while** IndexedDB restore runs so boot is one wait, not persist-then-session. Root `beforeLoad` joins that in-flight query. `workspaces.list` is warmed only after restore so hydrate wins over a blank fetch.
 
 Do not move persist after paint. Do not add a second IndexedDB schema, Dexie, Zustand persist, or a custom `SessionProvider` catalog.
 
@@ -64,9 +92,11 @@ Catalog collections set `gcTime` to `OFFICE_MESSAGES_GC_TIME` (7 days) so rows o
 | `["office-messages", botId]` | Last office transcript per bot. Seeded into `useOfficeChat`. Written with `setOfficeMessages`, not a `queryFn`. |
 | `["room-messages", roomId]` | Last board log per room. Seeded into `useRoomChat`. Do not key this by `botId`. |
 | `bots.list` | Roster. Query collection. Last line overlaid from the office transcript cache so a refetch that sends `""` does not blank the sidebar. |
-| `rooms.list` | Group room catalog (not someone’s `homeRoomId`). Query collection. Last line overlaid from the room transcript cache. |
+| `rooms.list` | Group room catalog (not someone’s `homeRoomId`). Query collection. Last line overlaid from the room transcript cache. Home rooms are not in this list — do not refetch it just because the URL is a home `roomId`. |
+| `workspaces.list` | Workspace picker + `/$workspaceSlug` layout. `gcTime` 7 days. Cookie session / `me` stay memory-only; this list is names and slugs. |
 | `apps.list` | Live app cards. Query collection. |
 | `plugins.list` / `mcp.list` | Connectors. Query collections. Refetch on window focus. |
+| `["plugin-catalog"]` | Slim Composio toolkit cards for the Plugins modal. First open fetches GitHub; after that, IndexedDB is the hot cache. Do not bundle the catalog into the web app, and do not prefetch it on boot. |
 | `knowledge.list` | Office tree. `useQuery` only (no collection). |
 | `computer.list` `{ botId }` | Each teammate’s file tree. Matcher strips `botId`/`path` so every bot’s list shares the procedure. **Not** `computer.download`. |
 
@@ -80,13 +110,14 @@ Writes into a query collection (`writeUpsert` / `writeUpdate` / `writeDelete`) g
 | `orpc.me` | Email, `needsModel`, `needsWorkspace`. Stale `me` would mis-route. |
 | `knowledge.graph` | Derived; cheap GET. |
 | File bodies (`knowledge` / `computer` read + download) | Large; refetch with 60s stale. |
-| `routines.list`, `models.get`, members | Settings, not the office shell. |
+| `routines.list` | Computer pane. Memory Query is enough for a session; not the office shell. |
+| `models.get`, `workspaces.members` | Settings. Instant from Query after first fetch; do not put key status or member emails in IndexedDB. |
 
 Tests: `apps/web/src/lib/office-persist.test.ts`. Node has no IndexedDB (`officeCacheEnabled() === false`).
 
 ## TanStack DB
 
-**Query collections** (`queryCollectionOptions`) bind a list RPC to rows. UI uses `useLiveQuery`. Route loaders call `botsCollection.preload()` — after persist restore that is a cache hit.
+**Query collections** (`queryCollectionOptions`) bind a list RPC to rows. UI uses `useLiveQuery`. Route loaders call `loadOfficeRoomCatalog` / `botsCollection.preload()` — after persist restore that is a cache hit. A home `roomId` is on the roster, not `rooms.list`; do not refetch rooms just because the collection does not have that id.
 
 Optimistic hire / plugin / MCP patches use `collection.utils.write*`. If sync has not started, those helpers throw; callers catch.
 
@@ -96,7 +127,9 @@ Do not add a collection that is the office catalog. The catalog is `bots.list` p
 
 ## Office keep-alive
 
-`office-keepalive.ts` is **not** a data cache. Chat keeps up to 8 office trees mounted so switching a teammate is a visibility toggle, not a remount. First visit is still cold; the IDB transcript is the seed.
+`office-keepalive.ts` is **not** a data cache. Chat keeps up to 8 office trees mounted so switching a teammate is a visibility toggle, not a remount. First visit is still cold unless the transcript bag already has a row.
+
+After paint, `scheduleThreadPrefetch` snapshots every other live home and group room in the background (Cap’n Web `snapshot()`, two at a time) and writes `office-messages` / `room-messages`. Skip the open room and any id already in the bag (IndexedDB restore counts). Do not await this in a loader.
 
 ## Sync chrome (localStorage)
 
@@ -115,6 +148,8 @@ Other keys (not Query):
 | Key | |
 |---|---|
 | `groxbot.theme` | Appearance |
+| `groxbot.sideWidth` | Roster column. Drag the list edge. |
+| `groxbot.paneWidth` | Computer / settings / knowledge peek column. Drag the pane edge. |
 | `groxbot.notify.{botId}` | Desktop notify |
 | `groxbot.localComputer` | ask / always / never |
 | `groxbot.autoReview` / `groxbot.autoReviewRules` | Post-turn review |
@@ -135,13 +170,17 @@ Do not put email, tokens, or file bodies in localStorage. Do not put the roster 
 
 ## Adding a persisted list
 
+Only if the surface must be instant **after a reload**, and the payload has no secrets.
+
 1. One oRPC `queryKey`. If it is a roster, also a query collection on that key.
 2. `gcTime` ≥ `OFFICE_MESSAGES_GC_TIME`.
 3. Add the key to `CATALOG_KEYS`, or a matcher like `isComputerListQueryKey`.
 4. Cover it in `office-persist.test.ts`.
 5. Bump `OFFICE_CACHE_BUSTER` only when old dehydrated data would be wrong.
+6. Chrome still opens if the cache is cold: `enabled` on first open, quiet body state, no bundled JSON.
 
 If the UI is a **label that must not flash** and the query must not be persisted (auth/`me`), use a small localStorage hint like `groxbot.workspace`. Do not persist the whole `me` object to make the label instant.
+
 
 ## Do not
 

@@ -1,4 +1,5 @@
 import {
+  type CSSProperties,
   type PointerEvent,
   useCallback,
   useEffect,
@@ -181,9 +182,9 @@ export function KnowledgeGraphMap(props: {
     (visible.length === 0 && isolateCount === 0)
   ) {
     return (
-      <p className="explorer-empty knowledge-hint">
-        No links yet. Notes that mention each other show up here.
-      </p>
+      <div className="knowledge-empty">
+        <p>No links yet. Notes that mention each other show up here.</p>
+      </div>
     );
   }
 
@@ -196,7 +197,7 @@ export function KnowledgeGraphMap(props: {
         <div className="knowledge-graph-tools">
           {isolateCount > 0 ? (
             <button
-              className="btn ghost tiny"
+              className="knowledge-graph-toggle"
               type="button"
               aria-pressed={showIsolates}
               onClick={() => setShowIsolates((open) => !open)}
@@ -205,7 +206,7 @@ export function KnowledgeGraphMap(props: {
             </button>
           ) : null}
           <button
-            className="btn ghost tiny"
+            className="knowledge-graph-toggle"
             type="button"
             onClick={() => setCamera(fitGraphCamera(visible, viewport))}
           >
@@ -215,16 +216,16 @@ export function KnowledgeGraphMap(props: {
       </div>
       <div className="knowledge-graph-canvas">
         {visible.length === 0 ? (
-          <p className="explorer-empty knowledge-hint">
-            Notes aren’t linked yet. Turn on Isolates to see unlinked files.
-          </p>
+          <div className="knowledge-empty">
+            <p>Notes aren’t linked yet. Turn on Isolates to see unlinked files.</p>
+          </div>
         ) : null}
         <svg
           ref={attachSvg}
           className={panning ? "panning" : undefined}
           viewBox={`${camera.x} ${camera.y} ${camera.w} ${camera.h}`}
           preserveAspectRatio="none"
-          aria-label="Office knowledge links"
+          aria-label="Office knowledge links. Scroll to zoom, drag to pan. Double-click opens a note."
           onPointerDown={(event) => {
             if (event.button !== 0 || nodeDrag.current) return;
             canvasDrag.current = {
@@ -340,19 +341,13 @@ export function KnowledgeGraphMap(props: {
       {folders.length > 1 ? (
         <ul className="knowledge-graph-legend">
           {folders.map(([name, hue]) => (
-            <li key={name}>
-              <span
-                className="knowledge-graph-swatch"
-                style={{ background: `hsl(${hue} 46% 54%)` }}
-              />
+            <li key={name} style={{ "--graph-hue": hue } as CSSProperties}>
+              <span className="knowledge-graph-swatch" />
               {name}
             </li>
           ))}
         </ul>
       ) : null}
-      <p className="knowledge-graph-hint">
-        Scroll to zoom, drag to pan. Double-click opens a note.
-      </p>
     </div>
   );
 }
@@ -369,9 +364,9 @@ function GraphNode(props: {
   onSelect: () => void;
   onOpen: () => void;
 }) {
-  const fill = props.selected
-    ? undefined
-    : `hsl(${props.node.hue} ${props.linked ? 52 : 42}% ${props.linked ? 62 : 54}%)`;
+  const hue = {
+    "--graph-hue": props.node.hue,
+  } as CSSProperties;
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: SVG graph node
     <g
@@ -383,6 +378,7 @@ function GraphNode(props: {
         props.missing && "missing",
         props.node.isolate && "isolate",
       )}
+      style={hue}
       transform={`translate(${props.node.x} ${props.node.y})`}
       onPointerDown={(event) => {
         event.stopPropagation();
@@ -404,10 +400,7 @@ function GraphNode(props: {
       {props.selected ? (
         <circle className="knowledge-graph-glow" r={props.node.r + 7} />
       ) : null}
-      <circle
-        r={props.selected ? props.node.r + 1.8 : props.node.r}
-        style={fill ? { fill } : undefined}
-      />
+      <circle r={props.selected ? props.node.r + 1.8 : props.node.r} />
       {props.labeled ? (
         <text y={props.node.r + 13} textAnchor="middle">
           {props.node.label}

@@ -16,9 +16,9 @@ UI: copy Grok Bot simplicity — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). R
           |
           +---- RoomActor [name = roomId]   <-- person: Agent + Pi + Computer
           |       person’s own room (bots.homeRoomId): queue / schedule / one turn
-          |       office_chat SQLite + Cap’n Web /rooms/:roomId/rpc
+          |       Pi Session (sessions/entries) + Cap’n Web /rooms/:roomId/rpc
           |       computer = @cloudflare/computer Workspace + Worker shell
-          |       group room: members, floor, room log; wakes those home rooms
+          |       group room: members, floor, room log; guest Pi via home door
           |
           '---- AppRuntime [name = appId]   <-- not the person
                   document + Gadget facet
@@ -28,17 +28,17 @@ UI: copy Grok Bot simplicity — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). R
 | Thing | Key | What it is |
 | --- | --- | --- |
 | Bot | `botId` | The person. Roster/soul/computer oRPC key. Their `RoomActor` is named `homeRoomId`. Pi runs the turn. |
-| Room | `roomId` | A place. Same Durable Object class. Person iff `bots.homeRoomId` matches; a group does **not** run the model. 1:1 is that bot’s own room. |
+| Room | `roomId` | A place. Same Durable Object class. Person iff `bots.homeRoomId` matches. Group runs guest Pi as the seated bot; computer/memory stay on home behind a door. 1:1 is that bot’s own room. |
 | Thread | Postgres `threadId` | v1 poke / guest. Listing + membership. |
-| Office log | that home room | DO SQLite `office_chat`. |
+| Office log | that home room | Pi Session (`sessions` / `entries`) on DO SQLite. |
 | App | `appId` | Live doc. Own Durable Object. |
 | Computer | `botId` | Built into the home room. `@cloudflare/computer` `Workspace` + Worker shell on `RoomActor`. Sell it. Not a second Durable Object. |
 
 ## Locked
 
 - **Durable person = that bot’s own `RoomActor`.** `getAgentByName(env.ROOM_ACTOR, homeRoomId)`. Do not name this instance `botId`. Do not bring back `BotActor`. Do not store `rooms.kind`.
-- **Durable group = a different `RoomActor`.** Same class. Person vs group is `loadBot()` / `bots.homeRoomId`. Coordinates the log, members, floor, and websockets. Never runs Pi. See [docs/rooms-plan.md](./docs/rooms-plan.md).
-- **Office log on the person’s room.** DO SQLite `office_chat`. v1 is **one** own room per bot. A poke is still a Postgres thread that enqueues onto that room. Do not use a session catalog as the office. Pi is the **loop** (`runAgentLoopContinue`); it does not replace the person instance or run on the group.
+- **Durable group = a different `RoomActor`.** Same class. Person vs group is `loadBot()` / `bots.homeRoomId`. Owns the log, members, floor, and guest Pi. Computer and grown soul stay on home (`/door/*`). See [docs/rooms-plan.md](./docs/rooms-plan.md).
+- **Office log on the person’s room.** Pi Session (`sessions` / `entries`) on DO SQLite. `office_chat` is migrate-only. v1 is **one** own room per bot. A poke is still a Postgres thread that enqueues onto that room. Do not use a session catalog as the office. Pi is the **loop** (`runAgentLoopContinue`); it does not replace the person instance or run on the group.
 - **Each app has its own Durable Object.** Talk → chat card → Open. Listing from cards, not a Postgres apps table.
 - **Computer is the bot.** Each teammate has a computer (`@cloudflare/computer` `Workspace` on the home `RoomActor`, Worker shell for bash). Sell that. No `computers` table, no shared vs isolated hire, no takeover, no `computer.sleep`, no Computer DO.
 - **Postgres** is the team catalog (auth, bots, threads, messages, skills). Office UI is assistant-ui over Cap’n Web (`/rooms/:roomId/rpc`).

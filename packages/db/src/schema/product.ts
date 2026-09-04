@@ -37,6 +37,11 @@ export const bots = pgTable(
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     /** Set when the teammate is pinned to the top of the sidebar. Null = unpinned. */
     pinnedAt: timestamp("pinned_at", { withTimezone: true }),
+    /** Named sidebar section. Null = ungrouped. */
+    sectionId: text("section_id").references(
+      (): AnyPgColumn => sidebarSections.id,
+      { onDelete: "set null" },
+    ),
     /** Sidebar office. Extra human↔bot threads for this bot are allowed; v1 never creates them. */
     homeThreadId: text("home_thread_id").references(
       (): AnyPgColumn => threads.id,
@@ -56,6 +61,7 @@ export const bots = pgTable(
   (t) => [
     uniqueIndex("bots_home_thread_id_unique").on(t.homeThreadId),
     uniqueIndex("bots_home_room_id_unique").on(t.homeRoomId),
+    index("bots_section_id").on(t.sectionId),
   ],
 );
 
@@ -442,4 +448,24 @@ export const roomMembers = pgTable(
     uniqueIndex("room_members_room_bot").on(t.roomId, t.botId),
     index("room_members_bot_id").on(t.botId),
   ],
+);
+
+/** Workspace-owned sidebar buckets for people. Not a room. */
+export const sidebarSections = pgTable(
+  "sidebar_sections",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    position: integer("position").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("sidebar_sections_workspace_id").on(t.workspaceId)],
 );

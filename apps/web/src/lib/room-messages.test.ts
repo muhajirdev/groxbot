@@ -21,8 +21,7 @@ describe("room messages cache", () => {
     setRoomMessages(roomId, [
       {
         id: "m1",
-        role: "user",
-        parts: [{ type: "text", text: "Agenda" }],
+        message: { role: "user", content: "Agenda", timestamp: 1 },
       },
     ]);
     expect(peekRoomMessages(roomId)?.[0]?.id).toBe("m1");

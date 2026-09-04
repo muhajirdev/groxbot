@@ -9,6 +9,7 @@ import {
   ComputerListSchema,
   CreateBotInput,
   CreateRoomInput,
+  CreateSidebarSectionInput,
   CreateWorkspaceInput,
   GuestConnectSchema,
   GuestStatusSchema,
@@ -25,12 +26,15 @@ import {
   McpConnectResultSchema,
   MemoryDocumentSchema,
   MeSchema,
+  MoveBotInput,
   PluginConnectionSchema,
   PluginConnectResultSchema,
   PluginStatusSchema,
   PokeThreadSchema,
+  RenameSidebarSectionInput,
   RoomSchema,
   RoutineSchema,
+  SidebarSectionSchema,
   ToolkitSlug,
   UpdateAccountInput,
   UpdateBotInput,
@@ -94,12 +98,24 @@ export const appContract = oc.router({
     unarchive: oc.input(botId).output(BotSchema),
     pin: oc.input(botId).output(BotSchema),
     unpin: oc.input(botId).output(BotSchema),
+    move: oc.input(MoveBotInput).output(BotSchema),
     delete: oc.input(botId).output(z.object({ ok: z.literal(true) })),
+  },
+  sections: {
+    list: oc.output(z.array(SidebarSectionSchema)),
+    create: oc.input(CreateSidebarSectionInput).output(SidebarSectionSchema),
+    rename: oc.input(RenameSidebarSectionInput).output(SidebarSectionSchema),
+    remove: oc
+      .input(z.object({ sectionId: Id }))
+      .output(z.object({ ok: z.literal(true) })),
   },
   rooms: {
     list: oc.output(z.array(RoomSchema)),
     get: oc.input(z.object({ roomId: Id })).output(RoomSchema),
     create: oc.input(CreateRoomInput).output(RoomSchema),
+    delete: oc
+      .input(z.object({ roomId: Id }))
+      .output(z.object({ ok: z.literal(true) })),
   },
   threads: {
     subscribe: oc

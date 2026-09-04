@@ -103,6 +103,7 @@ describe("office review messages", () => {
       false,
     );
     expect(officeReviewUserText()).toMatch(/knowledge\.search/);
+    expect(officeReviewUserText()).toMatch(/skill_manage patch/);
     expect(officeReviewUserText()).toMatch(/Skip/);
   });
 

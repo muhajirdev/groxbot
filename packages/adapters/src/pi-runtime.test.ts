@@ -1,16 +1,17 @@
 import {
+  CLOUDFLARE_PROVIDER,
   DEFAULT_AI_GATEWAY_ID,
   HOSTED_STARTER_MODEL,
   OPENROUTER_PROVIDER,
 } from "@groxbot/contracts";
 import { describe, expect, it } from "vitest";
-import {
-  cloudflareChatUrl,
-  gatewayRequestModel,
-  loadGatewayConfig,
-} from "./gateway.js";
+import { cloudflareAiGatewayChatUrl, loadGatewayConfig } from "./gateway.js";
+import { piAiRequestModel } from "./pi-ai-stream.js";
 import { PiAgentRuntime } from "./pi-runtime.js";
-import { createHostedAgentRuntime, GatewayAgentRuntime } from "./runtime-core.js";
+import {
+  createHostedAgentRuntime,
+  GatewayAgentRuntime,
+} from "./runtime-core.js";
 import { createAgentRuntime } from "./runtime.js";
 
 const runRequest = {
@@ -31,17 +32,88 @@ const adapterContext = {
   signal: new AbortController().signal,
 };
 
-function sseResponse(chunks: string[], content = "Hello from DeepSeek") {
-  const payload = chunks.length
-    ? chunks.join("")
-    : [
-        `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`,
-        "data: [DONE]\n\n",
-      ].join("");
+function sseResponse(
+  content = "Hello from DeepSeek",
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  },
+) {
+  const payload = [
+    `data: ${JSON.stringify({
+      id: "chunk-1",
+      object: "chat.completion.chunk",
+      choices: [
+        {
+          index: 0,
+          delta: { role: "assistant", content },
+          finish_reason: null,
+        },
+      ],
+    })}\n\n`,
+    `data: ${JSON.stringify({
+      id: "chunk-1",
+      object: "chat.completion.chunk",
+      choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+      ...(usage ? { usage } : {}),
+    })}\n\n`,
+    "data: [DONE]\n\n",
+  ].join("");
   return new Response(payload, {
     status: 200,
     headers: { "content-type": "text/event-stream" },
   });
+}
+
+function chatUrl(input: Parameters<typeof fetch>[0]): string {
+  if (typeof input === "string") return input;
+  if (input instanceof URL) return input.href;
+  if (input instanceof Request) return input.url;
+  return String(input);
+}
+
+function chatHeaders(
+  input: Parameters<typeof fetch>[0],
+  init?: RequestInit,
+): Headers {
+  if (input instanceof Request) return new Headers(input.headers);
+  return new Headers(init?.headers);
+}
+
+function chatBody(
+  input: Parameters<typeof fetch>[0],
+  init?: RequestInit,
+): Record<string, unknown> {
+  if (typeof init?.body === "string") {
+    return JSON.parse(init.body) as Record<string, unknown>;
+  }
+  if (init?.body instanceof Uint8Array) {
+    return JSON.parse(new TextDecoder().decode(init.body)) as Record<
+      string,
+      unknown
+    >;
+  }
+  return JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+}
+
+function chatSignal(
+  input: Parameters<typeof fetch>[0],
+  init?: RequestInit,
+): AbortSignal | undefined {
+  return init?.signal ?? (input instanceof Request ? input.signal : undefined);
+}
+
+function systemText(messages: unknown): string | undefined {
+  if (!Array.isArray(messages)) return undefined;
+  const system = messages.find(
+    (message) =>
+      message &&
+      typeof message === "object" &&
+      (message as { role?: string }).role === "system",
+  ) as { content?: unknown } | undefined;
+  if (typeof system?.content === "string") return system.content;
+  return undefined;
 }
 
 describe("PiAgentRuntime", () => {
@@ -49,8 +121,8 @@ describe("PiAgentRuntime", () => {
     const seen: Array<{
       url: string;
       model: string;
-      gateway?: string;
-      metadata?: string;
+      auth?: string | null;
+      metadata?: string | null;
       includeUsage?: boolean;
       system?: string;
     }> = [];
@@ -62,29 +134,25 @@ describe("PiAgentRuntime", () => {
         },
         {
           fetch: async (input, init) => {
-            const headers = new Headers(init?.headers);
-            const body = JSON.parse(String(init?.body ?? "{}")) as {
-              model: string;
-              stream_options?: { include_usage?: boolean };
-              messages: Array<{ role: string; content: string }>;
-            };
+            const headers = chatHeaders(input, init);
+            const body = chatBody(input, init);
             seen.push({
-              url: String(input),
-              model: body.model,
-              gateway: headers.get("cf-aig-gateway-id") ?? undefined,
-              metadata: headers.get("cf-aig-metadata") ?? undefined,
-              includeUsage: body.stream_options?.include_usage,
-              system: body.messages.find((message) => message.role === "system")
-                ?.content,
+              url: chatUrl(input),
+              model: String(body.model ?? ""),
+              auth:
+                headers.get("cf-aig-authorization") ??
+                headers.get("authorization"),
+              metadata: headers.get("cf-aig-metadata"),
+              includeUsage: (
+                body.stream_options as { include_usage?: boolean } | undefined
+              )?.include_usage,
+              system: systemText(body.messages),
             });
-            return sseResponse(
-              [
-                `data: ${JSON.stringify({ choices: [{ delta: { content: "DeepSeek says hello" } }] })}\n\n`,
-                `data: ${JSON.stringify({ usage: { prompt_tokens: 4, completion_tokens: 3, total_tokens: 7 } })}\n\n`,
-                "data: [DONE]\n\n",
-              ],
-              "unused",
-            );
+            return sseResponse("DeepSeek says hello", {
+              prompt_tokens: 4,
+              completion_tokens: 3,
+              total_tokens: 7,
+            });
           },
         },
       ),
@@ -95,9 +163,9 @@ describe("PiAgentRuntime", () => {
     }
     expect(seen).toEqual([
       {
-        url: cloudflareChatUrl("acct_123"),
-        model: gatewayRequestModel(HOSTED_STARTER_MODEL),
-        gateway: DEFAULT_AI_GATEWAY_ID,
+        url: cloudflareAiGatewayChatUrl("acct_123", DEFAULT_AI_GATEWAY_ID),
+        model: piAiRequestModel(CLOUDFLARE_PROVIDER, HOSTED_STARTER_MODEL),
+        auth: "Bearer cf-token",
         metadata: JSON.stringify({
           workspaceId: "ws-1",
           userId: "user-1",
@@ -122,21 +190,27 @@ describe("PiAgentRuntime", () => {
 
   it("aborts an in-flight Pi gateway request", async () => {
     let aborted = false;
+    let releaseFetch: () => void = () => {};
+    const fetchStarted = new Promise<void>((resolve) => {
+      releaseFetch = resolve;
+    });
     const runtime = new PiAgentRuntime(
       loadGatewayConfig(
         { OPENROUTER_API_KEY: "sk-or-test" },
         {
-          fetch: async (_input, init) =>
+          fetch: async (input, init) =>
             new Promise((_, reject) => {
+              const signal = chatSignal(input, init);
               const fail = () => {
                 aborted = true;
                 reject(new DOMException("Aborted", "AbortError"));
               };
-              if (init?.signal?.aborted) {
+              releaseFetch();
+              if (signal?.aborted) {
                 fail();
                 return;
               }
-              init?.signal?.addEventListener("abort", fail);
+              signal?.addEventListener("abort", fail);
             }),
         },
       ),
@@ -147,7 +221,7 @@ describe("PiAgentRuntime", () => {
         events.push(event);
       }
     })();
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await fetchStarted;
     await runtime.abort("run-1");
     await running;
     expect(aborted).toBe(true);

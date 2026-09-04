@@ -76,8 +76,11 @@ describe("overlayBotList", () => {
     setOfficeMessages("bot-1", [
       {
         id: "m1",
-        role: "user",
-        parts: [{ type: "text", text: "can you book the room" }],
+        message: {
+          role: "user",
+          content: "can you book the room",
+          timestamp: 1,
+        },
       },
     ]);
     expect(overlayBotList([bot("bot-1", "")])[0]?.lastPreview).toBe(
@@ -89,8 +92,11 @@ describe("overlayBotList", () => {
     setOfficeMessages("home-1", [
       {
         id: "m1",
-        role: "user",
-        parts: [{ type: "text", text: "can you book the room" }],
+        message: {
+          role: "user",
+          content: "can you book the room",
+          timestamp: 1,
+        },
       },
     ]);
     expect(
@@ -109,8 +115,11 @@ describe("hydrateBotPreviews", () => {
     setOfficeMessages("bot-1", [
       {
         id: "m1",
-        role: "assistant",
-        parts: [{ type: "text", text: "Booked for 3pm" }],
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "Booked for 3pm" }],
+          timestamp: 1,
+        },
       },
     ]);
     queryClient.setQueryData(botsKey, [bot("bot-1", "")]);

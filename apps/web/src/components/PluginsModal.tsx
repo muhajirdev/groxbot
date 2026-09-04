@@ -1,18 +1,23 @@
 import type { McpConnection, PluginConnection } from "@groxbot/contracts";
 import { useLiveQuery } from "@tanstack/react-db";
-import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Virtuoso } from "react-virtuoso";
 import { mcpCollection, pluginsCollection } from "../lib/collections";
 import { userFacingError } from "../lib/errors";
 import {
+  catalogWithInstalledPlaceholders,
   groupVisiblePlugins,
   matchesMcpQuery,
   mcpHostLabel,
+  pluginGridColumns,
+  pluginListRows,
   type PluginTab,
   visiblePluginCards,
 } from "../lib/plugin-modal";
 import {
   composioLogoUrl,
-  loadPluginCatalog,
+  pluginCatalogQueryOptions,
   type PluginCard,
 } from "../lib/plugins";
 import { client } from "../lib/rpc";
@@ -29,12 +34,17 @@ export function PluginsModal(props: {
 }) {
   const [tab, setTab] = useState<PluginTab>("search");
   const [query, setQuery] = useState("");
-  const [catalog, setCatalog] = useState<PluginCard[]>([]);
+  const catalogQuery = useQuery({
+    ...pluginCatalogQueryOptions(),
+    enabled: props.open,
+  });
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [mcpName, setMcpName] = useState("");
   const [mcpUrl, setMcpUrl] = useState("");
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+  const [columns, setColumns] = useState(3);
   const connectionsQuery = useLiveQuery((q) =>
     q.from({ plugin: pluginsCollection }),
   );
@@ -46,10 +56,10 @@ export function PluginsModal(props: {
     for (const row of connections) map.set(row.toolkit, row);
     return map;
   }, [connections]);
-
-  useEffect(() => {
-    void loadPluginCatalog().then(setCatalog);
-  }, []);
+  const installedIds = useMemo(
+    () => new Set(byToolkit.keys()),
+    [byToolkit],
+  );
 
   useEffect(() => {
     function onMessage(event: MessageEvent) {
@@ -75,9 +85,31 @@ export function PluginsModal(props: {
     };
   }, []);
 
+  useEffect(() => {
+    if (!props.open) return;
+    const el = listRef.current;
+    if (!el) return;
+    const sync = () => setColumns(pluginGridColumns(el.clientWidth));
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [props.open, tab]);
+
+  const catalog = useMemo(
+    () =>
+      catalogWithInstalledPlaceholders(
+        catalogQuery.data ?? [],
+        installedIds,
+      ),
+    [catalogQuery.data, installedIds],
+  );
   const visible = useMemo(
-    () => visiblePluginCards(catalog, query, tab, new Set(byToolkit.keys())),
-    [byToolkit, catalog, query, tab],
+    () =>
+      props.open
+        ? visiblePluginCards(catalog, query, tab, installedIds)
+        : [],
+    [catalog, installedIds, props.open, query, tab],
   );
   const mcpVisible = useMemo(
     () => mcpServers.filter((row) => matchesMcpQuery(row.name, row.url, query)),
@@ -86,6 +118,10 @@ export function PluginsModal(props: {
   const groups = useMemo(
     () => groupVisiblePlugins(tab, visible),
     [tab, visible],
+  );
+  const searchRows = useMemo(
+    () => (tab === "search" ? pluginListRows(groups, columns) : []),
+    [columns, groups, tab],
   );
 
   async function addOrRemove(item: PluginCard) {
@@ -200,15 +236,23 @@ export function PluginsModal(props: {
   }
 
   const q = query.trim();
+  const catalogPending = catalogQuery.isPending && !catalogQuery.data;
   const emptySearch =
     q.length > 0 &&
     visible.length === 0 &&
-    (tab === "search" || mcpVisible.length === 0);
+    (tab === "search"
+      ? (catalogQuery.data?.length ?? 0) > 0
+      : mcpVisible.length === 0);
 
   return (
-    <ModalShell open={props.open} wide onClose={props.onClose}>
-      <div className="flex items-center justify-between border-b border-line px-[18px] py-3.5">
-        <h2 className="m-0 text-lg">Plugins</h2>
+    <ModalShell
+      open={props.open}
+      wide
+      className="h-[min(86vh,720px)]"
+      onClose={props.onClose}
+    >
+      <div className="flex items-center justify-between border-b border-line px-3.5 py-2">
+        <h2 className="m-0 text-[15px] font-semibold tracking-tight">Plugins</h2>
         <button
           className="icon-btn"
           type="button"
@@ -247,14 +291,56 @@ export function PluginsModal(props: {
       {error ? (
         <p className="px-[18px] pt-3 text-[13px] text-danger">{error}</p>
       ) : null}
-      <div className="min-h-[280px] max-h-[min(70vh,640px)] overflow-auto px-[18px] py-4">
+      <div ref={listRef} className="min-h-0 flex-1">
         {emptySearch ? (
           <p className="muted py-10 text-center">No plugins match “{q}”.</p>
+        ) : tab === "search" && catalogPending ? (
+          <p className="muted py-10 text-center">Loading plugins…</p>
+        ) : tab === "search" && catalogQuery.isError && !catalogQuery.data ? (
+          <p className="muted py-10 text-center">
+            Could not load the plugin catalog.
+          </p>
+        ) : tab === "search" ? (
+          <Virtuoso
+            className="h-full"
+            data={searchRows}
+            increaseViewportBy={240}
+            defaultItemHeight={88}
+            components={{
+              Header: () => <div className="h-4" />,
+              Footer: () => <div className="h-4" />,
+            }}
+            computeItemKey={(_index, row) => row.key}
+            itemContent={(_index, row) =>
+              row.type === "label" ? (
+                <p className="group-label px-[18px] pt-3 pb-2">
+                  {row.category}
+                </p>
+              ) : (
+                <div
+                  className="grid gap-2.5 px-[18px] pb-2.5"
+                  style={{
+                    gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+                  }}
+                >
+                  {row.items.map((item) => (
+                    <PluginToolkitCard
+                      key={item.id}
+                      item={item}
+                      tab="search"
+                      row={byToolkit.get(item.id)}
+                      busy={busy === item.id}
+                      onAddOrRemove={() => void addOrRemove(item)}
+                      onAuthenticate={() => void authenticate(item)}
+                    />
+                  ))}
+                </div>
+              )
+            }
+          />
         ) : (
-          <>
-            {tab === "installed" &&
-            groups.size === 0 &&
-            mcpVisible.length === 0 ? (
+          <div className="h-full overflow-auto px-[18px] py-4">
+            {groups.size === 0 && mcpVisible.length === 0 ? (
               <p className="muted mb-[18px]">
                 Nothing here yet. Add a plugin from Search, then authenticate.
               </p>
@@ -263,82 +349,21 @@ export function PluginsModal(props: {
               <section key={category} className="mb-[18px]">
                 <p className="group-label">{category}</p>
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2.5">
-                  {items.map((item) => {
-                    const row = byToolkit.get(item.id);
-                    const on = Boolean(row);
-                    const live = row?.status === "connected";
-                    return (
-                      <article
-                        key={item.id}
-                        className="flex items-start justify-between gap-2.5 rounded-[14px] bg-card-2 p-3"
-                      >
-                        <div className="flex min-w-0 gap-2.5">
-                          {item.kind === "connector" ? (
-                            <PluginLogo
-                              slug={item.id}
-                              name={item.name}
-                              src={item.logo}
-                            />
-                          ) : null}
-                          <div className="min-w-0">
-                            <strong className="mb-1 block">{item.name}</strong>
-                            {tab === "installed" ? (
-                              <p className="muted m-0 text-xs">
-                                1{" "}
-                                {item.kind === "skill" ? "skill" : "connector"}
-                                {row?.status === "error" && row.lastError
-                                  ? ` · ${row.lastError}`
-                                  : ""}
-                              </p>
-                            ) : (
-                              <p className="muted m-0 text-xs">{item.blurb}</p>
-                            )}
-                          </div>
-                        </div>
-                        {tab === "search" ? (
-                          <button
-                            className={cn("mini", on && "on")}
-                            type="button"
-                            disabled={
-                              busy === item.id || item.kind !== "connector"
-                            }
-                            onClick={() => void addOrRemove(item)}
-                          >
-                            {on ? (
-                              <>
-                                <CheckIcon /> Added
-                              </>
-                            ) : item.kind === "skill" ? (
-                              "Soon"
-                            ) : (
-                              "Add"
-                            )}
-                          </button>
-                        ) : item.kind === "connector" ? (
-                          live ? (
-                            <span className="ok">Connected</span>
-                          ) : (
-                            <button
-                              className="mini"
-                              type="button"
-                              disabled={busy === item.id}
-                              onClick={() => void authenticate(item)}
-                            >
-                              {row?.status === "connecting"
-                                ? "Continue"
-                                : "Authenticate"}
-                            </button>
-                          )
-                        ) : (
-                          <span className="muted">1 skill</span>
-                        )}
-                      </article>
-                    );
-                  })}
+                  {items.map((item) => (
+                    <PluginToolkitCard
+                      key={item.id}
+                      item={item}
+                      tab="installed"
+                      row={byToolkit.get(item.id)}
+                      busy={busy === item.id}
+                      onAddOrRemove={() => void addOrRemove(item)}
+                      onAuthenticate={() => void authenticate(item)}
+                    />
+                  ))}
                 </div>
               </section>
             ))}
-            {tab === "installed" && mcpVisible.length > 0 ? (
+            {mcpVisible.length > 0 ? (
               <section className="mb-[18px]">
                 <p className="group-label">Custom MCP</p>
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2.5">
@@ -354,7 +379,7 @@ export function PluginsModal(props: {
                 </div>
               </section>
             ) : null}
-            {tab === "installed" && q.length === 0 ? (
+            {q.length === 0 ? (
               <AdvancedMcpForm
                 open={advancedOpen}
                 name={mcpName}
@@ -367,10 +392,77 @@ export function PluginsModal(props: {
                 onSubmit={() => void addRemoteMcp()}
               />
             ) : null}
-          </>
+          </div>
         )}
       </div>
     </ModalShell>
+  );
+}
+
+function PluginToolkitCard(props: {
+  item: PluginCard;
+  tab: PluginTab;
+  row?: PluginConnection;
+  busy: boolean;
+  onAddOrRemove: () => void;
+  onAuthenticate: () => void;
+}) {
+  const on = Boolean(props.row);
+  const live = props.row?.status === "connected";
+  return (
+    <article className="flex items-start justify-between gap-2.5 rounded-[14px] bg-card-2 p-3">
+      <div className="flex min-w-0 gap-2.5">
+        {props.item.kind === "connector" ? (
+          <PluginLogo slug={props.item.id} name={props.item.name} />
+        ) : null}
+        <div className="min-w-0">
+          <strong className="mb-1 block">{props.item.name}</strong>
+          {props.tab === "installed" ? (
+            <p className="muted m-0 text-xs">
+              1 {props.item.kind === "skill" ? "skill" : "connector"}
+              {props.row?.status === "error" && props.row.lastError
+                ? ` · ${props.row.lastError}`
+                : ""}
+            </p>
+          ) : (
+            <p className="muted m-0 text-xs">{props.item.blurb}</p>
+          )}
+        </div>
+      </div>
+      {props.tab === "search" ? (
+        <button
+          className={cn("mini", on && "on")}
+          type="button"
+          disabled={props.busy || props.item.kind !== "connector"}
+          onClick={props.onAddOrRemove}
+        >
+          {on ? (
+            <>
+              <CheckIcon /> Added
+            </>
+          ) : props.item.kind === "skill" ? (
+            "Soon"
+          ) : (
+            "Add"
+          )}
+        </button>
+      ) : props.item.kind === "connector" ? (
+        live ? (
+          <span className="ok">Connected</span>
+        ) : (
+          <button
+            className="mini"
+            type="button"
+            disabled={props.busy}
+            onClick={props.onAuthenticate}
+          >
+            {props.row?.status === "connecting" ? "Continue" : "Authenticate"}
+          </button>
+        )
+      ) : (
+        <span className="muted">1 skill</span>
+      )}
+    </article>
   );
 }
 
@@ -490,12 +582,19 @@ function AdvancedMcpForm(props: {
   );
 }
 
-function PluginLogo(props: { slug: string; name: string; src?: string }) {
+function PluginLogo(props: { slug: string; name: string }) {
   // logos.composio.dev has no CORS; never set crossOrigin.
-  const src = props.src || composioLogoUrl(props.slug);
   return (
     <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white">
-      <img alt="" src={src} className="size-6 object-contain" />
+      <img
+        alt=""
+        src={composioLogoUrl(props.slug)}
+        width={24}
+        height={24}
+        loading="lazy"
+        decoding="async"
+        className="size-6 object-contain"
+      />
     </span>
   );
 }

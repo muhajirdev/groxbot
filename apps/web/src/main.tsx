@@ -5,9 +5,9 @@ import { HotkeysProvider } from "@tanstack/react-hotkeys";
 import { RouterProvider } from "@tanstack/react-router";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { installViewTransitionGuard } from "./lib/gate-transition";
+import "./styles.css";
 import "./lib/office-persist";
 import { router } from "./router";
-import "./styles.css";
 
 installViewTransitionGuard();
 

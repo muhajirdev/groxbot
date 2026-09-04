@@ -24,27 +24,99 @@ function token(block: string, name: string): string {
   return match?.[1]?.trim() ?? "";
 }
 
+function gray(hex: string): number {
+  expect(hex).toMatch(/^#[0-9a-fA-F]{6}$/);
+  return parseInt(hex.slice(1, 3), 16);
+}
+
 describe("office chrome", () => {
   const dark = rootBlock(":root {\n  color-scheme: dark;");
   const light = rootBlock(':root[data-theme="light"] {');
 
-  it("keeps the roster on the same black as the shell", () => {
+  it("keeps a black gutter around one office panel", () => {
     expect(token(dark, "--bg")).toBe("#000000");
-    expect(token(dark, "--bg-side")).toBe("#000000");
-    expect(css).toMatch(/\.chat-side\s*\{[^}]*background:\s*var\(--bg\)/s);
+    expect(token(dark, "--bg-side")).toBe(token(dark, "--bg-thread"));
+    expect(gray(token(dark, "--bg-side"))).toBeGreaterThan(gray(token(dark, "--bg")));
+    expect(css).toMatch(/\.chat-side\s*\{[^}]*background:\s*var\(--bg-side\)/s);
   });
 
-  it("lifts the thread stage off that chrome", () => {
-    expect(token(dark, "--bg-thread")).toBe("#222222");
-    expect(token(dark, "--bg-thread")).not.toBe(token(dark, "--bg"));
-    expect(parseInt(token(dark, "--bg-thread").slice(1, 3), 16)).toBeGreaterThanOrEqual(
-      0x22,
-    );
+  it("lifts the light panel off the gray gutter", () => {
     expect(token(light, "--bg-thread")).toBe("#ffffff");
+    expect(token(light, "--bg-side")).toBe(token(light, "--bg-thread"));
     expect(token(light, "--bg-thread")).not.toBe(token(light, "--bg"));
   });
 
-  it("paints the assistant-ui canvas with the stage, not shell black", () => {
+  it("lifts cards, selection, and hairlines above the panel", () => {
+    const canvas = gray(token(dark, "--bg-thread"));
+    expect(gray(token(dark, "--hover"))).toBeGreaterThan(canvas);
+    expect(gray(token(dark, "--bg-pane"))).toBeGreaterThan(canvas);
+    expect(gray(token(dark, "--card"))).toBeGreaterThan(canvas);
+    expect(gray(token(dark, "--selected"))).toBeGreaterThan(
+      gray(token(dark, "--bg-side")),
+    );
+    expect(gray(token(dark, "--card-2"))).toBeGreaterThan(gray(token(dark, "--card")));
+    expect(gray(token(dark, "--line"))).toBeGreaterThan(canvas);
+  });
+
+  it("insets one rounded panel with a hairline on all four sides", () => {
+    expect(token(dark, "--radius-shell")).toBe("12px");
+    expect(css).toMatch(/\.chat-shell\s*\{[^}]*padding:\s*10px;/s);
+    expect(css).toMatch(
+      /\.chat-panel\s*\{[^}]*border:\s*1px solid var\(--line\);[^}]*border-radius:\s*var\(--radius-shell\)/s,
+    );
+    expect(css).toMatch(
+      /\.chat-panel\s*\{[^}]*grid-template-columns:\s*var\(--side-width, 240px\)/s,
+    );
+  });
+
+  it("fits four office places in the dock", () => {
+    expect(css).toMatch(
+      /\.chat-dock\s*\{[^}]*grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/s,
+    );
+  });
+
+  it("lets the office pane share one resizable column", () => {
+    expect(css).toMatch(
+      /\.chat-shell\.is-pane \.chat-stage\s*\{\s*grid-template-columns:\s*minmax\(0, 1fr\) var\(--pane-width, 380px\)/,
+    );
+    expect(css).toMatch(/\.pane-resize\s*\{[^}]*cursor:\s*col-resize/s);
+    expect(css).not.toMatch(/46vw/);
+    expect(css).toMatch(/\.knowledge-peek \.knowledge-doc\s*\{\s*max-width:\s*none/);
+    expect(css).toMatch(
+      /\.knowledge-peek-body \.knowledge-preview-head\s*\{[^}]*padding:\s*8px 14px/s,
+    );
+  });
+
+  it("keeps knowledge on the same plane as the thread", () => {
+    expect(css).toMatch(
+      /\.knowledge-nav\s*\{[^}]*background:\s*transparent/s,
+    );
+    expect(css).toMatch(/\.knowledge-preview-body\s*\{[^}]*border:\s*0/s);
+    expect(css).toMatch(
+      /\.knowledge-preview-body\s*\{[^}]*background:\s*transparent/s,
+    );
+  });
+
+  it("keeps the knowledge graph on the thread plane", () => {
+    expect(css).toMatch(/\.knowledge-graph svg\s*\{[^}]*background:\s*transparent/s);
+    expect(css).not.toMatch(
+      /\.knowledge-graph svg\s*\{[^}]*radial-gradient/s,
+    );
+    expect(css).not.toMatch(
+      /\.knowledge-graph-node\.selected circle\s*\{[^}]*fill:\s*var\(--accent\)/s,
+    );
+  });
+
+  it("keeps the teammate list when knowledge is open", () => {
+    expect(css).toMatch(
+      /\.chat-shell\.is-library \.chat-stage\s*\{\s*display:\s*none/,
+    );
+    expect(css).not.toMatch(
+      /\.chat-shell\.is-library \.chat-side,\s*\n\s*\.chat-shell\.is-library \.chat-stage/,
+    );
+  });
+
+  it("paints the assistant-ui canvas with the thread token", () => {
     expect(threadAui).toMatch(
       /className="aui-root aui-thread-root bg-bg-thread /,
     );
@@ -53,6 +125,17 @@ describe("office chrome", () => {
     );
     expect(threadAui).not.toMatch(
       /className="aui-root aui-thread-root bg-background /,
+    );
+  });
+
+  it("keeps waiting chrome off the message scope", () => {
+    const waiting = threadAui.slice(
+      threadAui.indexOf('data-slot="aui_assistant-waiting"'),
+      threadAui.indexOf("</AuiIf>", threadAui.indexOf('data-slot="aui_assistant-waiting"')),
+    );
+    expect(waiting).toContain("<AssistantWorkingStatus />");
+    expect(threadAui).toMatch(
+      /Do not read `s\.message` — this mounts outside Messages/,
     );
   });
 });

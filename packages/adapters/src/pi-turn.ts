@@ -25,23 +25,27 @@ import {
   HOSTED_STARTER_MODEL,
   hostedAiEnabled,
 } from "@groxbot/contracts";
-import type { ChatMessage, GatewayConfig, GatewayEnv } from "./gateway.js";
+import type { ChatMessage, GatewayEnv } from "./gateway.js";
 import {
   completionUsage,
   deltaText,
   deltaToolCalls,
   finishReason,
-  gatewayChatUrl,
   gatewayConfigured,
-  gatewayErrorMessage,
-  gatewayHeaders,
   gatewayRequestModel,
   loadGatewayConfig,
   readSseData,
 } from "./gateway.js";
+import { createGatewayStreamFn } from "./pi-ai-stream.js";
 import type { WorkersAiBinding } from "./workers-ai.js";
 
 export type { StreamFn };
+export {
+  createGatewayStreamFn,
+  piAiGatewayModelId,
+  piAiRequestModel,
+  resolvePiAiModel,
+} from "./pi-ai-stream.js";
 
 export function emptyPiUsage(): Usage {
   return {
@@ -134,23 +138,28 @@ export interface PiTurnResult {
   errorMessage?: string;
 }
 
-function isPiMessage(value: OwnedPiLine | Message): value is Message {
+function isPiMessage(value: OwnedPiLine | Message | AgentMessage): value is Message {
   return "timestamp" in value;
 }
 
 function toLoopMessages(
-  messages: Array<OwnedPiLine | Message>,
+  messages: Array<OwnedPiLine | Message | AgentMessage>,
   model: Model<Api>,
 ): Message[] {
   if (messages.length > 0 && messages.every((row) => isPiMessage(row))) {
-    return messages as Message[];
+    return messages.filter(
+      (row): row is Message =>
+        row.role === "user" ||
+        row.role === "assistant" ||
+        row.role === "toolResult",
+    );
   }
   return toPiMessages(messages as OwnedPiLine[], model);
 }
 
 export async function runPiTurn(input: {
   systemPrompt: string;
-  messages: Array<OwnedPiLine | Message>;
+  messages: Array<OwnedPiLine | Message | AgentMessage>;
   model: Model<Api>;
   streamFn: StreamFn;
   tools?: AgentTool[];
@@ -540,113 +549,6 @@ function emitAssistantStream(
 }
 
 /**
- * Worker-safe StreamFn: existing gateway SSE, not `pi-ai/api/openai-completions`.
- * Must not throw — failures are `stopReason` error/aborted on the assistant message.
- */
-export function createGatewayStreamFn(
-  config: GatewayConfig,
-  metadata?: Record<string, string | undefined>,
-): StreamFn {
-  return (model, context, options) => {
-    const stream = createAssistantMessageEventStream();
-    void (async () => {
-      try {
-        const tools = openaiTools(context);
-        const response = await config.fetch(gatewayChatUrl(config), {
-          method: "POST",
-          headers: gatewayHeaders(config, metadata),
-          body: JSON.stringify({
-            model: gatewayRequestModel(model.id.trim() || config.model),
-            stream: true,
-            stream_options: { include_usage: true },
-            messages: piContextToChatMessages(context),
-            ...(tools ? { tools } : {}),
-          }),
-          signal: options?.signal,
-        });
-        const raw = await readGatewayBody(response);
-        if (!response.ok) {
-          const text =
-            raw.text ||
-            (raw.stream ? await new Response(raw.stream).text() : "");
-          emitAssistantStream(stream, model, "", "error", {
-            errorMessage: gatewayErrorMessage(response.status, text),
-          });
-          return;
-        }
-        let reply = "";
-        let usage: Usage | null = null;
-        const pendingCalls: PendingToolCall[] = [];
-        let reason: string | null = null;
-        const absorb = (payload: unknown) => {
-          const counted = completionUsage(payload);
-          if (counted) usage = usageFromGateway(counted);
-          const ended = finishReason(payload);
-          if (ended) reason = ended;
-          const chunk = deltaText(payload);
-          if (chunk) reply += chunk;
-          for (const call of deltaToolCalls(payload)) {
-            mergeToolCallDelta(pendingCalls, call);
-          }
-        };
-        if (raw.stream) {
-          for await (const data of readSseData(raw.stream, options?.signal)) {
-            if (options?.signal?.aborted) break;
-            try {
-              absorb(JSON.parse(data) as unknown);
-            } catch {}
-          }
-        } else {
-          try {
-            absorb(JSON.parse(raw.text) as unknown);
-            if (!reply && pendingCalls.length === 0) {
-              reply = deltaText(JSON.parse(raw.text)).trim() || raw.text.trim();
-            }
-          } catch {
-            reply = raw.text.trim();
-          }
-        }
-        if (options?.signal?.aborted) {
-          emitAssistantStream(stream, model, reply, "aborted", {
-            usage,
-            errorMessage: "Request was aborted",
-          });
-          return;
-        }
-        const toolCalls = parsedToolCalls(pendingCalls);
-        if (toolCalls.length > 0 || reason === "tool_calls") {
-          emitAssistantStream(stream, model, reply, "toolUse", {
-            usage,
-            toolCalls,
-          });
-          return;
-        }
-        if (!reply.trim()) {
-          emitAssistantStream(stream, model, "", "error", {
-            usage,
-            errorMessage: "AI gateway returned an empty reply",
-          });
-          return;
-        }
-        emitAssistantStream(stream, model, reply, "stop", { usage });
-      } catch (error) {
-        if (isAbortError(error) || options?.signal?.aborted) {
-          emitAssistantStream(stream, model, "", "aborted", {
-            errorMessage: "Request was aborted",
-          });
-          return;
-        }
-        emitAssistantStream(stream, model, "", "error", {
-          errorMessage:
-            error instanceof Error ? error.message : "AI gateway failed",
-        });
-      }
-    })();
-    return stream;
-  };
-}
-
-/**
  * Same OpenAI-compatible stream as the REST gateway, through `env.AI`.
  * Hosted Groxbot has the binding and no CLOUDFLARE_ACCOUNT_ID token.
  */
@@ -785,30 +687,6 @@ function isReadableStream(value: unknown): value is ReadableStream<Uint8Array> {
     value !== null &&
     typeof (value as ReadableStream<Uint8Array>).getReader === "function"
   );
-}
-
-async function readGatewayBody(response: Response): Promise<{
-  text: string;
-  stream?: ReadableStream<Uint8Array>;
-}> {
-  const contentType = response.headers.get("content-type") ?? "";
-  if (contentType.includes("event-stream") && response.body) {
-    return { text: "", stream: response.body };
-  }
-  const text = await response.text();
-  if (/^\s*data:/m.test(text) || text.includes("data: [DONE]")) {
-    const bytes = new TextEncoder().encode(text);
-    return {
-      text,
-      stream: new ReadableStream({
-        start(controller) {
-          controller.enqueue(bytes);
-          controller.close();
-        },
-      }),
-    };
-  }
-  return { text };
 }
 
 function isAbortError(error: unknown): boolean {

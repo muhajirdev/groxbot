@@ -2,6 +2,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
 import { useEffect } from "react";
 import type { authClient } from "../lib/auth";
+import { workspaceListQueryOptions } from "../lib/office-persist";
 import { orpc, queryClient } from "../lib/orpc";
 import { loadSession, readSession } from "../lib/session";
 import { applyTheme, readTheme } from "../lib/theme";
@@ -28,7 +29,12 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     const me = context.queryClient.getQueryData(
       orpc.me.queryOptions().queryKey,
     );
-    if (session && me) return { session };
+    if (session !== undefined && me) {
+      if (session) {
+        void context.queryClient.ensureQueryData(workspaceListQueryOptions());
+      }
+      return { session };
+    }
     if (session === null) return { session: null };
     return loadAuthedContext(context.queryClient);
   },
@@ -40,6 +46,7 @@ async function loadAuthedContext(client: typeof queryClient) {
     const session = await loadSession(client);
     if (!session) return { session: null };
     void client.ensureQueryData(orpc.me.queryOptions());
+    void client.ensureQueryData(workspaceListQueryOptions());
     return { session };
   } catch {
     // API down / offline — treat as signed out so public routes still render.

@@ -21,21 +21,29 @@ export {
 } from "./edge-runtime.js";
 export {
   gatewayChatUrl,
+  cloudflareAiGatewayChatUrl,
   gatewayConfigured,
   gatewayRequestModel,
   loadGatewayConfig,
 } from "./gateway.js";
+export { openObjectParameters } from "./office-pi.js";
 export {
-  applyOfficeAgentEvent,
-  emptyOfficeDraft,
-  officeDraftMessage,
-  officeLogToPiMessages,
-  openObjectParameters,
-} from "./office-pi.js";
+  appendOfficeUserText,
+  migrateOfficeChatToSession,
+  persistOfficeSessionEvent,
+  piBoundFromSessionEntries,
+} from "./office-session.js";
+export {
+  DurableSessionStorage,
+  ensurePiSessionTables,
+  sqliteSessionStore,
+} from "./durable-session-storage.js";
+export { Session } from "@earendil-works/pi-agent-core";
 export {
   createGatewayStreamFn,
   createWorkersAiStreamFn,
   piCompletionsModel,
+  resolvePiAiModel,
   resolvePiStreamFn,
   runOwnedPiTurn,
   runPiTurn,

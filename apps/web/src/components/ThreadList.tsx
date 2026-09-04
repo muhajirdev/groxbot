@@ -53,7 +53,7 @@ function Header() {
 
 function Footer({ context }: { context: ThreadContext }) {
   return (
-    <div className="flex flex-col gap-2.5 px-7 pt-2.5 pb-6">
+    <div className="flex flex-col gap-2 px-5 pt-2 pb-4">
       {context.empty ? (
         <p className="mb-6 text-base leading-normal text-muted">
           First message is a real task. A good handoff has an outcome, sources,
@@ -86,7 +86,7 @@ function itemContent(
   const opened = appRef(message);
   if (!text && !pokeRef && !opened && !showDay) return <div className="h-0" />;
   return (
-    <div className="px-7 pb-2.5">
+    <div className="px-5 pb-2">
       {showDay ? (
         <div className="my-2.5 mb-1 text-center text-xs text-muted">
           {formatDaySep(message.createdAt)}
@@ -95,12 +95,12 @@ function itemContent(
       {text || pokeRef ? (
         <div
           className={cn(
-            "max-w-[72%] rounded-[18px] px-3.5 py-2.5 text-[15px] leading-snug",
+            "max-w-[72%] rounded-[14px] px-3 py-1.5 text-[14px] leading-snug",
             human
-              ? "ml-auto border border-[#2a2a2a] bg-[#1a1a1a] light:border-line light:bg-white"
+              ? "ml-auto bg-card-2 light:border light:border-line light:bg-white"
               : fromOther
                 ? "mr-auto border border-line bg-transparent text-[13px] text-muted"
-                : "mr-auto bg-[#141414] light:bg-[#ececec]",
+                : "mr-auto bg-card light:bg-card-2",
           )}
         >
           {fromName ? (

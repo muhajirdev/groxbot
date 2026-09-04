@@ -1,0 +1,67 @@
+import { useEffect, useState } from "react";
+import { Button, Field, Input, ModalShell } from "../ui";
+
+export function SectionDialog(props: {
+  open: boolean;
+  title: string;
+  confirm: string;
+  initialName?: string;
+  onClose: () => void;
+  onSubmit: (name: string) => void;
+}) {
+  const [name, setName] = useState("");
+  const ready = Boolean(name.trim());
+
+  useEffect(() => {
+    if (props.open) setName(props.initialName ?? "");
+  }, [props.open, props.initialName]);
+
+  return (
+    <ModalShell
+      open={props.open}
+      className="w-[min(340px,calc(100%-48px))] p-4"
+      onClose={props.onClose}
+    >
+      <form
+        className="grid gap-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const next = name.trim();
+          if (!next) return;
+          props.onSubmit(next);
+        }}
+      >
+        <h2 className="m-0 text-[15px] font-semibold tracking-tight">
+          {props.title}
+        </h2>
+        <Field label="Name" className="mb-0">
+          <Input
+            autoFocus
+            value={name}
+            placeholder="Sales"
+            maxLength={80}
+            autoComplete="off"
+            onValueChange={setName}
+          />
+        </Field>
+        <div className="flex justify-end gap-2">
+          <Button
+            className="px-3 py-1.5 text-[13px]"
+            variant="ghost"
+            type="button"
+            onClick={props.onClose}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="px-3 py-1.5 text-[13px]"
+            type="submit"
+            disabled={!ready}
+          >
+            {props.confirm}
+          </Button>
+        </div>
+      </form>
+    </ModalShell>
+  );
+}

@@ -29,6 +29,7 @@ export const BotSchema = z.object({
   lastAt: z.string(),
   archivedAt: z.string().nullable(),
   pinnedAt: z.string().nullable(),
+  sectionId: Id.nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -86,6 +87,32 @@ export const CreateRoomInput = z.object({
   id: Id.max(64).optional(),
   name: z.string().min(1).max(80),
   memberBotIds: z.array(Id).min(1).max(32),
+});
+
+/** Named sidebar bucket for people. Not a room. */
+export const SidebarSectionSchema = z.object({
+  id: Id,
+  workspaceId: Id,
+  name: z.string(),
+  position: z.number().int(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type SidebarSection = z.infer<typeof SidebarSectionSchema>;
+
+export const CreateSidebarSectionInput = z.object({
+  id: Id.max(64).optional(),
+  name: z.string().min(1).max(80),
+});
+
+export const RenameSidebarSectionInput = z.object({
+  sectionId: Id,
+  name: z.string().min(1).max(80),
+});
+
+export const MoveBotInput = z.object({
+  botId: Id,
+  sectionId: Id.nullable(),
 });
 
 /** Sidebar chrome. Identity still lives on the App Durable Object + chat card. */

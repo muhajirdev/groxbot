@@ -1,4 +1,4 @@
-import { useAISDKRuntime } from "@assistant-ui/ai-sdk";
+import { useExternalStoreRuntime } from "@assistant-ui/core/react";
 import {
   ActionBarPrimitive,
   AssistantRuntimeProvider,
@@ -40,11 +40,11 @@ import { officeAppUrl } from "../lib/host";
 import { FIRST_TASK } from "../lib/jobs";
 import { officeUserMessageSender } from "../lib/office-sender";
 import { orpc, queryClient } from "../lib/orpc";
-import { seedOutgoingUserMessage } from "../lib/outgoing-user-message";
 import { pickOfficeFiles, pickOfficePhotos } from "../lib/pick-file";
 import { client } from "../lib/rpc";
 import { isWaitingForAssistantTurn } from "../lib/thread-waiting";
 import { useOfficeChat } from "../lib/use-office-chat";
+import { projectedToThreadMessage } from "../lib/use-pi-thread";
 import { colors, radius } from "../theme";
 import { useSetWorking } from "../working";
 import { AppCard } from "./AppCard";
@@ -140,8 +140,9 @@ function OfficeThreadRuntime(props: {
     status,
     stop,
     error,
-    sendMessage,
-    setMessages,
+    onNew,
+    projected,
+    messages,
     isStreaming,
     connectionError,
   } = chat;
@@ -151,7 +152,7 @@ function OfficeThreadRuntime(props: {
   const inFlight = busy || pending;
 
   const send = useCallback(
-    async (...args: Parameters<typeof sendMessage>) => {
+    async (message: Parameters<typeof onNew>[0]) => {
       if (archivedRef.current) {
         return Promise.reject(new Error("Archived"));
       }
@@ -162,52 +163,28 @@ function OfficeThreadRuntime(props: {
         );
         return Promise.reject(new Error("Model required"));
       }
-      const [payload] = args;
-      const labeled = withOfficeUserMetadata(
-        payload,
+      const stamped = withOfficeUserMetadata(
+        { role: "user", metadata: message.metadata },
         senderRef.current,
-      ) as typeof payload;
+      ) as { metadata?: unknown };
 
       const abort = new AbortController();
       abortSendRef.current = abort;
       setPending(true);
       setWorking(botIdRef.current, true);
 
-      const seededId = crypto.randomUUID();
-      const seeded = seedOutgoingUserMessage(labeled, seededId);
-      if (seeded) {
-        setMessages((current) =>
-          current.some((message) => message.id === seededId)
-            ? current
-            : [...current, seeded],
-        );
-      }
-
-      let handedOff = false;
       try {
         if (archivedRef.current) {
           throw new Error("Archived");
         }
-        handedOff = true;
         setPending(false);
-        return await sendMessage(
-          seeded
-            ? ({ ...labeled, messageId: seededId } as typeof payload)
-            : labeled,
-        );
-      } catch (caught) {
-        if (!handedOff && seeded) {
-          setMessages((current) =>
-            current.filter((message) => message.id !== seededId),
-          );
-        }
-        throw caught;
+        return await onNew(message, stamped.metadata);
       } finally {
         if (abortSendRef.current === abort) abortSendRef.current = null;
         setPending(false);
       }
     },
-    [sendMessage, setMessages, setWorking],
+    [onNew, setWorking],
   );
 
   const halt = useCallback(() => {
@@ -215,10 +192,6 @@ function OfficeThreadRuntime(props: {
     return stop();
   }, [stop]);
 
-  const helpers = useMemo(
-    () => ({ ...chat, sendMessage: send, stop: halt }),
-    [chat, send, halt],
-  );
   const attachments = useMemo(
     () =>
       createWorkspaceAttachmentAdapter({
@@ -234,10 +207,14 @@ function OfficeThreadRuntime(props: {
       }),
     [props.botId],
   );
-  const runtime = useAISDKRuntime(
-    helpers as Parameters<typeof useAISDKRuntime>[0],
-    { adapters: { attachments } },
-  );
+  const runtime = useExternalStoreRuntime({
+    messages: projected,
+    convertMessage: projectedToThreadMessage,
+    isRunning: inFlight,
+    onNew: send,
+    onCancel: halt,
+    adapters: { attachments },
+  });
 
   useEffect(() => {
     setWorking(props.botId, inFlight);
@@ -245,7 +222,7 @@ function OfficeThreadRuntime(props: {
   }, [inFlight, props.botId, setWorking]);
 
   useEffect(() => {
-    const preview = lastUiPreview(chat.messages);
+    const preview = lastUiPreview(messages);
     if (!preview) return;
     queryClient.setQueryData(orpc.bots.list.queryOptions().queryKey, (rows) => {
       if (!rows) return rows;
@@ -253,7 +230,7 @@ function OfficeThreadRuntime(props: {
         row.id === props.botId ? { ...row, lastPreview: preview } : row,
       );
     });
-  }, [chat.messages, props.botId]);
+  }, [messages, props.botId]);
 
   const banner = composerBannerError({
     inFlight,

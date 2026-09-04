@@ -16,17 +16,15 @@ describe("seedOutgoingUserMessage", () => {
     );
     expect(seeded).toMatchObject({
       id: "msg-1",
-      role: "user",
-      parts: [{ type: "text", text: "hello" }],
       metadata: { custom: { officeUser: { userId: "u1" } } },
+      message: { role: "user", content: "hello" },
     });
   });
 
   it("lifts a text payload into a part", () => {
-    expect(seedOutgoingUserMessage({ text: "hi" }, "msg-2")).toEqual({
+    expect(seedOutgoingUserMessage({ text: "hi" }, "msg-2")).toMatchObject({
       id: "msg-2",
-      role: "user",
-      parts: [{ type: "text", text: "hi" }],
+      message: { role: "user", content: "hi" },
     });
   });
 

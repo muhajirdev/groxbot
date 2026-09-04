@@ -6,10 +6,12 @@ import {
   ensureBotOwnRoom,
   getHomeThread,
   missingModelMessage,
+  moveBotToSection,
   newId,
   nextSeq,
   previewFromBlocks,
   resolveRunModel,
+  SectionError,
   toBotDto,
 } from "@groxbot/core";
 import {
@@ -365,6 +367,32 @@ export async function unpinBot(
     .returning();
   if (!updated) throw new ORPCError("NOT_FOUND", { message: "Bot not found" });
   return toBotDto(updated, thread.id);
+}
+
+export async function moveBot(
+  context: RpcContext,
+  actor: Actor,
+  input: { botId: string; sectionId: string | null },
+): Promise<Bot> {
+  const { thread } = await getBotThread(context, actor, input.botId);
+  try {
+    const updated = await moveBotToSection(context.db, {
+      workspaceId: actor.workspaceId,
+      botId: input.botId,
+      sectionId: input.sectionId,
+    });
+    return toBotDto(updated, thread.id);
+  } catch (error) {
+    if (error instanceof SectionError) {
+      const notFound =
+        error.message === "That section is missing." ||
+        error.message === "Bot not found.";
+      throw new ORPCError(notFound ? "NOT_FOUND" : "BAD_REQUEST", {
+        message: error.message,
+      });
+    }
+    throw error;
+  }
 }
 
 export async function deleteBot(

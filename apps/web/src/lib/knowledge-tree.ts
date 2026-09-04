@@ -88,6 +88,48 @@ export function isOfficeSkillPath(path: string): boolean {
   return path === "SKILL.md" || path.endsWith("/SKILL.md");
 }
 
+export type KnowledgeMenuPhase = "actions" | "confirm-delete";
+
+export type KnowledgeMenuItem =
+  | { id: "download"; label: "Download" }
+  | { id: "copy-path"; label: "Copy path" }
+  | { id: "use"; label: "Use in chat" }
+  | { id: "new-file"; label: "New file" }
+  | { id: "delete"; label: string; danger: true }
+  | { id: "cancel-delete"; label: "Cancel" };
+
+export function knowledgeMenuItems(input: {
+  name: string;
+  kind: "dir" | "file";
+  skill: boolean;
+  phase: KnowledgeMenuPhase;
+}): KnowledgeMenuItem[] {
+  if (input.phase === "confirm-delete") {
+    return [
+      { id: "delete", label: `Delete ${input.name}`, danger: true },
+      { id: "cancel-delete", label: "Cancel" },
+    ];
+  }
+  const items: KnowledgeMenuItem[] = [];
+  if (input.kind === "dir") {
+    items.push({ id: "new-file", label: "New file" });
+  } else {
+    items.push({ id: "download", label: "Download" });
+    if (input.skill) items.push({ id: "use", label: "Use in chat" });
+  }
+  items.push({ id: "copy-path", label: "Copy path" });
+  items.push({ id: "delete", label: "Delete", danger: true });
+  return items;
+}
+
+export function coversKnowledgePath(
+  parent: string,
+  child: string | null,
+): boolean {
+  if (!child) return false;
+  return child === parent || child.startsWith(`${parent}/`);
+}
+
 export function officeSkills(
   entries: KnowledgeEntry[],
 ): Array<{ name: string; description: string }> {
@@ -97,7 +139,7 @@ export function officeSkills(
     if (!isOfficeSkillPath(row.path)) continue;
     const folder =
       row.path === "SKILL.md" ? "" : row.path.slice(0, -"/SKILL.md".length);
-    // activate_skill uses YAML `name` (list title), not the folder.
+    // Slash /skill:name uses YAML `name` (list title), not the folder.
     const name =
       row.title.trim() || folder.split("/").filter(Boolean).at(-1) || "";
     if (!name || seen.has(name)) continue;

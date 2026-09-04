@@ -834,6 +834,8 @@ export function officeSkillSource(
           body: parsed.body,
           rawContent: raw,
           resources: resources.map((resource) => ({ ...resource })),
+          path,
+          directory,
         },
         resources,
       });

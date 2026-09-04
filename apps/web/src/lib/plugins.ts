@@ -1,3 +1,5 @@
+import { OFFICE_MESSAGES_GC_TIME } from "./office-messages";
+
 export type PluginKind = "connector" | "skill";
 
 export type PluginCard = {
@@ -8,6 +10,14 @@ export type PluginCard = {
   kind: PluginKind;
   logo?: string;
 };
+
+export const PLUGIN_CATALOG_KEY = ["plugin-catalog"] as const;
+
+const COMPOSIO_TOOLKITS =
+  "https://raw.githubusercontent.com/ComposioHQ/composio/master/docs/public/data/toolkits.json";
+
+/** Card copy is display-only; keep the persisted catalog small. */
+const BLURB_MAX = 160;
 
 export const PLUGIN_SKILLS: PluginCard[] = [
   {
@@ -26,15 +36,11 @@ export const PLUGIN_SKILLS: PluginCard[] = [
   },
 ];
 
-const CATALOG_URL =
-  "https://raw.githubusercontent.com/ComposioHQ/composio/master/docs/public/data/toolkits.json";
-
 export type CatalogToolkit = {
   slug: string;
   name: string;
   description: string;
   category: string;
-  logo: string;
 };
 
 /** Display-only hotlink. logos.composio.dev omits CORS headers. */
@@ -56,9 +62,10 @@ export function parseComposioCatalog(raw: unknown): CatalogToolkit[] {
     out.push({
       slug,
       name,
-      description: String(row.description ?? "").trim(),
+      description: String(row.description ?? "")
+        .trim()
+        .slice(0, BLURB_MAX),
       category: String(row.category ?? "other").trim() || "other",
-      logo: String(row.logo ?? "").trim() || composioLogoUrl(slug),
     });
   }
   return out;
@@ -71,8 +78,17 @@ export function catalogToCards(rows: CatalogToolkit[]): PluginCard[] {
     blurb: row.description,
     category: titleCase(row.category),
     kind: "connector",
-    logo: row.logo,
   }));
+}
+
+export function placeholderConnectorCard(id: string): PluginCard {
+  return {
+    id,
+    name: titleCase(id.replace(/[_-]+/g, " ")),
+    blurb: "",
+    category: "Installed",
+    kind: "connector",
+  };
 }
 
 function titleCase(value: string): string {
@@ -83,40 +99,22 @@ function titleCase(value: string): string {
     .join(" ");
 }
 
-let catalogPromise: Promise<PluginCard[]> | undefined;
-
-export function loadPluginCatalog(): Promise<PluginCard[]> {
-  catalogPromise ??= fetchCatalog();
-  return catalogPromise;
+export async function loadPluginCatalog(): Promise<PluginCard[]> {
+  const response = await fetch(COMPOSIO_TOOLKITS);
+  if (!response.ok) {
+    throw new Error(`plugin catalog ${response.status}`);
+  }
+  const cards = catalogToCards(parseComposioCatalog(await response.json()));
+  if (cards.length === 0) throw new Error("plugin catalog empty");
+  return [...cards, ...PLUGIN_SKILLS];
 }
 
-async function fetchCatalog(): Promise<PluginCard[]> {
-  try {
-    const response = await fetch(CATALOG_URL);
-    if (!response.ok) throw new Error(String(response.status));
-    return [
-      ...catalogToCards(parseComposioCatalog(await response.json())),
-      ...PLUGIN_SKILLS,
-    ];
-  } catch {
-    return [
-      {
-        id: "gmail",
-        name: "Gmail",
-        blurb: "Read and draft mail when a Bot hits a wall.",
-        category: "Featured",
-        kind: "connector",
-        logo: composioLogoUrl("gmail"),
-      },
-      {
-        id: "github",
-        name: "GitHub",
-        blurb: "Find PRs. Never merge on its own.",
-        category: "Featured",
-        kind: "connector",
-        logo: composioLogoUrl("github"),
-      },
-      ...PLUGIN_SKILLS,
-    ];
-  }
+/** First open hits GitHub; Query persist then keeps the slim cards in IndexedDB. */
+export function pluginCatalogQueryOptions() {
+  return {
+    queryKey: PLUGIN_CATALOG_KEY,
+    queryFn: loadPluginCatalog,
+    staleTime: 24 * 60 * 60 * 1000,
+    gcTime: OFFICE_MESSAGES_GC_TIME,
+  };
 }

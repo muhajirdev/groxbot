@@ -5,7 +5,9 @@ export function matchOfficeSkills(
   const trimmed = query.trim();
   if (!trimmed.startsWith("/")) return [];
   if (/\s/.test(trimmed.slice(1))) return [];
-  const needle = trimmed.slice(1).toLowerCase();
+  let needle = trimmed.slice(1).toLowerCase();
+  if (!needle || needle === "skill" || needle === "skill:") return [...skills];
+  if (needle.startsWith("skill:")) needle = needle.slice("skill:".length);
   if (!needle) return [...skills];
   return skills.filter(
     (skill) =>

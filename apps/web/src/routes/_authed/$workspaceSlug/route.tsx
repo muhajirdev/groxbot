@@ -1,15 +1,37 @@
+import type { Workspace } from "@groxbot/contracts";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { orpc } from "../../../lib/orpc";
+import { workspaceListQueryOptions } from "../../../lib/office-persist";
 import { setRpcWorkspaceId } from "../../../lib/rpc-workspace";
+import {
+  readCachedWorkspace,
+  workspaceFromCache,
+  workspaceFromList,
+} from "../../../lib/workspace-switcher";
 
 export const Route = createFileRoute("/_authed/$workspaceSlug")({
   beforeLoad: async ({ context, params }) => {
-    const workspaces = await context.queryClient.ensureQueryData(
-      orpc.workspaces.list.queryOptions(),
+    const hinted = workspaceFromCache(
+      readCachedWorkspace(),
+      params.workspaceSlug,
     );
-    const workspace =
-      workspaces.find((item) => item.slug === params.workspaceSlug) ??
-      workspaces.find((item) => item.id === params.workspaceSlug);
+    if (hinted) setRpcWorkspaceId(hinted.id);
+
+    const listed = context.queryClient.getQueryData<Workspace[]>(
+      workspaceListQueryOptions().queryKey,
+    );
+    const fromCache = listed
+      ? workspaceFromList(listed, params.workspaceSlug)
+      : undefined;
+    if (fromCache) {
+      setRpcWorkspaceId(fromCache.id);
+      void context.queryClient.ensureQueryData(workspaceListQueryOptions());
+      return { workspace: fromCache };
+    }
+
+    const workspaces = await context.queryClient.ensureQueryData(
+      workspaceListQueryOptions(),
+    );
+    const workspace = workspaceFromList(workspaces, params.workspaceSlug);
     if (!workspace) {
       setRpcWorkspaceId(null);
       throw redirect({ to: "/onboarding", search: {} });

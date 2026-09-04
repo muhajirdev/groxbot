@@ -6,6 +6,8 @@ export const COMPUTER_DISK_FLAG = "computer.disk";
 export const COMPUTER_DISK_DOFS = "dofs";
 /** `@cloudflare/computer` WorkerShellBackend default id. */
 export const COMPUTER_SHELL_BACKEND = "worker-shell";
+/** Computer tools and Worker shell cwd. VFS schema only creates `/`. */
+export const COMPUTER_VFS_ROOT = "/workspace";
 export const COMPUTER_SHELL_DESCRIPTION =
   "Fast Worker shell (just-bash) on this bot’s computer. Core text commands only — no Linux container.";
 
@@ -25,15 +27,15 @@ export function computerWorkerShell(): ComputerWorkerShell {
 }
 
 /**
- * Computer file tools use `ls`. Alias `list` so the office catalog has one
- * directory tool.
+ * Computer file tools ship as `ls`. Office exposes that tool as `list`
+ * only — do not leave both names in the catalog.
  */
 export function withComputerOfficeTools<T extends Record<string, unknown>>(
   computerTools: T,
-): T {
-  const ls = computerTools.ls;
-  if (ls === undefined) return computerTools;
-  return { ...computerTools, list: ls };
+): Omit<T, "ls"> & { list?: T["ls"] } {
+  const { ls, ...rest } = computerTools;
+  if (ls === undefined) return rest as Omit<T, "ls"> & { list?: T["ls"] };
+  return { ...rest, list: ls };
 }
 
 export type ComputerFsDirent = {
@@ -110,6 +112,17 @@ export function computerAbsolutePath(path: string): string {
 
 export function computerRelativePath(path: string): string {
   return path.replace(/^\/+/u, "");
+}
+
+/** Computer `list` / `exec` cwd is `/workspace`. Create it on the VFS. */
+export async function ensureComputerHome(
+  fs: Pick<ComputerFs, "mkdir">,
+): Promise<void> {
+  try {
+    await fs.mkdir(COMPUTER_VFS_ROOT, { recursive: true });
+  } catch (error) {
+    if (!isExists(error)) throw error;
+  }
 }
 
 export function diskFromComputerFs(fs: ComputerFs): ComputerWorkspaceDisk {

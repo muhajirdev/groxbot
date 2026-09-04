@@ -1,6 +1,9 @@
 import type { Room } from "@groxbot/contracts";
-import type { UIMessage } from "ai";
-import { lastOfficePreview } from "./chat-messages";
+import {
+  lastProjectedPreview,
+  type PiBoundMessage,
+  projectPiBoundMessages,
+} from "@groxbot/core/browser";
 import { orpc, queryClient } from "./orpc";
 
 export const ROOM_MESSAGES_ROOT = "room-messages" as const;
@@ -12,18 +15,18 @@ export function roomMessagesKey(roomId: string) {
   return [...ROOM_MESSAGES_KEY, id] as const;
 }
 
-export function peekRoomMessages(roomId: string): UIMessage[] | undefined {
+export function peekRoomMessages(roomId: string): PiBoundMessage[] | undefined {
   return queryClient.getQueryData(roomMessagesKey(roomId));
 }
 
 export function roomPreviewsFromCache(): Map<string, string> {
   const out = new Map<string, string>();
-  for (const [key, data] of queryClient.getQueriesData<UIMessage[]>({
+  for (const [key, data] of queryClient.getQueriesData<PiBoundMessage[]>({
     queryKey: ROOM_MESSAGES_KEY,
   })) {
     const id = key[1];
     if (typeof id !== "string" || !data) continue;
-    const preview = lastOfficePreview(data);
+    const preview = lastProjectedPreview(projectPiBoundMessages(data));
     if (preview) out.set(id, preview);
   }
   return out;
@@ -44,9 +47,12 @@ function writeRosterPreview(roomId: string, preview: string): void {
   });
 }
 
-export function setRoomMessages(roomId: string, messages: UIMessage[]) {
+export function setRoomMessages(roomId: string, messages: PiBoundMessage[]) {
   queryClient.setQueryData(roomMessagesKey(roomId), messages);
-  writeRosterPreview(roomId, lastOfficePreview(messages));
+  writeRosterPreview(
+    roomId,
+    lastProjectedPreview(projectPiBoundMessages(messages)),
+  );
 }
 
 export function forgetRoomMessages(roomId: string) {

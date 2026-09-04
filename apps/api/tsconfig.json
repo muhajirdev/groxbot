@@ -20,6 +20,7 @@
     "src/bot-office-rpc.ts",
     "src/bot-office-tools.ts",
     "src/bot-knowledge.ts",
+    "src/bot-skill.ts",
     "src/room-actor.ts",
     "src/room-rpc.ts",
     "src/index.ts",

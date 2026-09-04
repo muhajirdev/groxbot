@@ -71,12 +71,23 @@ export function cloudflareChatUrl(accountId: string): string {
   return `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1/chat/completions`;
 }
 
+/** Cloudflare AI Gateway unified OpenAI-compat URL used by pi-ai. */
+export function cloudflareAiGatewayChatUrl(
+  accountId: string,
+  gatewayId: string = DEFAULT_AI_GATEWAY_ID,
+): string {
+  return `https://gateway.ai.cloudflare.com/v1/${accountId}/${gatewayId}/compat/chat/completions`;
+}
+
 export function gatewayChatUrl(config: GatewayConfig): string {
   if (config.provider === OPENROUTER_PROVIDER) return OPENROUTER_CHAT_URL;
   if (!config.accountId) {
     throw new Error("CLOUDFLARE_ACCOUNT_ID is required");
   }
-  return cloudflareChatUrl(config.accountId);
+  return cloudflareAiGatewayChatUrl(
+    config.accountId,
+    config.gatewayId ?? DEFAULT_AI_GATEWAY_ID,
+  );
 }
 
 export function gatewayHeaders(

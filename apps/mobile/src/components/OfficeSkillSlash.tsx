@@ -23,10 +23,10 @@ export function OfficeSkillSlash() {
         <Pressable
           key={skill.name}
           accessibilityRole="button"
-          onPress={() => aui.composer.setText(`/${skill.name} `)}
+          onPress={() => aui.composer.setText(`/skill:${skill.name} `)}
           style={styles.item}
         >
-          <Text style={styles.name}>/{skill.name}</Text>
+          <Text style={styles.name}>/skill:{skill.name}</Text>
           {skill.description ? (
             <Text style={styles.desc} numberOfLines={1}>
               {skill.description}

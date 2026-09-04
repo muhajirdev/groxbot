@@ -21,6 +21,7 @@ import { OfficeSkillSlash } from "@/components/OfficeSkillSlash";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { officeUserMessageSender } from "@/lib/office-sender";
+import { parseRoomSpeaker } from "@groxbot/core/browser";
 import { isVisibleChatMessage } from "@/lib/chat-messages";
 import { isWaitingForAssistantTurn } from "@/lib/thread-waiting";
 import { cn } from "@/lib/utils";
@@ -143,7 +144,7 @@ const ThreadHistorySkeleton: FC = () => (
   <div
     data-slot="aui_thread-history-skeleton"
     role="status"
-    className="animate-in fade-in fill-mode-both flex flex-col gap-y-6 [animation-delay:150ms] [animation-duration:200ms]"
+    className="animate-in fade-in fill-mode-both flex flex-col gap-y-3 [animation-delay:150ms] [animation-duration:200ms]"
   >
     <span className="sr-only">Loading conversation</span>
     <Skeleton className="ml-auto h-9 w-2/5 rounded-xl motion-reduce:animate-none" />
@@ -199,8 +200,8 @@ const ThreadRoot: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
       style={{
         ["--thread-max-width" as string]: "100%",
         ["--composer-bg" as string]: "var(--color-card)",
-        ["--composer-radius" as string]: "1.5rem",
-        ["--composer-padding" as string]: "8px",
+        ["--composer-radius" as string]: "1rem",
+        ["--composer-padding" as string]: "6px",
       }}
     >
       <ThreadPrimitive.Viewport
@@ -208,14 +209,14 @@ const ThreadRoot: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
         data-slot="aui_thread-viewport"
         className="relative flex flex-1 flex-col overflow-x-hidden overflow-y-auto scroll-smooth"
       >
-        <div className="mx-auto flex min-h-full w-full max-w-(--thread-max-width) flex-1 flex-col px-4 pt-3 min-[721px]:px-7 min-[721px]:pt-4">
+        <div className="mx-auto flex min-h-full w-full max-w-(--thread-max-width) flex-1 flex-col px-3 pt-2 min-[721px]:px-5 min-[721px]:pt-3">
           <AuiIf condition={isHistoryLoadingView}>
             <ThreadHistorySkeleton />
           </AuiIf>
 
           <div
             data-slot="aui_message-group"
-            className="mb-14 flex flex-col gap-y-6 empty:hidden"
+            className="mb-8 flex flex-col gap-y-3 empty:hidden"
           >
             <ThreadPrimitive.Messages>
               {() => <ThreadMessage />}
@@ -228,7 +229,7 @@ const ThreadRoot: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
           </div>
 
           <ThreadPrimitive.ViewportFooter
-            className="aui-thread-viewport-footer bg-bg-thread sticky bottom-0 mt-auto flex flex-col gap-3 overflow-visible rounded-t-(--composer-radius) pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-6"
+            className="aui-thread-viewport-footer bg-bg-thread sticky bottom-0 mt-auto flex flex-col gap-2 overflow-visible rounded-t-(--composer-radius) pb-[max(0.5rem,env(safe-area-inset-bottom))] md:pb-3"
           >
             <ThreadScrollToBottom />
             <ThreadFollowupSuggestions />
@@ -277,9 +278,9 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
   return (
     <ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
       <OfficeSkillSlash />
-      <ComposerPrimitive.AttachmentDropzone render={<div data-slot="aui_composer-shell" className="border-border/60 data-[dragging=true]:border-ring focus-within:border-border dark:border-muted-foreground/15 dark:focus-within:border-muted-foreground/30 flex w-full cursor-text flex-col gap-2 rounded-(--composer-radius) border bg-(--composer-bg) p-(--composer-padding) transition-[border-color] data-[dragging=true]:border-dashed data-[dragging=true]:bg-[color-mix(in_oklab,var(--color-accent)_50%,var(--color-background))]" />}><ComposerAttachments /><ComposerPrimitive.Input
+      <ComposerPrimitive.AttachmentDropzone render={<div data-slot="aui_composer-shell" className="border-border/60 data-[dragging=true]:border-ring focus-within:border-border dark:border-muted-foreground/15 dark:focus-within:border-muted-foreground/30 flex w-full cursor-text flex-col gap-1 rounded-(--composer-radius) border bg-(--composer-bg) p-(--composer-padding) transition-[border-color] data-[dragging=true]:border-dashed data-[dragging=true]:bg-[color-mix(in_oklab,var(--color-accent)_50%,var(--color-background))]" />}><ComposerAttachments /><ComposerPrimitive.Input
                       placeholder={placeholder}
-                      className="aui-composer-input caret-primary placeholder:text-muted-foreground/60 max-h-48 min-h-10 w-full resize-none bg-transparent px-2.5 py-1 text-base leading-6 outline-none"
+                      className="aui-composer-input caret-primary placeholder:text-muted-foreground/60 max-h-40 min-h-8 w-full resize-none bg-transparent px-2 py-0.5 text-base leading-5 outline-none min-[721px]:text-[14px]"
                       rows={1}
                       autoFocus={autoFocus}
                       enterKeyHint="send"
@@ -324,18 +325,22 @@ const MessageError: FC = () => {
   );
 };
 
-const AssistantWorkingStatus: FC = () => {
+/** Thread-level waiting chrome. Do not read `s.message` — this mounts outside Messages. */
+const AssistantWorkingStatus: FC<{ speaker?: string }> = ({ speaker = "" }) => {
   const { botName } = useContext(ThreadChromeContext);
-  return <ThinkingStatus name={botName} />;
+  return <ThinkingStatus name={speaker || botName} />;
 };
 
 const AssistantWorkingDots: FC = () => {
+  const speaker = useAuiState(
+    (s) => parseRoomSpeaker(s.message.metadata)?.name ?? "",
+  );
   const show = useAuiState((s) => {
     if (s.message.status?.type !== "running") return false;
     return !messageHasVisibleText(s.message);
   });
   if (!show) return null;
-  return <AssistantWorkingStatus />;
+  return <AssistantWorkingStatus speaker={speaker} />;
 };
 
 const AssistantMessage: FC = () => {
@@ -343,6 +348,9 @@ const AssistantMessage: FC = () => {
     ToolFallback: ToolFallbackComponent = ToolFallback,
     ToolGroup,
   } = useContext(ThreadComponentsContext);
+  const speakerName = useAuiState(
+    (s) => parseRoomSpeaker(s.message.metadata)?.name ?? "",
+  );
 
   const ACTION_BAR_PT = "pt-1.5";
   // Keep the action bar inside the contained root's paint box, then cancel its reserved space in flow.
@@ -358,6 +366,17 @@ const AssistantMessage: FC = () => {
         data-slot="aui_assistant-message-content"
         className="text-foreground flex flex-col items-start gap-2 px-2 leading-snug wrap-break-word"
       >
+        {speakerName ? (
+          <div
+            data-slot="aui_message-sender"
+            className="flex items-center gap-1.5"
+          >
+            <PersonAvatar name={speakerName} size="xs" />
+            <span className="text-[12px] font-medium text-ink/80">
+              {speakerName}
+            </span>
+          </div>
+        ) : null}
         <AssistantWorkingDots />
         <MessagePrimitive.GroupedParts
           groupBy={groupPartByType({
@@ -389,7 +408,7 @@ const AssistantMessage: FC = () => {
                 return (
                   <div
                     data-slot="aui_assistant-message-bubble"
-                    className="aui-assistant-message-bubble w-fit max-w-[min(92%,36rem)] rounded-[18px] bg-card px-3.5 py-2.5 text-[15px] leading-snug wrap-break-word empty:hidden min-[721px]:max-w-[min(72%,36rem)] light:bg-card-2 [&_.aui-md-p]:my-1.5"
+                    className="aui-assistant-message-bubble w-fit max-w-[min(92%,36rem)] rounded-[14px] bg-card px-3 py-1.5 text-[14px] leading-snug wrap-break-word empty:hidden min-[721px]:max-w-[min(72%,36rem)] light:bg-card-2 [&_.aui-md-p]:my-1"
                   >
                     <MarkdownText />
                   </div>
@@ -450,9 +469,9 @@ const AssistantActionBar: FC = () => {
           side="bottom"
           align="start"
           sideOffset={6}
-          className="aui-action-bar-more-content bg-card text-ink shadow-modal data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:animate-out data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 min-w-[8rem] overflow-hidden rounded-xl border border-line p-1.5"
+          className="aui-action-bar-more-content popover-popup z-50 min-w-[8rem] rounded-[10px] border border-line bg-card p-1 text-ink outline-none"
         >
-          <ActionBarPrimitive.ExportMarkdown render={<ActionBarMorePrimitive.Item className="aui-action-bar-more-item hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm outline-none select-none" />}><DownloadSimpleIcon className="size-4" />Export as Markdown
+          <ActionBarPrimitive.ExportMarkdown render={<ActionBarMorePrimitive.Item className="aui-action-bar-more-item flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-ink outline-none select-none data-[highlighted]:bg-hover hover:bg-hover" />}><DownloadSimpleIcon className="size-3.5 text-muted" />Export as Markdown
                               </ActionBarPrimitive.ExportMarkdown>
         </ActionBarMorePrimitive.Content>
       </ActionBarMorePrimitive.Root>
@@ -509,7 +528,7 @@ const UserMessage: FC = () => {
             </span>
           </div>
         ) : null}
-        <div className="aui-user-message-content peer rounded-[18px] bg-card-2 px-3.5 py-2.5 text-[15px] leading-snug text-foreground wrap-break-word empty:hidden light:border light:border-line light:bg-white">
+        <div className="aui-user-message-content peer rounded-[14px] bg-card-2 px-3 py-1.5 text-[14px] leading-snug text-foreground wrap-break-word empty:hidden light:border light:border-line light:bg-white">
           <MessagePrimitive.Parts
             components={{
               File: () => null,

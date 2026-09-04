@@ -4,6 +4,7 @@ import {
   rankPaletteItems,
   type PaletteApp,
   type PaletteBot,
+  type PaletteRoom,
 } from "./command-palette";
 
 const piper: PaletteBot = {
@@ -32,17 +33,28 @@ const brief: PaletteApp = {
   templateId: "docs",
 };
 
+const standup: PaletteRoom = {
+  id: "room-1",
+  name: "Standup",
+  lastPreview: "See you at 9",
+  memberNames: "Piper Nova",
+};
+
 describe("rankPaletteItems", () => {
-  it("lists live teammates, apps, then commands when the query is empty", () => {
-    const rows = rankPaletteItems("", [piper, archived], [brief]);
+  it("lists live teammates, rooms, apps, then commands when the query is empty", () => {
+    const rows = rankPaletteItems("", [piper, archived], [brief], [standup]);
     expect(rows.map((row) => row.key)).toEqual([
       "bot:bot-1",
+      "room:room-1",
       "app:app-1",
       "action:hire",
+      "action:room",
+      "action:section",
       "action:settings",
       "action:computer",
       "action:plugins",
       "action:knowledge",
+      "action:skills",
       "action:workspace",
     ]);
   });
@@ -74,6 +86,34 @@ describe("rankPaletteItems", () => {
   it("matches commands by keyword", () => {
     const rows = rankPaletteItems("hire", [piper], []);
     expect(rows[0]).toMatchObject({ kind: "action", key: "action:hire" });
+  });
+
+  it("matches rooms by name or member", () => {
+    expect(
+      rankPaletteItems("stand", [piper], [brief], [standup]).map(
+        (row) => row.key,
+      ),
+    ).toEqual(["room:room-1"]);
+    expect(
+      rankPaletteItems("nova", [piper], [], [standup]).some(
+        (row) => row.kind === "room",
+      ),
+    ).toBe(true);
+  });
+
+  it("matches new create commands and skills", () => {
+    expect(rankPaletteItems("new room", [piper], [])[0]).toMatchObject({
+      kind: "action",
+      key: "action:room",
+    });
+    expect(rankPaletteItems("section", [piper], [])[0]).toMatchObject({
+      kind: "action",
+      key: "action:section",
+    });
+    expect(rankPaletteItems("skills", [piper], [])[0]).toMatchObject({
+      kind: "action",
+      key: "action:skills",
+    });
   });
 });
 

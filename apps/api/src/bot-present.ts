@@ -1,8 +1,9 @@
 /** Cloudflare-only. Excluded from `tsc`. Glanceable UI in the office thread. */
 
+import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { PRESENT_TOOL_DESCRIPTION, runPresent } from "@groxbot/core";
-import { tool } from "ai";
 import { z } from "zod";
+import { officeAgentTool } from "./bot-office-tools.js";
 
 const presentNode: z.ZodType<Record<string, unknown>> = z.lazy(() =>
   z
@@ -21,10 +22,11 @@ const presentNode: z.ZodType<Record<string, unknown>> = z.lazy(() =>
     .passthrough(),
 );
 
-export function createPresentTool() {
-  return tool({
+export function createPresentTool(): AgentTool {
+  return officeAgentTool({
+    name: "present",
     description: PRESENT_TOOL_DESCRIPTION,
-    inputSchema: presentNode,
+    parameters: presentNode,
     execute: async (input) => runPresent(input),
   });
 }

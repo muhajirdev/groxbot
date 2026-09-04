@@ -2,6 +2,7 @@ import type {
   Bot,
   ProductEvent,
   Room,
+  SidebarSection,
   ThreadMessage,
   WorkspaceApp,
 } from "@groxbot/contracts";
@@ -10,6 +11,7 @@ import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import {
+  type CSSProperties,
   type MouseEvent,
   memo,
   useCallback,
@@ -20,8 +22,11 @@ import {
 } from "react";
 import { AppPane } from "../components/AppPane";
 import { AppSettings } from "../components/AppSettings";
-import { AvatarMark } from "../components/Avatar";
+import { AvatarMark, MemberStack } from "../components/Avatar";
 import { BotSettingsPane } from "../components/BotSettingsPane";
+import { BotContextMenu } from "../components/BotContextMenu";
+import { RoomContextMenu } from "../components/RoomContextMenu";
+import { SectionContextMenu } from "../components/SectionContextMenu";
 import {
   ComputerFileOpenProvider,
   KnowledgeFileOpenProvider,
@@ -31,22 +36,31 @@ import { ComputerPane } from "../components/ComputerPane";
 import { CreateRoomDialog } from "../components/CreateRoomDialog";
 import { HireDialog } from "../components/HireDialog";
 import {
+  CaretSwapIcon,
+  ChevronDownIcon,
   ChevronLeftIcon,
   CloseIcon,
   FileIcon,
   GearIcon,
   KnowledgeIcon,
+  LiveAppsIcon,
   MonitorIcon,
   MoreIcon,
   PinIcon,
   PlugIcon,
-  PlusIcon,
-  TrashIcon,
+  SkillsIcon,
 } from "../components/Icons";
+import { SectionDialog } from "../components/SectionDialog";
+import { SidebarCreateMenu } from "../components/SidebarCreateMenu";
 import { KnowledgeLibrary, KnowledgePeek } from "../components/KnowledgePlace";
 import { KeptOfficeThread } from "../components/OfficeThread";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { PluginsModal } from "../components/PluginsModal";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "../components/ui/tooltip";
 import { KeptRoomThread } from "../components/RoomThread";
 import { ThreadList } from "../components/ThreadList";
 import { WorkspaceSwitcher } from "../components/WorkspaceSwitcher";
@@ -57,12 +71,18 @@ import {
   botsCollection,
   clearThreadStore,
   patchBot,
+  patchSection,
   peekBots,
   peekRooms,
+  peekSections,
   removeBot,
+  removeRoom,
+  removeSection,
   roomsCollection,
+  sectionsCollection,
   threadMetaCollection,
   upsertRoom,
+  upsertSection,
 } from "../lib/collections";
 import { neighborBotId, type PaletteActionId } from "../lib/command-palette";
 import { userFacingError } from "../lib/errors";
@@ -76,36 +96,62 @@ import {
   forgetOfficeMessages,
   setOfficeMessages,
 } from "../lib/office-messages";
+import { forgetRoomMessages } from "../lib/room-messages";
 import { OFFICE_TO, ROOM_TO } from "../lib/office-route";
 import {
   closeLibrary,
   closePeek,
   deskApp,
+  deskAwayFromLibrary,
   deskClosed,
   deskComputer,
   deskLibrary,
   deskPeek,
   deskSettings,
+  libraryShowsSkills,
   type OfficeSearch,
   officeSearch,
+  SKILLS_LIBRARY_PATH,
   toggleDesk,
 } from "../lib/office-search";
 import { orpc } from "../lib/orpc";
 import { usePanePresence } from "../lib/presence";
+import {
+  readCollapsedSections,
+  writeCollapsedSections,
+} from "../lib/prefs";
 import { client } from "../lib/rpc";
+import {
+  SIDE_WIDTH_MAX,
+  SIDE_WIDTH_MIN,
+  useSideWidth,
+} from "../lib/side-width";
+import {
+  PANE_WIDTH_MAX,
+  PANE_WIDTH_MIN,
+  usePaneWidth,
+} from "../lib/pane-width";
 import {
   cacheBot,
   cacheCreatedBot,
   firstLiveBot,
   isArchivedBot,
+  officeProfileLabel,
 } from "../lib/session";
 import {
   type BotMenuPhase,
   botMenuBox,
-  botMenuItems,
   compareSidebarBots,
+  groupSidebarBots,
   isPinnedBot,
+  mixSidebarLive,
+  type RoomMenuPhase,
+  roomMenuBox,
   nextBotIdAfterDelete,
+  roomSidebarFaces,
+  type SectionMenuPhase,
+  sectionMenuBox,
+  sectionMenuItems,
 } from "../lib/sidebar";
 import { applyTheme, readTheme, type Theme } from "../lib/theme";
 import {
@@ -115,6 +161,7 @@ import {
   readCursor,
   readThreadMeta,
 } from "../lib/thread-cache";
+import { scheduleThreadPrefetch } from "../lib/thread-prefetch";
 import { formatListTime } from "../lib/time";
 import { Button, cn } from "../ui";
 
@@ -158,11 +205,11 @@ const BotRow = memo(function BotRow(props: {
           workspaceSlug: props.workspaceSlug,
           roomId: item.homeRoomId || item.id,
         }}
-        search={props.desk}
+        search={deskAwayFromLibrary(props.desk)}
         preload="intent"
         preloadDelay={300}
         className={cn(
-          "chat-conv grid min-w-0 grid-cols-[40px_minmax(0,1fr)] items-center gap-2.5 rounded-[14px] border-0 bg-transparent px-2 py-2.5 text-left text-inherit no-underline",
+          "chat-conv grid min-w-0 grid-cols-[28px_minmax(0,1fr)] items-center gap-2 rounded-[10px] border-0 bg-transparent px-1.5 py-1.5 text-left text-inherit no-underline",
           props.selected && "bg-selected",
           props.muted && "opacity-70",
         )}
@@ -179,6 +226,7 @@ const BotRow = memo(function BotRow(props: {
             color={item.avatarColor}
             shape={item.avatarShape}
             mood={props.working ? "working" : "idle"}
+            size="sm"
           />
           {pinned ? (
             <span
@@ -192,7 +240,7 @@ const BotRow = memo(function BotRow(props: {
         <span className="chat-conv-copy min-w-0">
           <span className="flex items-center justify-between gap-2">
             <span className="flex min-w-0 items-center gap-1">
-              <span className="truncate text-sm font-semibold">
+              <span className="truncate text-[13px] font-semibold">
                 {item.name}
               </span>
               {pinned ? (
@@ -203,15 +251,67 @@ const BotRow = memo(function BotRow(props: {
               {formatListTime(item.lastAt)}
             </span>
           </span>
-          {item.lastPreview || item.title ? (
-            <div className="mt-0.5 overflow-hidden text-xs text-ellipsis whitespace-nowrap text-muted">
-              {item.lastPreview || item.title}
-            </div>
-          ) : null}
         </span>
       </Link>
       <button
         className="chat-conv-more absolute top-1.5 right-1.5 grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted opacity-0 group-hover/bot:opacity-100 hover:bg-hover hover:text-ink focus-visible:opacity-100"
+        type="button"
+        aria-label={`${item.name} actions`}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          props.onMenu(event, item);
+        }}
+      >
+        <MoreIcon />
+      </button>
+    </div>
+  );
+});
+
+const RoomRow = memo(function RoomRow(props: {
+  item: Room;
+  selected: boolean;
+  desk: OfficeSearch;
+  workspaceSlug: string;
+  onMenu: (event: MouseEvent, room: Room) => void;
+  onPick?: () => void;
+}) {
+  const item = props.item;
+  return (
+    <div className="group/room relative">
+      <Link
+        to={ROOM_TO}
+        params={{
+          workspaceSlug: props.workspaceSlug,
+          roomId: item.id,
+        }}
+        search={deskAwayFromLibrary(props.desk)}
+        preload="intent"
+        preloadDelay={300}
+        onClick={props.onPick}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          props.onMenu(event, item);
+        }}
+        aria-label={item.name}
+        className={cn(
+          "chat-conv grid min-w-0 grid-cols-[28px_minmax(0,1fr)] items-center gap-2 rounded-[10px] border-0 bg-transparent px-1.5 py-1.5 text-left text-inherit no-underline",
+          props.selected && "bg-selected",
+        )}
+      >
+        <MemberStack faces={roomSidebarFaces(item.members)} />
+        <span className="chat-conv-copy min-w-0">
+          <span className="flex items-center justify-between gap-2">
+            <span className="truncate text-[13px] font-semibold">{item.name}</span>
+            <span className="chat-conv-time shrink-0 text-[11px] whitespace-nowrap text-muted group-hover/room:invisible">
+              {formatListTime(item.lastAt)}
+            </span>
+          </span>
+        </span>
+      </Link>
+      <button
+        className="chat-conv-more absolute top-1.5 right-1.5 grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted opacity-0 group-hover/room:opacity-100 hover:bg-hover hover:text-ink focus-visible:opacity-100"
         type="button"
         aria-label={`${item.name} actions`}
         onClick={(event) => {
@@ -236,20 +336,20 @@ const AppRow = memo(function AppRow(props: {
     <button
       type="button"
       className={cn(
-        "chat-conv grid min-w-0 grid-cols-[40px_minmax(0,1fr)] items-center gap-2.5 rounded-[14px] border-0 bg-transparent px-2 py-2.5 text-left text-inherit",
+        "chat-conv grid min-w-0 grid-cols-[28px_minmax(0,1fr)] items-center gap-2 rounded-[10px] border-0 bg-transparent px-1.5 py-1.5 text-left text-inherit",
         props.selected && "bg-selected",
       )}
       onClick={props.onOpen}
     >
       <span
-        className="grid size-8 shrink-0 place-items-center rounded-[10px] text-white"
+        className="grid size-7 shrink-0 place-items-center rounded-[8px] text-white"
         style={{ background: APP_KIND_COLOR[item.templateId] }}
       >
         <FileIcon />
       </span>
       <span className="chat-conv-copy min-w-0">
         <span className="flex items-baseline justify-between gap-2">
-          <span className="truncate text-sm font-semibold">{item.title}</span>
+          <span className="truncate text-[13px] font-semibold">{item.title}</span>
           <span className="shrink-0 text-[11px] whitespace-nowrap text-muted">
             {formatListTime(item.createdAt)}
           </span>
@@ -259,6 +359,52 @@ const AppRow = memo(function AppRow(props: {
         </div>
       </span>
     </button>
+  );
+});
+
+const SectionHeader = memo(function SectionHeader(props: {
+  name: string;
+  count: number;
+  collapsed: boolean;
+  onToggle: () => void;
+  onMenu: (event: MouseEvent) => void;
+}) {
+  return (
+    <div className="group/section relative">
+      <button
+        type="button"
+        className="flex w-full items-center gap-1.5 rounded-[10px] border-0 bg-transparent px-1.5 py-1.5 text-left text-[12px] text-muted hover:bg-hover"
+        aria-expanded={!props.collapsed}
+        onClick={props.onToggle}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          props.onMenu(event);
+        }}
+      >
+        <ChevronDownIcon
+          className={cn(
+            "size-3 shrink-0 transition-transform",
+            props.collapsed && "-rotate-90",
+          )}
+        />
+        <span className="min-w-0 flex-1 truncate font-medium">{props.name}</span>
+        <span className="shrink-0 group-hover/section:invisible">
+          {props.count}
+        </span>
+      </button>
+      <button
+        className="absolute top-0.5 right-0.5 grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted opacity-0 group-hover/section:opacity-100 hover:bg-hover hover:text-ink focus-visible:opacity-100"
+        type="button"
+        aria-label={`${props.name} actions`}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          props.onMenu(event);
+        }}
+      >
+        <MoreIcon />
+      </button>
+    </div>
   );
 });
 
@@ -273,6 +419,9 @@ export function Chat(props: {
   const queryClient = useQueryClient();
   const botsQuery = useLiveQuery((q) => q.from({ bot: botsCollection }));
   const roomsQuery = useLiveQuery((q) => q.from({ room: roomsCollection }));
+  const sectionsQuery = useLiveQuery((q) =>
+    q.from({ section: sectionsCollection }),
+  );
   const appsQuery = useLiveQuery((q) => q.from({ app: appsCollection }));
   const meQuery = useQuery(orpc.me.queryOptions());
   const liveBotsRows = botsQuery.data ?? [];
@@ -287,6 +436,12 @@ export function Chat(props: {
     liveRoomsRows.length > 0 || peekedRooms.length === 0
       ? liveRoomsRows
       : peekedRooms;
+  const liveSectionRows = sectionsQuery.data ?? [];
+  const peekedSections = peekSections();
+  const sections =
+    liveSectionRows.length > 0 || peekedSections.length === 0
+      ? liveSectionRows
+      : peekedSections;
   const me = meQuery.data;
   const desk = officeSearch(props.desk);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -297,21 +452,43 @@ export function Chat(props: {
   const [pluginsOpen, setPluginsOpen] = useState(false);
   const [hireOpen, setHireOpen] = useState(false);
   const [roomOpen, setRoomOpen] = useState(false);
+  const [sectionOpen, setSectionOpen] = useState(false);
+  const [sectionRename, setSectionRename] = useState<SidebarSection | null>(
+    null,
+  );
   const [rosterOpen, setRosterOpen] = useState(false);
   const [narrow, setNarrow] = useState(
     () => window.matchMedia("(max-width: 720px)").matches,
   );
+  const side = useSideWidth();
+  const paneCol = usePaneWidth();
   const lastApp = useRef<{
     id: string;
     title: string;
     templateId: WorkspaceApp["templateId"];
   } | null>(null);
   const [archivedOpen, setArchivedOpen] = useState(false);
+  const [collapsedIds, setCollapsedIds] = useState(
+    () => new Set(readCollapsedSections(props.workspace.id)),
+  );
   const [botMenu, setBotMenu] = useState<{
     bot: Bot;
     x: number;
     y: number;
     phase: BotMenuPhase;
+  } | null>(null);
+  const [roomMenu, setRoomMenu] = useState<{
+    room: Room;
+    x: number;
+    y: number;
+    phase: RoomMenuPhase;
+  } | null>(null);
+  const [sectionMenu, setSectionMenu] = useState<{
+    section: SidebarSection;
+    memberCount: number;
+    x: number;
+    y: number;
+    phase: SectionMenuPhase;
   } | null>(null);
   const [theme, setTheme] = useState<Theme>(readTheme());
   const [pokeView, setPokeView] = useState<{
@@ -379,6 +556,22 @@ export function Chat(props: {
   const liveBots = useMemo(() => {
     return bots.filter((item) => !isArchivedBot(item)).sort(compareSidebarBots);
   }, [bots]);
+  const groupedBots = useMemo(
+    () => groupSidebarBots(liveBots, sections),
+    [liveBots, sections],
+  );
+  const ungroupedLive = useMemo(
+    () => mixSidebarLive(groupedBots.ungrouped, rooms),
+    [groupedBots.ungrouped, rooms],
+  );
+  const prefetchKey = useMemo(
+    () =>
+      [
+        ...liveBots.map((item) => item.homeRoomId || item.id),
+        ...rooms.map((item) => item.id),
+      ].join(","),
+    [liveBots, rooms],
+  );
   const archivedBots = useMemo(() => {
     return bots
       .filter((item) => isArchivedBot(item))
@@ -454,6 +647,26 @@ export function Chat(props: {
   }, [bot?.archivedAt]);
 
   useEffect(() => {
+    setCollapsedIds(new Set(readCollapsedSections(props.workspace.id)));
+  }, [props.workspace.id]);
+
+  useEffect(() => {
+    if (!sectionsCollection.isReady()) void sectionsCollection.preload();
+  }, []);
+
+  useEffect(() => {
+    const sectionId = bot?.sectionId;
+    if (!sectionId || bot?.archivedAt) return;
+    setCollapsedIds((prev) => {
+      if (!prev.has(sectionId)) return prev;
+      const next = new Set(prev);
+      next.delete(sectionId);
+      writeCollapsedSections(props.workspace.id, [...next]);
+      return next;
+    });
+  }, [bot?.archivedAt, bot?.sectionId, props.workspace.id]);
+
+  useEffect(() => {
     const mq = window.matchMedia("(max-width: 720px)");
     const onChange = () => {
       setNarrow(mq.matches);
@@ -467,6 +680,26 @@ export function Chat(props: {
   useEffect(() => {
     if (narrow && !activeId) setRosterOpen(true);
   }, [activeId, narrow]);
+
+  useEffect(() => {
+    const skip = [
+      homeBot?.homeRoomId || homeBot?.id || "",
+      isRoom ? props.roomId || "" : "",
+    ];
+    return scheduleThreadPrefetch({
+      bots: liveBots,
+      rooms,
+      skipRoomIds: skip,
+    });
+  }, [
+    homeBot?.homeRoomId,
+    homeBot?.id,
+    isRoom,
+    liveBots,
+    prefetchKey,
+    props.roomId,
+    rooms,
+  ]);
 
   useEffect(() => {
     if (!rosterOpen) return;
@@ -606,14 +839,68 @@ export function Chat(props: {
   }
 
   const openBotMenu = useCallback((event: MouseEvent, item: Bot) => {
-    const box = botMenuBox("actions");
+    const box = botMenuBox("actions", sections.length > 0 ? 3 : 2);
+    setSectionMenu(null);
+    setRoomMenu(null);
     setBotMenu({
       bot: item,
       phase: "actions",
       x: Math.min(event.clientX, window.innerWidth - box.width - 8),
       y: Math.min(event.clientY, window.innerHeight - box.height - 8),
     });
+  }, [sections.length]);
+
+  const openRoomMenu = useCallback((event: MouseEvent, item: Room) => {
+    const box = roomMenuBox("actions");
+    setBotMenu(null);
+    setSectionMenu(null);
+    setRoomMenu({
+      room: item,
+      phase: "actions",
+      x: Math.min(event.clientX, window.innerWidth - box.width - 8),
+      y: Math.min(event.clientY, window.innerHeight - box.height - 8),
+    });
   }, []);
+
+  async function deleteRoom(room: Room) {
+    const snapshot = peekRooms().find((item) => item.id === room.id) ?? room;
+    const keepAlive = roomKeepAlive;
+    const lru = [...roomLruRef.current];
+    const viewing = props.roomId === room.id;
+
+    setRoomKeepAlive((prev) => dropOfficeKeepAlive(prev, room.id));
+    roomLruRef.current = dropOfficeKeepAlive(roomLruRef.current, room.id);
+    removeRoom(room.id);
+
+    const nextRoom = peekRooms()[0];
+    const nextBot = firstLiveBot(peekBots());
+    const leave = !viewing
+      ? undefined
+      : nextRoom
+        ? goToRoom(nextRoom.id, deskClosed())
+        : nextBot
+          ? goToBot(nextBot.id, deskClosed())
+          : navigate({ to: "/onboarding", search: {} });
+
+    try {
+      await client.rooms.delete({ roomId: room.id });
+      dropThreadMeta(room.id);
+      forgetRoomMessages(room.id);
+      await leave;
+    } catch (caught: unknown) {
+      await leave;
+      upsertRoom(snapshot);
+      setRoomKeepAlive(keepAlive);
+      roomLruRef.current = lru;
+      patchThreadMeta(room.id, {
+        error: userFacingError(caught, "Could not delete room"),
+      });
+      if (viewing) {
+        await goToRoom(room.id, deskClosed());
+      }
+      throw caught;
+    }
+  }
 
   async function togglePin(item: Bot) {
     const previous = item.pinnedAt;
@@ -701,12 +988,158 @@ export function Chat(props: {
     [activeId, goToRoom],
   );
 
+  const createSection = useCallback(
+    async (name: string) => {
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      setSectionOpen(false);
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+      const position =
+        sections.reduce((top, row) => Math.max(top, row.position), -1) + 1;
+      const draft: SidebarSection = {
+        id,
+        workspaceId: props.workspace.id,
+        name: trimmed,
+        position,
+        createdAt: now,
+        updatedAt: now,
+      };
+      if (!sectionsCollection.isReady()) await sectionsCollection.preload();
+      upsertSection(draft);
+      try {
+        const created = await client.sections.create({ id, name: trimmed });
+        upsertSection(created);
+      } catch (caught) {
+        removeSection(id);
+        if (activeId) {
+          patchThreadMeta(activeId, {
+            error: userFacingError(caught, "Could not create section"),
+          });
+        }
+      }
+    },
+    [activeId, props.workspace.id, sections],
+  );
+
+  const renameSection = useCallback(
+    async (section: SidebarSection, name: string) => {
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      setSectionRename(null);
+      const previous = section.name;
+      patchSection(section.id, { name: trimmed });
+      try {
+        const next = await client.sections.rename({
+          sectionId: section.id,
+          name: trimmed,
+        });
+        upsertSection(next);
+      } catch (caught) {
+        patchSection(section.id, { name: previous });
+        if (activeId) {
+          patchThreadMeta(activeId, {
+            error: userFacingError(caught, "Could not rename section"),
+          });
+        }
+      }
+    },
+    [activeId],
+  );
+
+  const deleteSection = useCallback(
+    async (section: SidebarSection) => {
+      const snapshot = peekSections().find((row) => row.id === section.id);
+      const members = peekBots().filter((item) => item.sectionId === section.id);
+      removeSection(section.id);
+      for (const member of members) {
+        patchBot(member.id, { sectionId: null });
+      }
+      try {
+        await client.sections.remove({ sectionId: section.id });
+      } catch (caught) {
+        if (snapshot) upsertSection(snapshot);
+        for (const member of members) {
+          patchBot(member.id, { sectionId: section.id });
+        }
+        if (activeId) {
+          patchThreadMeta(activeId, {
+            error: userFacingError(caught, "Could not delete section"),
+          });
+        }
+      }
+    },
+    [activeId],
+  );
+
+  const moveBotToSection = useCallback(
+    async (item: Bot, sectionId: string | null) => {
+      const previous = item.sectionId;
+      patchBot(item.id, { sectionId });
+      if (sectionId) {
+        setCollapsedIds((prev) => {
+          if (!prev.has(sectionId)) return prev;
+          const next = new Set(prev);
+          next.delete(sectionId);
+          writeCollapsedSections(props.workspace.id, [...next]);
+          return next;
+        });
+      }
+      setBotMenu(null);
+      try {
+        const next = await client.bots.move({ botId: item.id, sectionId });
+        patchBot(item.id, { sectionId: next.sectionId });
+      } catch (caught) {
+        patchBot(item.id, { sectionId: previous });
+        patchThreadMeta(item.id, {
+          error: userFacingError(caught, "Could not move"),
+        });
+      }
+    },
+    [props.workspace.id],
+  );
+
+  const toggleSectionCollapsed = useCallback(
+    (sectionId: string) => {
+      setCollapsedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(sectionId)) next.delete(sectionId);
+        else next.add(sectionId);
+        writeCollapsedSections(props.workspace.id, [...next]);
+        return next;
+      });
+    },
+    [props.workspace.id],
+  );
+
+  const openSectionMenu = useCallback(
+    (event: MouseEvent, section: SidebarSection, memberCount: number) => {
+      const box = sectionMenuBox("actions");
+      setBotMenu(null);
+      setRoomMenu(null);
+      setSectionMenu({
+        section,
+        memberCount,
+        phase: "actions",
+        x: Math.min(event.clientX, window.innerWidth - box.width - 8),
+        y: Math.min(event.clientY, window.innerHeight - box.height - 8),
+      });
+    },
+    [],
+  );
+
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
 
   const blocking =
-    hireOpen || roomOpen || settingsOpen || pluginsOpen || paletteOpen;
+    hireOpen ||
+    roomOpen ||
+    sectionOpen ||
+    Boolean(sectionRename) ||
+    settingsOpen ||
+    pluginsOpen ||
+    paletteOpen;
   const cycleBots = useCallback(
     (delta: 1 | -1) => {
       const current = bot?.id;
@@ -728,12 +1161,24 @@ export function Chat(props: {
         if (!hiring.current) setHireOpen(true);
         return;
       }
+      if (id === "room") {
+        setRoomOpen(true);
+        return;
+      }
+      if (id === "section") {
+        setSectionOpen(true);
+        return;
+      }
       if (id === "plugins") {
         setPluginsOpen(true);
         return;
       }
       if (id === "knowledge") {
         setDesk(deskLibrary(desk));
+        return;
+      }
+      if (id === "skills") {
+        setDesk(deskLibrary(desk, SKILLS_LIBRARY_PATH));
         return;
       }
       if (id === "workspace") {
@@ -756,6 +1201,8 @@ export function Chat(props: {
       callback: () => {
         setPaletteOpen((open) => !open);
         setBotMenu(null);
+        setRoomMenu(null);
+        setSectionMenu(null);
       },
       options: {
         enabled: (!hireOpen && !settingsOpen && !pluginsOpen) || paletteOpen,
@@ -780,8 +1227,16 @@ export function Chat(props: {
     },
     {
       hotkey: "Escape",
-      callback: () => setBotMenu(null),
-      options: { enabled: Boolean(botMenu) && !paletteOpen },
+      callback: () => {
+        setBotMenu(null);
+        setRoomMenu(null);
+        setSectionMenu(null);
+      },
+      options: {
+        enabled:
+          (Boolean(botMenu) || Boolean(roomMenu) || Boolean(sectionMenu)) &&
+          !paletteOpen,
+      },
     },
     {
       hotkey: "ArrowDown",
@@ -943,13 +1398,26 @@ export function Chat(props: {
             rosterOpen && "is-roster",
           )}
         >
-          <aside
-            className="chat-side flex min-h-0 flex-col px-2.5 pb-2"
+          <div
+            className={cn(
+              "chat-panel",
+              side.resizing && "is-side-resizing",
+              paneCol.resizing && "is-pane-resizing",
+            )}
+            style={
+              {
+                "--side-width": `${side.width}px`,
+                "--pane-width": `${paneCol.width}px`,
+              } as CSSProperties
+            }
+          >
+            <aside
+            className="chat-side flex min-h-0 flex-col px-2 pb-2"
             aria-label="Teammates"
             inert={narrow && !rosterOpen ? true : undefined}
           >
-            <div className="flex flex-col gap-2 px-0.5 pt-1.5 pb-2.5">
-              <div className="side-chrome drag flex min-h-9 items-center gap-1">
+            <div className="flex flex-col gap-1.5 px-0.5 pt-1 pb-2">
+              <div className="side-chrome drag flex min-h-8 items-center gap-1">
                 <div className="no-drag min-w-0 flex-1">
                   <WorkspaceSwitcher
                     name={props.workspace.name}
@@ -969,92 +1437,111 @@ export function Chat(props: {
                       <CloseIcon />
                     </Button>
                   ) : null}
-                  <Button
-                    variant="icon"
-                    type="button"
-                    aria-label="New"
-                    aria-busy={hiringThis}
+                  <SidebarCreateMenu
                     disabled={hiringThis}
-                    on={hireOpen}
-                    onClick={() => setHireOpen(true)}
-                  >
-                    <PlusIcon />
-                  </Button>
+                    active={hireOpen || roomOpen || sectionOpen}
+                    onNewBot={() => {
+                      if (!hiring.current) setHireOpen(true);
+                    }}
+                    onNewRoom={() => setRoomOpen(true)}
+                    onNewSection={() => setSectionOpen(true)}
+                  />
                 </div>
               </div>
               <SearchTrigger
                 onOpen={() => {
                   setBotMenu(null);
+                  setRoomMenu(null);
+                  setSectionMenu(null);
                   setPaletteOpen(true);
                 }}
               />
             </div>
             <div className="grid flex-1 content-start gap-0.5 overflow-auto px-1">
-              {liveBots.map((item) => (
-                <BotRow
-                  key={item.id}
-                  item={item}
-                  selected={!isRoom && item.id === currentBotId}
-                  working={
-                    !isRoom &&
-                    item.id === currentBotId &&
-                    (hiringThis || Boolean(working))
-                  }
-                  desk={desk}
-                  workspaceSlug={props.workspace.slug}
-                  onMenu={openBotMenu}
-                  onPick={closeRoster}
-                />
-              ))}
-              {liveBots.length === 0 && archivedBots.length === 0 ? (
+              {ungroupedLive.map((row) =>
+                row.kind === "bot" ? (
+                  <BotRow
+                    key={row.item.id}
+                    item={row.item}
+                    selected={!isRoom && row.item.id === currentBotId}
+                    working={
+                      !isRoom &&
+                      row.item.id === currentBotId &&
+                      (hiringThis || Boolean(working))
+                    }
+                    desk={desk}
+                    workspaceSlug={props.workspace.slug}
+                    onMenu={openBotMenu}
+                    onPick={closeRoster}
+                  />
+                ) : (
+                  <RoomRow
+                    key={row.item.id}
+                    item={row.item}
+                    selected={row.item.id === props.roomId}
+                    desk={desk}
+                    workspaceSlug={props.workspace.slug}
+                    onMenu={openRoomMenu}
+                    onPick={closeRoster}
+                  />
+                ),
+              )}
+              {groupedBots.sections.map((bucket) => {
+                const collapsed =
+                  collapsedIds.has(bucket.section.id) &&
+                  bot?.sectionId !== bucket.section.id;
+                return (
+                  <div key={bucket.section.id} className="mt-1">
+                    <SectionHeader
+                      name={bucket.section.name}
+                      count={bucket.bots.length}
+                      collapsed={collapsed}
+                      onToggle={() => toggleSectionCollapsed(bucket.section.id)}
+                      onMenu={(event) =>
+                        openSectionMenu(
+                          event,
+                          sections.find((row) => row.id === bucket.section.id) ?? {
+                            id: bucket.section.id,
+                            workspaceId: props.workspace.id,
+                            name: bucket.section.name,
+                            position: bucket.section.position,
+                            createdAt: "",
+                            updatedAt: "",
+                          },
+                          bucket.bots.length,
+                        )
+                      }
+                    />
+                    {collapsed
+                      ? null
+                      : bucket.bots.map((item) => (
+                          <BotRow
+                            key={item.id}
+                            item={item}
+                            selected={!isRoom && item.id === currentBotId}
+                            working={
+                              !isRoom &&
+                              item.id === currentBotId &&
+                              (hiringThis || Boolean(working))
+                            }
+                            desk={desk}
+                            workspaceSlug={props.workspace.slug}
+                            onMenu={openBotMenu}
+                            onPick={closeRoster}
+                          />
+                        ))}
+                  </div>
+                );
+              })}
+              {liveBots.length === 0 &&
+              rooms.length === 0 &&
+              archivedBots.length === 0 &&
+              sections.length === 0 ? (
                 <p className="empty">No teammates yet.</p>
               ) : null}
-              <div className="mt-2">
-                <div className="flex items-center justify-between px-2 py-2">
-                  <span className="text-[12px] text-muted">Rooms</span>
-                  <Button
-                    variant="icon"
-                    type="button"
-                    aria-label="New room"
-                    title="New room"
-                    on={roomOpen}
-                    onClick={() => setRoomOpen(true)}
-                  >
-                    <PlusIcon />
-                  </Button>
-                </div>
-                {rooms.map((item: Room) => (
-                  <Link
-                    key={item.id}
-                    to={ROOM_TO}
-                    params={{
-                      workspaceSlug: props.workspace.slug,
-                      roomId: item.id,
-                    }}
-                    search={desk}
-                    preload="intent"
-                    preloadDelay={300}
-                    onClick={closeRoster}
-                    className={cn(
-                      "flex w-full items-center gap-2.5 rounded-xl border-0 px-2 py-2 text-left text-inherit no-underline hover:bg-hover",
-                      item.id === props.roomId ? "bg-hover" : "bg-transparent",
-                    )}
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] font-medium">
-                        {item.name}
-                      </span>
-                      <span className="mt-0.5 block overflow-hidden text-xs text-ellipsis whitespace-nowrap text-muted">
-                        {item.lastPreview ||
-                          item.members.map((member) => member.name).join(", ")}
-                      </span>
-                    </span>
-                  </Link>
-                ))}
-              </div>
               {workspaceApps.length > 0 ? (
                 <div className="mt-2">
-                  <div className="px-2 py-2 text-[12px] text-muted">Apps</div>
+                  <div className="px-1.5 py-1.5 text-[12px] text-muted">Apps</div>
                   {workspaceApps.map((item) => (
                     <AppRow
                       key={item.id}
@@ -1097,50 +1584,104 @@ export function Chat(props: {
                 </div>
               ) : null}
             </div>
-            <div className="chat-foot mt-auto grid gap-1 px-1.5 pt-2 pb-1">
+            <div className="chat-foot mt-auto border-t border-line px-1 pt-1.5 pb-1">
+              <nav className="chat-dock" aria-label="Office">
+                <button
+                  className="chat-dock-item"
+                  type="button"
+                  aria-current={
+                    desk.library && !libraryShowsSkills(desk)
+                      ? "page"
+                      : undefined
+                  }
+                  onClick={() =>
+                    setDesk(
+                      desk.library && !libraryShowsSkills(desk)
+                        ? deskClosed()
+                        : deskLibrary(desk, null),
+                    )
+                  }
+                >
+                  <KnowledgeIcon className="size-5" />
+                  <span>Knowledge</span>
+                </button>
+                <button
+                  className="chat-dock-item"
+                  type="button"
+                  aria-current={libraryShowsSkills(desk) ? "page" : undefined}
+                  onClick={() =>
+                    setDesk(
+                      libraryShowsSkills(desk)
+                        ? deskClosed()
+                        : deskLibrary(desk, SKILLS_LIBRARY_PATH),
+                    )
+                  }
+                >
+                  <SkillsIcon className="size-5" />
+                  <span>Skills</span>
+                </button>
+                <LiveAppsDockItem />
+                <button
+                  className="chat-dock-item"
+                  type="button"
+                  aria-pressed={pluginsOpen}
+                  onClick={() => setPluginsOpen(true)}
+                >
+                  <PlugIcon className="size-5" />
+                  <span>Plugins</span>
+                </button>
+              </nav>
               <button
-                className="flex w-full items-center gap-2.5 rounded-xl border-0 bg-transparent px-2 py-2 text-left text-inherit hover:bg-hover"
-                type="button"
-                onClick={() => setPluginsOpen(true)}
-              >
-                <PlugIcon />
-                <span>Plugins</span>
-              </button>
-              <button
-                className="flex w-full items-center gap-2.5 rounded-xl border-0 bg-transparent px-2 py-2 text-left text-inherit hover:bg-hover"
-                type="button"
-                onClick={() => setDesk(deskLibrary(desk))}
-              >
-                <KnowledgeIcon />
-                <span>Knowledge</span>
-              </button>
-              <button
-                className="flex w-full items-center gap-2.5 rounded-xl border-0 bg-transparent px-2 py-2 text-left text-inherit hover:bg-hover"
+                className="mt-0.5 flex w-full items-center gap-2 rounded-lg border-0 bg-transparent px-1.5 py-1.5 text-left text-inherit hover:bg-hover"
                 type="button"
                 onClick={() => {
                   setSettingsTab("general");
                   setSettingsOpen(true);
                 }}
               >
-                <PersonAvatar name={me?.name || "You"} image={me?.image} />
-                <span>{me?.name || "You"}</span>
+                <PersonAvatar
+                  name={officeProfileLabel(me)}
+                  image={me?.image}
+                  className="size-6"
+                />
+                <span className="min-w-0 flex-1 truncate text-[13px] font-medium leading-tight">
+                  {officeProfileLabel(me)}
+                </span>
+                <CaretSwapIcon className="size-3.5 shrink-0 text-muted" />
               </button>
             </div>
+            <button
+              type="button"
+              className="side-resize no-drag"
+              aria-label="Resize teammates list"
+              aria-orientation="vertical"
+              aria-valuemin={SIDE_WIDTH_MIN}
+              aria-valuemax={SIDE_WIDTH_MAX}
+              aria-valuenow={side.width}
+              aria-valuetext={`${side.width} pixels`}
+              onPointerDown={side.onPointerDown}
+              onPointerMove={side.onPointerMove}
+              onPointerUp={side.onPointerUp}
+              onPointerCancel={side.onPointerUp}
+              onLostPointerCapture={side.onPointerUp}
+              onKeyDown={side.onKeyDown}
+              onDoubleClick={side.onDoubleClick}
+            />
           </aside>
           <div className="chat-stage">
             <section
               className="chat-thread flex min-h-0 min-w-0 flex-col bg-bg-thread"
               inert={narrow && rosterOpen ? true : undefined}
             >
-              <div className="thread-head drag flex items-center justify-between gap-2 border-b border-line px-[18px] py-2.5">
+              <div className="thread-head drag flex items-center justify-between gap-2 border-b border-line px-3.5 py-2">
                 {pokeView ? (
                   <button
-                    className="no-drag flex min-w-0 items-center gap-2.5 border-0 bg-transparent p-0 text-inherit"
+                    className="no-drag flex min-w-0 items-center gap-2 border-0 bg-transparent p-0 text-inherit"
                     type="button"
                     onClick={() => setPokeView(null)}
                   >
                     <ChevronLeftIcon />
-                    <strong className="truncate text-[15px] font-semibold tracking-tight">
+                    <strong className="truncate text-[13px] font-semibold tracking-tight">
                       {bot?.name ?? "—"} · {pokeView.peerName}
                     </strong>
                   </button>
@@ -1157,7 +1698,7 @@ export function Chat(props: {
                       <ChevronLeftIcon />
                     </Button>
                     <button
-                      className="flex min-w-0 items-center gap-2.5 border-0 bg-transparent p-0 text-inherit"
+                      className="flex min-w-0 items-center gap-2 border-0 bg-transparent p-0 text-inherit"
                       type="button"
                       onClick={() => {
                         setDesk(deskSettings());
@@ -1173,7 +1714,7 @@ export function Chat(props: {
                           hero
                         />
                       ) : null}
-                      <strong className="truncate text-[15px] font-semibold tracking-tight">
+                      <strong className="truncate text-[13px] font-semibold tracking-tight">
                         {isRoom ? (room?.name ?? "Room") : (bot?.name ?? "—")}
                       </strong>
                     </button>
@@ -1273,17 +1814,16 @@ export function Chat(props: {
                     const itemError = isActive
                       ? error
                       : (itemMeta?.error ?? "");
-                    const talking = isActive
-                      ? bot
-                      : bots.find((row) => row.id === item.members[0]?.botId);
+                    const explicitTargetId = isActive ? desk.bot : undefined;
+                    const talking = explicitTargetId
+                      ? bots.find((row) => row.id === explicitTargetId)
+                      : undefined;
                     return (
                       <KeptRoomThread
                         key={item.id}
                         roomId={item.id}
                         roomName={item.name}
-                        targetBotId={
-                          isActive ? focusedBotId : item.members[0]?.botId
-                        }
+                        targetBotId={explicitTargetId}
                         targetName={talking?.name}
                         active={isActive}
                         needsModel={Boolean(me?.needsModel)}
@@ -1347,6 +1887,25 @@ export function Chat(props: {
               className={cn("chat-pane-slot", pane.leaving && "is-leaving")}
               aria-hidden={!activePane}
             >
+              {activePane && activePane !== "app" ? (
+                <button
+                  type="button"
+                  className="pane-resize no-drag"
+                  aria-label="Resize pane"
+                  aria-orientation="vertical"
+                  aria-valuemin={PANE_WIDTH_MIN}
+                  aria-valuemax={PANE_WIDTH_MAX}
+                  aria-valuenow={paneCol.width}
+                  aria-valuetext={`${paneCol.width} pixels`}
+                  onPointerDown={paneCol.onPointerDown}
+                  onPointerMove={paneCol.onPointerMove}
+                  onPointerUp={paneCol.onPointerUp}
+                  onPointerCancel={paneCol.onPointerUp}
+                  onLostPointerCapture={paneCol.onPointerUp}
+                  onKeyDown={paneCol.onKeyDown}
+                  onDoubleClick={paneCol.onDoubleClick}
+                />
+              ) : null}
               {pane.rendered === "app" && exitingApp ? (
                 <AppPane
                   appId={exitingApp.id}
@@ -1404,13 +1963,12 @@ export function Chat(props: {
               onClose={() => setDesk(closeLibrary(desk))}
             />
           ) : null}
-          {pluginsOpen ? (
-            <PluginsModal
-              open
-              botId={activeId}
-              onClose={() => setPluginsOpen(false)}
-            />
-          ) : null}
+          </div>
+          <PluginsModal
+            open={pluginsOpen}
+            botId={activeId}
+            onClose={() => setPluginsOpen(false)}
+          />
           <AppSettings
             open={settingsOpen}
             me={me}
@@ -1437,12 +1995,18 @@ export function Chat(props: {
           <CommandPalette
             open={paletteOpen}
             bots={[...liveBots, ...archivedBots]}
+            rooms={rooms}
             apps={workspaceApps}
             onClose={() => setPaletteOpen(false)}
             onBot={(botId) => {
               setPaletteOpen(false);
               setPokeView(null);
               void goToBot(botId, closeLibrary(desk));
+            }}
+            onRoom={(roomId) => {
+              setPaletteOpen(false);
+              setPokeView(null);
+              void goToRoom(roomId, closeLibrary(desk));
             }}
             onApp={(appId) => {
               setPaletteOpen(false);
@@ -1462,85 +2026,77 @@ export function Chat(props: {
             onClose={() => setRoomOpen(false)}
             onCreate={(input) => void createRoom(input)}
           />
-          {botMenu ? (
-            <>
-              <button
-                className="fixed inset-0 z-30 cursor-default border-0 bg-transparent"
-                type="button"
-                aria-label="Close bot menu"
-                onClick={() => setBotMenu(null)}
-              />
-              <div
-                className="menu"
-                role="menu"
-                style={{
-                  position: "fixed",
-                  left: botMenu.x,
-                  top: botMenu.y,
-                  right: "auto",
-                  zIndex: 31,
-                }}
-              >
-                {botMenuItems({
-                  pinned: isPinnedBot(botMenu.bot),
-                  name: botMenu.bot.name,
-                  phase: botMenu.phase,
-                }).flatMap((item, index) => {
-                  const nodes = [];
-                  if (
-                    item.id === "delete" &&
-                    botMenu.phase === "actions" &&
-                    index > 0
-                  ) {
-                    nodes.push(<div key="sep" className="menu-sep" />);
-                  }
-                  nodes.push(
-                    <button
-                      key={item.id}
-                      className={item.id === "delete" ? "danger" : undefined}
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        if (item.id === "pin") {
-                          void togglePin(botMenu.bot);
-                          return;
-                        }
-                        if (item.id === "cancel-delete") {
-                          setBotMenu({ ...botMenu, phase: "actions" });
-                          return;
-                        }
-                        if (botMenu.phase === "actions") {
-                          const box = botMenuBox("confirm-delete");
-                          setBotMenu({
-                            ...botMenu,
-                            phase: "confirm-delete",
-                            x: Math.min(
-                              botMenu.x,
-                              window.innerWidth - box.width - 8,
-                            ),
-                            y: Math.min(
-                              botMenu.y,
-                              window.innerHeight - box.height - 8,
-                            ),
-                          });
-                          return;
-                        }
-                        setBotMenu(null);
-                        void deleteTeammate(botMenu.bot.id);
-                      }}
-                    >
-                      {item.id === "pin" ? <PinIcon /> : null}
-                      {item.id === "delete" ? <TrashIcon /> : null}
-                      <span className="min-w-0 truncate">{item.label}</span>
-                    </button>,
-                  );
-                  return nodes;
-                })}
-              </div>
-            </>
-          ) : null}
+          <SectionDialog
+            open={sectionOpen}
+            title="New section"
+            confirm="Create"
+            onClose={() => setSectionOpen(false)}
+            onSubmit={(name) => void createSection(name)}
+          />
+          <SectionDialog
+            open={Boolean(sectionRename)}
+            title="Rename section"
+            confirm="Save"
+            initialName={sectionRename?.name ?? ""}
+            onClose={() => setSectionRename(null)}
+            onSubmit={(name) => {
+              if (!sectionRename) return;
+              void renameSection(sectionRename, name);
+            }}
+          />
+          <BotContextMenu
+            menu={botMenu}
+            sections={sections.map((row) => ({ id: row.id, name: row.name }))}
+            onClose={() => setBotMenu(null)}
+            onPin={(bot) => void togglePin(bot)}
+            onMove={(bot, sectionId) => void moveBotToSection(bot, sectionId)}
+            onPhase={setBotMenu}
+            onDelete={(botId) => void deleteTeammate(botId)}
+          />
+          <RoomContextMenu
+            menu={roomMenu}
+            onClose={() => setRoomMenu(null)}
+            onPhase={setRoomMenu}
+            onDelete={(room) => {
+              setRoomMenu(null);
+              void deleteRoom(room);
+            }}
+          />
+          <SectionContextMenu
+            menu={sectionMenu}
+            onClose={() => setSectionMenu(null)}
+            onRename={(section) => {
+              setSectionMenu(null);
+              setSectionRename(section);
+            }}
+            onPhase={setSectionMenu}
+            onDelete={(section) => {
+              setSectionMenu(null);
+              void deleteSection(section);
+            }}
+          />
         </div>
       </KnowledgeFileOpenProvider>
     </ComputerFileOpenProvider>
+  );
+}
+
+function LiveAppsDockItem() {
+  const [open, setOpen] = useState(false);
+  return (
+    <Tooltip open={open} onOpenChange={setOpen}>
+      <TooltipTrigger
+        className="chat-dock-item"
+        type="button"
+        aria-label="Live apps, coming soon"
+        onClick={() => setOpen(true)}
+      >
+        <LiveAppsIcon className="size-5" />
+        <span>Live apps</span>
+      </TooltipTrigger>
+      <TooltipContent side="top" sideOffset={6}>
+        Coming soon
+      </TooltipContent>
+    </Tooltip>
   );
 }

@@ -1,4 +1,4 @@
-import type { UIMessage } from "ai";
+import { userBoundFromText } from "@groxbot/core/browser";
 
 function textFromParts(parts: unknown): string {
   if (!Array.isArray(parts)) return "";
@@ -26,27 +26,12 @@ export function textFromOutgoingPayload(payload: unknown): string {
 export function seedOutgoingUserMessage(
   payload: unknown,
   id: string,
-): UIMessage | null {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    return null;
-  }
-  const row = payload as Record<string, unknown>;
-  const metadata = row.metadata;
-  if (Array.isArray(row.parts)) {
-    return {
-      id,
-      role: "user",
-      parts: row.parts as UIMessage["parts"],
-      ...(metadata !== undefined ? { metadata } : {}),
-    } as UIMessage;
-  }
-  if (typeof row.text === "string") {
-    return {
-      id,
-      role: "user",
-      parts: [{ type: "text", text: row.text }],
-      ...(metadata !== undefined ? { metadata } : {}),
-    } as UIMessage;
-  }
-  return null;
+) {
+  const text = textFromOutgoingPayload(payload);
+  if (!text) return null;
+  const metadata =
+    payload && typeof payload === "object" && !Array.isArray(payload)
+      ? (payload as { metadata?: unknown }).metadata
+      : undefined;
+  return userBoundFromText({ id, content: text, metadata });
 }

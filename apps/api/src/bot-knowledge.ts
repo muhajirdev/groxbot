@@ -35,7 +35,7 @@ export class KnowledgeConnector extends CodemodeConnector {
   protected override instructions() {
     return [
       "Shared office knowledge — not this computer.",
-      "Search first, then read. Write playbooks at skills/<name>/SKILL.md (YAML name + description). Patch an existing playbook before creating one.",
+      "Search first, then read. Notes and files that are not skills stay here. Reusable how-to is skill_manage (skills/<name>/SKILL.md), not knowledge.write.",
       "After a real write, mention that path in one short line in the thread. Don't announce a save you didn't make.",
       "Markdown links are office-root paths: [constraints](how-we-work/constraints.md). Not ../, not [[wikilinks]].",
     ].join(" ");

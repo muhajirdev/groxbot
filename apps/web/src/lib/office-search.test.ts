@@ -3,11 +3,13 @@ import {
   closeLibrary,
   closePeek,
   deskApp,
+  deskAwayFromLibrary,
   deskClosed,
   deskComputer,
   deskLibrary,
   deskPeek,
   deskSettings,
+  libraryShowsSkills,
   officeSearch,
   toggleDesk,
 } from "./office-search";
@@ -86,6 +88,25 @@ describe("knowledge desk", () => {
     });
   });
 
+  it("treats the skills folder and SKILL.md files as the skills place", () => {
+    expect(libraryShowsSkills({ library: true })).toBe(false);
+    expect(libraryShowsSkills({ library: true, knowledge: "notes.md" })).toBe(
+      false,
+    );
+    expect(libraryShowsSkills({ knowledge: "skills/foo/SKILL.md" })).toBe(
+      false,
+    );
+    expect(libraryShowsSkills({ library: true, knowledge: "skills" })).toBe(
+      true,
+    );
+    expect(
+      libraryShowsSkills({ library: true, knowledge: "skills/foo/SKILL.md" }),
+    ).toBe(true);
+    expect(libraryShowsSkills({ library: true, knowledge: "SKILL.md" })).toBe(
+      true,
+    );
+  });
+
   it("keeps the previous pane under the library so Back can restore it", () => {
     expect(deskLibrary({ pane: "computer" }, "company/resources.md")).toEqual({
       pane: "computer",
@@ -110,6 +131,15 @@ describe("knowledge desk", () => {
       }),
     ).toEqual({ pane: "computer", knowledge: "note.md" });
     expect(closeLibrary({ library: true })).toEqual({});
+  });
+
+  it("leaves the library when opening a teammate from the roster", () => {
+    expect(deskAwayFromLibrary({ library: true, pane: "computer" })).toEqual(
+      {},
+    );
+    expect(deskAwayFromLibrary({ pane: "computer" })).toEqual({
+      pane: "computer",
+    });
   });
 
   it("closing a peek returns to chat", () => {

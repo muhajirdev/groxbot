@@ -3,7 +3,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { cn } from "./cn";
 
 const controlClass =
-  "w-full border border-line bg-card rounded-xl px-3 py-2.5 text-ink outline-none placeholder:text-muted focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/40";
+  "w-full border border-line bg-card rounded-lg px-3 py-2 text-[14px] text-ink outline-none placeholder:text-muted focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/40";
 
 type BaseInputProps = Omit<ComponentProps<typeof BaseInput>, "className">;
 
@@ -35,7 +35,7 @@ export function Field({
   children: ReactNode;
 }) {
   return (
-    <label className={cn("mb-3.5 grid gap-1.5", className)}>
+    <label className={cn("mb-3 grid gap-1.5", className)}>
       <span className="text-xs text-muted">{label}</span>
       {hint ? (
         <p className="m-0 text-xs leading-snug text-muted [&_a]:text-inherit">

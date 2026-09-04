@@ -10,8 +10,19 @@ import {
 } from "@cloudflare/codemode";
 import { toolSetConnector } from "@cloudflare/codemode/ai";
 import { createWorker } from "@cloudflare/worker-bundler";
+import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { splitExecuteNpmImports } from "@groxbot/core";
-import type { Tool, ToolSet } from "ai";
+import { tool, type ToolSet } from "ai";
+import {
+  FETCH_URL_DESCRIPTION,
+  fetchUrlParameters,
+  type PageWorkspace,
+  runFetchUrlTool,
+  runToMarkdownTool,
+  TO_MARKDOWN_DESCRIPTION,
+  toMarkdownParameters,
+} from "./bot-markdown.js";
+import { aiToolToPi } from "./bot-office-tools.js";
 
 type LoaderWorker = {
   getEntrypoint: () => {
@@ -147,18 +158,43 @@ export function createBundlingExecutor(
   };
 }
 
+/** Code Mode page tools. The Pi loop sees fetch_url / to_markdown as sibling AgentTools. */
+function pageToolSet(page: {
+  workspace: PageWorkspace;
+  convert?: Parameters<typeof runToMarkdownTool>[0]["convert"];
+}): ToolSet {
+  return {
+    fetch_url: tool({
+      description: FETCH_URL_DESCRIPTION,
+      inputSchema: fetchUrlParameters,
+      execute: async ({ url }) => runFetchUrlTool(page.workspace, url),
+    }),
+    to_markdown: tool({
+      description: TO_MARKDOWN_DESCRIPTION,
+      inputSchema: toMarkdownParameters,
+      execute: async (input) => runToMarkdownTool(page, input),
+    }),
+  };
+}
+
 /** Code Mode execute — office connectors only. Files and bash are Computer tools. */
 export function createOfficeExecuteTool(opts: {
   ctx: DurableObjectState;
   executor: Executor;
-  tools?: ToolSet;
+  page?: {
+    workspace: PageWorkspace;
+    convert?: Parameters<typeof runToMarkdownTool>[0]["convert"];
+  };
   connectors?: CodemodeConnector[];
   name?: string;
-}): Tool {
+}): AgentTool {
   const connectors: CodemodeConnector[] = [];
-  if (opts.tools && Object.keys(opts.tools).length > 0) {
+  if (opts.page) {
     connectors.push(
-      toolSetConnector(opts.ctx, { name: "tools", tools: opts.tools }),
+      toolSetConnector(opts.ctx, {
+        name: "tools",
+        tools: pageToolSet(opts.page),
+      }),
     );
   }
   if (opts.connectors) connectors.push(...opts.connectors);
@@ -168,5 +204,7 @@ export function createOfficeExecuteTool(opts: {
     connectors,
     name: opts.name ?? "execute",
   });
-  return runtime.tool() as Tool;
+  const wrapped = aiToolToPi("execute", runtime.tool());
+  if (!wrapped) throw new Error("Code Mode execute tool is missing execute()");
+  return wrapped;
 }

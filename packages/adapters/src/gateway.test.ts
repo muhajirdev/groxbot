@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import {
   CLOUDFLARE_DEEPSEEK_V4_FLASH,
   chatMessages,
-  cloudflareChatUrl,
+  cloudflareAiGatewayChatUrl,
   completionUsage,
   deltaText,
   deltaToolCalls,
@@ -24,6 +24,7 @@ import {
   loadGatewayConfig,
   OPENROUTER_DEEPSEEK_V4_FLASH,
 } from "./gateway.js";
+import { piAiRequestModel } from "./pi-ai-stream.js";
 import {
   agentRuntimeNeedsModel,
   createAgentRuntime,
@@ -51,17 +52,76 @@ const adapterContext = {
   signal: new AbortController().signal,
 };
 
-function sseResponse(chunks: string[], content = "Hello from DeepSeek") {
-  const payload = chunks.length
-    ? chunks.join("")
-    : [
-        `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`,
-        "data: [DONE]\n\n",
-      ].join("");
+function sseResponse(content = "Hello from DeepSeek", usage?: {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+}) {
+  const payload = [
+    `data: ${JSON.stringify({
+      id: "chunk-1",
+      object: "chat.completion.chunk",
+      choices: [
+        {
+          index: 0,
+          delta: { role: "assistant", content },
+          finish_reason: null,
+        },
+      ],
+    })}\n\n`,
+    `data: ${JSON.stringify({
+      id: "chunk-1",
+      object: "chat.completion.chunk",
+      choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+      ...(usage ? { usage } : {}),
+    })}\n\n`,
+    "data: [DONE]\n\n",
+  ].join("");
   return new Response(payload, {
     status: 200,
     headers: { "content-type": "text/event-stream" },
   });
+}
+
+function chatUrl(input: Parameters<typeof fetch>[0]): string {
+  if (typeof input === "string") return input;
+  if (input instanceof URL) return input.href;
+  if (input instanceof Request) return input.url;
+  return String(input);
+}
+
+function chatHeaders(
+  input: Parameters<typeof fetch>[0],
+  init?: RequestInit,
+): Headers {
+  if (input instanceof Request) return new Headers(input.headers);
+  return new Headers(init?.headers);
+}
+
+function chatBody(
+  input: Parameters<typeof fetch>[0],
+  init?: RequestInit,
+): Record<string, unknown> {
+  if (typeof init?.body === "string") {
+    return JSON.parse(init.body) as Record<string, unknown>;
+  }
+  if (init?.body instanceof Uint8Array) {
+    return JSON.parse(new TextDecoder().decode(init.body)) as Record<
+      string,
+      unknown
+    >;
+  }
+  if (init?.body == null && input instanceof Request) {
+    throw new Error("OpenAI SDK sent a Request without init.body");
+  }
+  return JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+}
+
+function chatSignal(
+  input: Parameters<typeof fetch>[0],
+  init?: RequestInit,
+): AbortSignal | undefined {
+  return init?.signal ?? (input instanceof Request ? input.signal : undefined);
 }
 
 describe("loadGatewayConfig", () => {
@@ -73,7 +133,9 @@ describe("loadGatewayConfig", () => {
     expect(config.provider).toBe(CLOUDFLARE_PROVIDER);
     expect(config.model).toBe(gatewayRequestModel(HOSTED_STARTER_MODEL));
     expect(config.gatewayId).toBe(DEFAULT_AI_GATEWAY_ID);
-    expect(gatewayChatUrl(config)).toBe(cloudflareChatUrl("acct_123"));
+    expect(gatewayChatUrl(config)).toBe(
+      cloudflareAiGatewayChatUrl("acct_123", DEFAULT_AI_GATEWAY_ID),
+    );
     expect(gatewayHeaders(config)["cf-aig-gateway-id"]).toBe(
       DEFAULT_AI_GATEWAY_ID,
     );
@@ -230,8 +292,8 @@ describe("GatewayAgentRuntime", () => {
     const seen: Array<{
       url: string;
       model: string;
-      gateway?: string;
-      metadata?: string;
+      auth?: string | null;
+      metadata?: string | null;
       includeUsage?: boolean;
     }> = [];
     const runtime = new GatewayAgentRuntime(
@@ -242,26 +304,24 @@ describe("GatewayAgentRuntime", () => {
         },
         {
           fetch: async (input, init) => {
-            const headers = new Headers(init?.headers);
-            const body = JSON.parse(String(init?.body ?? "{}")) as {
-              model: string;
-              stream_options?: { include_usage?: boolean };
-            };
+            const headers = chatHeaders(input, init);
+            const body = chatBody(input, init);
             seen.push({
-              url: String(input),
-              model: body.model,
-              gateway: headers.get("cf-aig-gateway-id") ?? undefined,
-              metadata: headers.get("cf-aig-metadata") ?? undefined,
-              includeUsage: body.stream_options?.include_usage,
+              url: chatUrl(input),
+              model: String(body.model ?? ""),
+              auth:
+                headers.get("cf-aig-authorization") ??
+                headers.get("authorization"),
+              metadata: headers.get("cf-aig-metadata"),
+              includeUsage: (
+                body.stream_options as { include_usage?: boolean } | undefined
+              )?.include_usage,
             });
-            return sseResponse(
-              [
-                `data: ${JSON.stringify({ choices: [{ delta: { content: "DeepSeek says hello" } }] })}\n\n`,
-                `data: ${JSON.stringify({ usage: { prompt_tokens: 4, completion_tokens: 3, total_tokens: 7 } })}\n\n`,
-                "data: [DONE]\n\n",
-              ],
-              "unused",
-            );
+            return sseResponse("DeepSeek says hello", {
+              prompt_tokens: 4,
+              completion_tokens: 3,
+              total_tokens: 7,
+            });
           },
         },
       ),
@@ -272,9 +332,9 @@ describe("GatewayAgentRuntime", () => {
     }
     expect(seen).toEqual([
       {
-        url: cloudflareChatUrl("acct_123"),
-        model: gatewayRequestModel(HOSTED_STARTER_MODEL),
-        gateway: DEFAULT_AI_GATEWAY_ID,
+        url: cloudflareAiGatewayChatUrl("acct_123", DEFAULT_AI_GATEWAY_ID),
+        model: piAiRequestModel(CLOUDFLARE_PROVIDER, HOSTED_STARTER_MODEL),
+        auth: "Bearer cf-token",
         metadata: JSON.stringify({
           workspaceId: "ws-1",
           userId: "user-1",
@@ -311,11 +371,9 @@ describe("GatewayAgentRuntime", () => {
           CLOUDFLARE_API_TOKEN: "cf-token",
         },
         {
-          fetch: async (_input, init) => {
-            model = (
-              JSON.parse(String(init?.body ?? "{}")) as { model: string }
-            ).model;
-            return sseResponse([], "ok");
+          fetch: async (input, init) => {
+            model = String(chatBody(input, init).model ?? "");
+            return sseResponse("ok");
           },
         },
       ),
@@ -330,7 +388,7 @@ describe("GatewayAgentRuntime", () => {
     )) {
       // drain
     }
-    expect(model).toBe(CLOUDFLARE_DEEPSEEK_V4_FLASH);
+    expect(model).toBe(`workers-ai/${CLOUDFLARE_DEEPSEEK_V4_FLASH}`);
     expect(
       gatewayRequestModel(
         "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-flash-0731",
@@ -345,10 +403,9 @@ describe("GatewayAgentRuntime", () => {
       OPENROUTER_PROVIDER,
       { OPENROUTER_API_KEY: "sk-or-test" },
       async (input, init) => {
-        url = String(input);
-        model = (JSON.parse(String(init?.body ?? "{}")) as { model: string })
-          .model;
-        return sseResponse([], "OpenRouter hello");
+        url = chatUrl(input);
+        model = String(chatBody(input, init).model ?? "");
+        return sseResponse("OpenRouter hello");
       },
     );
     const texts: string[] = [];
@@ -360,21 +417,12 @@ describe("GatewayAgentRuntime", () => {
     expect(texts).toEqual(["OpenRouter hello"]);
   });
 
-  it("reads a non-streaming JSON completion", async () => {
+  it("reads a streamed OpenAI-compatible completion", async () => {
     const runtime = new GatewayAgentRuntime(
       loadGatewayConfig(
         { OPENROUTER_API_KEY: "sk-or-test" },
         {
-          fetch: async () =>
-            new Response(
-              JSON.stringify({
-                choices: [{ message: { content: "JSON hello" } }],
-              }),
-              {
-                status: 200,
-                headers: { "content-type": "application/json" },
-              },
-            ),
+          fetch: async () => sseResponse("JSON hello"),
         },
       ),
     );
@@ -402,26 +450,34 @@ describe("GatewayAgentRuntime", () => {
     for await (const event of runtime.run(runRequest, adapterContext)) {
       events.push(event);
     }
-    expect(events).toContainEqual({ type: "error", text: "nope" });
+    expect(events.some((event) => event.type === "error")).toBe(true);
+    const error = events.find((event) => event.type === "error");
+    expect(error && "text" in error ? error.text : "").toMatch(/nope/i);
   });
 
   it("aborts an in-flight gateway request", async () => {
     let aborted = false;
+    let releaseFetch: () => void = () => {};
+    const fetchStarted = new Promise<void>((resolve) => {
+      releaseFetch = resolve;
+    });
     const runtime = new GatewayAgentRuntime(
       loadGatewayConfig(
         { OPENROUTER_API_KEY: "sk-or-test" },
         {
-          fetch: async (_input, init) =>
+          fetch: async (input, init) =>
             new Promise((_, reject) => {
+              const signal = chatSignal(input, init);
               const fail = () => {
                 aborted = true;
                 reject(new DOMException("Aborted", "AbortError"));
               };
-              if (init?.signal?.aborted) {
+              releaseFetch();
+              if (signal?.aborted) {
                 fail();
                 return;
               }
-              init?.signal?.addEventListener("abort", fail);
+              signal?.addEventListener("abort", fail);
             }),
         },
       ),
@@ -432,7 +488,7 @@ describe("GatewayAgentRuntime", () => {
         events.push(event);
       }
     })();
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await fetchStarted;
     await runtime.abort("run-1");
     await running;
     expect(aborted).toBe(true);

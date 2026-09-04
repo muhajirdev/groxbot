@@ -1,5 +1,11 @@
 import type { Room } from "@groxbot/contracts";
-import { createRoom, getRoom, listRooms, RoomError } from "@groxbot/core";
+import {
+  createRoom,
+  deleteRoom,
+  getRoom,
+  listRooms,
+  RoomError,
+} from "@groxbot/core";
 import { ORPCError } from "@orpc/server";
 import type { RpcContext } from "./context.js";
 import type { Actor } from "./session.js";
@@ -59,4 +65,28 @@ export async function createWorkspaceRoom(
     });
   }
   return room;
+}
+
+export async function deleteWorkspaceRoom(
+  context: RpcContext,
+  actor: Actor,
+  roomId: string,
+): Promise<{ ok: true }> {
+  try {
+    await deleteRoom(context.db, actor.workspaceId, roomId);
+  } catch (error) {
+    if (
+      error instanceof RoomError &&
+      error.message === "That room is missing."
+    ) {
+      throw new ORPCError("NOT_FOUND", { message: "Room not found" });
+    }
+    asOrpc(error);
+  }
+  try {
+    await context.forgetBot?.(roomId);
+  } catch (error) {
+    console.error("room actor destroy", roomId, error);
+  }
+  return { ok: true };
 }

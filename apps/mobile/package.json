@@ -13,12 +13,12 @@
     "check": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@ai-sdk/react": "^4.0.88",
-    "@assistant-ui/ai-sdk": "0.0.3",
+    "@assistant-ui/core": "^0.3.17",
     "@assistant-ui/react-native": "^0.1.39",
     "@better-auth/expo": "^1.3.8",
     "@cloudflare/ai-chat": "^0.11.0",
     "@groxbot/contracts": "workspace:*",
+    "@groxbot/core": "workspace:*",
     "@groxbot/mascot": "workspace:*",
     "@groxbot/rpc": "workspace:*",
     "@orpc/tanstack-query": "^1.10.0",
@@ -26,7 +26,6 @@
     "@react-navigation/native-stack": "^7.3.16",
     "@tanstack/react-query": "^5.102.8",
     "agents": "^0.21.0",
-    "ai": "^7.0.85",
     "better-auth": "^1.3.8",
     "capnweb": "^0.12.0",
     "expo": "~57.0.9",

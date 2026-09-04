@@ -6,10 +6,9 @@ import type {
 } from "@groxbot/adapter-kit";
 import { ownedPiTurnFromRun } from "@groxbot/adapter-kit";
 import type { GatewayConfig } from "./gateway.js";
-import { gatewayRequestModel } from "./gateway.js";
+import { resolvePiAiModel } from "./pi-ai-stream.js";
 import {
   createGatewayStreamFn,
-  piCompletionsModel,
   runOwnedPiTurn,
   type StreamFn,
 } from "./pi-turn.js";
@@ -35,8 +34,9 @@ export class PiAgentRuntime implements AgentRuntime {
     const signal = mergeSignals(context.signal, controller.signal);
     yield { type: "progress", text: "working…" };
     const turn = ownedPiTurnFromRun(request);
-    const model = piCompletionsModel(
-      gatewayRequestModel(request.model?.trim() || this.config.model),
+    const model = resolvePiAiModel(
+      this.config,
+      request.model?.trim() || this.config.model,
     );
     const streamFn =
       this.streamFn ??

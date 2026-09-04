@@ -33,7 +33,10 @@ describe("office messages cache", () => {
   it("round-trips messages in the query client", () => {
     expect(peekOfficeMessages(botId)).toBeUndefined();
     const messages = [
-      { id: "m1", role: "user" as const, parts: [{ type: "text" as const, text: "hi" }] },
+      {
+        id: "m1",
+        message: { role: "user" as const, content: "hi", timestamp: 1 },
+      },
     ];
     setOfficeMessages(botId, messages);
     expect(peekOfficeMessages(botId)).toEqual(messages);
@@ -47,15 +50,24 @@ describe("office messages cache", () => {
 
   it("forgets one bot without clearing others", () => {
     setOfficeMessages(botId, [
-      { id: "m1", role: "user" as const, parts: [{ type: "text" as const, text: "hi" }] },
+      {
+        id: "m1",
+        message: { role: "user" as const, content: "hi", timestamp: 1 },
+      },
     ]);
     setOfficeMessages("bot-keep", [
-      { id: "m2", role: "user" as const, parts: [{ type: "text" as const, text: "stay" }] },
+      {
+        id: "m2",
+        message: { role: "user" as const, content: "stay", timestamp: 1 },
+      },
     ]);
     forgetOfficeMessages(botId);
     expect(peekOfficeMessages(botId)).toBeUndefined();
     expect(peekOfficeMessages("bot-keep")).toEqual([
-      { id: "m2", role: "user" as const, parts: [{ type: "text" as const, text: "stay" }] },
+      {
+        id: "m2",
+        message: { role: "user" as const, content: "stay", timestamp: 1 },
+      },
     ]);
   });
 
@@ -69,7 +81,14 @@ describe("office messages cache", () => {
       }),
     ]);
     setOfficeMessages(botId, [
-      { id: "m1", role: "user" as const, parts: [{ type: "text" as const, text: "Booked the room" }] },
+      {
+        id: "m1",
+        message: {
+          role: "user" as const,
+          content: "Booked the room",
+          timestamp: 1,
+        },
+      },
     ]);
     expect(officePreviewsFromCache().get(botId)).toBe("Booked the room");
     expect(queryClient.getQueryData(botsKey)).toEqual([

@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   dropLastAssistant,
+  jsonClone,
   lastOfficeUserMessage,
   nextOfficeGeneration,
   officeChatShouldRun,
   officeChatText,
   parseOfficeChatMessages,
+  resolveAiSdkToolResult,
   stringifyToolOutput,
   toolNameFromPart,
   upsertOfficeChatMessage,
@@ -118,5 +120,28 @@ describe("tool parts", () => {
     ).toBe("execute");
     expect(toolNameFromPart({ type: "text", text: "hi" })).toBeNull();
     expect(stringifyToolOutput({ ok: true })).toBe('{"ok":true}');
+    expect(stringifyToolOutput((async function* () {})())).toBe("");
+  });
+});
+
+describe("resolveAiSdkToolResult", () => {
+  it("drains an async generator and keeps the last yield", async () => {
+    async function* exec() {
+      yield { exitCode: null, stdout: "par" };
+      yield { exitCode: 0, stdout: "partial\nfull", stderr: "" };
+    }
+    await expect(resolveAiSdkToolResult(exec())).resolves.toEqual({
+      exitCode: 0,
+      stdout: "partial\nfull",
+      stderr: "",
+    });
+  });
+
+  it("jsonClones a generator away so Cap’n Web can serialize", () => {
+    const gen = (async function* () {
+      yield 1;
+    })();
+    expect(jsonClone({ details: gen })).toEqual({});
+    expect(jsonClone(gen)).toBeNull();
   });
 });

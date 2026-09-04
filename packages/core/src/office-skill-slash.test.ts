@@ -1,30 +1,45 @@
 import { describe, expect, it } from "vitest";
+import type { OfficeSkillCatalogEntry } from "./office-skill.js";
 import {
-  catalogHasSkill,
+  applyOfficeSkillsToSystem,
+  formatAvailableSkillsXml,
   lastUserText,
-  officeSkillSlashTurn,
   parseOfficeSkillSlash,
-  withOfficeSkillSlashHint,
+  withForcedSkillContent,
+  withOfficeSkillCatalog,
 } from "./office-skill-slash.js";
 
+const skill: OfficeSkillCatalogEntry = {
+  name: "agreements",
+  description: "Draft client agreements.",
+  path: "skills/agreements/SKILL.md",
+  directory: "skills/agreements",
+  body: "Ask for the term. Cite the template.",
+};
+
 describe("parseOfficeSkillSlash", () => {
-  it("reads a bare skill command", () => {
+  it("reads Pi /skill:name", () => {
+    expect(parseOfficeSkillSlash("/skill:agreements")).toEqual({
+      name: "agreements",
+      input: "",
+    });
+    expect(parseOfficeSkillSlash("/skill:agreements Acme, 12 months")).toEqual({
+      name: "agreements",
+      input: "Acme, 12 months",
+    });
+  });
+
+  it("still reads a bare /name from the composer", () => {
     expect(parseOfficeSkillSlash("/agreements")).toEqual({
       name: "agreements",
       input: "",
     });
   });
 
-  it("keeps arguments after the command", () => {
-    expect(parseOfficeSkillSlash("/agreements Acme, 12 months")).toEqual({
-      name: "agreements",
-      input: "Acme, 12 months",
-    });
-  });
-
-  it("ignores ordinary chat and incomplete slashes", () => {
+  it("ignores ordinary chat and /skill without a name", () => {
     expect(parseOfficeSkillSlash("agreements")).toBeNull();
     expect(parseOfficeSkillSlash("/")).toBeNull();
+    expect(parseOfficeSkillSlash("/skill")).toBeNull();
     expect(parseOfficeSkillSlash("please /agreements")).toBeNull();
   });
 });
@@ -35,107 +50,75 @@ describe("lastUserText", () => {
       lastUserText([
         { role: "user", content: "older" },
         { role: "assistant", content: "ok" },
-        { role: "user", content: [{ type: "text", text: "/agreements" }] },
+        { role: "user", content: [{ type: "text", text: "/skill:agreements" }] },
       ]),
-    ).toBe("/agreements");
-  });
-
-  it("reads UIMessage parts when content is missing", () => {
-    expect(
-      lastUserText([
-        {
-          role: "user",
-          parts: [{ type: "text", text: "/weekly-update" }],
-        },
-      ]),
-    ).toBe("/weekly-update");
+    ).toBe("/skill:agreements");
   });
 });
 
-describe("catalogHasSkill", () => {
-  const catalog = [
-    "Available skills. When a task matches a skill, use activate_skill with its name before proceeding.",
-    "",
-    "- agreements: Draft Expandra client agreement documents.",
-    "- weekly-update: Five-bullet Monday.",
-  ].join("\n");
+describe("skill catalog", () => {
+  it("omits the XML block when there are no skills", () => {
+    expect(formatAvailableSkillsXml([])).toBe("");
+    expect(withOfficeSkillCatalog("You are Reja.", [])).toBe("You are Reja.");
+  });
 
-  it("matches skill catalog bullets", () => {
-    expect(catalogHasSkill(catalog, "agreements")).toBe(true);
-    expect(catalogHasSkill(catalog, "missing")).toBe(false);
+  it("lists name, description, and office path", () => {
+    const xml = formatAvailableSkillsXml([skill]);
+    expect(xml).toContain("<available_skills>");
+    expect(xml).toContain("<name>agreements</name>");
+    expect(xml).toContain("<description>Draft client agreements.</description>");
+    expect(xml).toContain("<location>skills/agreements/SKILL.md</location>");
+    expect(xml).not.toContain("Ask for the term");
+  });
+
+  it("tells the model to knowledge.read, not activate_skill", () => {
+    const next = withOfficeSkillCatalog("You are Reja.", [skill]);
+    expect(next).toContain("knowledge.read");
+    expect(next).not.toContain("activate_skill");
   });
 });
 
-describe("withOfficeSkillSlashHint", () => {
-  it("tells the model to activate that skill first", () => {
-    const next = withOfficeSkillSlashHint("You are Reja.", {
-      name: "agreements",
-      input: "",
-    });
-    expect(next).toContain("You are Reja.");
-    expect(next).toContain('Call activate_skill with name "agreements"');
-    expect(next).not.toMatch(/Remaining text/);
-  });
-
-  it("does not duplicate the hint", () => {
-    const once = withOfficeSkillSlashHint("You are Reja.", {
-      name: "agreements",
-      input: "Acme",
-    });
-    expect(
-      withOfficeSkillSlashHint(once, { name: "agreements", input: "Acme" }),
-    ).toBe(once);
+describe("forced /skill:name content", () => {
+  it("injects the body and User args", () => {
+    const next = withForcedSkillContent("You are Reja.", skill, "Acme");
+    expect(next).toContain("<skill_content name=\"agreements\">");
+    expect(next).toContain("Ask for the term. Cite the template.");
+    expect(next).toContain("Skill directory: skills/agreements");
+    expect(next).toContain("User: Acme");
+    expect(next).not.toContain("activate_skill");
   });
 });
 
-describe("officeSkillSlashTurn", () => {
-  const system = [
-    "You are Reja.",
-    "",
-    "- agreements: Draft Expandra client agreement documents.",
-  ].join("\n");
-  const messages = [{ role: "user", content: "/agreements" }];
-
-  it("forces activate_skill for a cataloged slash command", () => {
-    const next = officeSkillSlashTurn({
-      system,
-      messages,
-      hasActivateSkill: true,
-    });
-    expect(next.forceActivate).toBe(true);
-    expect(next.system).toContain('Call activate_skill with name "agreements"');
-  });
-
-  it("does not force when the catalog does not list that skill", () => {
-    expect(
-      officeSkillSlashTurn({
-        system: "You are Reja.",
-        messages,
-        hasActivateSkill: true,
-      }).forceActivate,
-    ).toBe(false);
-  });
-
-  it("does not force on continuations", () => {
-    expect(
-      officeSkillSlashTurn({
-        system,
-        messages,
-        hasActivateSkill: true,
-        continuation: true,
-      }).forceActivate,
-    ).toBe(false);
-  });
-
-  it("hints knowledge.read when activate_skill is gone", () => {
-    const next = officeSkillSlashTurn({
+describe("applyOfficeSkillsToSystem", () => {
+  it("injects a cataloged /skill:name", () => {
+    const next = applyOfficeSkillsToSystem({
       system: "You are Reja.",
-      messages,
-      hasActivateSkill: false,
+      messages: [{ role: "user", content: "/skill:agreements Acme" }],
+      catalog: [skill],
     });
-    expect(next.forceActivate).toBe(false);
-    expect(next.system).toContain("knowledge.read");
-    expect(next.system).toContain("skills/agreements/SKILL.md");
-    expect(next.system).not.toContain("activate_skill");
+    expect(next).toContain("<available_skills>");
+    expect(next).toContain("<skill_content name=\"agreements\">");
+    expect(next).toContain("User: Acme");
+  });
+
+  it("does not inject an unknown slash", () => {
+    const next = applyOfficeSkillsToSystem({
+      system: "You are Reja.",
+      messages: [{ role: "user", content: "/skill:missing" }],
+      catalog: [skill],
+    });
+    expect(next).toContain("<available_skills>");
+    expect(next).not.toContain("<skill_content");
+  });
+
+  it("does not inject on continuations", () => {
+    const next = applyOfficeSkillsToSystem({
+      system: "You are Reja.",
+      messages: [{ role: "user", content: "/skill:agreements" }],
+      catalog: [skill],
+      continuation: true,
+    });
+    expect(next).toContain("<available_skills>");
+    expect(next).not.toContain("<skill_content");
   });
 });

@@ -62,6 +62,18 @@ describe("query persist", () => {
     ).toBe(true);
     expect(
       shouldDehydrateOfficeQuery({
+        queryKey: orpc.workspaces.list.queryOptions().queryKey,
+        state: { status: "success" },
+      }),
+    ).toBe(true);
+    expect(
+      shouldDehydrateOfficeQuery({
+        queryKey: ["plugin-catalog"],
+        state: { status: "success" },
+      }),
+    ).toBe(true);
+    expect(
+      shouldDehydrateOfficeQuery({
         queryKey: ["office-messages", "bot-1"],
         state: { status: "pending" },
       }),
@@ -69,6 +81,12 @@ describe("query persist", () => {
     expect(
       shouldDehydrateOfficeQuery({
         queryKey: ["auth", "session"],
+        state: { status: "success" },
+      }),
+    ).toBe(false);
+    expect(
+      shouldDehydrateOfficeQuery({
+        queryKey: orpc.me.queryOptions().queryKey,
         state: { status: "success" },
       }),
     ).toBe(false);
