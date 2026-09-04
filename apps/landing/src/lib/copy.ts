@@ -197,6 +197,27 @@ export const MAC_DOWNLOAD_URL = `${SOURCE_REPO}/releases`;
 export const TAGLINE = GROXBOT_TAGLINE;
 export const FOOTER_BLURB = `${GROXBOT_TAGLINE}. For the whole team. Fair-code.`;
 
+export const THESES = [
+  {
+    id: "together",
+    kicker: "Together",
+    title: "AI is better together.",
+    lede: "OpenClaw or Hermes is one person and a laptop. Groxbot is named teammates, each with a computer, and a thread anyone on the team can open.",
+  },
+  {
+    id: "adopt",
+    kicker: "Adoption",
+    title: "The best way to get your team to adopt AI is to track it.",
+    lede: "A personal agent hides on a laptop. Who is putting Bots to work is on the board. That’s how the rest of the team starts.",
+  },
+  {
+    id: "knowledge",
+    kicker: "Knowledge",
+    title: "The company’s knowledge base should evolve from group chats.",
+    lede: "What you decide in a thread is filed into shared office knowledge — how we work, voice, constraints. Skills live with the workspace, not in one chat. The organization improves; you do not re-explain it every Monday.",
+  },
+] as const;
+
 export const HOME_MODELS = [
   {
     name: "Claude Opus",
@@ -238,3 +259,19 @@ export const HOME_ADOPTION = [
   { ...PEOPLE.you, role: "Lead", tasks: 1240, label: "1,240" },
   { ...PEOPLE.rahul, role: "Scout", tasks: 980, label: "980" },
 ] as const;
+
+export const HOME_KNOWLEDGE = {
+  thread: [
+    "Maya: Ship Thursday. No jargon. Hold for me.",
+    "Chief: Queued. Nothing live until you look.",
+    "Jules: Same voice on the outbound recap.",
+  ],
+  files: [
+    { path: "how-we-work/voice.md", note: "No jargon. Hold for Maya." },
+    { path: "how-we-work/owners.md", note: "Outbound recaps: Jules." },
+    {
+      path: "skills/linkedin-teardown/SKILL.md",
+      note: "Draft, queue, don’t publish.",
+    },
+  ],
+} as const;

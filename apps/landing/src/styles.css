@@ -822,12 +822,34 @@ img.avatar {
 #how,
 #jobs,
 #faq,
-#enterprise {
+#enterprise,
+#together,
+#adopt,
+#knowledge {
   scroll-margin-top: 72px;
 }
 
 .versus-band h2 {
   max-width: 28ch;
+}
+
+.thesis-section {
+  padding: 64px 0 28px;
+}
+
+.thesis-section > .kicker {
+  margin-bottom: 10px;
+}
+
+.thesis-section > h2 {
+  max-width: 18ch;
+  font-size: clamp(28px, 4.2vw, 44px);
+  margin-bottom: 14px;
+}
+
+.thesis-section > .lede {
+  max-width: 36rem;
+  margin-bottom: 28px;
 }
 
 .models-line {
@@ -867,7 +889,7 @@ img.avatar {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0;
-  margin-top: 28px;
+  margin-top: 8px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   overflow: hidden;
@@ -1329,6 +1351,7 @@ img.avatar {
 
 .adopt h2 {
   font-size: clamp(28px, 4.2vw, 44px);
+  max-width: 20ch;
   margin-bottom: 14px;
 }
 
@@ -2170,6 +2193,10 @@ a.chip.on .chip-count,
   .chapter {
     padding: 40px 0 20px;
     text-align: left;
+  }
+
+  .thesis-section {
+    padding: 40px 0 20px;
   }
 
   .chapter h2,

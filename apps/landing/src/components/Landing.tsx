@@ -8,9 +8,11 @@ import {
   demoLogo,
   FAQS,
   HOME_ADOPTION,
+  HOME_KNOWLEDGE,
   HOME_MODELS,
   SOURCE_REPO,
   TAGLINE,
+  THESES,
 } from "../lib/copy";
 import { HOME_INTEGRATIONS } from "../lib/teasers";
 import { DemoThread } from "./DemoThread";
@@ -69,9 +71,14 @@ export function Landing(props: { startUrl: string }) {
           </ul>
         </section>
 
-        <section className="band versus-band" aria-label="Where Groxbot sits">
-          <p className="kicker">If you already know these</p>
-          <h2>OpenClaw, Hermes, and Grok Bot.</h2>
+        <section
+          id="together"
+          className="thesis-section"
+          aria-labelledby="thesis-together"
+        >
+          <p className="kicker">{THESES[0].kicker}</p>
+          <h2 id="thesis-together">{THESES[0].title}</h2>
+          <p className="lede">{THESES[0].lede}</p>
           <div className="versus">
             {COMPARE.map((item) => (
               <article
@@ -83,6 +90,71 @@ export function Landing(props: { startUrl: string }) {
                 <p>{item.line}</p>
               </article>
             ))}
+          </div>
+        </section>
+
+        <section id="adopt" className="adopt" aria-labelledby="thesis-adopt">
+          <div className="adopt-copy">
+            <p className="kicker">{THESES[1].kicker}</p>
+            <h2 id="thesis-adopt">{THESES[1].title}</h2>
+            <p className="lede tight">{THESES[1].lede}</p>
+          </div>
+          <ol className="board">
+            {HOME_ADOPTION.map((person, index) => {
+              const lead = HOME_ADOPTION[0]!.tasks;
+              const width = Math.round((person.tasks / lead) * 100);
+              return (
+                <li
+                  key={person.name}
+                  className={index === 0 ? "lead" : undefined}
+                >
+                  <span className="rank">{index + 1}</span>
+                  <PersonFace src={person.photo} name={person.name} size="md" />
+                  <span className="board-who">
+                    <strong>{person.name}</strong>
+                    <em>{person.role}</em>
+                  </span>
+                  <span className="board-bar" aria-hidden>
+                    <i style={{ width: `${width}%` }} />
+                  </span>
+                  <span className="board-n">
+                    {person.label}
+                    <em>tasks</em>
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+
+        <section
+          id="knowledge"
+          className="adopt"
+          aria-labelledby="thesis-knowledge"
+        >
+          <div className="adopt-copy">
+            <p className="kicker">{THESES[2].kicker}</p>
+            <h2 id="thesis-knowledge">{THESES[2].title}</h2>
+            <p className="lede tight">{THESES[2].lede}</p>
+          </div>
+          <div className="know-loop" aria-hidden>
+            <div className="know-col">
+              <p className="kicker">Thread</p>
+              {HOME_KNOWLEDGE.thread.map((line) => (
+                <p key={line} className="know-line">
+                  {line}
+                </p>
+              ))}
+            </div>
+            <div className="know-col on">
+              <p className="kicker">Office knowledge</p>
+              {HOME_KNOWLEDGE.files.map((file) => (
+                <p key={file.path} className="know-file">
+                  <strong>{file.path}</strong>
+                  {file.note}
+                </p>
+              ))}
+            </div>
           </div>
         </section>
 
@@ -103,15 +175,6 @@ export function Landing(props: { startUrl: string }) {
               size="lg"
             />
           </div>
-        </section>
-
-        <section className="chapter">
-          <h2>The whole team sits in the same office.</h2>
-          <p className="lede">
-            OpenClaw or Hermes is one person and a laptop. Groxbot is named
-            teammates, each with a computer, and a thread anyone on the team can
-            open.
-          </p>
         </section>
 
         <section className="tiles" aria-label="How the office works">
@@ -209,43 +272,6 @@ export function Landing(props: { startUrl: string }) {
               </div>
             </div>
           </article>
-        </section>
-
-        <section className="adopt" aria-label="Track AI adoption in your team">
-          <div className="adopt-copy">
-            <p className="kicker">Track AI adoption in your team</p>
-            <h2>They won’t use it if nobody can see it.</h2>
-            <p className="lede tight">
-              A personal agent hides on a laptop. Who is putting Bots to work is
-              on the board. That’s how the rest of the team starts.
-            </p>
-          </div>
-          <ol className="board">
-            {HOME_ADOPTION.map((person, index) => {
-              const lead = HOME_ADOPTION[0]!.tasks;
-              const width = Math.round((person.tasks / lead) * 100);
-              return (
-                <li
-                  key={person.name}
-                  className={index === 0 ? "lead" : undefined}
-                >
-                  <span className="rank">{index + 1}</span>
-                  <PersonFace src={person.photo} name={person.name} size="md" />
-                  <span className="board-who">
-                    <strong>{person.name}</strong>
-                    <em>{person.role}</em>
-                  </span>
-                  <span className="board-bar" aria-hidden>
-                    <i style={{ width: `${width}%` }} />
-                  </span>
-                  <span className="board-n">
-                    {person.label}
-                    <em>tasks</em>
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
         </section>
 
         <DemoShowcase />
