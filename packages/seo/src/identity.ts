@@ -68,7 +68,7 @@ export const GROXBOT_ALTERNATE_NAMES = [
 
 export const GROXBOT_SERVICES = [
   "Named AI teammates (bots) you message like coworkers",
-  "Each bot has a computer — Think workspace on that teammate, not a separate desk",
+  "Each bot has a computer — Cloudflare Computer workspace on that teammate, not a separate desk",
   "Live docs, slides, and sheets as their own Durable Objects",
   "Shared office knowledge and skills — the organization improves",
   "oRPC product API for web, desktop, and mobile",

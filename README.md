@@ -16,7 +16,7 @@ Early scaffold: contracts, Neon Postgres (team data), one Think Durable Object p
 - **Routines** — Agents `this.schedule` on `BotActor`. Office UI and `routines.*` oRPC talk to that actor.
 - Better Auth (magic-link email, Google, GitHub)
 - **Cloudflare first:** Workers (landing, web, API) + Neon. Local = `wrangler dev` + Vite
-- **Computer** — built into each bot (Think workspace on `BotActor`). Not a second table or DO.
+- **Computer** — built into each bot (`@cloudflare/computer` Workspace on `BotActor`). Not a second table or DO.
 - **Apps** — docs / slides / sheets as `AppRuntime` Durable Objects
 - Plugins: Composio (optional)
 - UI: **web first** (Grok Bot-simple) — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). Desktop = Electron around web. Mobile = Expo (`pnpm dev:mobile`).
