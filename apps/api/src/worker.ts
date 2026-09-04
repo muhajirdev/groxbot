@@ -35,7 +35,7 @@ import { actorForAgentBot, requireActor } from "./session.js";
 
 export { CodemodeRuntime } from "@cloudflare/codemode";
 export { WorkspaceServiceProxy } from "@cloudflare/computer";
-export { AppRuntime, RoomActor };
+export { AppRuntime, RoomActor, RoomActor as BotActor };
 
 /** `/agents/{binding}/{name}` — instance name is the home room id. */
 function agentInstanceName(pathname: string): string | null {

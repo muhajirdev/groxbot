@@ -18,7 +18,7 @@ The bot is the **roster person**. A room is a **place**. They share one Durable 
 - Group members still join by `botId`. Wake target is that bot’s **home room id**.
 - The group never runs Pi. It enqueues onto the target’s home `RoomActor`.
 
-Do not bring back a `BotActor` class. Do not name the person instance by `botId`. Do not put Pi on the group instance. Do not store `rooms.kind`. Do not use Cloudflare Session as the office catalog. Do not add D1.
+Do not bring back a `BotActor` TypeScript class. The provisioned Cloudflare SQLite class is still named `BotActor` (v1) so preview `versions upload` can succeed; the Worker binding and product name are `ROOM_ACTOR` / `RoomActor`. Do not name the person instance by `botId`. Do not put Pi on the group instance. Do not store `rooms.kind`. Do not use Cloudflare Session as the office catalog. Do not add D1.
 
 ## Cloudflare OS uses Pi. That does not make Pi the room.
 

@@ -42,7 +42,9 @@
 			},
 			{
 				"name": "ROOM_ACTOR",
-				"class_name": "RoomActor"
+				// SQLite class is still the v1 BotActor. versions upload cannot
+				// apply new_sqlite_classes / deleted_classes (API 10211).
+				"class_name": "BotActor"
 			}
 		]
 	},
@@ -62,18 +64,6 @@
 			"tag": "v2",
 			"new_sqlite_classes": [
 				"AppRuntime"
-			]
-		},
-		{
-			"tag": "v3",
-			"new_sqlite_classes": [
-				"RoomActor"
-			]
-		},
-		{
-			"tag": "v4",
-			"deleted_classes": [
-				"BotActor"
 			]
 		}
 	],

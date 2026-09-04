@@ -62,6 +62,15 @@ describe("Computer Worker shell wiring", () => {
     );
   });
 
+  it("binds ROOM_ACTOR to the provisioned BotActor class", () => {
+    const wrangler = readFileSync(join(src, "../wrangler.jsonc"), "utf8");
+    expect(wrangler).toMatch(/"name": "ROOM_ACTOR"/);
+    expect(wrangler).toMatch(/"class_name": "BotActor"/);
+    expect(wrangler).not.toMatch(/"tag": "v3"/);
+    expect(wrangler).not.toMatch(/"deleted_classes"/);
+    expect(readSrc("worker.ts")).toMatch(/RoomActor as BotActor/);
+  });
+
   it("does not depend on @cloudflare/shell", () => {
     const pkg = JSON.parse(
       readFileSync(join(src, "../package.json"), "utf8"),
