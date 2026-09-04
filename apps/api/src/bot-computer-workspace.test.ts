@@ -68,6 +68,7 @@ describe("Computer Worker shell wiring", () => {
     expect(wrangler).toMatch(/"class_name": "BotActor"/);
     expect(wrangler).not.toMatch(/"tag": "v3"/);
     expect(wrangler).not.toMatch(/"deleted_classes"/);
+    expect(wrangler).not.toMatch(/"experimental"/);
     expect(readSrc("worker.ts")).toMatch(/RoomActor as BotActor/);
   });
 
