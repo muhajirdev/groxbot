@@ -56,7 +56,6 @@ export async function createWorkspaceRoom(
         name: row.name,
         homeRoomId: row.homeRoomId,
       })),
-      kind: "board",
     });
   }
   return room;

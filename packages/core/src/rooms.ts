@@ -1,15 +1,24 @@
 import type { WakeupJob } from "@groxbot/adapter-kit";
 import { AvatarShape, type Room, type RoomMember } from "@groxbot/contracts";
 import { bots, type Database, roomMembers, rooms } from "@groxbot/db";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { newId } from "./ids.js";
 import type { OfficeChatMessage } from "./office-chat.js";
 import { officeChatText, parseOfficeChatMessages } from "./office-chat.js";
 import { iso } from "./threads.js";
 
-export const ROOM_KIND_HOME = "home";
-export const ROOM_KIND_BOARD = "board";
 export const ROOM_TURN_JOB = "room.turn";
+
+/** Listing hides rooms that are someone’s `bots.homeRoomId`. */
+export function isListedGroupRoom(
+  roomId: string,
+  homeRoomIds: Iterable<string | null | undefined>,
+): boolean {
+  for (const id of homeRoomIds) {
+    if (id === roomId) return false;
+  }
+  return true;
+}
 
 export class RoomError extends Error {
   constructor(message: string) {
@@ -88,7 +97,7 @@ export function roomTurnSystem(
   return `${soul.trim()}
 
 You are ${room.selfName} at the table "${room.name}". Also here: ${seated || room.selfName}.
-This log is the shared table, not your private office. Speak as yourself. Do not impersonate the others. Papers on the table are board files. Your computer is still yours.`;
+This log is the shared table, not your private office. Speak as yourself. Do not impersonate the others. Papers on the table are this room’s files. Your computer is still yours.`;
 }
 
 export function roomWakeJob(input: {
@@ -169,7 +178,6 @@ export function toRoomDto(
     id: room.id,
     workspaceId: room.workspaceId,
     name: room.name,
-    kind: room.kind === ROOM_KIND_HOME ? "home" : "board",
     members,
     lastPreview: extras?.lastPreview ?? "",
     lastAt,
@@ -186,7 +194,8 @@ export async function createRoom(
     name: string;
     memberBotIds: string[];
     id?: string;
-    kind?: "home" | "board";
+    /** Hire: this room is that bot’s own. Listing hides it via `homeRoomId`. */
+    own?: boolean;
   },
 ): Promise<Room> {
   const name = input.name.trim();
@@ -195,7 +204,6 @@ export async function createRoom(
   if (memberBotIds.length === 0) {
     throw new RoomError("Seat at least one teammate.");
   }
-  const kind = input.kind === ROOM_KIND_HOME ? ROOM_KIND_HOME : ROOM_KIND_BOARD;
   const seated = await db
     .select({
       id: bots.id,
@@ -219,8 +227,8 @@ export async function createRoom(
     if (!bot)
       throw new RoomError("Every seat must be a teammate in this office.");
     if (bot.archivedAt) throw new RoomError(`${bot.name} is archived.`);
-    if (kind === ROOM_KIND_BOARD && !bot.homeRoomId) {
-      throw new RoomError(`${bot.name} has no home room yet.`);
+    if (!input.own && !bot.homeRoomId) {
+      throw new RoomError(`${bot.name} has no room yet.`);
     }
   }
   const id = input.id?.trim() || newId();
@@ -230,7 +238,6 @@ export async function createRoom(
       id,
       workspaceId: input.workspaceId,
       name,
-      kind,
       createdByUserId: input.userId,
     })
     .returning();
@@ -250,8 +257,7 @@ export async function createRoom(
         ? [
             toRoomMemberDto({
               ...bot,
-              homeRoomId:
-                kind === ROOM_KIND_HOME ? id : (bot.homeRoomId ?? ""),
+              homeRoomId: input.own ? id : (bot.homeRoomId ?? ""),
             }),
           ]
         : [];
@@ -264,13 +270,13 @@ export async function listRooms(
   workspaceId: string,
 ): Promise<Room[]> {
   const rows = await db
-    .select()
+    .select({ room: rooms })
     .from(rooms)
-    .where(
-      and(eq(rooms.workspaceId, workspaceId), eq(rooms.kind, ROOM_KIND_BOARD)),
-    )
+    .leftJoin(bots, eq(bots.homeRoomId, rooms.id))
+    .where(and(eq(rooms.workspaceId, workspaceId), isNull(bots.id)))
     .orderBy(desc(rooms.updatedAt));
-  if (rows.length === 0) return [];
+  const listed = rows.map((row) => row.room);
+  if (listed.length === 0) return [];
   const seats = await db
     .select({
       roomId: roomMembers.roomId,
@@ -287,7 +293,7 @@ export async function listRooms(
     .where(
       inArray(
         roomMembers.roomId,
-        rows.map((row) => row.id),
+        listed.map((row) => row.id),
       ),
     );
   const membersByRoom = new Map<string, RoomMember[]>();
@@ -296,7 +302,7 @@ export async function listRooms(
     list.push(toRoomMemberDto(seat));
     membersByRoom.set(seat.roomId, list);
   }
-  return rows.map((row) => toRoomDto(row, membersByRoom.get(row.id) ?? []));
+  return listed.map((row) => toRoomDto(row, membersByRoom.get(row.id) ?? []));
 }
 
 export async function getRoom(

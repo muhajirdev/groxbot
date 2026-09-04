@@ -11,7 +11,7 @@ Early scaffold: contracts, Neon Postgres (team data), one Durable Object per bot
 - TypeScript, pnpm, Hono, React, Vite, TanStack Router
 - **oRPC** — one contract for web, desktop, and mobile
 - Postgres + Drizzle — workspaces, threads, skills (Neon on Cloudflare)
-- **One queue per home room** — Durable Object `RoomActor` (kind=home)
+- **One queue per person’s room** — Durable Object `RoomActor` (that bot’s `homeRoomId`)
 - Hosted brains: Pi on that actor (tests: ScriptedAgentRuntime)
 - **Routines** — Agents `this.schedule` on the home `RoomActor`. Office UI and `routines.*` oRPC talk to that actor.
 - Better Auth (magic-link email, Google, GitHub)

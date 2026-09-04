@@ -788,7 +788,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     await this.ensureBotLoaded();
   }
 
-  private async ensureBotLoaded(): Promise<void> {
+  protected async ensureBotLoaded(): Promise<void> {
     if (this.botLoaded) return;
     if (!this.botLoading) {
       const t0 = Date.now();
@@ -806,6 +806,18 @@ export class RoomHome extends Agent<WorkerEnv> {
         });
     }
     await this.botLoading;
+  }
+
+  /** Person iff this instance is someone’s `homeRoomId` (or stored `botId`). No stored kind. */
+  protected async isPersonRoom(): Promise<boolean> {
+    if (this.personId) return true;
+    const stored = await this.ctx.storage.get<string>("botId");
+    if (typeof stored === "string" && stored.trim()) {
+      this.personId = stored.trim();
+      return true;
+    }
+    await this.ensureBotLoaded();
+    return Boolean(this.personId);
   }
 
   private botKey(): string {

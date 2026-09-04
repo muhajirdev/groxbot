@@ -14,11 +14,11 @@ UI: copy Grok Bot simplicity — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). R
           |
           +---- Neon  (team: auth, bots, threads, messages, skills)
           |
-          +---- RoomActor [name = roomId]   <-- home: Agent + Pi + Computer
-          |       kind=home: queue / schedule / one turn
+          +---- RoomActor [name = roomId]   <-- person: Agent + Pi + Computer
+          |       person’s own room (bots.homeRoomId): queue / schedule / one turn
           |       office_chat SQLite + Cap’n Web /rooms/:roomId/rpc
           |       computer = @cloudflare/computer Workspace + Worker shell
-          |       kind=board: members, floor, room log; wakes home rooms
+          |       group room: members, floor, room log; wakes those home rooms
           |
           '---- AppRuntime [name = appId]   <-- not the person
                   document + Gadget facet
@@ -27,8 +27,8 @@ UI: copy Grok Bot simplicity — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). R
 
 | Thing | Key | What it is |
 | --- | --- | --- |
-| Bot | `botId` | The person. Roster/soul/computer oRPC key. Home `RoomActor` is named `homeRoomId`. Pi runs the turn. |
-| Room | `roomId` | The place. Same Durable Object class; board kind does **not** run the model. 1:1 is a home room. |
+| Bot | `botId` | The person. Roster/soul/computer oRPC key. Their `RoomActor` is named `homeRoomId`. Pi runs the turn. |
+| Room | `roomId` | A place. Same Durable Object class. Person iff `bots.homeRoomId` matches; a group does **not** run the model. 1:1 is that bot’s own room. |
 | Thread | Postgres `threadId` | v1 poke / guest. Listing + membership. |
 | Office log | that home room | DO SQLite `office_chat`. |
 | App | `appId` | Live doc. Own Durable Object. |
@@ -36,9 +36,9 @@ UI: copy Grok Bot simplicity — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). R
 
 ## Locked
 
-- **Durable person = home `RoomActor`.** `getAgentByName(env.ROOM_ACTOR, homeRoomId)`. Do not name this instance `botId`. Do not bring back `BotActor`.
-- **Durable place = board `RoomActor`.** Same class, `kind=board`. Coordinates the log, members, floor, and websockets. Never runs Pi. See [docs/rooms-plan.md](./docs/rooms-plan.md).
-- **Office log on the home room.** DO SQLite `office_chat`. v1 is **one** home office per bot. A poke is still a Postgres thread that enqueues onto that home room. Do not use a session catalog as the office. Pi is the **loop** (`runAgentLoopContinue`); it does not replace the person instance or run on the board.
+- **Durable person = that bot’s own `RoomActor`.** `getAgentByName(env.ROOM_ACTOR, homeRoomId)`. Do not name this instance `botId`. Do not bring back `BotActor`. Do not store `rooms.kind`.
+- **Durable group = a different `RoomActor`.** Same class. Person vs group is `loadBot()` / `bots.homeRoomId`. Coordinates the log, members, floor, and websockets. Never runs Pi. See [docs/rooms-plan.md](./docs/rooms-plan.md).
+- **Office log on the person’s room.** DO SQLite `office_chat`. v1 is **one** own room per bot. A poke is still a Postgres thread that enqueues onto that room. Do not use a session catalog as the office. Pi is the **loop** (`runAgentLoopContinue`); it does not replace the person instance or run on the group.
 - **Each app has its own Durable Object.** Talk → chat card → Open. Listing from cards, not a Postgres apps table.
 - **Computer is the bot.** Each teammate has a computer (`@cloudflare/computer` `Workspace` on the home `RoomActor`, Worker shell for bash). Sell that. No `computers` table, no shared vs isolated hire, no takeover, no `computer.sleep`, no Computer DO.
 - **Postgres** is the team catalog (auth, bots, threads, messages, skills). Office UI is assistant-ui over Cap’n Web (`/rooms/:roomId/rpc`).
@@ -80,4 +80,4 @@ Clients share **one oRPC contract**. Desktop loads the web app. Expo later.
 
 ## Out of v1
 
-A separate Computer Durable Object / `computers` table, `SessionManager`, custom `SessionProvider` / `PostgresSessionProvider` as the office catalog, gadgets, gatekeepers, Rivet/agentOS as a deploy target, Polar billing. Group rooms: [docs/rooms-plan.md](./docs/rooms-plan.md) (`RoomActor` coordinator, not the model on the room).
+A separate Computer Durable Object / `computers` table, `SessionManager`, custom `SessionProvider` / `PostgresSessionProvider` as the office catalog, gadgets, gatekeepers, Rivet/agentOS as a deploy target, Polar billing. Group rooms: [docs/rooms-plan.md](./docs/rooms-plan.md) (`RoomActor` coordinator, not the model on the group).

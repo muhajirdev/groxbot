@@ -42,7 +42,7 @@ export const bots = pgTable(
       (): AnyPgColumn => threads.id,
       { onDelete: "set null" },
     ),
-    /** Person-shaped RoomActor (kind=home). Instance name is this id, not bots.id. */
+    /** That bot’s own RoomActor (`rooms.id`). Instance name is this id, not bots.id. */
     homeRoomId: text("home_room_id").references((): AnyPgColumn => rooms.id, {
       onDelete: "set null",
     }),
@@ -410,8 +410,6 @@ export const rooms = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    /** home = that person’s 1:1 desk. board = a table. Same RoomActor class. */
-    kind: text("kind").notNull().default("board"),
     createdByUserId: text("created_by_user_id")
       .notNull()
       .references(() => user.id),

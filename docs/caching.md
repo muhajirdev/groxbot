@@ -64,7 +64,7 @@ Catalog collections set `gcTime` to `OFFICE_MESSAGES_GC_TIME` (7 days) so rows o
 | `["office-messages", botId]` | Last office transcript per bot. Seeded into `useOfficeChat`. Written with `setOfficeMessages`, not a `queryFn`. |
 | `["room-messages", roomId]` | Last board log per room. Seeded into `useRoomChat`. Do not key this by `botId`. |
 | `bots.list` | Roster. Query collection. Last line overlaid from the office transcript cache so a refetch that sends `""` does not blank the sidebar. |
-| `rooms.list` | Board catalog. Query collection. Last line overlaid from the room transcript cache. |
+| `rooms.list` | Group room catalog (not someone’s `homeRoomId`). Query collection. Last line overlaid from the room transcript cache. |
 | `apps.list` | Live app cards. Query collection. |
 | `plugins.list` / `mcp.list` | Connectors. Query collections. Refetch on window focus. |
 | `knowledge.list` | Office tree. `useQuery` only (no collection). |

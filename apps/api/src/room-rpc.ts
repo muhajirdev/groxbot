@@ -1,4 +1,4 @@
-/** Cloudflare-only. Excluded from `tsc`. Cap’n Web host for a board RoomActor. */
+/** Cloudflare-only. Excluded from `tsc`. Cap’n Web host for a group RoomActor. */
 import type { OfficeUserMeta } from "@groxbot/contracts";
 import {
   OFFICE_WORKSPACE_HEADER,
@@ -74,7 +74,6 @@ export async function initRoomActor(
   opts: {
     workspaceId: string;
     name: string;
-    kind?: "home" | "board";
     botId?: string;
     members: Array<{ id: string; name: string; homeRoomId?: string }>;
   },

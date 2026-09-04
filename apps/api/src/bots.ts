@@ -8,7 +8,6 @@ import {
   newId,
   nextSeq,
   previewFromBlocks,
-  ROOM_KIND_HOME,
   resolveRunModel,
   toBotDto,
 } from "@groxbot/core";
@@ -193,7 +192,7 @@ export async function createBot(
     name: input.name,
     memberBotIds: [botId],
     id: homeRoomId,
-    kind: ROOM_KIND_HOME,
+    own: true,
   });
   await context.db
     .update(bots)
@@ -203,7 +202,6 @@ export async function createBot(
     await context.initRoom(home.id, {
       workspaceId: actor.workspaceId,
       name: input.name,
-      kind: ROOM_KIND_HOME,
       botId,
       members: [{ id: botId, name: input.name, homeRoomId: home.id }],
     });

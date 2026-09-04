@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isListedGroupRoom,
   mentionFromText,
   parseRoomTurnPayload,
   RoomError,
@@ -101,6 +102,18 @@ describe("roomWakeJob", () => {
     expect(steveJob.payload.roomId).toBe("board");
     expect(steveJob.payload.homeRoomId).toBe("home-steve");
     expect(hormoziJob.payload.homeRoomId).toBe("home-hormozi");
+  });
+});
+
+describe("isListedGroupRoom", () => {
+  it("hides rooms that are someone’s homeRoomId", () => {
+    expect(isListedGroupRoom("home-steve", ["home-steve", "home-hormozi"])).toBe(
+      false,
+    );
+    expect(isListedGroupRoom("standup", ["home-steve", "home-hormozi"])).toBe(
+      true,
+    );
+    expect(isListedGroupRoom("standup", [null, undefined])).toBe(true);
   });
 });
 

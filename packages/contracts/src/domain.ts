@@ -59,10 +59,6 @@ export const UpdateBotInput = z.object({
   model: z.string().max(200).optional(),
 });
 
-/** Place, not a person. Transcript lives on RoomActor. */
-export const RoomKind = z.enum(["home", "board"]);
-export type RoomKind = z.infer<typeof RoomKind>;
-
 export const RoomMemberSchema = z.object({
   botId: Id,
   homeRoomId: Id,
@@ -78,7 +74,6 @@ export const RoomSchema = z.object({
   id: Id,
   workspaceId: Id,
   name: z.string(),
-  kind: RoomKind,
   members: z.array(RoomMemberSchema),
   lastPreview: z.string(),
   lastAt: z.string(),

@@ -8,7 +8,7 @@ export interface AdapterContext {
 }
 
 export interface WakeupJob {
-  /** Person product id. The Worker addresses the home RoomActor, never the board. */
+  /** Person product id. The Worker addresses that bot’s own RoomActor, never the group room. */
   botId: string;
   name: string;
   payload: Record<string, unknown>;
@@ -29,7 +29,7 @@ export interface WakeupDriver {
   stop(): Promise<void>;
 }
 
-/** Send a job to the person-shaped RoomActor (home). The Worker implements this with a Durable Object stub. */
+/** Send a job to that bot’s own RoomActor. The Worker implements this with a Durable Object stub. */
 export type EnqueueJob = (job: WakeupJob) => Promise<void>;
 
 /** Stamp a live app on AppRuntime. The Worker implements this with a Durable Object stub. */
@@ -39,13 +39,12 @@ export type InitApp = (
   opts: { workspaceId: string; title: string },
 ) => Promise<void>;
 
-/** Stamp a RoomActor (home or board). Board never runs the model. */
+/** Stamp a RoomActor. `botId` present ⇒ that person’s own room (Pi + computer). Otherwise a group: log only, no Pi. */
 export type InitRoom = (
   roomId: string,
   opts: {
     workspaceId: string;
     name: string;
-    kind?: "home" | "board";
     botId?: string;
     members: Array<{ id: string; name: string; homeRoomId?: string }>;
   },

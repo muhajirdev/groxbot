@@ -334,8 +334,7 @@ export function Chat(props: {
       (props.roomId && item.homeRoomId === props.roomId) ||
       (!props.roomId && item.id === props.botId),
   );
-  const isBoard = Boolean(props.roomId && !homeBot);
-  const isRoom = isBoard;
+  const isRoom = Boolean(props.roomId && !homeBot);
   const room = rooms.find((item: Room) => item.id === props.roomId);
   const focusedBotId =
     desk.bot ||
@@ -684,7 +683,7 @@ export function Chat(props: {
     [currentBotId, goToBot, props.workspace.id],
   );
 
-  const createBoard = useCallback(
+  const createRoom = useCallback(
     async (input: { name: string; memberBotIds: string[] }) => {
       setRoomOpen(false);
       try {
@@ -995,9 +994,9 @@ export function Chat(props: {
                 <BotRow
                   key={item.id}
                   item={item}
-                  selected={!isBoard && item.id === currentBotId}
+                  selected={!isRoom && item.id === currentBotId}
                   working={
-                    !isBoard &&
+                    !isRoom &&
                     item.id === currentBotId &&
                     (hiringThis || Boolean(working))
                   }
@@ -1461,7 +1460,7 @@ export function Chat(props: {
             open={roomOpen}
             bots={liveBots}
             onClose={() => setRoomOpen(false)}
-            onCreate={(input) => void createBoard(input)}
+            onCreate={(input) => void createRoom(input)}
           />
           {botMenu ? (
             <>

@@ -1,4 +1,4 @@
-/** Cloudflare-only. Excluded from `tsc`. One RoomActor class: home (person) or board (place). */
+/** Cloudflare-only. Excluded from `tsc`. One RoomActor class: that person’s own room, or a group. */
 import {
   officeUserFromHeaders,
   stampIncomingOfficeUser,
@@ -50,8 +50,7 @@ export class RoomActor extends RoomHome {
   }
 
   async onStart(): Promise<void> {
-    const kind = (await this.ctx.storage.get<string>("kind")) || "";
-    if (kind === "board") {
+    if (!(await this.isPersonRoom())) {
       const stored = await this.ctx.storage.get<string>("workspaceId");
       if (typeof stored === "string" && stored && !this.officeId) {
         this.officeId = stored;
@@ -63,11 +62,10 @@ export class RoomActor extends RoomHome {
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
-    const kind = (await this.ctx.storage.get<string>("kind")) || "";
     if (request.method === "POST" && url.pathname === "/init") {
       return this.handleInit(request);
     }
-    if (kind === "board") {
+    if (!(await this.isPersonRoom())) {
       if (request.headers.get("Upgrade") === "websocket") {
         const claimed = request.headers.get(OFFICE_WORKSPACE_HEADER);
         const workspaceId = await this.workspaceId();
@@ -210,7 +208,6 @@ export class RoomActor extends RoomHome {
       roomId?: unknown;
       workspaceId?: unknown;
       name?: unknown;
-      kind?: unknown;
       botId?: unknown;
       members?: unknown;
     };
@@ -224,7 +221,6 @@ export class RoomActor extends RoomHome {
         { status: 400 },
       );
     }
-    const kind = body.kind === "home" ? "home" : "board";
     const members = Array.isArray(body.members)
       ? body.members.flatMap((row) => {
           if (!row || typeof row !== "object" || Array.isArray(row)) return [];
@@ -244,16 +240,16 @@ export class RoomActor extends RoomHome {
     await this.ctx.storage.put("roomId", roomId);
     await this.ctx.storage.put("workspaceId", workspaceId);
     await this.ctx.storage.put("name", name);
-    await this.ctx.storage.put("kind", kind);
+    await this.ctx.storage.delete("kind");
     await this.ctx.storage.put("members", members);
-    if (kind === "home") {
-      const botId = typeof body.botId === "string" ? body.botId.trim() : "";
-      if (botId) {
-        this.personId = botId;
-        await this.ctx.storage.put("botId", botId);
-      }
+    const botId = typeof body.botId === "string" ? body.botId.trim() : "";
+    if (botId) {
+      this.personId = botId;
+      await this.ctx.storage.put("botId", botId);
       this.officeId = workspaceId;
       await this.ctx.storage.put("officeId", workspaceId);
+    } else {
+      await this.ctx.storage.delete("botId");
     }
     return Response.json({ ok: true });
   }

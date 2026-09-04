@@ -43,7 +43,7 @@ export function CreateRoomDialog(props: {
           <Input
             autoFocus
             value={name}
-            placeholder="Board"
+            placeholder="Weekly sync"
             maxLength={80}
             autoComplete="off"
             onValueChange={setName}
