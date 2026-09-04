@@ -1,4 +1,4 @@
-import type { EnqueueJob, InitApp } from "@groxbot/adapter-kit";
+import type { EnqueueJob, InitApp, InitRoom } from "@groxbot/adapter-kit";
 import type { Auth } from "@groxbot/auth";
 import type {
   ComputerDownload,
@@ -29,6 +29,7 @@ export interface RpcContext {
   auth: Auth;
   enqueue: EnqueueJob;
   initApp: InitApp;
+  initRoom?: InitRoom;
   guests: GuestHub;
   computer?: ComputerAccess;
   knowledge?: KnowledgeAccess;

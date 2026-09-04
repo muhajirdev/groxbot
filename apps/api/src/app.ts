@@ -1,4 +1,4 @@
-import type { EnqueueJob, InitApp } from "@groxbot/adapter-kit";
+import type { EnqueueJob, InitApp, InitRoom } from "@groxbot/adapter-kit";
 import { createAuth } from "@groxbot/auth";
 import {
   groxbotCookieDomain,
@@ -6,7 +6,7 @@ import {
   withOfficeUserRequest,
 } from "@groxbot/contracts";
 import { GuestHub, handleGuestRequest, readAvatar } from "@groxbot/core";
-import { bots, type Database } from "@groxbot/db";
+import { bots, type Database, rooms } from "@groxbot/db";
 import { ORPCError } from "@orpc/server";
 import { and, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
@@ -35,6 +35,7 @@ export function createApp(
     close: () => Promise<void>;
     enqueue: EnqueueJob;
     initApp: InitApp;
+    initRoom?: InitRoom;
     email?: SendEmailBinding;
     connectApp?: (
       appId: string,
@@ -43,6 +44,11 @@ export function createApp(
     ) => Promise<Response>;
     connectBot?: (
       botId: string,
+      request: Request,
+      workspaceId: string,
+    ) => Promise<Response>;
+    connectRoom?: (
+      roomId: string,
       request: Request,
       workspaceId: string,
     ) => Promise<Response>;
@@ -86,6 +92,7 @@ export function createApp(
     auth,
     enqueue: opts.enqueue,
     initApp: opts.initApp,
+    initRoom: opts.initRoom,
     guests,
     env,
     computer: opts.computer,
@@ -184,6 +191,42 @@ export function createApp(
           ? withOfficeUserRequest(inbound, officeUser)
           : inbound;
         return connectBot(botId, stamped, actor.workspaceId);
+      } catch (error) {
+        if (error instanceof ORPCError) {
+          return new Response(error.message, { status: error.status });
+        }
+        throw error;
+      }
+    });
+  }
+
+  if (opts.connectRoom) {
+    const connectRoom = opts.connectRoom;
+    app.get("/rooms/:roomId/rpc", async (c) => {
+      const origin = c.req.header("Origin");
+      if (origin && !env.corsOrigins.includes(origin)) {
+        return c.text("Forbidden", 403);
+      }
+      try {
+        const inbound = withQueryCookie(c.req.raw);
+        const actor = await requireActor({
+          ...handles,
+          headers: inbound.headers,
+        });
+        const roomId = c.req.param("roomId");
+        const [room] = await opts.db
+          .select({ id: rooms.id })
+          .from(rooms)
+          .where(
+            and(eq(rooms.id, roomId), eq(rooms.workspaceId, actor.workspaceId)),
+          )
+          .limit(1);
+        if (!room) return c.text("Not found", 404);
+        const officeUser = officeUserFromActor(actor);
+        const stamped = officeUser
+          ? withOfficeUserRequest(inbound, officeUser)
+          : inbound;
+        return connectRoom(roomId, stamped, actor.workspaceId);
       } catch (error) {
         if (error instanceof ORPCError) {
           return new Response(error.message, { status: error.status });

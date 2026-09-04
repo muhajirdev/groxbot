@@ -66,6 +66,11 @@ import {
   removePlugin,
 } from "./plugins.js";
 import {
+  createWorkspaceRoom,
+  getWorkspaceRoom,
+  listWorkspaceRooms,
+} from "./rooms.js";
+import {
   ensureDeploymentOwner,
   loadWorkspaceRef,
   requireActor,
@@ -288,6 +293,20 @@ export const appRouter = os.router({
     delete: os.bots.delete.handler(async ({ context, input }) => {
       const actor = await requireActor(context);
       return deleteBot(context, actor, input.botId);
+    }),
+  },
+  rooms: {
+    list: os.rooms.list.handler(async ({ context }) => {
+      const actor = await requireActor(context);
+      return listWorkspaceRooms(context, actor);
+    }),
+    get: os.rooms.get.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      return getWorkspaceRoom(context, actor, input.roomId);
+    }),
+    create: os.rooms.create.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      return createWorkspaceRoom(context, actor, input);
     }),
   },
   threads: {

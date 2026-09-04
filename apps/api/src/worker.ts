@@ -16,6 +16,7 @@ import {
   readBotComputer,
   writeBotComputer,
 } from "./bot-computer.js";
+import { enqueueOnBot } from "./bot-enqueue.js";
 import { addBotMcp, oauthBotMcp, removeBotMcp } from "./bot-mcp.js";
 import { connectBotOffice } from "./bot-office-rpc.js";
 import {
@@ -29,11 +30,13 @@ import {
 import { productEnv } from "./env.js";
 import { knowledgeAccess } from "./knowledge.js";
 import { r2KnowledgeDisk } from "./knowledge-r2.js";
+import { RoomActor } from "./room-actor.js";
+import { connectRoom, initRoomActor } from "./room-rpc.js";
 import { actorForAgentBot, requireActor } from "./session.js";
 
 export { CodemodeRuntime } from "@cloudflare/codemode";
 export { WorkspaceServiceProxy } from "@cloudflare/computer";
-export { AppRuntime, BotActor };
+export { AppRuntime, BotActor, RoomActor };
 
 /** `/agents/{binding}/{botId}` — instance name is the bot id. */
 function agentInstanceName(pathname: string): string | null {
@@ -71,6 +74,9 @@ export default {
         apps.connect(appId, request, workspaceId),
       connectBot: (botId, request, workspaceId) =>
         connectBotOffice(env.BOT_ACTOR, botId, request, workspaceId),
+      connectRoom: (roomId, request, workspaceId) =>
+        connectRoom(env.ROOM_ACTOR, roomId, request, workspaceId),
+      initRoom: (roomId, opts) => initRoomActor(env.ROOM_ACTOR, roomId, opts),
       computer: {
         list: (botId, path) => listBotComputer(env.BOT_ACTOR, botId, path),
         read: (botId, path) => readBotComputer(env.BOT_ACTOR, botId, path),

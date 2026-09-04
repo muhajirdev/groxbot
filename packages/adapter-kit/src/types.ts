@@ -21,11 +21,13 @@ export interface WakeupJob {
 export interface WakeupDriver {
   enqueue(job: WakeupJob): Promise<void>;
   start(
-    handlers?: Record<string, (payload: Record<string, unknown>) => Promise<void>>,
+    handlers?: Record<
+      string,
+      (payload: Record<string, unknown>) => Promise<void>
+    >,
   ): Promise<void>;
   stop(): Promise<void>;
 }
-
 
 /** Send a job to the bot actor. The Worker implements this with a Durable Object stub. */
 export type EnqueueJob = (job: WakeupJob) => Promise<void>;
@@ -35,6 +37,16 @@ export type InitApp = (
   appId: string,
   templateId: string,
   opts: { workspaceId: string; title: string },
+) => Promise<void>;
+
+/** Stamp a board RoomActor. Never runs the model. */
+export type InitRoom = (
+  roomId: string,
+  opts: {
+    workspaceId: string;
+    name: string;
+    members: Array<{ id: string; name: string }>;
+  },
 ) => Promise<void>;
 
 export interface PokeTeammate {

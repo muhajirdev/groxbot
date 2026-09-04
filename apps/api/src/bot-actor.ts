@@ -59,6 +59,7 @@ import {
   parseOfficeChatMessage,
   parseOfficeChatMessages,
   parseOfficeReviewCounters,
+  parseRoomTurnPayload,
   patchComputerWorkspace,
   prepareRoutineCreate,
   RoutineError,
@@ -66,6 +67,11 @@ import {
   RoutineScheduleError,
   readComputerFile,
   resolveRunModel,
+  ROOM_TURN_JOB,
+  roomTurnSystem,
+  RoutineError,
+  RoutineNotFoundError,
+  RoutineScheduleError,
   type StoredRoutine,
   saveMcpConnection,
   shouldEnqueueOfficeReview,
@@ -101,6 +107,7 @@ import { agentRuntimeSource, productEnv, type RuntimeSource } from "./env.js";
 import { r2KnowledgeDisk } from "./knowledge-r2.js";
 import type { SendEmailBinding } from "./mail.js";
 import { mcpCallbackPage } from "./mcp-callback-page.js";
+import { boardFileOp, postRoomTurn } from "./room-rpc.js";
 
 export interface WorkerEnv {
   DATABASE_URL: string;
@@ -125,6 +132,7 @@ export interface WorkerEnv {
   AI?: WorkersAiBinding;
   BOT_ACTOR: DurableObjectNamespace;
   APP_RUNTIME: DurableObjectNamespace;
+  ROOM_ACTOR: DurableObjectNamespace;
   LOADER: unknown;
   BROWSER: unknown;
   KNOWLEDGE?: R2Bucket;
@@ -447,7 +455,11 @@ export class BotActor extends Agent<WorkerEnv> {
   }
 
   private enqueueOfficeTurn(messages: OfficeChatMessage[]): Promise<void> {
-    const run = this.officeQueue.then(() => this.runOfficeTurn(messages));
+    return this.enqueueTurn(() => this.runOfficeTurn(messages));
+  }
+
+  private enqueueTurn(work: () => Promise<void>): Promise<void> {
+    const run = this.officeQueue.then(work);
     this.officeQueue = run.then(
       () => undefined,
       () => undefined,
@@ -539,6 +551,127 @@ export class BotActor extends Agent<WorkerEnv> {
     } finally {
       if (this.officeTurn === abort) this.officeTurn = null;
     }
+  }
+
+  private async runRoomTurn(
+    payload: NonNullable<ReturnType<typeof parseRoomTurnPayload>>,
+  ): Promise<void> {
+    this.officeTurn?.abort();
+    const abort = new AbortController();
+    this.officeTurn = abort;
+    await this.ensureBotLoaded();
+    if (abort.signal.aborted) return;
+    const roomId = payload.roomId;
+    const workspaceId = this.officeId;
+    const notify = async (
+      path: "stream" | "complete" | "error" | "abort",
+      body: Record<string, unknown>,
+    ) => {
+      if (!this.env.ROOM_ACTOR || !workspaceId) return;
+      await postRoomTurn(this.env.ROOM_ACTOR, roomId, workspaceId, path, body);
+    };
+    if (!gatewayConfigured(this.turnEnv)) {
+      await notify("error", {
+        message:
+          "Add a model key, or use Groxbot’s included gateway, to talk to teammates.",
+      });
+      return;
+    }
+    const assistantId = crypto.randomUUID();
+    let draft = emptyOfficeDraft(assistantId);
+    const model = piCompletionsModel(gatewayRequestModel(this.turnModel));
+    const streamFn = createGatewayStreamFn(loadGatewayConfig(this.turnEnv), {
+      workspaceId,
+      botId: this.name,
+    });
+    const overlay = (await this.soulOverlay.get()) ?? "";
+    const memory = (await this.memoryBlock.get()) ?? "";
+    let soul = composeSoul(this.soulPrompt, overlay);
+    if (memory.trim()) soul = `${soul}\n\nMemory:\n${memory.trim()}`;
+    const selfName =
+      payload.members.find((row) => row.id === this.name)?.name ?? this.name;
+    const system = roomTurnSystem(soul, {
+      name: payload.roomName,
+      selfName,
+      members: payload.members,
+    });
+    try {
+      const result = await runPiTurn({
+        systemPrompt: system,
+        messages: officeLogToPiMessages(payload.messages, model),
+        model,
+        streamFn,
+        tools: aiToolsToPi({
+          ...this.getTools(),
+          ...this.boardPaperTools(roomId),
+        }),
+        signal: abort.signal,
+        onEvent: async (event) => {
+          draft = applyOfficeAgentEvent(draft, event);
+          if (
+            event.type === "message_update" ||
+            event.type === "tool_execution_start" ||
+            event.type === "tool_execution_end"
+          ) {
+            await notify("stream", { message: officeDraftMessage(draft) });
+          }
+        },
+      });
+      const assistant = officeDraftMessage(draft);
+      if (result.stopReason === "aborted" || abort.signal.aborted) {
+        await notify("abort", {});
+        return;
+      }
+      if (result.stopReason === "error") {
+        await notify("error", {
+          message: result.errorMessage || "The model run failed.",
+        });
+        return;
+      }
+      await notify("complete", { message: assistant });
+    } catch (error) {
+      if (abort.signal.aborted) {
+        await notify("abort", {});
+        return;
+      }
+      await notify("error", {
+        message:
+          error instanceof Error ? error.message : "The model run failed.",
+      });
+    } finally {
+      if (this.officeTurn === abort) this.officeTurn = null;
+    }
+  }
+
+  private boardPaperTools(roomId: string): ToolSet {
+    const ns = this.env.ROOM_ACTOR;
+    const workspaceId = () => this.officeId;
+    if (!ns) return {};
+    return {
+      board_list: tool({
+        description:
+          "List papers on this table. Not your computer. Paths are board-root.",
+        inputSchema: z.object({ path: z.string().optional() }),
+        execute: async ({ path }) =>
+          boardFileOp(ns, roomId, workspaceId(), "list", { path: path ?? "" }),
+      }),
+      board_read: tool({
+        description: "Read a paper on this table.",
+        inputSchema: z.object({ path: z.string() }),
+        execute: async ({ path }) =>
+          boardFileOp(ns, roomId, workspaceId(), "read", { path }),
+      }),
+      board_write: tool({
+        description:
+          "Write a paper on this table. Shared with everyone seated here.",
+        inputSchema: z.object({
+          path: z.string(),
+          content: z.string(),
+        }),
+        execute: async ({ path, content }) =>
+          boardFileOp(ns, roomId, workspaceId(), "write", { path, content }),
+      }),
+    };
   }
 
   private async officeSystemPrompt(
@@ -1331,6 +1464,12 @@ export class BotActor extends Agent<WorkerEnv> {
     try {
       if (job.name === "run.abort") {
         await this.stopOffice();
+        return;
+      }
+      if (job.name === ROOM_TURN_JOB) {
+        const payload = parseRoomTurnPayload(job.payload);
+        if (!payload) return;
+        await this.enqueueTurn(() => this.runRoomTurn(payload));
       }
     } catch (error) {
       console.error("bot actor", job.botId, job.name, error);

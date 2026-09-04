@@ -43,6 +43,10 @@
 			{
 				"name": "APP_RUNTIME",
 				"class_name": "AppRuntime"
+			},
+			{
+				"name": "ROOM_ACTOR",
+				"class_name": "RoomActor"
 			}
 		]
 	},
@@ -62,6 +66,12 @@
 			"tag": "v2",
 			"new_sqlite_classes": [
 				"AppRuntime"
+			]
+		},
+		{
+			"tag": "v3",
+			"new_sqlite_classes": [
+				"RoomActor"
 			]
 		}
 	],
