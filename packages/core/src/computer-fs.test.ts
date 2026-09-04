@@ -197,10 +197,9 @@ describe("diskFromComputerFs", () => {
 });
 
 describe("withComputerOfficeTools", () => {
-  it("aliases ls onto list", () => {
+  it("exposes ls as list only", () => {
     const ls = { description: "list files" };
     expect(withComputerOfficeTools({ ls, exec: true })).toEqual({
-      ls,
       exec: true,
       list: ls,
     });
