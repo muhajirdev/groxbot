@@ -67,13 +67,14 @@ describe("applyOfficeAgentEvent", () => {
     let draft = emptyOfficeDraft("a1");
     draft = applyOfficeAgentEvent(draft, {
       type: "message_update",
-      message: { role: "assistant" } as never,
+      message: { role: "assistant" },
       assistantMessageEvent: {
         type: "text_delta",
         contentIndex: 0,
         delta: "Hi",
+        partial: { role: "assistant", content: [{ type: "text", text: "Hi" }] },
       },
-    } as AgentEvent);
+    } as unknown as AgentEvent);
     draft = applyOfficeAgentEvent(draft, {
       type: "tool_execution_start",
       toolCallId: "call_1",
@@ -84,7 +85,6 @@ describe("applyOfficeAgentEvent", () => {
       type: "tool_execution_end",
       toolCallId: "call_1",
       toolName: "present",
-      args: { $type: "Fact" },
       result: { ok: true },
       isError: false,
     });

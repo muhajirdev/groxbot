@@ -127,11 +127,7 @@ export interface PiTurnResult {
 }
 
 function isPiMessage(value: OwnedPiLine | Message): value is Message {
-  return (
-    "timestamp" in value ||
-    value.role === "toolResult" ||
-    (value.role === "assistant" && Array.isArray(value.content))
-  );
+  return "timestamp" in value;
 }
 
 function toLoopMessages(

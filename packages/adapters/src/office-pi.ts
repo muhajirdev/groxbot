@@ -126,7 +126,6 @@ export function applyOfficeAgentEvent(
       toolCallId: event.toolCallId,
       toolName: event.toolName,
       state: event.isError ? "output-error" : "output-available",
-      input: event.args,
       output: event.result,
       errorText: event.isError ? stringifyToolOutput(event.result) : undefined,
     });

@@ -20,13 +20,14 @@ describe("Computer Worker shell wiring", () => {
     const factory = readSrc("bot-computer-workspace.ts");
     expect(factory).toMatch(/WorkerShellBackend/);
     expect(factory).toMatch(/COMPUTER_SHELL_BACKEND/);
-    expect(actor).toMatch(/override workspaceBash = false/);
+    expect(actor).toMatch(/export class BotActor extends Agent/);
+    expect(actor).not.toMatch(/extends Think/);
     expect(actor).toMatch(/createBotComputer\(/);
     expect(actor).toMatch(/createAITools\(/);
     expect(actor).toMatch(/computerWorkerShell\(\)/);
     expect(actor).toMatch(/__getWorkspaceStub/);
     expect(actor).not.toMatch(/from "@cloudflare\/shell"/);
-    expect(actor).not.toMatch(/workspaceBash = true/);
+    expect(actor).not.toMatch(/workspaceBash/);
   });
 
   it("exports WorkspaceServiceProxy for the shell HOST", () => {
