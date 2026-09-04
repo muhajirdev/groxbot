@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import type { AgentEvent } from "@earendil-works/pi-agent-core";
 import { describe, expect, it } from "vitest";
 import {
@@ -103,5 +105,15 @@ describe("applyOfficeAgentEvent", () => {
         },
       ],
     });
+  });
+});
+
+describe("Worker barrel", () => {
+  it("re-exports openObjectParameters from @groxbot/adapters/edge", () => {
+    const edge = readFileSync(
+      fileURLToPath(new URL("./edge.ts", import.meta.url)),
+      "utf8",
+    );
+    expect(edge).toMatch(/openObjectParameters/);
   });
 });
