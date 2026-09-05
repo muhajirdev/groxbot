@@ -1,14 +1,17 @@
+/** Same tokens as apps/web/src/styles.css :root (dark). */
 export const colors = {
-  bg: "#0c0c0e",
-  surface: "#16161a",
-  surface2: "#1c1c22",
-  line: "rgba(255,255,255,0.08)",
-  text: "#f4f4f5",
-  muted: "rgba(244,244,245,0.55)",
-  faint: "rgba(244,244,245,0.35)",
-  accent: "#e8ff47",
-  accentInk: "#111",
-  danger: "#f87171",
+  bg: "#000000",
+  surface: "#161616",
+  surface2: "#2a2a2a",
+  card: "#1c1c1c",
+  line: "#333333",
+  text: "#f4f4f4",
+  muted: "#8a8a8a",
+  faint: "#6b6b6b",
+  accent: "#e45c9a",
+  accentInk: "#ffffff",
+  ok: "#3ecf8e",
+  danger: "#e25d4a",
   white: "#fff",
 };
 
@@ -25,4 +28,23 @@ export const radius = {
   md: 12,
   lg: 16,
   pill: 999,
+};
+
+export const type = {
+  kicker: {
+    color: colors.muted,
+    fontSize: 13,
+    letterSpacing: 0.4,
+  },
+  title: {
+    color: colors.text,
+    fontSize: 28,
+    fontWeight: "600" as const,
+    letterSpacing: -0.6,
+  },
+  lede: {
+    color: colors.muted,
+    fontSize: 16,
+    lineHeight: 24,
+  },
 };

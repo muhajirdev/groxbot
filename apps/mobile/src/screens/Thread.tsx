@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     justifyContent: "flex-end",
   },
-  link: { color: colors.accent, fontSize: 12, fontWeight: "700" },
+  link: { color: colors.muted, fontSize: 13, fontWeight: "500" },
   ident: {
     flexDirection: "row",
     alignItems: "center",

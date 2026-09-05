@@ -33,9 +33,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   on: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.card,
     borderColor: colors.accent,
   },
-  label: { color: colors.text, fontSize: 13, fontWeight: "600" },
-  onLabel: { color: colors.accentInk },
+  label: { color: colors.text, fontSize: 13, fontWeight: "500" },
+  onLabel: { color: colors.text },
 });

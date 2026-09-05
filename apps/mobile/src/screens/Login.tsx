@@ -13,7 +13,7 @@ import { apiOrigin } from "../lib/host";
 import { invitationIdFromInput, rememberInvite } from "../lib/invite";
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
-import { colors } from "../theme";
+import { colors, radius, type } from "../theme";
 
 export function LoginScreen({
   invite,
@@ -26,6 +26,7 @@ export function LoginScreen({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
   const [sentTo, setSentTo] = useState("");
   const emailSend = useRef(0);
   const inviteId = invitationIdFromInput(invite ?? "");
@@ -89,11 +90,38 @@ export function LoginScreen({
       if (result.error) {
         setSentTo("");
         setError(result.error.message ?? "Could not send a sign-in link");
+      } else {
+        setOtp("");
       }
     } catch (caught) {
       if (sendId !== emailSend.current) return;
       setSentTo("");
       setError(userFacingError(caught, "Could not send a sign-in link"));
+    }
+  }
+
+  async function continueWithCode() {
+    const code = otp.replace(/\D/g, "").slice(0, 6);
+    if (code.length !== 6) {
+      setError("Enter the 6-digit code from the email.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const result = await authClient.signIn.emailOtp({
+        email: sentTo,
+        otp: code,
+      });
+      setBusy(false);
+      if (result.error) {
+        setError(result.error.message ?? "That code did not work");
+        return;
+      }
+      onAuthed();
+    } catch (caught) {
+      setBusy(false);
+      setError(userFacingError(caught, "That code did not work"));
     }
   }
 
@@ -123,18 +151,50 @@ export function LoginScreen({
       {sentTo ? (
         <View style={styles.block}>
           <Text style={styles.title}>Check your email</Text>
-          <Text style={styles.body}>
-            We sent a sign-in link to {sentTo}. It expires in 15 minutes.
-          </Text>
-          {mailLogged ? (
+          <View style={styles.sent}>
             <Text style={styles.body}>
-              Locally, that link is printed in the API terminal instead of an
-              inbox.
+              Check {sentTo}. Tap Open Groxbot, or enter the 6-digit code.
+              Expires in 15 minutes.
             </Text>
-          ) : null}
+            {mailLogged ? (
+              <Text style={styles.body}>
+                Locally, that link and code are printed in the API terminal
+                instead of an inbox.
+              </Text>
+            ) : null}
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+            <Field
+              label="Code"
+              value={otp}
+              onChangeText={(next) =>
+                setOtp(next.replace(/\D/g, "").slice(0, 6))
+              }
+              placeholder="123456"
+              keyboardType="number-pad"
+              autoComplete="one-time-code"
+              maxLength={6}
+            />
+            <Button
+              label="Enter code"
+              onPress={() => void continueWithCode()}
+              busy={busy}
+              disabled={otp.length !== 6}
+            />
+          </View>
+          <Button
+            label="Use a different email"
+            tone="ghost"
+            onPress={() => {
+              emailSend.current += 1;
+              setSentTo("");
+              setOtp("");
+              setError("");
+            }}
+          />
         </View>
       ) : (
         <View style={styles.block}>
+          <Text style={type.kicker}>Welcome to Groxbot</Text>
           <Text style={styles.title}>{heading}</Text>
           <Text style={styles.body}>Like Grok Bot, for the whole team.</Text>
           <Text selectable style={styles.host}>
@@ -175,9 +235,17 @@ export function LoginScreen({
 }
 
 const styles = StyleSheet.create({
-  block: { gap: 12, paddingTop: 24 },
-  title: { color: colors.text, fontSize: 28, fontWeight: "700" },
-  body: { color: colors.muted, fontSize: 16, lineHeight: 22 },
+  block: { gap: 14, paddingTop: 24 },
+  title: { ...type.title },
+  body: { ...type.lede },
   host: { color: colors.faint, fontSize: 13 },
-  error: { color: colors.danger },
+  error: { color: colors.danger, fontSize: 13 },
+  sent: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.lg,
+    padding: 16,
+    gap: 12,
+  },
 });

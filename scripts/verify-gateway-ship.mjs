@@ -15,23 +15,13 @@ const gwVars = Object.fromEntries(
     }),
 );
 
-const gatewayUrls = [
-  "https://gateway.groxbot.com",
-  "https://grox-gateway.qalam.workers.dev",
-];
-
-let gatewayUrl = gatewayUrls[0];
-for (const url of gatewayUrls) {
-  try {
-    const health = await fetch(`${url}/health`, { signal: AbortSignal.timeout(8000) });
-    if (health.ok) {
-      gatewayUrl = url;
-      console.log(`✓ gateway health ${url} → ${health.status}`);
-      break;
-    }
-  } catch {
-    console.log(`✗ gateway health ${url} unreachable`);
+const gatewayUrl = "https://gateway.groxbot.com";
+{
+  const health = await fetch(`${gatewayUrl}/health`, { signal: AbortSignal.timeout(8000) });
+  if (!health.ok) {
+    throw new Error(`gateway health ${gatewayUrl} → ${health.status}`);
   }
+  console.log(`✓ gateway health ${gatewayUrl} → ${health.status}`);
 }
 
 const apiHealth = await fetch("https://api.groxbot.com/health");

@@ -14,13 +14,10 @@ export function Button({
   busy?: boolean;
   tone?: "accent" | "ghost" | "danger";
 }) {
-  const bg =
-    tone === "accent"
-      ? colors.accent
-      : tone === "danger"
-        ? colors.danger
-        : colors.surface2;
-  const fg = tone === "accent" ? colors.accentInk : colors.text;
+  const solid = tone === "accent";
+  const danger = tone === "danger";
+  const bg = solid ? colors.text : danger ? colors.danger : "transparent";
+  const fg = solid ? colors.bg : colors.text;
   return (
     <Pressable
       accessibilityRole="button"
@@ -29,6 +26,7 @@ export function Button({
       style={[
         styles.btn,
         { backgroundColor: bg, opacity: disabled || busy ? 0.5 : 1 },
+        tone === "ghost" ? styles.ghost : null,
       ]}
     >
       {busy ? (
@@ -42,11 +40,16 @@ export function Button({
 
 const styles = StyleSheet.create({
   btn: {
-    minHeight: 48,
-    borderRadius: radius.md,
+    minHeight: 44,
+    borderRadius: radius.pill,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 16,
+    paddingVertical: 10,
   },
-  label: { fontSize: 16, fontWeight: "600" },
+  ghost: {
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  label: { fontSize: 15, fontWeight: "500" },
 });
