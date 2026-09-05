@@ -74,7 +74,7 @@ Composer:
 - `/` = saved skill.
 - Send while it is working = redirect. “Stop now” = halt (does not undo).
 
-Job-title chips and the office **New bot** surface share a curated hire catalog (roles and a few known-person names). Browse/search in the marketplace modal, or pick chips on first-run onboarding — same templates, same `bots.create` path. This is **not** Plugins (Composio connectors), **not** Knowledge skills/playbooks, and **not** a user-published template store.
+Job-title chips and the office **New bot** surface share a curated hire catalog of full bot packages (soul, starter memory, skills) — including roles seeded from public Grok Bot marketplace listings. Browse/search in the marketplace modal, or pick chips on first-run onboarding — same templates, same `bots.create` path. This is **not** Plugins (Composio connectors), **not** Knowledge skills/playbooks, and **not** a user-published template store (static catalog for now).
 
 Examples: **Talent Scout**, **Expense Manager**, **Bug Reproduction**, **Chief of Staff**. Avoid **General Helper**.
 
