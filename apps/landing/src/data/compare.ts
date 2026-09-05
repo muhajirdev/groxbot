@@ -196,15 +196,6 @@ export const FEATURE_ROWS: CompareRow[] = [
     },
   },
   {
-    label: "Agent org chart / budgets",
-    values: {
-      groxbot: false,
-      hermes: false,
-      openclaw: false,
-      paperclip: true,
-    },
-  },
-  {
     label: "Self-host",
     values: {
       groxbot: true,
