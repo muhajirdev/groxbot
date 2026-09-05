@@ -159,9 +159,7 @@ describe("compare pages", () => {
     const { COMPARE_PAGES, FEATURE_ROWS, getComparePage } = await import(
       "../data/compare"
     );
-    const page = getComparePage(
-      "grok-bot-vs-hermes-vs-openclaw-vs-paperclip",
-    );
+    const page = getComparePage("grok-bot-vs-hermes-vs-openclaw-vs-paperclip");
     expect(page).toBeDefined();
     expect(COMPARE_PAGES).toHaveLength(7);
     expect(COMPARE_PAGES.map((item) => item.slug)).toEqual(
@@ -195,9 +193,9 @@ describe("compare pages", () => {
         "Self-improving organization",
       ]),
     );
-    expect(FEATURE_ROWS.find((row) => row.label === "Multiplayer")?.values.groxbot).toBe(
-      true,
-    );
+    expect(
+      FEATURE_ROWS.find((row) => row.label === "Multiplayer")?.values.groxbot,
+    ).toBe(true);
     expect(
       FEATURE_ROWS.find((row) => row.label === "Shared knowledge base")?.values
         .hermes,

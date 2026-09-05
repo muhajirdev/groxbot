@@ -11,9 +11,9 @@ import {
   GROXBOT_STACK,
   GROXBOT_SUMMARY,
   GROXBOT_TAGLINE,
-  GROXBOT_WHAT,
   GROXBOT_UPDATED,
   GROXBOT_VERSION,
+  GROXBOT_WHAT,
   officeOrigin,
 } from "./identity.js";
 import { pressMarkdown } from "./press.js";

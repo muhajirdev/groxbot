@@ -81,7 +81,9 @@ export function itemListJsonLd(
   };
 }
 
-export function integrationJsonLd(item: Integration): Record<string, unknown>[] {
+export function integrationJsonLd(
+  item: Integration,
+): Record<string, unknown>[] {
   return [
     breadcrumbJsonLd([
       { name: "Home", path: "/" },

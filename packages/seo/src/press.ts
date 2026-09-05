@@ -6,9 +6,9 @@ import {
   GROXBOT_NAME,
   GROXBOT_SUMMARY,
   GROXBOT_TAGLINE,
-  GROXBOT_WHAT,
   GROXBOT_UPDATED,
   GROXBOT_VERSION,
+  GROXBOT_WHAT,
   officeOrigin,
 } from "./identity.js";
 

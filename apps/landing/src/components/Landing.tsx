@@ -266,7 +266,11 @@ export function Landing(props: { startUrl: string }) {
           </div>
         </section>
 
-        <section id="phone" className="thesis-section" aria-labelledby="thesis-phone">
+        <section
+          id="phone"
+          className="thesis-section"
+          aria-labelledby="thesis-phone"
+        >
           <p className="kicker">{THESES[3].kicker}</p>
           <h2 id="thesis-phone">{THESES[3].title}</h2>
           <p className="lede">{THESES[3].lede}</p>

@@ -11,7 +11,14 @@ import {
   robotsTxt,
   sitemapXml,
 } from "./documents.js";
-import { cloudOrigins, GROXBOT_STACK, GROXBOT_SUMMARY, GROXBOT_TAGLINE, GROXBOT_WHAT, originsFromWeb } from "./identity.js";
+import {
+  cloudOrigins,
+  GROXBOT_STACK,
+  GROXBOT_SUMMARY,
+  GROXBOT_TAGLINE,
+  GROXBOT_WHAT,
+  originsFromWeb,
+} from "./identity.js";
 
 const origins = cloudOrigins();
 
@@ -39,7 +46,9 @@ describe("discovery documents", () => {
     expect(sitemap).toContain(
       `${CLOUD_LANDING_ORIGIN}/compare/grok-bot-vs-hermes-vs-openclaw-vs-paperclip`,
     );
-    expect(sitemap).toContain(`${CLOUD_LANDING_ORIGIN}/compare/grok-bot-vs-hermes`);
+    expect(sitemap).toContain(
+      `${CLOUD_LANDING_ORIGIN}/compare/grok-bot-vs-hermes`,
+    );
     expect(sitemap).toContain(
       `${CLOUD_LANDING_ORIGIN}/compare/grok-bot-vs-openclaw`,
     );

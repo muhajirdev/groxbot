@@ -11,8 +11,8 @@ export {
   GROXBOT_NAME,
   GROXBOT_SUMMARY,
   GROXBOT_TAGLINE,
-  GROXBOT_WHAT,
   GROXBOT_VERSION,
+  GROXBOT_WHAT,
   originsFromWeb,
   stagingOrigins,
 } from "./identity.js";

@@ -38,9 +38,7 @@ export function GateSplit(props: {
       <div className="gate gate-split">
         <div className="gate-split-copy">{props.children}</div>
         <aside className="gate-split-proof" aria-hidden>
-          {props.quote ? (
-            <p className="thesis">{props.quote}</p>
-          ) : null}
+          {props.quote ? <p className="thesis">{props.quote}</p> : null}
           {props.proof}
         </aside>
       </div>
