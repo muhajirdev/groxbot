@@ -28,16 +28,20 @@ import { Route as PressDotmdRouteImport } from './routes/press[.]md'
 import { Route as RobotsAiDottxtRouteImport } from './routes/robots-ai[.]txt'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as DotwellKnownApiCatalogRouteImport } from './routes/[.]well-known/api-catalog'
+import { Route as DotwellKnownMcpRouteImport } from './routes/[.]well-known/mcp'
+import { Route as DotwellKnownMcpDotjsonRouteImport } from './routes/[.]well-known/mcp[.]json'
 import { Route as CompareIndexRouteImport } from './routes/compare/index'
 import { Route as CompareSlugRouteImport } from './routes/compare/$slug'
 import { Route as IntegrationsIndexRouteImport } from './routes/integrations/index'
 import { Route as IntegrationsSlugRouteImport } from './routes/integrations/$slug'
 import { Route as PressIndexRouteImport } from './routes/press/index'
 import { Route as PressFileRouteImport } from './routes/press/$file'
+import { Route as SShareIdRouteImport } from './routes/s/$shareId'
 import { Route as UseCasesIndexRouteImport } from './routes/use-cases/index'
 import { Route as UseCasesSlugRouteImport } from './routes/use-cases/$slug'
+import { Route as DotwellKnownMcpServerCardDotjsonRouteImport } from './routes/[.]well-known/mcp/server-card[.]json'
 import { Route as IntegrationsCategoryCategoryRouteImport } from './routes/integrations/category/$category'
-import { Route as SShareIdRouteImport } from './routes/s/$shareId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -134,6 +138,21 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DotwellKnownApiCatalogRoute = DotwellKnownApiCatalogRouteImport.update({
+  id: '/.well-known/api-catalog',
+  path: '/.well-known/api-catalog',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DotwellKnownMcpRoute = DotwellKnownMcpRouteImport.update({
+  id: '/.well-known/mcp',
+  path: '/.well-known/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DotwellKnownMcpDotjsonRoute = DotwellKnownMcpDotjsonRouteImport.update({
+  id: '/.well-known/mcp.json',
+  path: '/.well-known/mcp.json',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CompareIndexRoute = CompareIndexRouteImport.update({
   id: '/compare/',
   path: '/compare/',
@@ -164,6 +183,11 @@ const PressFileRoute = PressFileRouteImport.update({
   path: '/press/$file',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SShareIdRoute = SShareIdRouteImport.update({
+  id: '/s/$shareId',
+  path: '/s/$shareId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const UseCasesIndexRoute = UseCasesIndexRouteImport.update({
   id: '/use-cases/',
   path: '/use-cases/',
@@ -174,17 +198,18 @@ const UseCasesSlugRoute = UseCasesSlugRouteImport.update({
   path: '/use-cases/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DotwellKnownMcpServerCardDotjsonRoute =
+  DotwellKnownMcpServerCardDotjsonRouteImport.update({
+    id: '/server-card.json',
+    path: '/server-card.json',
+    getParentRoute: () => DotwellKnownMcpRoute,
+  } as any)
 const IntegrationsCategoryCategoryRoute =
   IntegrationsCategoryCategoryRouteImport.update({
     id: '/integrations/category/$category',
     path: '/integrations/category/$category',
     getParentRoute: () => rootRouteImport,
   } as any)
-const SShareIdRoute = SShareIdRouteImport.update({
-  id: '/s/$shareId',
-  path: '/s/$shareId',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -206,16 +231,20 @@ export interface FileRoutesByFullPath {
   '/robots-ai.txt': typeof RobotsAiDottxtRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
+  '/.well-known/mcp': typeof DotwellKnownMcpRouteWithChildren
+  '/.well-known/mcp.json': typeof DotwellKnownMcpDotjsonRoute
   '/compare/$slug': typeof CompareSlugRoute
   '/integrations/$slug': typeof IntegrationsSlugRoute
   '/press/$file': typeof PressFileRoute
+  '/s/$shareId': typeof SShareIdRoute
   '/use-cases/$slug': typeof UseCasesSlugRoute
   '/compare/': typeof CompareIndexRoute
   '/integrations/': typeof IntegrationsIndexRoute
   '/press/': typeof PressIndexRoute
   '/use-cases/': typeof UseCasesIndexRoute
+  '/.well-known/mcp/server-card.json': typeof DotwellKnownMcpServerCardDotjsonRoute
   '/integrations/category/$category': typeof IntegrationsCategoryCategoryRoute
-  '/s/$shareId': typeof SShareIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -237,16 +266,20 @@ export interface FileRoutesByTo {
   '/robots-ai.txt': typeof RobotsAiDottxtRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
+  '/.well-known/mcp': typeof DotwellKnownMcpRouteWithChildren
+  '/.well-known/mcp.json': typeof DotwellKnownMcpDotjsonRoute
   '/compare/$slug': typeof CompareSlugRoute
   '/integrations/$slug': typeof IntegrationsSlugRoute
   '/press/$file': typeof PressFileRoute
+  '/s/$shareId': typeof SShareIdRoute
   '/use-cases/$slug': typeof UseCasesSlugRoute
   '/compare': typeof CompareIndexRoute
   '/integrations': typeof IntegrationsIndexRoute
   '/press': typeof PressIndexRoute
   '/use-cases': typeof UseCasesIndexRoute
+  '/.well-known/mcp/server-card.json': typeof DotwellKnownMcpServerCardDotjsonRoute
   '/integrations/category/$category': typeof IntegrationsCategoryCategoryRoute
-  '/s/$shareId': typeof SShareIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -269,16 +302,20 @@ export interface FileRoutesById {
   '/robots-ai.txt': typeof RobotsAiDottxtRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
+  '/.well-known/mcp': typeof DotwellKnownMcpRouteWithChildren
+  '/.well-known/mcp.json': typeof DotwellKnownMcpDotjsonRoute
   '/compare/$slug': typeof CompareSlugRoute
   '/integrations/$slug': typeof IntegrationsSlugRoute
   '/press/$file': typeof PressFileRoute
+  '/s/$shareId': typeof SShareIdRoute
   '/use-cases/$slug': typeof UseCasesSlugRoute
   '/compare/': typeof CompareIndexRoute
   '/integrations/': typeof IntegrationsIndexRoute
   '/press/': typeof PressIndexRoute
   '/use-cases/': typeof UseCasesIndexRoute
+  '/.well-known/mcp/server-card.json': typeof DotwellKnownMcpServerCardDotjsonRoute
   '/integrations/category/$category': typeof IntegrationsCategoryCategoryRoute
-  '/s/$shareId': typeof SShareIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -302,16 +339,20 @@ export interface FileRouteTypes {
     | '/robots-ai.txt'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/.well-known/api-catalog'
+    | '/.well-known/mcp'
+    | '/.well-known/mcp.json'
     | '/compare/$slug'
     | '/integrations/$slug'
     | '/press/$file'
+    | '/s/$shareId'
     | '/use-cases/$slug'
     | '/compare/'
     | '/integrations/'
     | '/press/'
     | '/use-cases/'
+    | '/.well-known/mcp/server-card.json'
     | '/integrations/category/$category'
-    | '/s/$shareId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -333,16 +374,20 @@ export interface FileRouteTypes {
     | '/robots-ai.txt'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/.well-known/api-catalog'
+    | '/.well-known/mcp'
+    | '/.well-known/mcp.json'
     | '/compare/$slug'
     | '/integrations/$slug'
     | '/press/$file'
+    | '/s/$shareId'
     | '/use-cases/$slug'
     | '/compare'
     | '/integrations'
     | '/press'
     | '/use-cases'
+    | '/.well-known/mcp/server-card.json'
     | '/integrations/category/$category'
-    | '/s/$shareId'
   id:
     | '__root__'
     | '/'
@@ -364,16 +409,20 @@ export interface FileRouteTypes {
     | '/robots-ai.txt'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/.well-known/api-catalog'
+    | '/.well-known/mcp'
+    | '/.well-known/mcp.json'
     | '/compare/$slug'
     | '/integrations/$slug'
     | '/press/$file'
+    | '/s/$shareId'
     | '/use-cases/$slug'
     | '/compare/'
     | '/integrations/'
     | '/press/'
     | '/use-cases/'
+    | '/.well-known/mcp/server-card.json'
     | '/integrations/category/$category'
-    | '/s/$shareId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -396,16 +445,19 @@ export interface RootRouteChildren {
   RobotsAiDottxtRoute: typeof RobotsAiDottxtRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  DotwellKnownApiCatalogRoute: typeof DotwellKnownApiCatalogRoute
+  DotwellKnownMcpRoute: typeof DotwellKnownMcpRouteWithChildren
+  DotwellKnownMcpDotjsonRoute: typeof DotwellKnownMcpDotjsonRoute
   CompareSlugRoute: typeof CompareSlugRoute
   IntegrationsSlugRoute: typeof IntegrationsSlugRoute
   PressFileRoute: typeof PressFileRoute
+  SShareIdRoute: typeof SShareIdRoute
   UseCasesSlugRoute: typeof UseCasesSlugRoute
   CompareIndexRoute: typeof CompareIndexRoute
   IntegrationsIndexRoute: typeof IntegrationsIndexRoute
   PressIndexRoute: typeof PressIndexRoute
   UseCasesIndexRoute: typeof UseCasesIndexRoute
   IntegrationsCategoryCategoryRoute: typeof IntegrationsCategoryCategoryRoute
-  SShareIdRoute: typeof SShareIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -543,6 +595,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/.well-known/api-catalog': {
+      id: '/.well-known/api-catalog'
+      path: '/.well-known/api-catalog'
+      fullPath: '/.well-known/api-catalog'
+      preLoaderRoute: typeof DotwellKnownApiCatalogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/mcp': {
+      id: '/.well-known/mcp'
+      path: '/.well-known/mcp'
+      fullPath: '/.well-known/mcp'
+      preLoaderRoute: typeof DotwellKnownMcpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/mcp.json': {
+      id: '/.well-known/mcp.json'
+      path: '/.well-known/mcp.json'
+      fullPath: '/.well-known/mcp.json'
+      preLoaderRoute: typeof DotwellKnownMcpDotjsonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/compare/': {
       id: '/compare/'
       path: '/compare'
@@ -585,6 +658,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PressFileRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/s/$shareId': {
+      id: '/s/$shareId'
+      path: '/s/$shareId'
+      fullPath: '/s/$shareId'
+      preLoaderRoute: typeof SShareIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/use-cases/': {
       id: '/use-cases/'
       path: '/use-cases'
@@ -599,6 +679,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UseCasesSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/.well-known/mcp/server-card.json': {
+      id: '/.well-known/mcp/server-card.json'
+      path: '/server-card.json'
+      fullPath: '/.well-known/mcp/server-card.json'
+      preLoaderRoute: typeof DotwellKnownMcpServerCardDotjsonRouteImport
+      parentRoute: typeof DotwellKnownMcpRoute
+    }
     '/integrations/category/$category': {
       id: '/integrations/category/$category'
       path: '/integrations/category/$category'
@@ -606,15 +693,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IntegrationsCategoryCategoryRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/s/$shareId': {
-      id: '/s/$shareId'
-      path: '/s/$shareId'
-      fullPath: '/s/$shareId'
-      preLoaderRoute: typeof SShareIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
+
+interface DotwellKnownMcpRouteChildren {
+  DotwellKnownMcpServerCardDotjsonRoute: typeof DotwellKnownMcpServerCardDotjsonRoute
+}
+
+const DotwellKnownMcpRouteChildren: DotwellKnownMcpRouteChildren = {
+  DotwellKnownMcpServerCardDotjsonRoute: DotwellKnownMcpServerCardDotjsonRoute,
+}
+
+const DotwellKnownMcpRouteWithChildren = DotwellKnownMcpRoute._addFileChildren(
+  DotwellKnownMcpRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -636,26 +728,32 @@ const rootRouteChildren: RootRouteChildren = {
   RobotsAiDottxtRoute: RobotsAiDottxtRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  DotwellKnownApiCatalogRoute: DotwellKnownApiCatalogRoute,
+  DotwellKnownMcpRoute: DotwellKnownMcpRouteWithChildren,
+  DotwellKnownMcpDotjsonRoute: DotwellKnownMcpDotjsonRoute,
   CompareSlugRoute: CompareSlugRoute,
   IntegrationsSlugRoute: IntegrationsSlugRoute,
   PressFileRoute: PressFileRoute,
+  SShareIdRoute: SShareIdRoute,
   UseCasesSlugRoute: UseCasesSlugRoute,
   CompareIndexRoute: CompareIndexRoute,
   IntegrationsIndexRoute: IntegrationsIndexRoute,
   PressIndexRoute: PressIndexRoute,
   UseCasesIndexRoute: UseCasesIndexRoute,
   IntegrationsCategoryCategoryRoute: IntegrationsCategoryCategoryRoute,
-  SShareIdRoute: SShareIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
 
 import type { getRouter } from './router.tsx'
+
 import type { createStart } from '@tanstack/react-start'
+
 declare module '@tanstack/react-start' {
   interface Register {
     ssr: true
+
     router: Awaited<ReturnType<typeof getRouter>>
   }
 }
