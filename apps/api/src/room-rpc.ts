@@ -70,6 +70,11 @@ export async function initRoomActor(
     name: string;
     botId?: string;
     members: Array<{ id: string; name: string; homeRoomId?: string }>;
+    hirePackage?: {
+      soul?: string;
+      memory?: string;
+      skipIntro?: boolean;
+    };
   },
 ): Promise<void> {
   const stub = await getAgentByName(ns, roomId);

@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { INDIE_INTEGRATIONS } from "../data/indie-integrations";
 import { USE_CASES } from "../data/use-cases";
 import { categoryFamily } from "./category-copy";
-import { FOOTER_BLURB, TAGLINE, THESES } from "./copy";
+import { FOOTER_BLURB, HERO_PITCH, TAGLINE, THESES } from "./copy";
 import {
   DISCOVERY_SITEMAP_PATHS,
   discoveryResponse,
@@ -238,10 +238,29 @@ describe("llms discovery", () => {
 
   it("leads public copy with AI is better together", () => {
     expect(TAGLINE).toBe("AI is better together");
-    expect(DEFAULT_TITLE).toBe("Groxbot — AI is better together");
-    expect(DEFAULT_DESCRIPTION).toMatch(/^AI is better together\./);
+    expect(HERO_PITCH).toBe("Multiplayer. Open source.");
+    expect(DEFAULT_TITLE).toBe("Multiplayer. Open source. | Groxbot");
+    expect(DEFAULT_DESCRIPTION).toMatch(/^Multiplayer\. Open source\./);
     expect(FOOTER_BLURB).toMatch(/^AI is better together\./);
     expect(landingLlmsTxt()).toContain("AI is better together");
+  });
+
+  it("points the homepage at the compare pages", async () => {
+    const { COMPARE, COMPARE_LINKS, COMPARE_CALLOUT } = await import("./copy");
+    expect(COMPARE.map((item) => item.name)).toEqual([
+      "OpenClaw / Hermes",
+      "Paperclip",
+      "Grok Bot",
+      "Groxbot",
+    ]);
+    expect(COMPARE.some((item) => item.ours)).toBe(true);
+    expect(COMPARE_CALLOUT.title).toMatch(/Hermes.*OpenClaw.*Paperclip/i);
+    expect(COMPARE_LINKS.map((link) => link.slug)).toEqual([
+      "grok-bot-vs-hermes-vs-openclaw-vs-paperclip",
+      "grok-bot-vs-hermes",
+      "grok-bot-vs-openclaw",
+      "grok-bot-vs-paperclip",
+    ]);
   });
 
   it("gives each landing thesis its own section headline", () => {

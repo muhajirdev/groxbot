@@ -47,6 +47,12 @@ export type InitRoom = (
     name: string;
     botId?: string;
     members: Array<{ id: string; name: string; homeRoomId?: string }>;
+    /** Marketplace package: seed soul/memory and skip blank-desk office-intro. */
+    hirePackage?: {
+      soul?: string;
+      memory?: string;
+      skipIntro?: boolean;
+    };
   },
 ) => Promise<void>;
 

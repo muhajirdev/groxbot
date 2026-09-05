@@ -593,6 +593,7 @@ export class RoomActor extends RoomHome {
       name?: unknown;
       botId?: unknown;
       members?: unknown;
+      hirePackage?: unknown;
     };
     const roomId = typeof body.roomId === "string" ? body.roomId.trim() : "";
     const workspaceId =
@@ -633,6 +634,23 @@ export class RoomActor extends RoomHome {
       await this.ctx.storage.put("officeId", workspaceId);
     } else {
       await this.ctx.storage.delete("botId");
+    }
+    const pack =
+      body.hirePackage &&
+      typeof body.hirePackage === "object" &&
+      !Array.isArray(body.hirePackage)
+        ? (body.hirePackage as {
+            soul?: unknown;
+            memory?: unknown;
+            skipIntro?: unknown;
+          })
+        : null;
+    if (pack && botId) {
+      await this.applyHirePackage({
+        soul: typeof pack.soul === "string" ? pack.soul : undefined,
+        memory: typeof pack.memory === "string" ? pack.memory : undefined,
+        skipIntro: pack.skipIntro === true,
+      });
     }
     return Response.json({ ok: true });
   }

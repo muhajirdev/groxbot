@@ -1,4 +1,5 @@
 import type { AvatarShape } from "@groxbot/contracts";
+import { BOT_MARKETPLACE_STARTER_JOBS } from "@groxbot/contracts";
 
 export const AVATAR_COLORS = [
   "#e45c9a",
@@ -20,16 +21,10 @@ export const AVATAR_SHAPES: AvatarShape[] = [
   "hex",
 ];
 
-export const SUGGESTED_JOBS = [
-  "Chief of Staff",
-  "Talent Scout",
-  "Expense Manager",
-  "Bug Reproduction",
-  "Product Performance",
-  "Sales Outbound",
-] as const;
+/** First-hire chips — same curated jobs as the office marketplace starters. */
+export const SUGGESTED_JOBS = BOT_MARKETPLACE_STARTER_JOBS;
 
-export const FIRST_HIRE = SUGGESTED_JOBS[0];
+export const FIRST_HIRE = SUGGESTED_JOBS[0] ?? "Chief of Staff";
 
 export const FIRST_TASK =
   "Summarize this conversation starter in five bullets. List every date, decision, and open question. Do not invent sources.";
