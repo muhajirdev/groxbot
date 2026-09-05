@@ -8,6 +8,7 @@ import {
   mcpPostResponse,
   originsFromWeb,
 } from "@groxbot/seo";
+import { COMPARE_PAGES } from "../data/compare";
 import { USE_CASES } from "../data/use-cases";
 import { appOrigin } from "./app-url";
 import { computerIntegrations, featuredIntegrations } from "./integrations";
@@ -59,9 +60,17 @@ function extraSections(): string {
     (item) =>
       `- [${item.title}](${canonicalUrl(`/use-cases/${item.slug}`)}): ${item.lede}`,
   ).join("\n");
+  const comparisons = COMPARE_PAGES.map(
+    (page) =>
+      `- [${page.title}](${canonicalUrl(`/compare/${page.slug}`)}): ${page.lede}`,
+  ).join("\n");
   return `## Use cases
 
 ${jobs}
+
+## Compare
+
+${comparisons}
 
 ## Indie / computer integrations
 

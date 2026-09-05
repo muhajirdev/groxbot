@@ -114,6 +114,10 @@ describe("sitemap", () => {
     expect(paths).toContain("/");
     expect(paths).toContain("/integrations");
     expect(paths).toContain("/use-cases");
+    expect(paths).toContain("/compare");
+    expect(paths).toContain(
+      "/compare/grok-bot-vs-hermes-vs-openclaw-vs-paperclip",
+    );
     expect(paths).toContain("/press");
     expect(paths).toContain("/press.md");
     expect(paths).toContain("/integrations/gmail");
@@ -125,18 +129,49 @@ describe("sitemap", () => {
     expect(paths).toContain("/llms.txt");
     expect(paths).toContain("/mcp");
     expect(paths.length).toBe(
-      4 +
+      5 +
         DISCOVERY_SITEMAP_PATHS.length +
         integrationCategories().length +
         INTEGRATIONS.length +
-        USE_CASES.length,
+        USE_CASES.length +
+        1,
     );
   });
 
   it("emits xml with canonical groxbot.com urls", () => {
     const xml = sitemapXml();
     expect(xml).toContain(canonicalUrl("/integrations/postiz"));
+    expect(xml).toContain(
+      canonicalUrl("/compare/grok-bot-vs-hermes-vs-openclaw-vs-paperclip"),
+    );
     expect(xml).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+  });
+});
+
+describe("compare pages", () => {
+  it("covers Groxbot, Hermes, OpenClaw, and Paperclip", async () => {
+    const { COMPARE_PAGES, getComparePage } = await import("../data/compare");
+    const page = getComparePage(
+      "grok-bot-vs-hermes-vs-openclaw-vs-paperclip",
+    );
+    expect(page).toBeDefined();
+    expect(COMPARE_PAGES).toHaveLength(1);
+    expect(page?.products.map((item) => item.id)).toEqual([
+      "groxbot",
+      "hermes",
+      "openclaw",
+      "paperclip",
+    ]);
+    expect(page?.products.some((item) => item.ours)).toBe(true);
+    expect(page?.faqs.length).toBeGreaterThan(2);
+    for (const row of page?.rows ?? []) {
+      expect(Object.keys(row.values).sort()).toEqual([
+        "groxbot",
+        "hermes",
+        "openclaw",
+        "paperclip",
+      ]);
+    }
   });
 });
 
@@ -147,6 +182,7 @@ describe("llms discovery", () => {
     expect(txt).toContain("/mcp");
     expect(txt).toContain("/identity.json");
     expect(txt).toContain("/use-cases/");
+    expect(txt).toContain("/compare/");
     expect(txt).toContain("/press");
   });
 

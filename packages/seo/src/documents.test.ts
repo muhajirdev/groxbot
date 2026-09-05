@@ -27,6 +27,7 @@ describe("discovery documents", () => {
     expect(aiJson(origins).name).toBe("Groxbot");
     const pages = identityJson(origins).sitePages as Array<{ name: string }>;
     expect(pages.some((page) => page.name === "Press kit")).toBe(true);
+    expect(pages.some((page) => page.name === "Compare")).toBe(true);
   });
 
   it("lists public pages in the sitemap and allows AI crawlers", () => {
@@ -34,8 +35,22 @@ describe("discovery documents", () => {
     expect(sitemap).toContain(`${CLOUD_LANDING_ORIGIN}/llms.txt`);
     expect(sitemap).toContain(`${CLOUD_LANDING_ORIGIN}/mcp`);
     expect(sitemap).toContain(`${CLOUD_LANDING_ORIGIN}/press`);
+    expect(sitemap).toContain(`${CLOUD_LANDING_ORIGIN}/compare`);
+    expect(sitemap).toContain(
+      `${CLOUD_LANDING_ORIGIN}/compare/grok-bot-vs-hermes-vs-openclaw-vs-paperclip`,
+    );
     expect(robotsTxt(origins)).toContain("User-agent: GPTBot");
     expect(robotsTxt(origins)).toContain("Allow: /llms.txt");
+    expect(robotsTxt(origins)).toContain("Allow: /compare");
+  });
+
+  it("answers Paperclip and Hermes in faq-ai", () => {
+    const faq = faqAiTxt(origins);
+    expect(faq).toMatch(/How is Groxbot different from Paperclip/i);
+    expect(faq).toMatch(/How is Groxbot different from Hermes/i);
+    expect(faq).toContain(
+      "/compare/grok-bot-vs-hermes-vs-openclaw-vs-paperclip",
+    );
   });
 
   it("describes Cloudflare Workers and self-host later, not Rivet", () => {

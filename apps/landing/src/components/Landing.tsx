@@ -91,6 +91,16 @@ export function Landing(props: { startUrl: string }) {
               </article>
             ))}
           </div>
+          <p className="compare-more">
+            <Link
+              to="/compare/$slug"
+              params={{
+                slug: "grok-bot-vs-hermes-vs-openclaw-vs-paperclip",
+              }}
+            >
+              Full comparison: Groxbot vs Hermes vs OpenClaw vs Paperclip
+            </Link>
+          </p>
         </section>
 
         <section id="adopt" className="adopt" aria-labelledby="thesis-adopt">
