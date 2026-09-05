@@ -328,6 +328,56 @@ export const KnowledgeImportResultSchema = z.object({
 });
 export type KnowledgeImportResult = z.infer<typeof KnowledgeImportResultSchema>;
 
+export const KnowledgeShareKind = z.enum(["file", "folder"]);
+export type KnowledgeShareKind = z.infer<typeof KnowledgeShareKind>;
+
+export const KnowledgeShareSchema = z.object({
+  id: Id,
+  path: z.string(),
+  kind: KnowledgeShareKind,
+  createdAt: z.string(),
+});
+export type KnowledgeShare = z.infer<typeof KnowledgeShareSchema>;
+
+export const PublicKnowledgeEntrySchema = z.object({
+  path: z.string(),
+  name: z.string(),
+  title: z.string(),
+  kind: z.enum(["file", "dir"]),
+  mediaType: z.string().optional(),
+});
+export type PublicKnowledgeEntry = z.infer<typeof PublicKnowledgeEntrySchema>;
+
+export const PublicKnowledgeFileSchema = z.object({
+  kind: z.literal("file"),
+  shareId: Id,
+  path: z.string(),
+  root: z.string(),
+  title: z.string(),
+  description: z.string(),
+  content: z.string().optional(),
+  truncated: z.boolean(),
+  encoding: z.enum(["text", "binary"]),
+  mediaType: z.string(),
+});
+export type PublicKnowledgeFile = z.infer<typeof PublicKnowledgeFileSchema>;
+
+export const PublicKnowledgeFolderSchema = z.object({
+  kind: z.literal("folder"),
+  shareId: Id,
+  path: z.string(),
+  root: z.string(),
+  title: z.string(),
+  entries: z.array(PublicKnowledgeEntrySchema),
+});
+export type PublicKnowledgeFolder = z.infer<typeof PublicKnowledgeFolderSchema>;
+
+export const PublicKnowledgeSchema = z.discriminatedUnion("kind", [
+  PublicKnowledgeFileSchema,
+  PublicKnowledgeFolderSchema,
+]);
+export type PublicKnowledge = z.infer<typeof PublicKnowledgeSchema>;
+
 export const GuestStatusSchema = z.object({
   botId: Id,
   kind: GuestKind,

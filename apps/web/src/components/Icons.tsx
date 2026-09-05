@@ -39,6 +39,7 @@ import {
   PlusSignIcon,
   SearchIcon as SearchGlyph,
   Settings01Icon,
+  Share08Icon,
   ShieldAlertIcon,
   SourceCodeIcon,
   SquareIcon as SquareGlyph,
@@ -182,6 +183,10 @@ export function MoreIcon(props: IconProps) {
 
 export function CopyIcon(props: IconProps) {
   return <Glyph icon={Copy01Icon} {...props} />;
+}
+
+export function ShareIcon(props: IconProps) {
+  return <Glyph icon={Share08Icon} {...props} />;
 }
 
 export function DownloadIcon(props: IconProps) {

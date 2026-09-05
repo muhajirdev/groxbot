@@ -133,6 +133,7 @@ function dropUnscopedKnowledgeBodies(): void {
   queryClient.removeQueries({ queryKey: orpc.knowledge.graph.key() });
   queryClient.removeQueries({ queryKey: orpc.knowledge.search.key() });
   queryClient.removeQueries({ queryKey: orpc.knowledge.download.key() });
+  queryClient.removeQueries({ queryKey: orpc.knowledge.shares.key() });
 }
 
 function applyLiveCatalog(snapshot: WorkspaceCatalogSnapshot): void {

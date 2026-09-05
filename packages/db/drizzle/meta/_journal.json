@@ -71,6 +71,13 @@
       "when": 1788567005335,
       "tag": "0009_rich_nightshade",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788603639018,
+      "tag": "0010_cloudy_mysterio",
+      "breakpoints": true
     }
   ]
 }

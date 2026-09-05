@@ -1,4 +1,8 @@
-import type { KnowledgeList, KnowledgeSearchHit } from "@groxbot/contracts";
+import {
+  knowledgeShareUrl,
+  type KnowledgeList,
+  type KnowledgeSearchHit,
+} from "@groxbot/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   type MouseEvent,
@@ -49,7 +53,9 @@ import {
 } from "../lib/knowledge-upload";
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
+import { landingOrigin } from "../lib/host";
 import { OFFICE_MESSAGES_GC_TIME } from "../lib/office-messages";
+import { tenantBoundQueryFn } from "../lib/tenant-query";
 import { knowledgeListQueryOptions } from "../lib/workspace-catalog";
 import { Button, cn, Field, Input, Textarea } from "../ui";
 import {
@@ -353,11 +359,21 @@ export function KnowledgeLibrary(props: {
       </div>
       <KnowledgeContextMenu
         menu={fileMenu}
+        shared={Boolean(
+          fileMenu && workspace.publicShareFor(fileMenu.node.path),
+        )}
         onClose={() => setFileMenu(null)}
         onPhase={setFileMenu}
         onDownload={workspace.downloadPath}
         onCopyPath={(path) => {
           void navigator.clipboard?.writeText(path);
+        }}
+        onCopyPublicLink={workspace.copyPublicLink}
+        onShare={(node) => {
+          void workspace.publishPath(node);
+        }}
+        onUnpublish={(path) => {
+          void workspace.unpublishPath(path);
         }}
         onUse={(node) => {
           const name = node.title || node.name;
@@ -490,6 +506,12 @@ function useKnowledgeWorkspace(initialPath: string | null) {
   const [error, setError] = useState("");
   const [localFiles, setLocalFiles] = useState<Record<string, File>>({});
   const listQuery = useQuery(knowledgeListQueryOptions());
+  const sharesKey = orpc.knowledge.shares.queryOptions().queryKey;
+  const sharesQuery = useQuery({
+    ...orpc.knowledge.shares.queryOptions(),
+    queryFn: tenantBoundQueryFn(sharesKey, () => client.knowledge.shares()),
+    gcTime: OFFICE_MESSAGES_GC_TIME,
+  });
   const graphQuery = useQuery({
     ...orpc.knowledge.graph.queryOptions(),
     gcTime: OFFICE_MESSAGES_GC_TIME,
@@ -770,6 +792,45 @@ function useKnowledgeWorkspace(initialPath: string | null) {
     downloadPath(selected);
   }
 
+  function publicShareFor(path: string) {
+    return sharesQuery.data?.find((row) => row.path === path) ?? null;
+  }
+
+  async function publishPath(node: KnowledgeTreeNode) {
+    setError("");
+    try {
+      const share = await client.knowledge.share({
+        path: node.path,
+        kind: node.kind === "dir" ? "folder" : "file",
+      });
+      await queryClient.invalidateQueries({ queryKey: sharesKey });
+      const url = knowledgeShareUrl(landingOrigin(), share.id);
+      await navigator.clipboard?.writeText(url);
+    } catch (caught) {
+      setError(userFacingError(caught, "Could not share that note."));
+    }
+  }
+
+  async function unpublishPath(path: string) {
+    const share = publicShareFor(path);
+    if (!share) return;
+    setError("");
+    try {
+      await client.knowledge.unshare({ shareId: share.id });
+      await queryClient.invalidateQueries({ queryKey: sharesKey });
+    } catch (caught) {
+      setError(userFacingError(caught, "Could not unpublish that note."));
+    }
+  }
+
+  function copyPublicLink(path: string) {
+    const share = publicShareFor(path);
+    if (!share) return;
+    void navigator.clipboard?.writeText(
+      knowledgeShareUrl(landingOrigin(), share.id),
+    );
+  }
+
   return {
     fileRef,
     query,
@@ -810,6 +871,10 @@ function useKnowledgeWorkspace(initialPath: string | null) {
     uploadFile,
     downloadPath,
     downloadSelected,
+    publicShareFor,
+    publishPath,
+    unpublishPath,
+    copyPublicLink,
     startDraft: (folder?: string) => {
       const dest =
         folder ??

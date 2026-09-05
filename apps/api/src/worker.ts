@@ -76,6 +76,9 @@ export default {
     const { db, close } = createNeonHttpDb(loaded.databaseUrl);
     const apps = new DurableObjectAppStore(env.APP_RUNTIME);
     const onHome = (botId: string) => homeRoomName(db, botId);
+    const knowledgeDisk = env.KNOWLEDGE
+      ? r2KnowledgeDisk(env.KNOWLEDGE)
+      : undefined;
     const handles = createApp(loaded, {
       db,
       close,
@@ -103,13 +106,11 @@ export default {
             mediaType,
           ),
       },
-      knowledge: env.KNOWLEDGE
-        ? knowledgeAccess(
-            r2KnowledgeDisk(env.KNOWLEDGE),
-            createSkillImportHttp(),
-          )
+      knowledge: knowledgeDisk
+        ? knowledgeAccess(knowledgeDisk, createSkillImportHttp())
         : undefined,
-      avatars: env.KNOWLEDGE ? r2KnowledgeDisk(env.KNOWLEDGE) : undefined,
+      knowledgeDisk,
+      avatars: knowledgeDisk,
       routines: {
         list: async (botId) =>
           listBotRoutines(env.ROOM_ACTOR, await onHome(botId)),

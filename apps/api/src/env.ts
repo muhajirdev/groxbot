@@ -9,6 +9,7 @@ import {
   HTTP_WAKEUP,
   hostedCloudflareGateway,
   IN_PROCESS_WAKEUP,
+  landingOriginForWeb,
   STAGING_API_ORIGIN,
   STAGING_LANDING_ORIGIN,
   STAGING_WEB_ORIGIN,
@@ -25,6 +26,7 @@ export interface Env {
   authSecret: string;
   authUrl: string;
   webOrigin: string;
+  landingOrigin: string;
   corsOrigins: string[];
   workerUrl?: string;
   apiUrl?: string;
@@ -95,6 +97,7 @@ export type EnvStrings = {
   BETTER_AUTH_SECRET?: string;
   NODE_ENV?: string;
   WEB_ORIGIN?: string;
+  LANDING_ORIGIN?: string;
   BETTER_AUTH_URL?: string;
   CORS_ORIGINS?: string;
   WORKER_URL?: string;
@@ -134,6 +137,9 @@ export function loadEnv(source: EnvStrings): Env {
     );
   }
   const webOrigin = read(source, "WEB_ORIGIN") ?? "http://127.0.0.1:5173";
+  const landingOrigin =
+    read(source, "LANDING_ORIGIN")?.replace(/\/$/, "") ||
+    landingOriginForWeb(webOrigin);
   const tinyfishApiKeys = parseTinyfishKeys({
     TINYFISH_API_KEY: read(source, "TINYFISH_API_KEY"),
     TINYFISH_API_KEYS: read(source, "TINYFISH_API_KEYS"),
@@ -143,8 +149,10 @@ export function loadEnv(source: EnvStrings): Env {
     authSecret: authSecret || "development-only-change-me-please-32ch",
     authUrl: read(source, "BETTER_AUTH_URL") ?? "http://127.0.0.1:3100",
     webOrigin,
+    landingOrigin,
     corsOrigins: parseOrigins(read(source, "CORS_ORIGINS"), [
       webOrigin,
+      landingOrigin,
       CLOUD_LANDING_ORIGIN,
       CLOUD_WEB_ORIGIN,
       CLOUD_API_ORIGIN,

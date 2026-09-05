@@ -36,6 +36,8 @@ describe("discovery documents", () => {
     expect(sitemap).toContain(`${CLOUD_LANDING_ORIGIN}/press`);
     expect(robotsTxt(origins)).toContain("User-agent: GPTBot");
     expect(robotsTxt(origins)).toContain("Allow: /llms.txt");
+    expect(robotsTxt(origins)).toContain("Disallow: /s/");
+    expect(robotsTxt(origins)).not.toContain("/s/\nAllow");
   });
 
   it("describes Cloudflare Workers and self-host later, not Rivet", () => {

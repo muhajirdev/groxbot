@@ -19,6 +19,7 @@ import { healthPayload } from "./health.js";
 import { createMailer, type SendEmailBinding } from "./mail.js";
 import { completeMcpOAuth } from "./mcp.js";
 import { completePluginCallback, pluginCallbackPage } from "./plugins.js";
+import { mountPublicKnowledge } from "./public-knowledge.js";
 import { mountRpc } from "./rpc.js";
 import { requireActor } from "./session.js";
 import { acceptInviteFromLink } from "./workspaces.js";
@@ -54,6 +55,7 @@ export function createApp(
     ) => Promise<Response>;
     computer?: RpcContext["computer"];
     knowledge?: RpcContext["knowledge"];
+    knowledgeDisk?: RpcContext["knowledgeDisk"];
     avatars?: RpcContext["avatars"];
     routines?: RpcContext["routines"];
     mcp?: RpcContext["mcp"];
@@ -97,6 +99,7 @@ export function createApp(
     env,
     computer: opts.computer,
     knowledge: opts.knowledge,
+    knowledgeDisk: opts.knowledgeDisk,
     avatars: opts.avatars,
     routines: opts.routines,
     mcp: opts.mcp,
@@ -108,6 +111,7 @@ export function createApp(
   };
   mountRpc(app, handles);
   mountDiscovery(app, env.webOrigin);
+  mountPublicKnowledge(app, { db: opts.db, disk: opts.knowledgeDisk });
 
   app.get("/avatars/:userId", async (c) => {
     const disk = handles.avatars;

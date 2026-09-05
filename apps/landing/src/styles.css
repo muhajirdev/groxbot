@@ -2276,3 +2276,165 @@ a.chip.on .chip-count,
     transform: none;
   }
 }
+
+.share-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.share-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--line);
+}
+
+.share-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.share-kicker {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.share-body {
+  width: min(720px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 36px 0 64px;
+  flex: 1;
+}
+
+.share-title {
+  margin: 0 0 12px;
+  font-size: 1.85rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.share-lede {
+  margin: 0 0 24px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.share-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.share-crumbs a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.share-crumbs a:hover {
+  text-decoration: underline;
+}
+
+.share-crumb-sep {
+  margin: 0 4px;
+  color: var(--line);
+}
+
+.share-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.share-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--line);
+}
+
+.share-list li:first-child {
+  border-top: 0;
+}
+
+.share-list a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.share-list a:hover {
+  text-decoration: underline;
+}
+
+.share-muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.share-prose {
+  line-height: 1.65;
+}
+
+.share-prose h1,
+.share-prose h2,
+.share-prose h3,
+.share-prose h4 {
+  margin: 1.4em 0 0.5em;
+  letter-spacing: -0.02em;
+}
+
+.share-prose p,
+.share-prose ul {
+  margin: 0 0 1em;
+}
+
+.share-prose a {
+  color: var(--accent);
+}
+
+.share-prose code,
+.share-pre code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.92em;
+}
+
+.share-prose pre,
+.share-pre {
+  padding: 14px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+}
+
+.share-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 12px;
+}
+
+.share-foot {
+  padding: 16px 22px 28px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.share-foot-link {
+  color: var(--ink);
+}
+

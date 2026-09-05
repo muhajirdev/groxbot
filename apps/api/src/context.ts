@@ -33,6 +33,8 @@ export interface RpcContext {
   guests: GuestHub;
   computer?: ComputerAccess;
   knowledge?: KnowledgeAccess;
+  /** Office notes on R2. Public share reads use this directly — not oRPC. */
+  knowledgeDisk?: KnowledgeDisk;
   /** Profile photos. Same R2 bucket as knowledge, `_avatars/` prefix — not the office tree. */
   avatars?: KnowledgeDisk;
   /** Recurring jobs on this bot’s actor. Optional in local tests. */

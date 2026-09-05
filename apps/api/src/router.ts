@@ -7,18 +7,23 @@ import {
   ComputerFileError,
   ComputerPathError,
   ComputerWriteError,
+  createKnowledgeShare,
   encryptionSecret,
   getPokeThread,
   KnowledgeFileError,
   KnowledgePathError,
+  KnowledgeShareError,
   KnowledgeWriteError,
   listEventsAfter,
+  listKnowledgeShares,
   listWorkspaceApps,
   listWorkspaceMembers,
   loadModelSettings,
   ModelSettingsError,
   PokeError,
   publishedProfileImage,
+  revokeKnowledgeShare,
+  revokeKnowledgeSharesForPrefix,
   RoutineError,
   RoutineNotFoundError,
   RoutineScheduleError,
@@ -635,6 +640,41 @@ export const appRouter = os.router({
       try {
         if (!context.knowledge) throw new KnowledgeFileError();
         await context.knowledge.remove(actor.workspaceId, input.path);
+        await revokeKnowledgeSharesForPrefix(
+          context.db,
+          actor.workspaceId,
+          input.path,
+        );
+        return { ok: true as const };
+      } catch (error) {
+        throwKnowledgeError(error);
+      }
+    }),
+    shares: os.knowledge.shares.handler(async ({ context }) => {
+      const actor = await requireActor(context);
+      return await listKnowledgeShares(context.db, actor.workspaceId);
+    }),
+    share: os.knowledge.share.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      try {
+        return await createKnowledgeShare(
+          context.db,
+          context.knowledgeDisk ?? null,
+          actor,
+          input,
+        );
+      } catch (error) {
+        throwKnowledgeError(error);
+      }
+    }),
+    unshare: os.knowledge.unshare.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      try {
+        await revokeKnowledgeShare(
+          context.db,
+          actor.workspaceId,
+          input.shareId,
+        );
         return { ok: true as const };
       } catch (error) {
         throwKnowledgeError(error);
@@ -700,6 +740,7 @@ function throwKnowledgeError(error: unknown): never {
   if (
     error instanceof KnowledgePathError ||
     error instanceof KnowledgeWriteError ||
+    error instanceof KnowledgeShareError ||
     error instanceof SkillImportError
   ) {
     throw new ORPCError("BAD_REQUEST", { message: error.message });
