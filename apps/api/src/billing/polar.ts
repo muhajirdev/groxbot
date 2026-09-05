@@ -10,6 +10,7 @@ import type { Database } from "@groxbot/db";
 import { Polar } from "@polar-sh/sdk";
 import type { CustomerState } from "@polar-sh/sdk/models/components/customerstate.js";
 import type { Env } from "../env.js";
+import { syncGatewayEntitlement } from "./gateway-entitlement.js";
 
 function toSnapshot(state: CustomerState): PolarCustomerStateSnapshot {
   return {
@@ -90,6 +91,7 @@ export class PolarBillingPort implements BillingPort {
         workspaceId,
         toSnapshot(state),
       );
+      await syncGatewayEntitlement(this.env, workspaceId, state);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Polar customer state failed";
@@ -108,7 +110,7 @@ export class PolarBillingPort implements BillingPort {
           externalId: input.usageId,
           externalMemberId: input.userId,
           metadata: {
-            cost: { amount: input.costCents, currency: "usd" },
+            cost_cents: input.costCents,
             input_tokens: input.promptTokens,
             output_tokens: input.completionTokens,
             model: input.model,

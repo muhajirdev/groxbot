@@ -502,7 +502,14 @@ export async function continueRun(opts: {
           totalTokens: event.totalTokens,
           pricing: opts.modelPricing,
         });
-        if (row?.billingKind === USAGE_BILLING_KIND_ON_DEMAND) {
+        const hostedViaGroxGateway = Boolean(
+          overlay.env.GROX_GATEWAY_URL?.trim() &&
+            overlay.env.GROX_GATEWAY_SECRET?.trim(),
+        );
+        if (
+          row?.billingKind === USAGE_BILLING_KIND_ON_DEMAND &&
+          !hostedViaGroxGateway
+        ) {
           await opts.billing
             ?.ingestHostedUsage({
               usageId: row.id,

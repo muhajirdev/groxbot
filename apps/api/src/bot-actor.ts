@@ -1399,7 +1399,15 @@ export class RoomHome extends Agent<WorkerEnv> {
         piCost: input.piCost,
         pricing,
       });
-      if (row?.billingKind === USAGE_BILLING_KIND_ON_DEMAND) {
+      // grox-gateway ingests every hosted completion to Polar; avoid double meter events.
+      const hostedViaGroxGateway = gatewayConfigured({
+        GROX_GATEWAY_URL: env.groxGatewayUrl,
+        GROX_GATEWAY_SECRET: env.groxGatewaySecret,
+      });
+      if (
+        row?.billingKind === USAGE_BILLING_KIND_ON_DEMAND &&
+        !hostedViaGroxGateway
+      ) {
         await postHostedUsageIngest(env.apiUrl ?? env.authUrl, env.authSecret, {
           usageId: row.id,
           workspaceId: row.workspaceId,
