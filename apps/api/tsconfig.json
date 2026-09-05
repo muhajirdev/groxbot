@@ -11,7 +11,6 @@
     "src/bot-computer-workspace.ts",
     "src/bot-enqueue.ts",
     "src/bot-computer.ts",
-    "src/bot-mcp.ts",
     "src/bot-mcp-connector.ts",
     "src/bot-routines.ts",
     "src/bot-routines-connector.ts",

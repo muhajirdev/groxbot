@@ -408,8 +408,8 @@ export type WorkspaceMcpExecuteRow = {
 };
 
 /**
- * Workspace catalog rows this teammate can bind. OAuth tokens live on the
- * catalog row; `hostBotId` is callback routing / legacy live client.
+ * Workspace catalog rows this teammate can bind. Tokens live on the row;
+ * Code Mode talks Streamable HTTP from the Worker — not Agents `this.mcp`.
  * Private bot → owner’s private MCP + shared MCP. Shared bot → shared only.
  */
 export function mcpCatalogForExecute(
@@ -420,7 +420,6 @@ export function mcpCatalogForExecute(
   const out: WorkspaceMcpExecuteRow[] = [];
   for (const row of rows) {
     if (row.status !== "connected") continue;
-    if (!row.hostBotId && !row.hasOauth) continue;
     if (bot && !mcpBindableForBot(row, bot)) continue;
     let name = row.name.trim() || "mcp";
     if (used.has(name)) name = `${name}-${row.id.slice(0, 8)}`;

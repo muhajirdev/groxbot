@@ -13,12 +13,16 @@ import {
   removeMcpConnection,
   saveMcpConnection,
   setMcpVisibility,
-  mcpServerId,
 } from "@groxbot/core";
 import { ORPCError } from "@orpc/server";
-import { getMcpHostBot } from "./bots.js";
 import type { RpcContext } from "./context.js";
-import { requireActor, type Actor } from "./session.js";
+import { mcpCallbackPage } from "./mcp-callback-page.js";
+import {
+  connectMcpHttp,
+  finishMcpHttpOAuth,
+  listMcpHttpTools,
+} from "./mcp-http.js";
+import { requireActor } from "./session.js";
 
 function mapMcpError(error: unknown): never {
   if (error instanceof McpError) {
@@ -33,17 +37,6 @@ function mapMcpError(error: unknown): never {
 
 function callbackHost(env: RpcContext["env"]): string {
   return (env.apiUrl ?? env.webOrigin).replace(/\/$/, "");
-}
-
-async function ensureMcpHost(
-  context: RpcContext,
-  actor: Actor,
-  row: { id: string; hostBotId: string | null; visibility: string },
-): Promise<string> {
-  if (row.hostBotId) return row.hostBotId;
-  const bot = await getMcpHostBot(context, actor, undefined);
-  await saveMcpConnection(context.db, row.id, { hostBotId: bot.id });
-  return bot.id;
 }
 
 export async function listMcp(context: RpcContext): Promise<McpConnection[]> {
@@ -88,20 +81,16 @@ export async function connectMcp(
         message: "Add the MCP server first.",
       });
     }
-    const bot = await getMcpHostBot(context, actor, input.botId);
-    if (!context.mcp) {
-      throw new McpError("Remote MCP is only available on the Cloudflare API.");
-    }
-    const result = await context.mcp.add(bot.id, {
-      serverId: existing.id,
-      name: existing.name,
+    const result = await connectMcpHttp({
+      env: context.env,
+      workspaceId: actor.workspaceId,
+      id: existing.id,
       url: existing.url,
       callbackHost: callbackHost(context.env),
     });
     const connecting = result.state === "authenticating";
     const connection = await saveMcpConnection(context.db, existing.id, {
       status: connecting ? "connecting" : "connected",
-      hostBotId: bot.id,
       lastError: null,
     });
     return {
@@ -132,22 +121,15 @@ export async function removeMcp(context: RpcContext, id: string) {
   const actor = await requireActor(context);
   try {
     const row = await getMcpConnection(context.db, actor.workspaceId, id);
-    if (row && !mcpVisibleToViewer(row, actor.userId)) {
+    if (!row || !mcpVisibleToViewer(row, actor.userId)) {
       throw new ORPCError("NOT_FOUND", {
         message: "Add the MCP server first.",
       });
     }
-    if (row && parseVisibility(row.visibility) === "private" && row.userId !== actor.userId) {
+    if (parseVisibility(row.visibility) === "private" && row.userId !== actor.userId) {
       throw new ORPCError("NOT_FOUND", {
         message: "Add the MCP server first.",
       });
-    }
-    if (row?.hostBotId && context.mcp) {
-      try {
-        await context.mcp.remove(row.hostBotId, mcpServerId(row.id));
-      } catch {
-        // Catalog still goes away if the actor is already gone.
-      }
     }
     await removeMcpConnection(context.db, actor.workspaceId, id);
     return { ok: true as const };
@@ -168,16 +150,14 @@ export async function probeMcp(
         message: "Add the MCP server first.",
       });
     }
-    if (!context.mcp?.probe) {
-      throw new McpError("Remote MCP is only available on the Cloudflare API.");
-    }
-    const hostBotId = await ensureMcpHost(context, actor, row);
     try {
-      const tools = await context.mcp.probe(
-        hostBotId,
-        actor.workspaceId,
-        row.id,
-      );
+      const tools = await listMcpHttpTools({
+        env: context.env,
+        workspaceId: actor.workspaceId,
+        id: row.id,
+        url: row.url,
+        callbackHost: callbackHost(context.env),
+      });
       return { ok: true, tools: mcpToolNames(tools), error: null };
     } catch (error) {
       return { ok: false, tools: [], error: mcpProbeError(error) };
@@ -200,7 +180,7 @@ export async function updateMcp(
 }
 
 export async function completeMcpOAuth(
-  context: Pick<RpcContext, "db" | "mcp">,
+  context: Pick<RpcContext, "db" | "env">,
   request: Request,
 ): Promise<Response> {
   const url = new URL(request.url);
@@ -209,13 +189,36 @@ export async function completeMcpOAuth(
     return new Response("Missing OAuth state.", { status: 400 });
   }
   const row = await getMcpConnectionById(context.db, serverId);
-  if (!row?.hostBotId) {
+  if (!row) {
     return new Response("Unknown MCP server.", { status: 404 });
   }
-  if (!context.mcp) {
-    return new Response("Remote MCP is only available on the Cloudflare API.", {
-      status: 501,
+  try {
+    await finishMcpHttpOAuth({
+      env: context.env,
+      workspaceId: row.workspaceId,
+      id: row.id,
+      url: row.url,
+      callbackHost: callbackHost(context.env),
+      searchParams: url.searchParams,
     });
+    await saveMcpConnection(context.db, row.id, {
+      status: "connected",
+      lastError: null,
+    });
+    return new Response(mcpCallbackPage(context.env.webOrigin), {
+      headers: { "content-type": "text/html; charset=utf-8" },
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Authentication failed";
+    try {
+      await saveMcpConnection(context.db, row.id, {
+        status: "error",
+        lastError: message,
+      });
+    } catch {
+      // Still return the callback page.
+    }
+    return new Response(message, { status: 400 });
   }
-  return context.mcp.oauth(row.hostBotId, request);
 }

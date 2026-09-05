@@ -85,11 +85,11 @@ export function mcpProbeSummary(
 }
 
 export function mcpNeedsReconnect(
-  row: { status: string; hostBotId: string | null },
+  row: { status: string },
   probe?: { ok: boolean } | null,
 ): boolean {
   if (row.status !== "connected") return false;
-  return !row.hostBotId || probe?.ok === false;
+  return probe?.ok === false;
 }
 
 export function pluginGridColumns(

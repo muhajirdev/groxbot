@@ -27,6 +27,7 @@
     "@groxbot/db": "workspace:*",
     "@groxbot/seo": "workspace:*",
     "@hono/node-server": "^1.19.1",
+    "@modelcontextprotocol/client": "2.0.0",
     "@orpc/server": "^1.10.0",
     "agents": "^0.21.0",
     "ai": "^7.0.85",

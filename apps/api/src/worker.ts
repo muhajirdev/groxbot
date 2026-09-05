@@ -17,7 +17,6 @@ import {
   writeBotComputer,
 } from "./bot-computer.js";
 import { enqueueOnActor } from "./bot-enqueue.js";
-import { addBotMcp, oauthBotMcp, probeBotMcp, removeBotMcp } from "./bot-mcp.js";
 import {
   createBotRoutine,
   listBotRoutines,
@@ -124,21 +123,6 @@ export default {
           removeBotRoutine(env.ROOM_ACTOR, await onHome(botId), id),
         suspend: async (botId, suspended) =>
           suspendBotRoutines(env.ROOM_ACTOR, await onHome(botId), suspended),
-      },
-      mcp: {
-        add: async (botId, input) =>
-          addBotMcp(env.ROOM_ACTOR, await onHome(botId), input),
-        remove: async (botId, serverId) =>
-          removeBotMcp(env.ROOM_ACTOR, await onHome(botId), serverId),
-        oauth: async (botId, request) =>
-          oauthBotMcp(env.ROOM_ACTOR, await onHome(botId), request),
-        probe: async (botId, workspaceId, serverId) =>
-          probeBotMcp(
-            env.ROOM_ACTOR,
-            await onHome(botId),
-            workspaceId,
-            serverId,
-          ),
       },
       forgetBot: (homeRoomId) => destroyBotActor(env.ROOM_ACTOR, homeRoomId),
       email: env.EMAIL,

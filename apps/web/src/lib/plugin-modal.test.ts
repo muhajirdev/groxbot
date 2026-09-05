@@ -157,21 +157,13 @@ describe("mcp display", () => {
     ).toBe("Catalog says connected, but the live client is not answering.");
   });
 
-  it("reconnects when the catalog is green but the host is gone", () => {
-    expect(
-      mcpNeedsReconnect({ status: "connected", hostBotId: null }),
-    ).toBe(true);
-    expect(
-      mcpNeedsReconnect(
-        { status: "connected", hostBotId: "bot-1" },
-        { ok: false },
-      ),
-    ).toBe(true);
-    expect(
-      mcpNeedsReconnect(
-        { status: "connected", hostBotId: "bot-1" },
-        { ok: true },
-      ),
-    ).toBe(false);
+  it("reconnects when the catalog is green but the live client is not answering", () => {
+    expect(mcpNeedsReconnect({ status: "connected" })).toBe(false);
+    expect(mcpNeedsReconnect({ status: "connected" }, { ok: false })).toBe(
+      true,
+    );
+    expect(mcpNeedsReconnect({ status: "connected" }, { ok: true })).toBe(
+      false,
+    );
   });
 });

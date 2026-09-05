@@ -27,18 +27,15 @@ describe("Computer Worker shell wiring", () => {
     expect(room).not.toMatch(/enqueueOnActor\(this\.env\.ROOM_ACTOR, homeRoomId/);
     expect(home).toMatch(/\/door\/context/);
     expect(home).toMatch(/handleDoorTool/);
-    expect(home).toMatch(/isMcpOAuthCallbackPath/);
-    expect(home).toMatch(/handleMcpOAuth/);
-    expect(home).toMatch(/handleCallbackRequest/);
     expect(home).toMatch(/mcp:\s*this\.workspaceMcp/);
-    expect(home).toMatch(/createMcpOAuthProvider/);
-    expect(home).toMatch(/DurableObjectOAuthClientProvider/);
-    expect(home).toMatch(/MCP_OAUTH_CLIENT_NAME/);
-    expect(home).toMatch(/McpOAuthKv/);
-    expect(home).toMatch(/hostMcpConnectionLike/);
-    expect(home).toMatch(/remoteMcpConnection/);
-    expect(home).toMatch(/\/mcp\/tools/);
-    expect(home).toMatch(/\/mcp\/call/);
+    expect(home).toMatch(/httpMcpConnectionLike/);
+    expect(home).toMatch(/WorkspaceMcpConnector/);
+    expect(home).not.toMatch(/createMcpOAuthProvider/);
+    expect(home).not.toMatch(/handleMcpOAuth/);
+    expect(home).not.toMatch(/addMcpServer/);
+    expect(home).not.toMatch(/this\.mcp\./);
+    expect(home).not.toMatch(/\/mcp\/tools/);
+    expect(home).not.toMatch(/\/mcp\/call/);
     expect(home).not.toMatch(/runRoomTurn/);
   });
 
@@ -52,7 +49,7 @@ describe("Computer Worker shell wiring", () => {
     expect(home).toMatch(/executeConnectors/);
     expect(home).toMatch(/createOfficeExecuteTool/);
     expect(home).toMatch(/withOfficeExecuteDescription/);
-    expect(home).toMatch(/mcp:\s*this\.workspaceMcp\.map/);
+    expect(home).toMatch(/httpMcpConnectionLike/);
     expect(execute).toMatch(/createCodemodeRuntime/);
     expect(execute).toMatch(/connectors\.push\(\.\.\.opts\.connectors\)/);
     expect(home).not.toMatch(/name:\s*"mcp"/);
@@ -137,7 +134,15 @@ describe("Computer Worker shell wiring", () => {
     expect(wrangler).not.toMatch(/"deleted_classes"/);
     expect(wrangler).not.toMatch(/"experimental"/);
     expect(readSrc("worker.ts")).toMatch(/RoomActor as BotActor/);
-    expect(readSrc("worker.ts")).toMatch(/probeBotMcp/);
+    expect(readSrc("worker.ts")).not.toMatch(/addBotMcp/);
+    expect(readSrc("worker.ts")).not.toMatch(/probeBotMcp/);
+    expect(readSrc("mcp.ts")).toMatch(/connectMcpHttp/);
+    expect(readSrc("mcp.ts")).not.toMatch(/getMcpHostBot/);
+    expect(readSrc("mcp-http.ts")).toMatch(/StreamableHTTPClientTransport/);
+    expect(readSrc("mcp-http.ts")).toMatch(/class PostgresMcpOAuthProvider/);
+    expect(readSrc("mcp-http.ts")).not.toMatch(/from ["']agents["']/);
+    expect(readSrc("mcp-http.ts")).not.toMatch(/DurableObjectOAuthClientProvider/);
+    expect(readSrc("bots.ts")).not.toMatch(/getMcpHostBot/);
   });
 
   it("does not depend on @cloudflare/shell", () => {

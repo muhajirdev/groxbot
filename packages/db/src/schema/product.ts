@@ -380,7 +380,7 @@ export const pluginConnections = pgTable(
   ],
 );
 
-/** Workspace remote MCP catalog. Encrypted OAuth lives on the row; hostBotId is callback routing. */
+/** Workspace remote MCP catalog. Encrypted OAuth lives on the row. */
 export const mcpConnections = pgTable(
   "mcp_connections",
   {

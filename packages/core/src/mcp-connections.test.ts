@@ -160,6 +160,13 @@ describe("mcp connections", () => {
         hostBotId: "bot-1",
         hasOauth: false,
       },
+      {
+        id: "mcp-3",
+        name: "orphan",
+        url: "",
+        hostBotId: "",
+        hasOauth: false,
+      },
     ]);
   });
 

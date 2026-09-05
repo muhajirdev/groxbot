@@ -4,6 +4,7 @@ import {
   McpOAuthKv,
   decryptMcpOAuthMap,
   encryptMcpOAuthMap,
+  mcpOAuthClientIdFromKeys,
   mcpOAuthServerIdFromKey,
   type McpOAuthStoreDb,
 } from "./mcp-oauth.js";
@@ -36,6 +37,18 @@ describe("mcp oauth postgres kv", () => {
       mcpOAuthServerIdFromKey(`/${MCP_OAUTH_CLIENT_NAME}/mcp-1/state/nonce`),
     ).toBe("mcp-1");
     expect(mcpOAuthServerIdFromKey("/other/mcp-1/token")).toBeUndefined();
+  });
+
+  it("reads the OAuth client id from token and client_info keys", () => {
+    expect(
+      mcpOAuthClientIdFromKeys(
+        [
+          "/groxbot-mcp/mcp-1/oauth-client/client_info/",
+          "/groxbot-mcp/mcp-1/state/nonce",
+        ],
+        "mcp-1",
+      ),
+    ).toBe("oauth-client");
   });
 
   it("round-trips an encrypted token map", () => {

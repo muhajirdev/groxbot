@@ -30,6 +30,25 @@ export function mcpOAuthServerIdFromKey(
   return slash === -1 ? rest : rest.slice(0, slash);
 }
 
+/** Agents stores client info under `/{clientName}/{serverId}/{clientId}/…`. */
+export function mcpOAuthClientIdFromKeys(
+  keys: readonly string[],
+  serverId: string,
+  clientName = MCP_OAUTH_CLIENT_NAME,
+): string | undefined {
+  const prefix = `/${clientName}/${serverId}/`;
+  for (const key of keys) {
+    if (!key.startsWith(prefix)) continue;
+    const rest = key.slice(prefix.length);
+    const cut = rest.indexOf("/");
+    if (cut <= 0) continue;
+    const clientId = rest.slice(0, cut);
+    const slot = rest.slice(cut + 1).replace(/\/+$/, "");
+    if (slot === "token" || slot === "client_info") return clientId;
+  }
+  return undefined;
+}
+
 export function encryptMcpOAuthMap(map: McpOAuthMap, secret: string): string {
   return encryptSecret(JSON.stringify(map), secret);
 }
@@ -72,7 +91,7 @@ export function postgresMcpOAuthDb(db: Database): McpOAuthStoreDb {
 }
 
 /**
- * DurableObjectStorage subset for `DurableObjectOAuthClientProvider`.
+ * KV-shaped store for MCP OAuth (PKCE, DCR client info, tokens).
  * One encrypted JSON map per `mcp_connections` row.
  */
 export class McpOAuthKv {

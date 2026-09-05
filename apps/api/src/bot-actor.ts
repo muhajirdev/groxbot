@@ -1,6 +1,5 @@
 /** Cloudflare-only. Excluded from `tsc`. Disk is Computer; office chat is Pi over Cap'n Web. */
 import { createAITools } from "@cloudflare/computer/tools";
-import type { McpConnectionLike } from "@cloudflare/codemode";
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import type { WorkersAiBinding } from "@groxbot/adapters/edge";
 import {
@@ -47,8 +46,6 @@ import {
   encryptionSecret,
   ensureComputerHome,
   formatRoutinePrompt,
-  isMcpOAuthCallbackPath,
-  getMcpConnectionById,
   isoUnixSeconds,
   jsonClone,
   lastOfficeHumanUserId,
@@ -56,15 +53,7 @@ import {
   lastPiAssistantText,
   listComputerEntries,
   loadOfficeSkillCatalog,
-  MCP_OAUTH_CLIENT_NAME,
-  MCP_OAUTH_SETTLE_MS,
-  mcpBindableForBot,
   mcpCatalogForExecute,
-  mcpCatalogStatusFromLive,
-  mcpConnectionIsExecutable,
-  mcpServerId,
-  McpOAuthKv,
-  postgresMcpOAuthDb,
   parseVisibility,
   newId,
   OFFICE_AWAY_CALLBACK,
@@ -106,7 +95,6 @@ import {
   readComputerFile,
   resolveRunModel,
   type StoredRoutine,
-  saveMcpConnection,
   searchOfficeHistory,
   shouldArmAwayOfficePing,
   shouldEnqueueOfficeReview,
@@ -123,9 +111,9 @@ import {
 } from "@groxbot/core";
 import { bots, mcpConnections, member, organization, user } from "@groxbot/db";
 import { createNeonHttpDb } from "@groxbot/db/neon";
-import { Agent, DurableObjectOAuthClientProvider } from "agents";
+import { Agent } from "agents";
 import { AgentContextProvider } from "agents/experimental/memory/session";
-import { and, eq, inArray, or } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { createBotComputer } from "./bot-computer-workspace.js";
 import {
@@ -136,7 +124,7 @@ import { HistoryConnector } from "./bot-history.js";
 import { KnowledgeConnector } from "./bot-knowledge.js";
 import { bindToMarkdown, createPageAgentTools } from "./bot-markdown.js";
 import { WorkspaceMcpConnector } from "./bot-mcp-connector.js";
-import { remoteMcpConnection } from "./bot-mcp.js";
+import { httpMcpConnectionLike } from "./mcp-http.js";
 import {
   type OfficeChatSubscriber,
   officeRpcResponse,
@@ -149,7 +137,6 @@ import { agentRuntimeSource, productEnv, type RuntimeSource } from "./env.js";
 import { r2KnowledgeDisk } from "./knowledge-r2.js";
 import type { SendEmailBinding } from "./mail.js";
 import { sendAwayOfficeMail } from "./mail.js";
-import { mcpCallbackPage } from "./mcp-callback-page.js";
 export interface WorkerEnv {
   DATABASE_URL: string;
   BETTER_AUTH_SECRET: string;
@@ -333,16 +320,14 @@ export class RoomHome extends Agent<WorkerEnv> {
   private workspaceMcp: Array<{
     id: string;
     name: string;
-    hostRoomId: string;
+    url: string;
   }> = [];
-  private oauthKv: McpOAuthKv | null = null;
 
   async onStart(): Promise<void> {
     const stored = await this.ctx.storage.get<string>("officeId");
     if (typeof stored === "string" && stored && !this.officeId) {
       this.officeId = stored;
     }
-    this.ensureMcpOAuthCallback();
     this.sql`DROP TABLE IF EXISTS groxbot_routines`;
     this.sql`CREATE TABLE IF NOT EXISTS office_chat (
       seq INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -354,57 +339,10 @@ export class RoomHome extends Agent<WorkerEnv> {
     console.log(`[bot ${this.name}] onStart`);
   }
 
-  /**
-   * OAuth tokens + PKCE sit in Postgres on the catalog row. Client name is
-   * stable so sharing this teammate does not namespace Gmail onto this DO.
-   */
-  createMcpOAuthProvider(callbackUrl: string) {
-    return new DurableObjectOAuthClientProvider(
-      this.mcpOAuthStorage(),
-      MCP_OAUTH_CLIENT_NAME,
-      callbackUrl,
-    );
-  }
-
-  private mcpOAuthStorage() {
-    if (!this.oauthKv) {
-      this.oauthKv = new McpOAuthKv({
-        workspaceId: () => this.officeId,
-        secret: () => {
-          const env = productEnv(this.env);
-          return encryptionSecret(agentRuntimeSource(env), env.production);
-        },
-        db: {
-          load: async (id) => {
-            const env = productEnv(this.env);
-            const { db } = createNeonHttpDb(env.databaseUrl);
-            return postgresMcpOAuthDb(db).load(id);
-          },
-          save: async (id, ciphertext) => {
-            const env = productEnv(this.env);
-            const { db } = createNeonHttpDb(env.databaseUrl);
-            await postgresMcpOAuthDb(db).save(id, ciphertext);
-          },
-        },
-      });
-    }
-    return this.oauthKv;
-  }
-
   private catalogMcpBot() {
     return this.personId
       ? { visibility: this.botVisibility, userId: this.ownerUserId }
       : { visibility: "shared" as const, userId: "" };
-  }
-
-  private async requireMcpBind(serverId: string): Promise<boolean> {
-    await this.ensureBotLoaded();
-    if (!this.officeId) return false;
-    const env = productEnv(this.env);
-    const { db } = createNeonHttpDb(env.databaseUrl);
-    const row = await getMcpConnectionById(db, serverId);
-    if (!row || row.workspaceId !== this.officeId) return false;
-    return mcpBindableForBot(row, this.catalogMcpBot());
   }
 
   private pageTinyfishPool(): TinyfishKeyPool {
@@ -522,21 +460,6 @@ export class RoomHome extends Agent<WorkerEnv> {
     }
     if (request.method === "POST" && url.pathname === "/workspace/write") {
       return this.handleWorkspaceWrite(request);
-    }
-    if (isMcpOAuthCallbackPath(url.pathname)) {
-      return this.handleMcpOAuth(request);
-    }
-    if (request.method === "POST" && url.pathname === "/mcp/tools") {
-      return this.handleMcpTools(request);
-    }
-    if (request.method === "POST" && url.pathname === "/mcp/call") {
-      return this.handleMcpCall(request);
-    }
-    if (request.method === "POST" && url.pathname === "/mcp/add") {
-      return this.handleMcpAdd(request);
-    }
-    if (request.method === "POST" && url.pathname === "/mcp/remove") {
-      return this.handleMcpRemove(request);
     }
     if (request.method === "POST" && url.pathname === "/routines/list") {
       return this.handleRoutinesList();
@@ -1420,17 +1343,6 @@ export class RoomHome extends Agent<WorkerEnv> {
     return Response.json({ ok: true });
   }
 
-  private ensureMcpOAuthCallback(): void {
-    this.mcp.configureOAuthCallback({
-      customHandler: async (result) => {
-        await this.markMcpOAuth(result);
-        return new Response(mcpCallbackPage(this.env.WEB_ORIGIN), {
-          headers: { "content-type": "text/html; charset=utf-8" },
-        });
-      },
-    });
-  }
-
   private officeKnowledge() {
     if (!this.env.KNOWLEDGE || !this.officeId) return null;
     return r2KnowledgeDisk(this.env.KNOWLEDGE);
@@ -1961,337 +1873,35 @@ export class RoomHome extends Agent<WorkerEnv> {
       })),
       this.catalogMcpBot(),
     );
-    const hostIds = [
-      ...new Set(catalog.map((row) => row.hostBotId).filter(Boolean)),
-    ];
-    const hosts =
-      hostIds.length === 0
-        ? []
-        : await db
-            .select({ id: bots.id, homeRoomId: bots.homeRoomId })
-            .from(bots)
-            .where(inArray(bots.id, hostIds));
-    const homeByBot = new Map(
-      hosts.map((row) => [row.id, row.homeRoomId || row.id]),
-    );
-    const callbackHost = (env.apiUrl ?? env.webOrigin).replace(/\/$/, "");
-    const next: Array<{ id: string; name: string; hostRoomId: string }> = [];
-    for (const row of catalog) {
-      const id = mcpServerId(row.id);
-      const hostRoomId =
-        homeByBot.get(row.hostBotId) ||
-        (row.hostBotId === this.personId || row.hostBotId === this.name
-          ? this.name
-          : undefined);
-      if (row.hasOauth && row.url && !this.mcp.mcpConnections[id]) {
-        try {
-          await this.addMcpServer(row.name, row.url, {
-            id,
-            callbackHost,
-            callbackPath: "api/mcp/oauth",
-          });
-        } catch (error) {
-          console.error("bot actor mcp hydrate", this.name, error);
-        }
-      }
-      const hostedHere =
-        Boolean(this.mcp.mcpConnections[id]) || hostRoomId === this.name;
-      if (hostedHere) {
-        next.push({ id: row.id, name: row.name, hostRoomId: this.name });
-      } else if (hostRoomId) {
-        next.push({ id: row.id, name: row.name, hostRoomId });
-      }
-    }
-    if (next.some((row) => row.hostRoomId === this.name)) {
-      try {
-        await this.mcp.waitForConnections({ timeout: MCP_OAUTH_SETTLE_MS });
-      } catch (error) {
-        console.error("bot actor mcp wait", this.name, error);
-      }
-      for (const row of next) {
-        if (row.hostRoomId !== this.name) continue;
-        const id = mcpServerId(row.id);
-        if (this.mcp.mcpConnections[id]) continue;
-        try {
-          await this.mcp.establishConnection(id);
-        } catch (error) {
-          console.error("bot actor mcp establish", this.name, error);
-        }
-      }
-    }
-    this.workspaceMcp = next;
+    this.workspaceMcp = catalog.map((row) => ({
+      id: row.id,
+      name: row.name,
+      url: row.url,
+    }));
   }
 
   private mcpExecuteConnectors(): WorkspaceMcpConnector[] {
+    if (!this.officeId) return [];
+    const env = productEnv(this.env);
+    const callbackHost = (env.apiUrl ?? env.webOrigin).replace(/\/$/, "");
     return this.workspaceMcp.flatMap((row) => {
-      const hostedHere = row.hostRoomId === this.name;
-      if (hostedHere) {
-        return [
-          new WorkspaceMcpConnector(
-            this.ctx,
-            this.env,
-            this.hostMcpConnectionLike(row.id, row.name),
-            row.name,
-          ),
-        ];
-      }
-      if (!this.officeId) return [];
+      if (!row.url) return [];
       return [
         new WorkspaceMcpConnector(
           this.ctx,
           this.env,
-          remoteMcpConnection(
-            this.env.ROOM_ACTOR,
-            row.hostRoomId,
-            this.officeId,
-            row.id,
-            row.name,
-          ),
+          httpMcpConnectionLike({
+            env,
+            workspaceId: this.officeId,
+            id: row.id,
+            name: row.name,
+            url: row.url,
+            callbackHost,
+          }),
           row.name,
         ),
       ];
     });
-  }
-
-  private hostMcpConnectionLike(
-    serverId: string,
-    name: string,
-  ): McpConnectionLike {
-    return {
-      name,
-      client: {
-        callTool: async (params) => {
-          const live = await this.hostMcpConnection(serverId);
-          if (!live) {
-            throw new Error(`MCP “${name}” is not connected.`);
-          }
-          return live.client.callTool(params);
-        },
-      },
-      fetchTools: async () => {
-        const live = await this.hostMcpConnection(serverId);
-        if (!live) return [];
-        return live.tools?.length ? live.tools : live.fetchTools();
-      },
-    };
-  }
-
-  /**
-   * Worker already routed this to the host actor. Redeem here instead of
-   * Agents `isCallbackRequest`, which 404s when stub.fetch rewrites the host.
-   */
-  private async handleMcpOAuth(request: Request): Promise<Response> {
-    this.ensureMcpOAuthCallback();
-    await this.ensureBotLoaded();
-    const result = await this.mcp.handleCallbackRequest(request);
-    if (result.authSuccess) {
-      this.mcp.establishConnection(result.serverId).catch((error) => {
-        console.error("bot actor mcp oauth connect", this.name, error);
-      });
-    }
-    this.broadcastMcpServers();
-    return this.handleOAuthCallbackResponse(result, request);
-  }
-
-  private async hostMcpConnection(serverId: string) {
-    await this.ensureBotLoaded();
-    try {
-      await this.mcp.waitForConnections({ timeout: MCP_OAUTH_SETTLE_MS });
-    } catch (error) {
-      console.error("bot actor mcp wait", this.name, error);
-    }
-    const id = mcpServerId(serverId);
-    const connection = this.mcp.mcpConnections[id];
-    if (!connection) return null;
-    if (!mcpConnectionIsExecutable(connection.connectionState)) {
-      try {
-        await this.mcp.establishConnection(id);
-      } catch (error) {
-        console.error("bot actor mcp establish", this.name, error);
-      }
-    }
-    return this.mcp.mcpConnections[id] ?? connection;
-  }
-
-  private async handleMcpTools(request: Request): Promise<Response> {
-    if (!(await this.requireDoorWorkspace(request))) {
-      return new Response("Forbidden", { status: 403 });
-    }
-    const body = (await request.json().catch(() => ({}))) as {
-      serverId?: unknown;
-    };
-    const serverId = typeof body.serverId === "string" ? body.serverId : "";
-    if (!(await this.requireMcpBind(serverId))) {
-      return new Response("Forbidden", { status: 403 });
-    }
-    const connection = await this.hostMcpConnection(serverId);
-    if (!connection) {
-      return Response.json({ error: "MCP is not connected." }, { status: 404 });
-    }
-    try {
-      const tools =
-        connection.tools?.length > 0
-          ? connection.tools
-          : await connection.fetchTools();
-      return Response.json({
-        tools,
-        instructions: connection.instructions ?? null,
-      });
-    } catch (error) {
-      console.error("bot actor mcp tools", this.name, error);
-      return Response.json(
-        {
-          error:
-            error instanceof Error ? error.message : "Could not list MCP tools.",
-        },
-        { status: 400 },
-      );
-    }
-  }
-
-  private async handleMcpCall(request: Request): Promise<Response> {
-    if (!(await this.requireDoorWorkspace(request))) {
-      return new Response("Forbidden", { status: 403 });
-    }
-    const body = (await request.json().catch(() => ({}))) as {
-      serverId?: unknown;
-      name?: unknown;
-      arguments?: unknown;
-    };
-    const serverId = typeof body.serverId === "string" ? body.serverId : "";
-    const name = typeof body.name === "string" ? body.name.trim() : "";
-    if (!(await this.requireMcpBind(serverId))) {
-      return new Response("Forbidden", { status: 403 });
-    }
-    const connection = await this.hostMcpConnection(serverId);
-    if (!connection || !name) {
-      return Response.json({ error: "MCP is not connected." }, { status: 404 });
-    }
-    try {
-      const result = await connection.client.callTool({
-        name,
-        arguments:
-          body.arguments &&
-          typeof body.arguments === "object" &&
-          !Array.isArray(body.arguments)
-            ? (body.arguments as Record<string, unknown>)
-            : {},
-      });
-      return Response.json(result);
-    } catch (error) {
-      console.error("bot actor mcp call", this.name, error);
-      return Response.json(
-        {
-          error:
-            error instanceof Error ? error.message : "MCP tool call failed.",
-        },
-        { status: 400 },
-      );
-    }
-  }
-
-  private async handleMcpAdd(request: Request): Promise<Response> {
-    this.ensureMcpOAuthCallback();
-    await this.ensureBotLoaded();
-    const body = (await request.json().catch(() => ({}))) as {
-      serverId?: unknown;
-      name?: unknown;
-      url?: unknown;
-      callbackHost?: unknown;
-    };
-    const serverId = typeof body.serverId === "string" ? body.serverId : "";
-    const name = typeof body.name === "string" ? body.name : "";
-    const url = typeof body.url === "string" ? body.url : "";
-    const callbackHost =
-      typeof body.callbackHost === "string" ? body.callbackHost : "";
-    if (!serverId || !name || !url || !callbackHost) {
-      return Response.json(
-        { error: "MCP server is missing fields." },
-        { status: 400 },
-      );
-    }
-    try {
-      const result = await this.addMcpServer(name, url, {
-        id: mcpServerId(serverId),
-        callbackHost,
-        callbackPath: "api/mcp/oauth",
-      });
-      return Response.json(result);
-    } catch (error) {
-      console.error("bot actor mcp add", this.name, error);
-      return Response.json(
-        {
-          error:
-            error instanceof Error ? error.message : "Could not connect MCP.",
-        },
-        { status: 400 },
-      );
-    }
-  }
-
-  private async handleMcpRemove(request: Request): Promise<Response> {
-    const body = (await request.json().catch(() => ({}))) as {
-      serverId?: unknown;
-    };
-    const serverId = typeof body.serverId === "string" ? body.serverId : "";
-    if (!serverId) {
-      return Response.json({ error: "MCP server missing." }, { status: 400 });
-    }
-    try {
-      await this.removeMcpServer(mcpServerId(serverId));
-      return Response.json({ ok: true });
-    } catch (error) {
-      console.error("bot actor mcp remove", this.name, error);
-      return Response.json(
-        {
-          error:
-            error instanceof Error ? error.message : "Could not remove MCP.",
-        },
-        { status: 400 },
-      );
-    }
-  }
-
-  private async markMcpOAuth(result: {
-    serverId?: string;
-    authSuccess: boolean;
-    authError?: string;
-  }): Promise<void> {
-    if (!result.serverId) return;
-    if (result.authSuccess) {
-      try {
-        await this.mcp.waitForConnections({ timeout: MCP_OAUTH_SETTLE_MS });
-        const state = (
-          this.mcp.mcpConnections[result.serverId] as
-            | { connectionState?: string }
-            | undefined
-        )?.connectionState;
-        if (!mcpConnectionIsExecutable(state)) {
-          await this.mcp.establishConnection(result.serverId);
-        }
-      } catch (error) {
-        console.error("bot actor mcp wait", this.name, error);
-      }
-    }
-    const live = this.mcp.mcpConnections[result.serverId] as
-      | { connectionState?: string; connectionError?: string | null }
-      | undefined;
-    const catalog = mcpCatalogStatusFromLive(
-      live?.connectionState,
-      result.authSuccess,
-    );
-    try {
-      const env = productEnv(this.env);
-      const { db } = createNeonHttpDb(env.databaseUrl);
-      await saveMcpConnection(db, result.serverId, {
-        status: catalog.status,
-        lastError: result.authSuccess
-          ? (catalog.lastError ?? live?.connectionError ?? null)
-          : result.authError || "Authentication failed",
-      });
-    } catch (error) {
-      console.error("bot actor mcp oauth", this.name, error);
-    }
   }
 
   private async handleWakeup(request: Request): Promise<Response> {

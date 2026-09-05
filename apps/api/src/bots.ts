@@ -29,7 +29,7 @@ import {
   threads,
 } from "@groxbot/db";
 import { ORPCError } from "@orpc/server";
-import { and, asc, desc, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
 import type { RpcContext } from "./context.js";
 import { agentRuntimeSource } from "./env.js";
 import type { Actor } from "./session.js";
@@ -66,45 +66,6 @@ export async function getBotThread(
   const thread = await getHomeThread(context.db, bot);
   if (!thread) throw new ORPCError("NOT_FOUND", { message: "Thread missing" });
   return { bot: await withOwnRoom(context, actor, bot), thread };
-}
-
-/** OAuth ceremony runs on a home actor. Tokens live in Postgres, not on that DO. */
-export async function getMcpHostBot(
-  context: RpcContext,
-  actor: Actor,
-  botId?: string,
-) {
-  if (botId) {
-    const { bot } = await getBotThread(context, actor, botId);
-    if (!bot.archivedAt) return bot;
-  }
-  const [shared] = await context.db
-    .select()
-    .from(bots)
-    .where(
-      and(
-        eq(bots.workspaceId, actor.workspaceId),
-        eq(bots.visibility, "shared"),
-        isNull(bots.archivedAt),
-      ),
-    )
-    .orderBy(asc(bots.createdAt))
-    .limit(1);
-  if (shared) return withOwnRoom(context, actor, shared);
-  const [row] = await context.db
-    .select()
-    .from(bots)
-    .where(
-      and(eq(bots.workspaceId, actor.workspaceId), isNull(bots.archivedAt)),
-    )
-    .orderBy(asc(bots.createdAt))
-    .limit(1);
-  if (!row) {
-    throw new ORPCError("PRECONDITION_FAILED", {
-      message: "Hire a teammate before connecting MCP.",
-    });
-  }
-  return withOwnRoom(context, actor, row);
 }
 
 function assertBotActive(bot: { archivedAt: Date | null }) {
