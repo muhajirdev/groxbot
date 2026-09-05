@@ -4,7 +4,8 @@
   "license": "MIT",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./svg": "./src/svg.ts"
   },
   "scripts": {
     "check": "tsc --noEmit -p tsconfig.json",

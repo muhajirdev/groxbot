@@ -101,6 +101,11 @@ export const PRESS_ASSETS = [
     label: "Lockup on light",
     note: "Same lockup for light backgrounds.",
   },
+  {
+    file: "groxbot-og.svg",
+    label: "Open Graph card",
+    note: "1200×630 share image. PNG at /og.png for crawlers that reject SVG.",
+  },
 ] as const;
 
 export function pressFacts(origins: DiscoveryOrigins): Array<{
@@ -195,9 +200,16 @@ ${PRESS_COLORS.map((color) => `- ${color.name}: ${color.hex} — ${color.note}`)
 
 ## Logos
 
-SVG only. Do not add drop shadows, recolor the mascot away from ${PRESS_COLORS[0]?.hex}, replace the two slits, or draw a photoreal head.
+SVG for print and slides. PNG share card for crawlers (Facebook, LinkedIn, Slack, iMessage reject SVG). Do not add drop shadows, recolor the mascot away from ${PRESS_COLORS[0]?.hex}, replace the two slits, or draw a photoreal head.
 
 ${assets}
+
+- [Open Graph PNG](${abs(web, "/og.png")}): 1200×630. Use this as og:image.
+- [Open Graph SVG](${abs(web, "/og.svg")}): Vector of the same card.
+- [Favicon ICO](${abs(web, "/favicon.ico")}): 16/32/48 tab icon. Browsers request this by default.
+- [Favicon SVG](${abs(web, "/favicon.svg")}): Vector mark for modern browsers.
+- [Icon PNG](${abs(web, "/icon.png")}): 512×512 tile for JSON-LD and manifests.
+- [Apple touch icon](${abs(web, "/apple-touch-icon.png")}): 180×180 home-screen tile.
 
 ## Contact
 

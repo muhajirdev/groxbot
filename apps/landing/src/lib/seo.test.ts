@@ -19,7 +19,12 @@ import {
   relatedIntegrations,
   searchIntegrations,
 } from "./integrations";
-import { canonicalUrl, DEFAULT_DESCRIPTION, DEFAULT_TITLE } from "./site";
+import {
+  canonicalUrl,
+  DEFAULT_DESCRIPTION,
+  DEFAULT_TITLE,
+  seoHead,
+} from "./site";
 import { sitemapEntries, sitemapXml } from "./sitemap";
 import { slugify } from "./slug";
 
@@ -155,6 +160,8 @@ describe("sitemap", () => {
     );
     expect(xml).toContain(canonicalUrl("/compare/grok-bot-vs-hermes"));
     expect(xml).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+    expect(xml).toContain("xmlns:image=");
+    expect(xml).toContain(canonicalUrl("/og.png"));
   });
 });
 
@@ -163,9 +170,7 @@ describe("compare pages", () => {
     const { COMPARE_PAGES, FEATURE_ROWS, getComparePage } = await import(
       "../data/compare"
     );
-    const page = getComparePage(
-      "grok-bot-vs-hermes-vs-openclaw-vs-paperclip",
-    );
+    const page = getComparePage("grok-bot-vs-hermes-vs-openclaw-vs-paperclip");
     expect(page).toBeDefined();
     expect(COMPARE_PAGES).toHaveLength(7);
     expect(COMPARE_PAGES.map((item) => item.slug)).toEqual(
@@ -199,9 +204,9 @@ describe("compare pages", () => {
         "Self-improving organization",
       ]),
     );
-    expect(FEATURE_ROWS.find((row) => row.label === "Multiplayer")?.values.groxbot).toBe(
-      true,
-    );
+    expect(
+      FEATURE_ROWS.find((row) => row.label === "Multiplayer")?.values.groxbot,
+    ).toBe(true);
     expect(
       FEATURE_ROWS.find((row) => row.label === "Shared knowledge base")?.values
         .hermes,
@@ -234,6 +239,7 @@ describe("llms discovery", () => {
     expect(txt).toContain("/use-cases/");
     expect(txt).toContain("/compare/");
     expect(txt).toContain("/press");
+    expect(txt).toContain("/og.png");
   });
 
   it("leads public copy with AI is better together", () => {
@@ -278,6 +284,60 @@ describe("llms discovery", () => {
     ]);
     expect(THESES[3]?.why).toMatch(/anytime, anywhere/);
     expect(THESES[3]?.why).toMatch(/good decisions and good ideas/);
+  });
+});
+
+describe("open graph", () => {
+  it("emits a 1200x630 PNG share card on every public page", () => {
+    const head = seoHead({
+      title: DEFAULT_TITLE,
+      description: DEFAULT_DESCRIPTION,
+      path: "/",
+    });
+    const image = head.meta.find((item) => item.property === "og:image");
+    expect(image?.content).toBe(canonicalUrl("/og.png"));
+    expect(
+      head.meta.find((item) => item.property === "og:image:width")?.content,
+    ).toBe("1200");
+    expect(
+      head.meta.find((item) => item.property === "og:image:height")?.content,
+    ).toBe("630");
+    expect(
+      head.meta.find((item) => item.name === "twitter:card")?.content,
+    ).toBe("summary_large_image");
+    expect(
+      head.meta.find((item) => item.name === "twitter:image")?.content,
+    ).toBe(canonicalUrl("/og.png"));
+    expect(head.links.some((item) => item.rel === "icon")).toBe(true);
+    expect(
+      head.links.some(
+        (item) => item.rel === "icon" && item.href === "/favicon.ico",
+      ),
+    ).toBe(true);
+    expect(
+      head.links.some(
+        (item) => item.rel === "icon" && item.href === "/favicon.svg",
+      ),
+    ).toBe(true);
+    expect(head.links.some((item) => item.rel === "apple-touch-icon")).toBe(
+      true,
+    );
+  });
+
+  it("keeps shared notes out of the index", () => {
+    const head = seoHead({
+      title: "Notes",
+      description: "A shared office note.",
+      path: "/s/abc",
+      robots: "noindex, nofollow",
+    });
+    expect(head.meta.find((item) => item.name === "robots")?.content).toBe(
+      "noindex, nofollow",
+    );
+    expect(head.links.some((item) => item.rel === "describedby")).toBe(false);
+    expect(
+      head.meta.find((item) => item.property === "og:image")?.content,
+    ).toBe(canonicalUrl("/og.png"));
   });
 });
 

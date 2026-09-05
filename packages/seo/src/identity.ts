@@ -12,13 +12,24 @@ export const GROXBOT_NAME = "Groxbot";
 export const GROXBOT_VERSION = "0.0.1";
 export const GROXBOT_LANGUAGE = "en-US";
 export const GROXBOT_LICENSE = "Groxbot License (Apache 2.0 plus conditions)";
-export const GROXBOT_UPDATED = "2026-08-17";
+export const GROXBOT_UPDATED = "2026-09-05";
 export const GROXBOT_GITHUB = "https://github.com/muhajirdev/groxbot";
 export const GROXBOT_EMAIL = "hello@groxbot.com";
 export const GROXBOT_APP = CLOUD_WEB_ORIGIN;
 export const GROXBOT_TAGLINE = "AI is better together";
 export const GROXBOT_SUMMARY =
   "AI is better together. Like Grok Bot, for the team: named AI teammates with a real computer. If OpenClaw is for personal use, Groxbot is the office. Self-hostable, fair-code. Gmail, Slack, GitHub, and 1,000+ tools — plus a computer for the rest. Bring your own model keys. Self-host for your organization is free; hosted Groxbot for others is groxbot.com.";
+export const GROXBOT_OG_PATH = "/og.png";
+export const GROXBOT_OG_SVG_PATH = "/og.svg";
+export const GROXBOT_OG_WIDTH = 1200;
+export const GROXBOT_OG_HEIGHT = 630;
+export const GROXBOT_OG_TYPE = "image/png";
+export const GROXBOT_OG_ALT = `${GROXBOT_NAME} — ${GROXBOT_TAGLINE}`;
+export const GROXBOT_ICON_PATH = "/icon.png";
+export const GROXBOT_FAVICON_PATH = "/favicon.svg";
+export const GROXBOT_FAVICON_ICO_PATH = "/favicon.ico";
+export const GROXBOT_APPLE_TOUCH_ICON_PATH = "/apple-touch-icon.png";
+export const GROXBOT_THEME_COLOR = "#000000";
 
 export interface DiscoveryOrigins {
   web: string;

@@ -1,16 +1,27 @@
 import {
   type DiscoveryOrigins,
   GROXBOT_ALTERNATE_NAMES,
+  GROXBOT_APPLE_TOUCH_ICON_PATH,
   GROXBOT_EMAIL,
+  GROXBOT_FAVICON_ICO_PATH,
+  GROXBOT_FAVICON_PATH,
   GROXBOT_GITHUB,
+  GROXBOT_ICON_PATH,
   GROXBOT_LANGUAGE,
   GROXBOT_LICENSE,
   GROXBOT_NAME,
   GROXBOT_NOT_SERVICES,
+  GROXBOT_OG_ALT,
+  GROXBOT_OG_HEIGHT,
+  GROXBOT_OG_PATH,
+  GROXBOT_OG_SVG_PATH,
+  GROXBOT_OG_TYPE,
+  GROXBOT_OG_WIDTH,
   GROXBOT_SERVICES,
   GROXBOT_STACK,
   GROXBOT_SUMMARY,
   GROXBOT_TAGLINE,
+  GROXBOT_THEME_COLOR,
   GROXBOT_UPDATED,
   GROXBOT_VERSION,
   officeOrigin,
@@ -48,6 +59,7 @@ Product API is oRPC. One wakeup queue per bot. Each bot has a computer (@cloudfl
 - [Use cases](${abs(web, "/use-cases")}): Job-shaped first messages
 - [Compare](${abs(web, "/compare")}): Groxbot vs Hermes vs OpenClaw vs Paperclip — and each pairwise vs
 - [Press kit](${abs(web, "/press")}): Logos, naming, and boilerplate
+- [Open Graph image](${abs(web, GROXBOT_OG_PATH)}): ${GROXBOT_OG_WIDTH}×${GROXBOT_OG_HEIGHT} share card
 - [Get started](${office}/login): Sign in to the office
 - [MCP](${abs(web, "/mcp")}): Public MCP discovery and Streamable HTTP
 - [Architecture](${GROXBOT_GITHUB}/blob/main/ARCHITECTURE.md): Locked stack and actor model
@@ -82,6 +94,8 @@ ${list(GROXBOT_NOT_SERVICES)}
 - [oRPC health](${abs(origins.api, "/health")}): API probe
 - [oRPC](${abs(origins.api, "/rpc")}): Product API for signed-in clients
 - [MCP server card](${abs(web, "/.well-known/mcp.json")}): Agent connection metadata
+- [Share card](${abs(web, GROXBOT_OG_PATH)}): ${GROXBOT_OG_ALT}
+- [Mark](${abs(web, GROXBOT_ICON_PATH)}): Square icon for crawlers and JSON-LD
 
 ## Contact
 
@@ -221,6 +235,8 @@ Preferred: Groxbot contributors. (2026). Groxbot. ${origins.web}
 
 Human page and SVG logos: ${abs(origins.web, "/press")}
 Markdown: ${abs(origins.web, "/press.md")}
+Share card (PNG): ${abs(origins.web, GROXBOT_OG_PATH)}
+Share card (SVG): ${abs(origins.web, GROXBOT_OG_SVG_PATH)}
 
 ## Contact
 
@@ -403,6 +419,8 @@ Use 127.0.0.1, not localhost, for OAuth callbacks. Neon DATABASE_URL is required
 ## Public HTTP
 
 - GET ${abs(web, "/llms.txt")} — AI-readable identity
+- GET ${abs(web, GROXBOT_OG_PATH)} — Open Graph share card (${GROXBOT_OG_WIDTH}×${GROXBOT_OG_HEIGHT} PNG)
+- GET ${abs(web, GROXBOT_OG_SVG_PATH)} — Vector share card
 - GET ${abs(web, "/mcp")} — MCP discovery (HTML) and Streamable HTTP
 - GET ${abs(web, "/.well-known/mcp.json")} — MCP server card
 - GET ${abs(api, "/health")} — API probe
@@ -453,6 +471,10 @@ Allow: /developer-ai.txt
 Allow: /robots-ai.txt
 Allow: /mcp
 Allow: /mcp.json
+Allow: /og.png
+Allow: /og.svg
+Allow: /favicon.ico
+Allow: /favicon.svg
 Allow: /.well-known/
 Disallow: /onboarding
 Disallow: /api/
@@ -518,6 +540,8 @@ Discovery: ${abs(web, "/faq-ai.txt")}
 Discovery: ${abs(web, "/developer-ai.txt")}
 Discovery: ${abs(web, "/mcp")}
 Discovery: ${abs(web, "/.well-known/mcp.json")}
+Discovery: ${abs(web, GROXBOT_OG_PATH)}
+Discovery: ${abs(web, GROXBOT_ICON_PATH)}
 
 User-agent: GPTBot
 Allow: /
@@ -581,6 +605,8 @@ export function identityJson(
     legalName: GROXBOT_NAME,
     alternateName: [...GROXBOT_ALTERNATE_NAMES],
     url: `${web}/`,
+    logo: abs(web, GROXBOT_ICON_PATH),
+    image: abs(web, GROXBOT_OG_PATH),
     type: "SoftwareApplication",
     description: GROXBOT_SUMMARY,
     foundingDate: "2026-08-01",
@@ -826,6 +852,13 @@ export function jsonLd(origins: DiscoveryOrigins): Record<string, unknown> {
         alternateName: [...GROXBOT_ALTERNATE_NAMES],
         url: `${web}/`,
         sameAs: [GROXBOT_GITHUB],
+        logo: {
+          "@type": "ImageObject",
+          url: abs(web, GROXBOT_ICON_PATH),
+          width: 512,
+          height: 512,
+        },
+        image: abs(web, GROXBOT_OG_PATH),
       },
       {
         "@type": "SoftwareApplication",
@@ -837,6 +870,8 @@ export function jsonLd(origins: DiscoveryOrigins): Record<string, unknown> {
         url: `${web}/`,
         description: GROXBOT_SUMMARY,
         codeRepository: GROXBOT_GITHUB,
+        image: abs(web, GROXBOT_OG_PATH),
+        screenshot: abs(web, GROXBOT_OG_PATH),
         publisher: { "@id": `${web}/#org` },
       },
       {
@@ -860,22 +895,42 @@ export function htmlPage(options: {
 }): string {
   const { origins, title, description, canonicalPath, body } = options;
   const canonical = abs(origins.web, canonicalPath);
+  const image = abs(origins.web, GROXBOT_OG_PATH);
   const ld = JSON.stringify(jsonLd(origins));
   return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="${GROXBOT_THEME_COLOR}" />
+    <meta name="color-scheme" content="dark light" />
     <title>${escapeHtml(title)}</title>
     <meta name="description" content="${escapeHtml(description)}" />
     <link rel="canonical" href="${escapeHtml(canonical)}" />
+    <link rel="icon" href="${abs(origins.web, GROXBOT_FAVICON_ICO_PATH)}" type="image/x-icon" sizes="16x16 32x32 48x48" />
+    <link rel="icon" href="${abs(origins.web, GROXBOT_FAVICON_PATH)}" type="image/svg+xml" />
+    <link rel="icon" href="${abs(origins.web, GROXBOT_ICON_PATH)}" type="image/png" sizes="512x512" />
+    <link rel="apple-touch-icon" href="${abs(origins.web, GROXBOT_APPLE_TOUCH_ICON_PATH)}" sizes="180x180" />
     <link rel="describedby" href="${abs(origins.web, "/llms.txt")}" type="text/plain" />
     <link rel="alternate" href="${abs(origins.web, "/index.md")}" type="text/markdown" />
+    <link rel="image_src" href="${escapeHtml(image)}" />
     <meta property="og:title" content="${escapeHtml(title)}" />
     <meta property="og:description" content="${escapeHtml(description)}" />
     <meta property="og:url" content="${escapeHtml(canonical)}" />
     <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary" />
+    <meta property="og:site_name" content="${GROXBOT_NAME}" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content="${escapeHtml(image)}" />
+    <meta property="og:image:secure_url" content="${escapeHtml(image)}" />
+    <meta property="og:image:type" content="${GROXBOT_OG_TYPE}" />
+    <meta property="og:image:width" content="${GROXBOT_OG_WIDTH}" />
+    <meta property="og:image:height" content="${GROXBOT_OG_HEIGHT}" />
+    <meta property="og:image:alt" content="${escapeHtml(GROXBOT_OG_ALT)}" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${escapeHtml(title)}" />
+    <meta name="twitter:description" content="${escapeHtml(description)}" />
+    <meta name="twitter:image" content="${escapeHtml(image)}" />
+    <meta name="twitter:image:alt" content="${escapeHtml(GROXBOT_OG_ALT)}" />
     <script type="application/ld+json">${ld}</script>
     <style>
       :root { color-scheme: light; background: #f4f1ea; color: #171614; font-family: "Iowan Old Style", Palatino, serif; }
