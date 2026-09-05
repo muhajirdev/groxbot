@@ -46,7 +46,7 @@ Product API is oRPC. One wakeup queue per bot. Each bot has a computer (@cloudfl
 - [Markdown homepage](${abs(web, "/index.md")}): LLM-readable welcome copy
 - [Integrations](${abs(web, "/integrations")}): Gmail, Slack, GitHub, and 1,000+ tools — plus a computer for indie products
 - [Use cases](${abs(web, "/use-cases")}): Job-shaped first messages
-- [Compare](${abs(web, "/compare")}): Groxbot vs Hermes vs OpenClaw vs Paperclip
+- [Compare](${abs(web, "/compare")}): Groxbot vs Hermes vs OpenClaw vs Paperclip — and each pairwise vs
 - [Press kit](${abs(web, "/press")}): Logos, naming, and boilerplate
 - [Get started](${office}/login): Sign in to the office
 - [MCP](${abs(web, "/mcp")}): Public MCP discovery and Streamable HTTP
@@ -748,6 +748,12 @@ export const SITEMAP_PATHS = [
   "/use-cases",
   "/compare",
   "/compare/grok-bot-vs-hermes-vs-openclaw-vs-paperclip",
+  "/compare/grok-bot-vs-hermes",
+  "/compare/grok-bot-vs-openclaw",
+  "/compare/grok-bot-vs-paperclip",
+  "/compare/hermes-vs-openclaw",
+  "/compare/hermes-vs-paperclip",
+  "/compare/openclaw-vs-paperclip",
   "/press",
   "/press.md",
   "/llms.txt",

@@ -1,7 +1,11 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { FaqList } from "../../components/ContentBits";
 import { Breadcrumbs, SiteChrome } from "../../components/SiteChrome";
-import { getComparePage } from "../../data/compare";
+import {
+  type CompareCell,
+  getComparePage,
+  relatedComparePages,
+} from "../../data/compare";
 import { appLoginUrl } from "../../lib/app-url";
 import { compareJsonLd } from "../../lib/json-ld";
 import { seoHead } from "../../lib/site";
@@ -10,7 +14,11 @@ export const Route = createFileRoute("/compare/$slug")({
   loader: ({ params }) => {
     const page = getComparePage(params.slug);
     if (!page) throw notFound();
-    return { startUrl: appLoginUrl(), page };
+    return {
+      startUrl: appLoginUrl(),
+      page,
+      related: relatedComparePages(page.slug),
+    };
   },
   head: ({ loaderData }) => {
     if (!loaderData?.page) return {};
@@ -25,11 +33,35 @@ export const Route = createFileRoute("/compare/$slug")({
   component: CompareSlugPage,
 });
 
+function CellValue(props: { value: CompareCell }) {
+  if (typeof props.value === "boolean") {
+    return props.value ? (
+      <span className="compare-yes" title="Yes" aria-label="Yes">
+        <span aria-hidden="true">✓</span>
+      </span>
+    ) : (
+      <span className="compare-no" title="No" aria-label="No">
+        <span aria-hidden="true">✕</span>
+      </span>
+    );
+  }
+  return <span className="compare-text">{props.value}</span>;
+}
+
 function CompareSlugPage() {
-  const { startUrl, page } = Route.useLoaderData();
+  const { startUrl, page, related } = Route.useLoaderData();
   const byId = Object.fromEntries(
     page.products.map((product) => [product.id, product]),
-  ) as Record<(typeof page.products)[number]["id"], (typeof page.products)[number]>;
+  ) as Record<
+    (typeof page.products)[number]["id"],
+    (typeof page.products)[number]
+  >;
+  const versusClass =
+    page.products.length === 2
+      ? "versus versus-2"
+      : page.products.length === 4
+        ? "versus versus-4"
+        : "versus";
 
   return (
     <SiteChrome startUrl={startUrl}>
@@ -58,7 +90,7 @@ function CompareSlugPage() {
         </section>
 
         <section
-          className="versus versus-4 !mt-0 !mb-10"
+          className={`${versusClass} !mt-0 !mb-10`}
           aria-label="Product snapshots"
         >
           {page.products.map((product) => (
@@ -78,10 +110,10 @@ function CompareSlugPage() {
         </section>
 
         <section className="py-2 pb-12" aria-labelledby="matrix-heading">
-          <h2 id="matrix-heading">Side by side</h2>
+          <h2 id="matrix-heading">Feature table</h2>
           <p className="lede tight !mb-5">
-            Same questions people ask in agent threads — answered without mixing
-            layers.
+            Multiplayer and a shared knowledge base are where the office wins.
+            Green checks and crosses — no fog.
           </p>
           <div className="compare-scroll">
             <table className="compare-table">
@@ -102,13 +134,18 @@ function CompareSlugPage() {
               <tbody>
                 {page.rows.map((row) => (
                   <tr key={row.label}>
-                    <th scope="row">{row.label}</th>
+                    <th scope="row">
+                      {row.label}
+                      {row.hint ? (
+                        <span className="compare-hint">{row.hint}</span>
+                      ) : null}
+                    </th>
                     {page.products.map((product) => (
                       <td
                         key={product.id}
                         className={product.ours ? "ours" : undefined}
                       >
-                        {row.values[product.id]}
+                        <CellValue value={row.values[product.id] ?? false} />
                       </td>
                     ))}
                   </tr>
@@ -141,13 +178,39 @@ function CompareSlugPage() {
           </ol>
         </section>
 
+        {related.length ? (
+          <section className="py-2 pb-12" aria-labelledby="more-heading">
+            <h2 id="more-heading">More comparisons</h2>
+            <p className="lede tight !mb-5">
+              Every pairwise vs, plus the full four-way.
+            </p>
+            <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
+              {related.map((other) => (
+                <article key={other.slug} className="card flex flex-col">
+                  <p className="kicker">Compare</p>
+                  <h3 className="!mb-2 !text-lg">
+                    <Link
+                      className="no-underline hover:underline"
+                      to="/compare/$slug"
+                      params={{ slug: other.slug }}
+                    >
+                      {other.title}
+                    </Link>
+                  </h3>
+                  <p>{other.lede}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         <section id="faq" className="faq-band !py-6 !pb-4">
           <h2>FAQ</h2>
           <FaqList items={page.faqs} />
         </section>
 
         <section className="cta">
-          <p className="kicker">The office, not another laptop agent</p>
+          <p className="kicker">Multiplayer + shared knowledge</p>
           <h2>Hire the first teammate.</h2>
           <p className="lede tight">
             Name, optional job, how it should work. Open the thread. The first
