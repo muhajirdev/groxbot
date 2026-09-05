@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -6,7 +6,11 @@ import { INDIE_INTEGRATIONS } from "../data/indie-integrations";
 import { USE_CASES } from "../data/use-cases";
 import { categoryFamily } from "./category-copy";
 import { FOOTER_BLURB, HERO_PITCH, TAGLINE, THESES } from "./copy";
-import { DISCOVERY_SITEMAP_PATHS, landingLlmsTxt } from "./discovery";
+import {
+  DISCOVERY_SITEMAP_PATHS,
+  discoveryResponse,
+  landingLlmsTxt,
+} from "./discovery";
 import {
   computerIntegrations,
   getIntegration,
@@ -274,5 +278,25 @@ describe("llms discovery", () => {
     ]);
     expect(THESES[3]?.why).toMatch(/anytime, anywhere/);
     expect(THESES[3]?.why).toMatch(/good decisions and good ideas/);
+  });
+});
+
+describe("MCP well-known discovery", () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+
+  it("serves the server card for /.well-known/mcp.json", async () => {
+    const res = discoveryResponse("/.well-known/mcp.json");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("application/json");
+    expect(await res.text()).toContain("streamable-http");
+  });
+
+  it("registers well-known MCP routes in the generated route tree", () => {
+    const tree = readFileSync(join(here, "../routeTree.gen.ts"), "utf8");
+    expect(tree).toContain("/.well-known/mcp.json");
+    expect(tree).toContain("/.well-known/mcp'");
+    expect(tree).toContain("/.well-known/mcp/server-card.json");
+    expect(tree).toContain("/.well-known/api-catalog");
+    expect(tree).not.toContain("routes/.well-known/");
   });
 });
