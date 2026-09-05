@@ -1,9 +1,9 @@
 import { CLOUD_LANDING_ORIGIN } from "@groxbot/contracts";
-import { GROXBOT_TAGLINE } from "@groxbot/seo";
+import { GROXBOT_WHAT } from "@groxbot/seo";
 
 export const SITE_NAME = "Groxbot";
-export const DEFAULT_TITLE = `${SITE_NAME} — ${GROXBOT_TAGLINE}`;
-export const DEFAULT_DESCRIPTION = `${GROXBOT_TAGLINE}. Like Grok Bot, for the team. Named teammates, each with a computer, open source. Self-host for your team.`;
+export const DEFAULT_TITLE = `${SITE_NAME} — named AI teammates with a computer`;
+export const DEFAULT_DESCRIPTION = `${GROXBOT_WHAT} Self-host, or use groxbot.com.`;
 
 const LOCAL_LANDING_ORIGIN = "http://127.0.0.1:5174";
 

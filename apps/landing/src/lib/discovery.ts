@@ -1,6 +1,6 @@
 import {
   cloudOrigins,
-  GROXBOT_TAGLINE,
+  GROXBOT_WHAT,
   htmlPage,
   llmsTxt,
   lookupDiscovery,
@@ -96,7 +96,7 @@ export function landingLlmsHtml(): string {
   return htmlPage({
     origins: LANDING_ORIGINS,
     title: "Groxbot for language models",
-    description: `${GROXBOT_TAGLINE}. Like Grok Bot, for the team. Named teammates with a real computer. If OpenClaw is for personal use, Groxbot is the office.`,
+    description: `${GROXBOT_WHAT} Self-hostable. No workflow builder.`,
     canonicalPath: "/llms.html",
     body: `<h1>Groxbot</h1>
 <pre>${escapeHtml(landingLlmsTxt())}</pre>`,

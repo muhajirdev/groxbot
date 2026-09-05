@@ -12,13 +12,16 @@ export const GROXBOT_NAME = "Groxbot";
 export const GROXBOT_VERSION = "0.0.1";
 export const GROXBOT_LANGUAGE = "en-US";
 export const GROXBOT_LICENSE = "Groxbot License (Apache 2.0 plus conditions)";
-export const GROXBOT_UPDATED = "2026-08-17";
+export const GROXBOT_UPDATED = "2026-09-05";
 export const GROXBOT_GITHUB = "https://github.com/muhajirdev/groxbot";
 export const GROXBOT_EMAIL = "hello@groxbot.com";
 export const GROXBOT_APP = CLOUD_WEB_ORIGIN;
+/** Brand kicker. Do not lead public copy with this. */
 export const GROXBOT_TAGLINE = "AI is better together";
-export const GROXBOT_SUMMARY =
-  "AI is better together. Like Grok Bot, for the team: named AI teammates with a real computer. If OpenClaw is for personal use, Groxbot is the office. Self-hostable, fair-code. Gmail, Slack, GitHub, and 1,000+ tools — plus a computer for the rest. Bring your own model keys. Self-host for your organization is free; hosted Groxbot for others is groxbot.com.";
+/** One-sentence what. Lead homepage, meta, press, and discovery with this. */
+export const GROXBOT_WHAT =
+  "Named AI teammates you message like people. Each has a real computer. The whole team sits in one office.";
+export const GROXBOT_SUMMARY = `${GROXBOT_WHAT} Self-host for your organization is free, or use groxbot.com. No workflow builder. Gmail, Slack, GitHub, and 1,000+ tools. Bring your own model keys. Hosted Groxbot for others is groxbot.com.`;
 
 export interface DiscoveryOrigins {
   web: string;

@@ -1,4 +1,4 @@
-import { GROXBOT_EMAIL, GROXBOT_TAGLINE } from "@groxbot/seo";
+import { GROXBOT_EMAIL, GROXBOT_TAGLINE, GROXBOT_WHAT } from "@groxbot/seo";
 
 export const CONTACT_EMAIL = GROXBOT_EMAIL;
 export const CONTACT_MAILTO = `mailto:${CONTACT_EMAIL}`;
@@ -139,8 +139,12 @@ export const COMPARE = [
 
 export const FAQS = [
   {
+    q: "What is Groxbot?",
+    a: `${GROXBOT_WHAT} Self-host it, or use groxbot.com. No workflow builder.`,
+  },
+  {
     q: "How is this different from Grok Bot?",
-    a: `Same motion: create a Bot, message it, grant access as needed. Groxbot is for the team — ${GROXBOT_TAGLINE}. Named teammates, each with a computer, live docs from chat — and you can run the source yourself.`,
+    a: `Same motion: create a Bot, message it, grant access as needed. Groxbot is for the team. Named teammates, each with a computer, live docs from chat — and you can run the source yourself.`,
   },
   {
     q: "How is this different from OpenClaw?",
@@ -199,14 +203,15 @@ export const FAQS = [
 export const SOURCE_REPO = "https://github.com/muhajirdev/groxbot";
 export const MAC_DOWNLOAD_URL = `${SOURCE_REPO}/releases`;
 export const TAGLINE = GROXBOT_TAGLINE;
-export const FOOTER_BLURB = `${GROXBOT_TAGLINE}. For the whole team. Fair-code.`;
+export const WHAT = GROXBOT_WHAT;
+export const FOOTER_BLURB = `${GROXBOT_WHAT} Fair-code.`;
 
 export const THESES = [
   {
     id: "together",
     kicker: "Together",
     title: "AI is better together.",
-    lede: "OpenClaw or Hermes: one person, one laptop. Groxbot: named teammates, one office.",
+    lede: "A personal agent lives on one laptop. Groxbot is the office the company shares.",
   },
   {
     id: "adopt",

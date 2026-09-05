@@ -6,6 +6,7 @@ import {
   GROXBOT_NAME,
   GROXBOT_SUMMARY,
   GROXBOT_TAGLINE,
+  GROXBOT_WHAT,
   GROXBOT_UPDATED,
   GROXBOT_VERSION,
   officeOrigin,
@@ -15,7 +16,7 @@ function abs(origin: string, path: string): string {
   return `${origin.replace(/\/$/, "")}${path}`;
 }
 
-export const PRESS_SHORT = `${GROXBOT_TAGLINE}. Groxbot is Grok Bot for teams: named AI teammates with a real computer. If OpenClaw is for your personal use, Groxbot is for the office. Self-hostable. No workflow builder.`;
+export const PRESS_SHORT = `${GROXBOT_WHAT} Self-hostable. No workflow builder.`;
 
 export const PRESS_MEDIUM = GROXBOT_SUMMARY;
 
@@ -67,6 +68,8 @@ export const PRESS_NAMES_NO = [
 ] as const;
 
 export const PRESS_VOICE = [
+  "Lead with what Groxbot is: named AI teammates, each with a computer, one office.",
+  "The tagline is a kicker, not the first sentence.",
   "A Bot is a teammate (contact), not a workflow node.",
   "Computer means that bot’s workspace, not a second product and not the LLM.",
   "Each bot is one home RoomActor with one office thread in v1; the computer is built in.",

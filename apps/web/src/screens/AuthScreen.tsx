@@ -128,7 +128,7 @@ export function AuthScreen(props: { errorFromUrl?: string; invite?: string }) {
       ? peekQuery.isError || peekQuery.data === null
         ? "That invite is missing or expired. Sign in, then paste a new one."
         : "Sign in to join the workspace you were invited to."
-      : "Like Grok Bot, for the whole team.";
+      : "Named AI teammates you message like people. Each has a real computer. The whole team sits in one office.";
 
   return (
     <GateShell>

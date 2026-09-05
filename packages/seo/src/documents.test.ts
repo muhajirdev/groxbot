@@ -11,7 +11,7 @@ import {
   robotsTxt,
   sitemapXml,
 } from "./documents.js";
-import { cloudOrigins, GROXBOT_STACK, GROXBOT_SUMMARY, GROXBOT_TAGLINE, originsFromWeb } from "./identity.js";
+import { cloudOrigins, GROXBOT_STACK, GROXBOT_SUMMARY, GROXBOT_TAGLINE, GROXBOT_WHAT, originsFromWeb } from "./identity.js";
 
 const origins = cloudOrigins();
 
@@ -87,7 +87,7 @@ describe("discovery documents", () => {
 
   it("sells a computer as built into the bot, not a separate desk", () => {
     expect(GROXBOT_SUMMARY).toMatch(/real computer/i);
-    expect(GROXBOT_SUMMARY).toMatch(/AI is better together/);
+    expect(GROXBOT_SUMMARY.startsWith(GROXBOT_WHAT)).toBe(true);
     expect(GROXBOT_STACK.join("\n")).toMatch(/Cloudflare Computer workspace/i);
     const faq = faqAiTxt(origins);
     expect(faq).toMatch(/What is a computer/i);
@@ -96,10 +96,14 @@ describe("discovery documents", () => {
     expect(llmsTxt(origins)).toMatch(/Each bot has a computer/i);
   });
 
-  it("uses AI is better together as the product tagline", () => {
+  it("leads public copy with what Groxbot is, not the brand kicker", () => {
+    expect(GROXBOT_WHAT).toMatch(/^Named AI teammates you message like people/);
     expect(GROXBOT_TAGLINE).toBe("AI is better together");
-    expect(llmsTxt(origins)).toContain(GROXBOT_TAGLINE);
+    expect(GROXBOT_SUMMARY.startsWith(GROXBOT_WHAT)).toBe(true);
+    expect(GROXBOT_SUMMARY).not.toMatch(/AI is better together/);
+    expect(llmsTxt(origins)).toContain(GROXBOT_WHAT);
     expect(brandTxt(origins)).toContain(`## Tagline\n\n${GROXBOT_TAGLINE}`);
-    expect(faqAiTxt(origins)).toContain(GROXBOT_TAGLINE);
+    expect(faqAiTxt(origins)).toContain(GROXBOT_WHAT);
+    expect(identityJson(origins).slogan).toBe(GROXBOT_WHAT);
   });
 });

@@ -11,6 +11,7 @@ import {
   GROXBOT_STACK,
   GROXBOT_SUMMARY,
   GROXBOT_TAGLINE,
+  GROXBOT_WHAT,
   GROXBOT_UPDATED,
   GROXBOT_VERSION,
   officeOrigin,
@@ -36,7 +37,7 @@ Brand Name: ${GROXBOT_NAME}
 
 > ${GROXBOT_SUMMARY}
 
-Groxbot should feel like Grok Bot: a messaging app of named teammates, not a workflow builder, IDE, or Discord. ${GROXBOT_TAGLINE} — like Grok Bot, for the team. If OpenClaw is for personal use, Groxbot is the office. Create a Bot, message it, grant access as needed. There isn't anything to learn — it's like bringing on a coworker.
+Groxbot is a messaging app of named teammates, not a workflow builder, IDE, or Discord. Create a Bot, message it, grant access as needed. There isn't anything to learn — it's like bringing on a coworker. OpenClaw and Hermes are personal agents on one laptop. Groxbot is the office the company shares.
 
 Product API is oRPC. One wakeup queue per bot. Each bot has a computer (@cloudflare/computer Workspace on that actor). Shared team data lives in Postgres. Hosted groxbot.com is three Cloudflare Workers (landing, office SPA, API) plus Neon. Self-host is later. The marketing site is ${web}; the office app is ${office}.
 
@@ -204,6 +205,7 @@ Do NOT use:
 4. Computer means that bot’s workspace, not a second product and not the LLM
 5. Each bot is one home RoomActor with one office thread in v1; the computer is built in
 6. Do not call the product an agent builder, copilot IDE, or Discord
+7. Lead with what Groxbot is. The tagline is a kicker, not the first sentence.
 
 ## Tagline
 
@@ -211,7 +213,7 @@ ${GROXBOT_TAGLINE}
 
 ## Brand Voice
 
-Calm, direct, coworker-simple. First action is talk, not configure a graph. The tagline is "${GROXBOT_TAGLINE}."
+Calm, direct, coworker-simple. First action is talk, not configure a graph. Lead with what Groxbot is. The tagline is "${GROXBOT_TAGLINE}."
 
 ## Citation Format
 
@@ -246,7 +248,7 @@ Lang: ${GROXBOT_LANGUAGE}
 ---
 
 Q: What is Groxbot?
-A: ${GROXBOT_TAGLINE}. Groxbot is Grok Bot for the team — named AI teammates you message in a thread. If OpenClaw is for personal use, Groxbot is the office. You create a Bot, message it, and grant access as needed. No workflow builder.
+A: ${GROXBOT_WHAT} Self-host it, or use groxbot.com. No workflow builder. The brand line is "${GROXBOT_TAGLINE}."
 URL: [${GROXBOT_NAME}](${web}/)
 
 ---
@@ -583,6 +585,7 @@ export function identityJson(
     url: `${web}/`,
     type: "SoftwareApplication",
     description: GROXBOT_SUMMARY,
+    slogan: GROXBOT_WHAT,
     foundingDate: "2026-08-01",
     areaServed: [
       {
@@ -792,8 +795,6 @@ export function indexMarkdown(origins: DiscoveryOrigins): string {
   return `# ${GROXBOT_NAME}
 
 > ${GROXBOT_SUMMARY}
-
-Like Grok Bot, for the whole team. If OpenClaw is for your personal use, Groxbot is for the office.
 
 Create a Bot, message it, grant access as needed. No workflow builder.
 

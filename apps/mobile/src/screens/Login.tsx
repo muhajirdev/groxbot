@@ -135,7 +135,10 @@ export function LoginScreen({
       ) : (
         <View style={styles.block}>
           <Text style={styles.title}>{heading}</Text>
-          <Text style={styles.body}>Like Grok Bot, for the whole team.</Text>
+          <Text style={styles.body}>
+            Named AI teammates you message like people. Each has a real
+            computer. The whole team sits in one office.
+          </Text>
           {error ? <Text style={styles.error}>{error}</Text> : null}
           {inviteId && peek ? (
             <Button

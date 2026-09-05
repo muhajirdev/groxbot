@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { INDIE_INTEGRATIONS } from "../data/indie-integrations";
 import { USE_CASES } from "../data/use-cases";
 import { categoryFamily } from "./category-copy";
-import { FOOTER_BLURB, TAGLINE, THESES } from "./copy";
+import { FOOTER_BLURB, TAGLINE, THESES, WHAT } from "./copy";
 import { DISCOVERY_SITEMAP_PATHS, landingLlmsTxt } from "./discovery";
 import {
   computerIntegrations,
@@ -232,12 +232,13 @@ describe("llms discovery", () => {
     expect(txt).toContain("/press");
   });
 
-  it("leads public copy with AI is better together", () => {
+  it("leads public copy with what Groxbot is", () => {
+    expect(WHAT).toMatch(/^Named AI teammates you message like people/);
+    expect(DEFAULT_TITLE).toBe("Groxbot — named AI teammates with a computer");
+    expect(DEFAULT_DESCRIPTION).toMatch(/^Named AI teammates/);
+    expect(FOOTER_BLURB).toMatch(/^Named AI teammates/);
+    expect(landingLlmsTxt()).toContain(WHAT);
     expect(TAGLINE).toBe("AI is better together");
-    expect(DEFAULT_TITLE).toBe("Groxbot — AI is better together");
-    expect(DEFAULT_DESCRIPTION).toMatch(/^AI is better together\./);
-    expect(FOOTER_BLURB).toMatch(/^AI is better together\./);
-    expect(landingLlmsTxt()).toContain("AI is better together");
   });
 
   it("gives each landing thesis its own section headline", () => {

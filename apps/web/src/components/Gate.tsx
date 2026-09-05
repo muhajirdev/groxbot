@@ -4,7 +4,8 @@ import type { ReactNode } from "react";
 import { AvatarMark } from "./Avatar";
 import { SignOutIcon } from "./Icons";
 
-const WELCOME_LEDE = "Like Grok Bot, for the whole team.";
+const WELCOME_LEDE =
+  "Named AI teammates you message like people. Each has a real computer. The whole team sits in one office.";
 const WELCOME_NOTE =
   "Each Bot already has a computer. You can ignore it until you need the screen.";
 

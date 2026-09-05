@@ -11,8 +11,8 @@ import {
   HOME_KNOWLEDGE,
   HOME_MODELS,
   SOURCE_REPO,
-  TAGLINE,
   THESES,
+  WHAT,
 } from "../lib/copy";
 import { HOME_INTEGRATIONS } from "../lib/teasers";
 import { DemoThread } from "./DemoThread";
@@ -25,7 +25,7 @@ export function Landing(props: { startUrl: string }) {
     <SiteChrome startUrl={props.startUrl}>
       <main id="top">
         <section className="hero hero-home">
-          <p className="hero-badge">Open source · Multiplayer</p>
+          <p className="hero-badge">Fair-code · For the team</p>
           <h1 className="hero-title">
             <span>Meet</span>
             <MascotMark
@@ -36,14 +36,16 @@ export function Landing(props: { startUrl: string }) {
             />
             <span>Groxbot</span>
           </h1>
-          <p className="lede hero-tagline">{TAGLINE}.</p>
+          <p className="lede hero-tagline">{WHAT}</p>
           <p className="thesis">
-            Like Grok Bot, for the team. OpenClaw and Hermes are personal.
-            Groxbot is the office.
+            Self-host it, or use groxbot.com. No workflow builder.
           </p>
           <div className="row">
             <a className="btn lg" href={props.startUrl}>
               Get started
+            </a>
+            <a className="btn ghost" href={CONTACT_MAILTO}>
+              Email
             </a>
           </div>
         </section>
@@ -69,6 +71,102 @@ export function Landing(props: { startUrl: string }) {
               </li>
             ))}
           </ul>
+        </section>
+
+        <section id="how" className="statement">
+          <div className="statement-copy">
+            <h2>Message Bots like teammates</h2>
+            <p className="lede tight">
+              Give work like a coworker. They come back when they need you.
+            </p>
+          </div>
+          <div className="statement-face" aria-hidden>
+            <MascotMark
+              name="Groxbot"
+              color="#e45c9a"
+              shape="circle"
+              size="lg"
+            />
+          </div>
+        </section>
+
+        <section className="tiles" aria-label="How the office works">
+          <article className="tile">
+            <h3>A computer you can ignore</h3>
+            <p>
+              Hire a teammate. They already have a computer. Leave the pane
+              open, or don’t.
+            </p>
+            <div className="tile-stage">
+              <div className="mini-pane">
+                <div className="mini-pane-head">
+                  Chief of Staff&apos;s computer
+                  <span className="status-pill">
+                    <i /> Working
+                  </span>
+                </div>
+                <p className="mini-pane-screen">
+                  notes/digest.md
+                  <br />
+                  chief-of-staff.md
+                  <br />
+                  weekly.md
+                </p>
+              </div>
+            </div>
+          </article>
+          <article className="tile">
+            <h3>Built into the bot</h3>
+            <p>Not a second product. The computer is built in.</p>
+            <div className="tile-stage">
+              <div className="desk-split">
+                <div className="desk-card on">
+                  <span className="kicker">Bot</span>
+                  <strong>Chief of Staff</strong>
+                  <span>Named teammate</span>
+                </div>
+                <div className="desk-card">
+                  <span className="kicker">Computer</span>
+                  <strong>Their screen</strong>
+                  <span>Already theirs</span>
+                </div>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <DemoShowcase />
+
+        <section className="band catalog">
+          <p className="kicker">Integrations</p>
+          <h2>Your tools. In the thread.</h2>
+          <p className="lede tight">
+            LinkedIn, Instagram, Google Drive, Notion — plus Gmail, Slack, and
+            GitHub. A computer for the indie stack.
+          </p>
+          <div className="chips">
+            {HOME_INTEGRATIONS.map((item) => (
+              <Link
+                key={item.slug}
+                className="chip has-icon"
+                to="/integrations/$slug"
+                params={{ slug: item.slug }}
+              >
+                <img
+                  className="chip-logo"
+                  src={demoLogo(item.slug)}
+                  alt=""
+                  width={18}
+                  height={18}
+                  decoding="async"
+                />
+                {item.name}
+              </Link>
+            ))}
+            <Link className="chip chip-all" to="/integrations">
+              All integrations
+            </Link>
+          </div>
         </section>
 
         <section
@@ -177,102 +275,6 @@ export function Landing(props: { startUrl: string }) {
           </div>
           <p className="kicker why">Why it matters</p>
           <p className="thesis-why">{THESES[3].why}</p>
-        </section>
-
-        <section id="how" className="statement">
-          <div className="statement-copy">
-            <h2>Message Bots like teammates</h2>
-            <p className="lede tight">
-              Give work like a coworker. They come back when they need you.
-            </p>
-          </div>
-          <div className="statement-face" aria-hidden>
-            <MascotMark
-              name="Groxbot"
-              color="#e45c9a"
-              shape="circle"
-              size="lg"
-            />
-          </div>
-        </section>
-
-        <section className="tiles" aria-label="How the office works">
-          <article className="tile">
-            <h3>A computer you can ignore</h3>
-            <p>
-              Hire a teammate. They already have a computer. Leave the pane
-              open, or don’t.
-            </p>
-            <div className="tile-stage">
-              <div className="mini-pane">
-                <div className="mini-pane-head">
-                  Chief of Staff&apos;s computer
-                  <span className="status-pill">
-                    <i /> Working
-                  </span>
-                </div>
-                <p className="mini-pane-screen">
-                  notes/digest.md
-                  <br />
-                  chief-of-staff.md
-                  <br />
-                  weekly.md
-                </p>
-              </div>
-            </div>
-          </article>
-          <article className="tile">
-            <h3>Built into the bot</h3>
-            <p>Not a second product. The computer is built in.</p>
-            <div className="tile-stage">
-              <div className="desk-split">
-                <div className="desk-card on">
-                  <span className="kicker">Bot</span>
-                  <strong>Chief of Staff</strong>
-                  <span>Named teammate</span>
-                </div>
-                <div className="desk-card">
-                  <span className="kicker">Computer</span>
-                  <strong>Their screen</strong>
-                  <span>Already theirs</span>
-                </div>
-              </div>
-            </div>
-          </article>
-        </section>
-
-        <DemoShowcase />
-
-        <section className="band catalog">
-          <p className="kicker">Integrations</p>
-          <h2>Your tools. In the thread.</h2>
-          <p className="lede tight">
-            LinkedIn, Instagram, Google Drive, Notion — plus Gmail, Slack, and
-            GitHub. A computer for the indie stack.
-          </p>
-          <div className="chips">
-            {HOME_INTEGRATIONS.map((item) => (
-              <Link
-                key={item.slug}
-                className="chip has-icon"
-                to="/integrations/$slug"
-                params={{ slug: item.slug }}
-              >
-                <img
-                  className="chip-logo"
-                  src={demoLogo(item.slug)}
-                  alt=""
-                  width={18}
-                  height={18}
-                  decoding="async"
-                />
-                {item.name}
-              </Link>
-            ))}
-            <Link className="chip chip-all" to="/integrations">
-              All integrations
-            </Link>
-          </div>
         </section>
 
         <section

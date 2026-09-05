@@ -1,4 +1,4 @@
-import { GROXBOT_EMAIL, GROXBOT_TAGLINE } from "@groxbot/seo";
+import { GROXBOT_EMAIL, GROXBOT_WHAT } from "@groxbot/seo";
 import type { ComparePage } from "../data/compare";
 import type { UseCase } from "../data/use-cases";
 import type { Integration } from "./integrations";
@@ -23,7 +23,7 @@ export function softwareJsonLd(): Record<string, unknown> {
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
     url: landingOrigin(),
-    description: `${GROXBOT_TAGLINE}. Like Grok Bot, for the team. Named teammates with a real computer. If OpenClaw is for personal use, Groxbot is the office. Self-hostable.`,
+    description: `${GROXBOT_WHAT} Self-hostable. No workflow builder.`,
     offers: {
       "@type": "Offer",
       price: "0",
