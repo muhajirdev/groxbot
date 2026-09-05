@@ -43,9 +43,7 @@ export function DemoThread(props: { demo: Demo; more?: boolean }) {
         </ul>
         <p className="bubble bot">{demo.reply}</p>
       </div>
-      <div className="composer">
-        <div className="composer-pill">Message {demo.bot}</div>
-      </div>
+      <ComposerPlaceholder name={demo.bot} />
       {more ? (
         <p className="demo-more">
           {"useCaseSlug" in demo && demo.useCaseSlug ? (
@@ -62,6 +60,33 @@ export function DemoThread(props: { demo: Demo; more?: boolean }) {
           ) : null}
         </p>
       ) : null}
+    </div>
+  );
+}
+
+export function ComposerPlaceholder(props: { name: string }) {
+  return (
+    <div className="composer">
+      <div className="composer-shell">
+        <p className="composer-placeholder">Message {props.name}</p>
+        <div className="composer-actions">
+          <span className="composer-send" aria-hidden>
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <title>Send</title>
+              <path d="M12 19V5M6 11l6-6 6 6" />
+            </svg>
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -85,9 +110,7 @@ export function FirstMessageThread(props: {
       <div className="demo-thread-body">
         <p className="bubble human">{props.prompt}</p>
       </div>
-      <div className="composer">
-        <div className="composer-pill">Message {props.name}</div>
-      </div>
+      <ComposerPlaceholder name={props.name} />
     </div>
   );
 }
