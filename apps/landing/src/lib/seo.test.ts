@@ -195,6 +195,9 @@ describe("compare pages", () => {
         "Self-improving organization",
       ]),
     );
+    expect(FEATURE_ROWS.map((row) => row.label)).not.toContain(
+      "Agent org chart / budgets",
+    );
     expect(FEATURE_ROWS.find((row) => row.label === "Multiplayer")?.values.groxbot).toBe(
       true,
     );
