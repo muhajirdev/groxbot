@@ -394,6 +394,7 @@ export type KnowledgeMenuPhase = "actions" | "confirm-delete" | "confirm-share";
 export type KnowledgeMenuItem =
   | { id: "download"; label: "Download" }
   | { id: "copy-path"; label: "Copy path" }
+  | { id: "copy-office-link"; label: "Copy office link" }
   | { id: "use"; label: "Use in chat" }
   | { id: "new-file"; label: "New file" }
   | { id: "share"; label: "Share publicly…" }
@@ -442,6 +443,7 @@ export function knowledgeMenuItems(input: {
   } else {
     items.push({ id: "share", label: "Share publicly…" });
   }
+  items.push({ id: "copy-office-link", label: "Copy office link" });
   items.push({ id: "copy-path", label: "Copy path" });
   items.push({ id: "delete", label: "Delete", danger: true });
   return items;

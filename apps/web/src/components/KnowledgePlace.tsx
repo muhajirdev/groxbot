@@ -87,6 +87,7 @@ export function KnowledgeLibrary(props: {
   path?: string | null;
   /** Playbook list of this knowledge folder. Same files as the tree. */
   folder?: string | null;
+  officeHref?: (path: string) => string;
   onPath: (path: string | null) => void;
   onClose: () => void;
 }) {
@@ -367,6 +368,10 @@ export function KnowledgeLibrary(props: {
         onDownload={workspace.downloadPath}
         onCopyPath={(path) => {
           void navigator.clipboard?.writeText(path);
+        }}
+        onCopyOfficeLink={(path) => {
+          const href = props.officeHref?.(path);
+          if (href) void navigator.clipboard?.writeText(href);
         }}
         onCopyPublicLink={workspace.copyPublicLink}
         onShare={(node) => {

@@ -158,6 +158,7 @@ describe("knowledgeMenuItems", () => {
     ).toEqual([
       { id: "download", label: "Download" },
       { id: "share", label: "Share publicly…" },
+      { id: "copy-office-link", label: "Copy office link" },
       { id: "copy-path", label: "Copy path" },
       { id: "delete", label: "Delete", danger: true },
     ]);
@@ -172,7 +173,7 @@ describe("knowledgeMenuItems", () => {
         phase: "actions",
         shared: false,
       }).map((item) => item.id),
-    ).toEqual(["download", "use", "share", "copy-path", "delete"]);
+    ).toEqual(["download", "use", "share", "copy-office-link", "copy-path", "delete"]);
   });
 
   it("lists new file, copy, and delete for a folder", () => {
@@ -184,7 +185,7 @@ describe("knowledgeMenuItems", () => {
         phase: "actions",
         shared: false,
       }).map((item) => item.id),
-    ).toEqual(["new-file", "share", "copy-path", "delete"]);
+    ).toEqual(["new-file", "share", "copy-office-link", "copy-path", "delete"]);
   });
 
   it("copies and unpublishes an existing public link", () => {
@@ -196,7 +197,14 @@ describe("knowledgeMenuItems", () => {
         phase: "actions",
         shared: true,
       }).map((item) => item.id),
-    ).toEqual(["download", "copy-public-link", "unpublish", "copy-path", "delete"]);
+    ).toEqual([
+      "download",
+      "copy-public-link",
+      "unpublish",
+      "copy-office-link",
+      "copy-path",
+      "delete",
+    ]);
   });
 
   it("warns that a folder share includes later files", () => {
