@@ -1,4 +1,9 @@
-import { GROXBOT_EMAIL, GROXBOT_TAGLINE } from "@groxbot/seo";
+import {
+  GROXBOT_EMAIL,
+  GROXBOT_ICON_PATH,
+  GROXBOT_OG_PATH,
+  GROXBOT_TAGLINE,
+} from "@groxbot/seo";
 import type { ComparePage } from "../data/compare";
 import type { UseCase } from "../data/use-cases";
 import type { Integration } from "./integrations";
@@ -11,6 +16,8 @@ export function organizationJsonLd(): Record<string, unknown> {
     name: SITE_NAME,
     url: landingOrigin(),
     email: GROXBOT_EMAIL,
+    logo: canonicalUrl(GROXBOT_ICON_PATH),
+    image: canonicalUrl(GROXBOT_OG_PATH),
     sameAs: ["https://github.com/muhajirdev/groxbot"],
   };
 }
@@ -23,6 +30,8 @@ export function softwareJsonLd(): Record<string, unknown> {
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
     url: landingOrigin(),
+    image: canonicalUrl(GROXBOT_OG_PATH),
+    screenshot: canonicalUrl(GROXBOT_OG_PATH),
     description: `${GROXBOT_TAGLINE}. Like Grok Bot, for the team. Named teammates with a real computer. If OpenClaw is for personal use, Groxbot is the office. Self-hostable.`,
     offers: {
       "@type": "Offer",
@@ -81,7 +90,9 @@ export function itemListJsonLd(
   };
 }
 
-export function integrationJsonLd(item: Integration): Record<string, unknown>[] {
+export function integrationJsonLd(
+  item: Integration,
+): Record<string, unknown>[] {
   return [
     breadcrumbJsonLd([
       { name: "Home", path: "/" },

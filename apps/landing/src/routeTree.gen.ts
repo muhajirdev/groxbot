@@ -15,6 +15,7 @@ import { Route as AiDottxtRouteImport } from './routes/ai[.]txt'
 import { Route as BrandDottxtRouteImport } from './routes/brand[.]txt'
 import { Route as DeveloperAiDottxtRouteImport } from './routes/developer-ai[.]txt'
 import { Route as FaqAiDottxtRouteImport } from './routes/faq-ai[.]txt'
+import { Route as FaviconDotsvgRouteImport } from './routes/favicon[.]svg'
 import { Route as IdentityDotjsonRouteImport } from './routes/identity[.]json'
 import { Route as IndexDotmdRouteImport } from './routes/index[.]md'
 import { Route as LlmDottxtRouteImport } from './routes/llm[.]txt'
@@ -23,11 +24,13 @@ import { Route as LlmsDothtmlRouteImport } from './routes/llms[.]html'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as McpDotjsonRouteImport } from './routes/mcp[.]json'
+import { Route as OgDotsvgRouteImport } from './routes/og[.]svg'
 import { Route as PressKitRouteImport } from './routes/press-kit'
 import { Route as PressDotmdRouteImport } from './routes/press[.]md'
 import { Route as RobotsAiDottxtRouteImport } from './routes/robots-ai[.]txt'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as SiteDotwebmanifestRouteImport } from './routes/site[.]webmanifest'
 import { Route as CompareIndexRouteImport } from './routes/compare/index'
 import { Route as CompareSlugRouteImport } from './routes/compare/$slug'
 import { Route as IntegrationsIndexRouteImport } from './routes/integrations/index'
@@ -67,6 +70,11 @@ const DeveloperAiDottxtRoute = DeveloperAiDottxtRouteImport.update({
 const FaqAiDottxtRoute = FaqAiDottxtRouteImport.update({
   id: '/faq-ai.txt',
   path: '/faq-ai.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FaviconDotsvgRoute = FaviconDotsvgRouteImport.update({
+  id: '/favicon.svg',
+  path: '/favicon.svg',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IdentityDotjsonRoute = IdentityDotjsonRouteImport.update({
@@ -109,6 +117,11 @@ const McpDotjsonRoute = McpDotjsonRouteImport.update({
   path: '/mcp.json',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OgDotsvgRoute = OgDotsvgRouteImport.update({
+  id: '/og.svg',
+  path: '/og.svg',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PressKitRoute = PressKitRouteImport.update({
   id: '/press-kit',
   path: '/press-kit',
@@ -132,6 +145,11 @@ const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SiteDotwebmanifestRoute = SiteDotwebmanifestRouteImport.update({
+  id: '/site.webmanifest',
+  path: '/site.webmanifest',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CompareIndexRoute = CompareIndexRouteImport.update({
@@ -193,6 +211,7 @@ export interface FileRoutesByFullPath {
   '/brand.txt': typeof BrandDottxtRoute
   '/developer-ai.txt': typeof DeveloperAiDottxtRoute
   '/faq-ai.txt': typeof FaqAiDottxtRoute
+  '/favicon.svg': typeof FaviconDotsvgRoute
   '/identity.json': typeof IdentityDotjsonRoute
   '/index.md': typeof IndexDotmdRoute
   '/llm.txt': typeof LlmDottxtRoute
@@ -201,11 +220,13 @@ export interface FileRoutesByFullPath {
   '/llms.txt': typeof LlmsDottxtRoute
   '/mcp': typeof McpRoute
   '/mcp.json': typeof McpDotjsonRoute
+  '/og.svg': typeof OgDotsvgRoute
   '/press-kit': typeof PressKitRoute
   '/press.md': typeof PressDotmdRoute
   '/robots-ai.txt': typeof RobotsAiDottxtRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/site.webmanifest': typeof SiteDotwebmanifestRoute
   '/compare/$slug': typeof CompareSlugRoute
   '/integrations/$slug': typeof IntegrationsSlugRoute
   '/press/$file': typeof PressFileRoute
@@ -224,6 +245,7 @@ export interface FileRoutesByTo {
   '/brand.txt': typeof BrandDottxtRoute
   '/developer-ai.txt': typeof DeveloperAiDottxtRoute
   '/faq-ai.txt': typeof FaqAiDottxtRoute
+  '/favicon.svg': typeof FaviconDotsvgRoute
   '/identity.json': typeof IdentityDotjsonRoute
   '/index.md': typeof IndexDotmdRoute
   '/llm.txt': typeof LlmDottxtRoute
@@ -232,11 +254,13 @@ export interface FileRoutesByTo {
   '/llms.txt': typeof LlmsDottxtRoute
   '/mcp': typeof McpRoute
   '/mcp.json': typeof McpDotjsonRoute
+  '/og.svg': typeof OgDotsvgRoute
   '/press-kit': typeof PressKitRoute
   '/press.md': typeof PressDotmdRoute
   '/robots-ai.txt': typeof RobotsAiDottxtRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/site.webmanifest': typeof SiteDotwebmanifestRoute
   '/compare/$slug': typeof CompareSlugRoute
   '/integrations/$slug': typeof IntegrationsSlugRoute
   '/press/$file': typeof PressFileRoute
@@ -256,6 +280,7 @@ export interface FileRoutesById {
   '/brand.txt': typeof BrandDottxtRoute
   '/developer-ai.txt': typeof DeveloperAiDottxtRoute
   '/faq-ai.txt': typeof FaqAiDottxtRoute
+  '/favicon.svg': typeof FaviconDotsvgRoute
   '/identity.json': typeof IdentityDotjsonRoute
   '/index.md': typeof IndexDotmdRoute
   '/llm.txt': typeof LlmDottxtRoute
@@ -264,11 +289,13 @@ export interface FileRoutesById {
   '/llms.txt': typeof LlmsDottxtRoute
   '/mcp': typeof McpRoute
   '/mcp.json': typeof McpDotjsonRoute
+  '/og.svg': typeof OgDotsvgRoute
   '/press-kit': typeof PressKitRoute
   '/press.md': typeof PressDotmdRoute
   '/robots-ai.txt': typeof RobotsAiDottxtRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/site.webmanifest': typeof SiteDotwebmanifestRoute
   '/compare/$slug': typeof CompareSlugRoute
   '/integrations/$slug': typeof IntegrationsSlugRoute
   '/press/$file': typeof PressFileRoute
@@ -289,6 +316,7 @@ export interface FileRouteTypes {
     | '/brand.txt'
     | '/developer-ai.txt'
     | '/faq-ai.txt'
+    | '/favicon.svg'
     | '/identity.json'
     | '/index.md'
     | '/llm.txt'
@@ -297,11 +325,13 @@ export interface FileRouteTypes {
     | '/llms.txt'
     | '/mcp'
     | '/mcp.json'
+    | '/og.svg'
     | '/press-kit'
     | '/press.md'
     | '/robots-ai.txt'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/site.webmanifest'
     | '/compare/$slug'
     | '/integrations/$slug'
     | '/press/$file'
@@ -320,6 +350,7 @@ export interface FileRouteTypes {
     | '/brand.txt'
     | '/developer-ai.txt'
     | '/faq-ai.txt'
+    | '/favicon.svg'
     | '/identity.json'
     | '/index.md'
     | '/llm.txt'
@@ -328,11 +359,13 @@ export interface FileRouteTypes {
     | '/llms.txt'
     | '/mcp'
     | '/mcp.json'
+    | '/og.svg'
     | '/press-kit'
     | '/press.md'
     | '/robots-ai.txt'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/site.webmanifest'
     | '/compare/$slug'
     | '/integrations/$slug'
     | '/press/$file'
@@ -351,6 +384,7 @@ export interface FileRouteTypes {
     | '/brand.txt'
     | '/developer-ai.txt'
     | '/faq-ai.txt'
+    | '/favicon.svg'
     | '/identity.json'
     | '/index.md'
     | '/llm.txt'
@@ -359,11 +393,13 @@ export interface FileRouteTypes {
     | '/llms.txt'
     | '/mcp'
     | '/mcp.json'
+    | '/og.svg'
     | '/press-kit'
     | '/press.md'
     | '/robots-ai.txt'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/site.webmanifest'
     | '/compare/$slug'
     | '/integrations/$slug'
     | '/press/$file'
@@ -383,6 +419,7 @@ export interface RootRouteChildren {
   BrandDottxtRoute: typeof BrandDottxtRoute
   DeveloperAiDottxtRoute: typeof DeveloperAiDottxtRoute
   FaqAiDottxtRoute: typeof FaqAiDottxtRoute
+  FaviconDotsvgRoute: typeof FaviconDotsvgRoute
   IdentityDotjsonRoute: typeof IdentityDotjsonRoute
   IndexDotmdRoute: typeof IndexDotmdRoute
   LlmDottxtRoute: typeof LlmDottxtRoute
@@ -391,11 +428,13 @@ export interface RootRouteChildren {
   LlmsDottxtRoute: typeof LlmsDottxtRoute
   McpRoute: typeof McpRoute
   McpDotjsonRoute: typeof McpDotjsonRoute
+  OgDotsvgRoute: typeof OgDotsvgRoute
   PressKitRoute: typeof PressKitRoute
   PressDotmdRoute: typeof PressDotmdRoute
   RobotsAiDottxtRoute: typeof RobotsAiDottxtRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  SiteDotwebmanifestRoute: typeof SiteDotwebmanifestRoute
   CompareSlugRoute: typeof CompareSlugRoute
   IntegrationsSlugRoute: typeof IntegrationsSlugRoute
   PressFileRoute: typeof PressFileRoute
@@ -450,6 +489,13 @@ declare module '@tanstack/react-router' {
       path: '/faq-ai.txt'
       fullPath: '/faq-ai.txt'
       preLoaderRoute: typeof FaqAiDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/favicon.svg': {
+      id: '/favicon.svg'
+      path: '/favicon.svg'
+      fullPath: '/favicon.svg'
+      preLoaderRoute: typeof FaviconDotsvgRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/identity.json': {
@@ -508,6 +554,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof McpDotjsonRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/og.svg': {
+      id: '/og.svg'
+      path: '/og.svg'
+      fullPath: '/og.svg'
+      preLoaderRoute: typeof OgDotsvgRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/press-kit': {
       id: '/press-kit'
       path: '/press-kit'
@@ -541,6 +594,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/site.webmanifest': {
+      id: '/site.webmanifest'
+      path: '/site.webmanifest'
+      fullPath: '/site.webmanifest'
+      preLoaderRoute: typeof SiteDotwebmanifestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/compare/': {
@@ -623,6 +683,7 @@ const rootRouteChildren: RootRouteChildren = {
   BrandDottxtRoute: BrandDottxtRoute,
   DeveloperAiDottxtRoute: DeveloperAiDottxtRoute,
   FaqAiDottxtRoute: FaqAiDottxtRoute,
+  FaviconDotsvgRoute: FaviconDotsvgRoute,
   IdentityDotjsonRoute: IdentityDotjsonRoute,
   IndexDotmdRoute: IndexDotmdRoute,
   LlmDottxtRoute: LlmDottxtRoute,
@@ -631,11 +692,13 @@ const rootRouteChildren: RootRouteChildren = {
   LlmsDottxtRoute: LlmsDottxtRoute,
   McpRoute: McpRoute,
   McpDotjsonRoute: McpDotjsonRoute,
+  OgDotsvgRoute: OgDotsvgRoute,
   PressKitRoute: PressKitRoute,
   PressDotmdRoute: PressDotmdRoute,
   RobotsAiDottxtRoute: RobotsAiDottxtRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  SiteDotwebmanifestRoute: SiteDotwebmanifestRoute,
   CompareSlugRoute: CompareSlugRoute,
   IntegrationsSlugRoute: IntegrationsSlugRoute,
   PressFileRoute: PressFileRoute,

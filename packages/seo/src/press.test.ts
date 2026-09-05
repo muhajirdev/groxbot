@@ -20,6 +20,8 @@ describe("press kit", () => {
     for (const asset of PRESS_ASSETS) {
       expect(md).toContain(`/press/${asset.file}`);
     }
+    expect(md).toContain("/og.png");
+    expect(md).toContain("/og.svg");
     expect(pressFacts(origins).some((fact) => fact.label === "License")).toBe(
       true,
     );

@@ -55,16 +55,25 @@ export function sitemapEntries(): SitemapEntry[] {
 
 export function sitemapXml(): string {
   const urls = sitemapEntries()
-    .map(
-      (entry) => `  <url>
-    <loc>${escapeXml(canonicalUrl(entry.path))}</loc>
+    .map((entry) => {
+      const loc = escapeXml(canonicalUrl(entry.path));
+      const image =
+        entry.path === "/"
+          ? `
+    <image:image>
+      <image:loc>${escapeXml(canonicalUrl("/og.png"))}</image:loc>
+      <image:title>Groxbot</image:title>
+    </image:image>`
+          : "";
+      return `  <url>
+    <loc>${loc}</loc>
     <changefreq>${entry.changefreq}</changefreq>
-    <priority>${entry.priority}</priority>
-  </url>`,
-    )
+    <priority>${entry.priority}</priority>${image}
+  </url>`;
+    })
     .join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
 ${urls}
 </urlset>
 `;
