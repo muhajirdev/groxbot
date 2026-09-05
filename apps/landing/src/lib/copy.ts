@@ -199,6 +199,7 @@ export const FAQS = [
 export const SOURCE_REPO = "https://github.com/muhajirdev/groxbot";
 export const MAC_DOWNLOAD_URL = `${SOURCE_REPO}/releases`;
 export const TAGLINE = GROXBOT_TAGLINE;
+export const HERO_PITCH = "Multiplayer. Open source.";
 export const FOOTER_BLURB = `${GROXBOT_TAGLINE}. For the whole team. Fair-code.`;
 
 export const THESES = [

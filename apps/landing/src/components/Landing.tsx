@@ -10,8 +10,8 @@ import {
   HOME_ADOPTION,
   HOME_KNOWLEDGE,
   HOME_MODELS,
+  HERO_PITCH,
   SOURCE_REPO,
-  TAGLINE,
   THESES,
 } from "../lib/copy";
 import { HOME_INTEGRATIONS } from "../lib/teasers";
@@ -25,7 +25,6 @@ export function Landing(props: { startUrl: string }) {
     <SiteChrome startUrl={props.startUrl}>
       <main id="top">
         <section className="hero hero-home">
-          <p className="hero-badge">Open source · Multiplayer</p>
           <h1 className="hero-title">
             <span>Meet</span>
             <MascotMark
@@ -36,7 +35,7 @@ export function Landing(props: { startUrl: string }) {
             />
             <span>Groxbot</span>
           </h1>
-          <p className="lede hero-tagline">{TAGLINE}.</p>
+          <p className="lede hero-tagline">{HERO_PITCH}</p>
           <p className="thesis">
             Like Grok Bot, for the team. OpenClaw and Hermes are personal.
             Groxbot is the office.

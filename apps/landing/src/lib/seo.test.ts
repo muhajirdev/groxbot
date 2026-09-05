@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { INDIE_INTEGRATIONS } from "../data/indie-integrations";
 import { USE_CASES } from "../data/use-cases";
 import { categoryFamily } from "./category-copy";
-import { FOOTER_BLURB, TAGLINE, THESES } from "./copy";
+import { FOOTER_BLURB, HERO_PITCH, TAGLINE, THESES } from "./copy";
 import { DISCOVERY_SITEMAP_PATHS, landingLlmsTxt } from "./discovery";
 import {
   computerIntegrations,
@@ -234,8 +234,9 @@ describe("llms discovery", () => {
 
   it("leads public copy with AI is better together", () => {
     expect(TAGLINE).toBe("AI is better together");
-    expect(DEFAULT_TITLE).toBe("Groxbot — AI is better together");
-    expect(DEFAULT_DESCRIPTION).toMatch(/^AI is better together\./);
+    expect(HERO_PITCH).toBe("Multiplayer. Open source.");
+    expect(DEFAULT_TITLE).toBe("Multiplayer. Open source. | Groxbot");
+    expect(DEFAULT_DESCRIPTION).toMatch(/^Multiplayer\. Open source\./);
     expect(FOOTER_BLURB).toMatch(/^AI is better together\./);
     expect(landingLlmsTxt()).toContain("AI is better together");
   });
