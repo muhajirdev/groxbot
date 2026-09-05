@@ -1,5 +1,18 @@
 import { ORPCError } from "@orpc/server";
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@groxbot/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@groxbot/core")>();
+  return {
+    ...actual,
+    ensureWorkspaceBilling: vi.fn(async () => ({
+      plan: "free",
+      status: "none",
+      monthlyTokenLimit: 1_000_000,
+    })),
+  };
+});
+
 import {
   activateWorkspace,
   createWorkspace,

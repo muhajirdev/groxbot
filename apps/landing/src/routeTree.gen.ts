@@ -34,10 +34,10 @@ import { Route as IntegrationsIndexRouteImport } from './routes/integrations/ind
 import { Route as IntegrationsSlugRouteImport } from './routes/integrations/$slug'
 import { Route as PressIndexRouteImport } from './routes/press/index'
 import { Route as PressFileRouteImport } from './routes/press/$file'
+import { Route as SShareIdRouteImport } from './routes/s/$shareId'
 import { Route as UseCasesIndexRouteImport } from './routes/use-cases/index'
 import { Route as UseCasesSlugRouteImport } from './routes/use-cases/$slug'
 import { Route as IntegrationsCategoryCategoryRouteImport } from './routes/integrations/category/$category'
-import { Route as SShareIdRouteImport } from './routes/s/$shareId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -164,6 +164,11 @@ const PressFileRoute = PressFileRouteImport.update({
   path: '/press/$file',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SShareIdRoute = SShareIdRouteImport.update({
+  id: '/s/$shareId',
+  path: '/s/$shareId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const UseCasesIndexRoute = UseCasesIndexRouteImport.update({
   id: '/use-cases/',
   path: '/use-cases/',
@@ -180,11 +185,6 @@ const IntegrationsCategoryCategoryRoute =
     path: '/integrations/category/$category',
     getParentRoute: () => rootRouteImport,
   } as any)
-const SShareIdRoute = SShareIdRouteImport.update({
-  id: '/s/$shareId',
-  path: '/s/$shareId',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -209,13 +209,13 @@ export interface FileRoutesByFullPath {
   '/compare/$slug': typeof CompareSlugRoute
   '/integrations/$slug': typeof IntegrationsSlugRoute
   '/press/$file': typeof PressFileRoute
+  '/s/$shareId': typeof SShareIdRoute
   '/use-cases/$slug': typeof UseCasesSlugRoute
   '/compare/': typeof CompareIndexRoute
   '/integrations/': typeof IntegrationsIndexRoute
   '/press/': typeof PressIndexRoute
   '/use-cases/': typeof UseCasesIndexRoute
   '/integrations/category/$category': typeof IntegrationsCategoryCategoryRoute
-  '/s/$shareId': typeof SShareIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -240,13 +240,13 @@ export interface FileRoutesByTo {
   '/compare/$slug': typeof CompareSlugRoute
   '/integrations/$slug': typeof IntegrationsSlugRoute
   '/press/$file': typeof PressFileRoute
+  '/s/$shareId': typeof SShareIdRoute
   '/use-cases/$slug': typeof UseCasesSlugRoute
   '/compare': typeof CompareIndexRoute
   '/integrations': typeof IntegrationsIndexRoute
   '/press': typeof PressIndexRoute
   '/use-cases': typeof UseCasesIndexRoute
   '/integrations/category/$category': typeof IntegrationsCategoryCategoryRoute
-  '/s/$shareId': typeof SShareIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -272,13 +272,13 @@ export interface FileRoutesById {
   '/compare/$slug': typeof CompareSlugRoute
   '/integrations/$slug': typeof IntegrationsSlugRoute
   '/press/$file': typeof PressFileRoute
+  '/s/$shareId': typeof SShareIdRoute
   '/use-cases/$slug': typeof UseCasesSlugRoute
   '/compare/': typeof CompareIndexRoute
   '/integrations/': typeof IntegrationsIndexRoute
   '/press/': typeof PressIndexRoute
   '/use-cases/': typeof UseCasesIndexRoute
   '/integrations/category/$category': typeof IntegrationsCategoryCategoryRoute
-  '/s/$shareId': typeof SShareIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -305,13 +305,13 @@ export interface FileRouteTypes {
     | '/compare/$slug'
     | '/integrations/$slug'
     | '/press/$file'
+    | '/s/$shareId'
     | '/use-cases/$slug'
     | '/compare/'
     | '/integrations/'
     | '/press/'
     | '/use-cases/'
     | '/integrations/category/$category'
-    | '/s/$shareId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -336,13 +336,13 @@ export interface FileRouteTypes {
     | '/compare/$slug'
     | '/integrations/$slug'
     | '/press/$file'
+    | '/s/$shareId'
     | '/use-cases/$slug'
     | '/compare'
     | '/integrations'
     | '/press'
     | '/use-cases'
     | '/integrations/category/$category'
-    | '/s/$shareId'
   id:
     | '__root__'
     | '/'
@@ -367,13 +367,13 @@ export interface FileRouteTypes {
     | '/compare/$slug'
     | '/integrations/$slug'
     | '/press/$file'
+    | '/s/$shareId'
     | '/use-cases/$slug'
     | '/compare/'
     | '/integrations/'
     | '/press/'
     | '/use-cases/'
     | '/integrations/category/$category'
-    | '/s/$shareId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -399,13 +399,13 @@ export interface RootRouteChildren {
   CompareSlugRoute: typeof CompareSlugRoute
   IntegrationsSlugRoute: typeof IntegrationsSlugRoute
   PressFileRoute: typeof PressFileRoute
+  SShareIdRoute: typeof SShareIdRoute
   UseCasesSlugRoute: typeof UseCasesSlugRoute
   CompareIndexRoute: typeof CompareIndexRoute
   IntegrationsIndexRoute: typeof IntegrationsIndexRoute
   PressIndexRoute: typeof PressIndexRoute
   UseCasesIndexRoute: typeof UseCasesIndexRoute
   IntegrationsCategoryCategoryRoute: typeof IntegrationsCategoryCategoryRoute
-  SShareIdRoute: typeof SShareIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -585,6 +585,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PressFileRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/s/$shareId': {
+      id: '/s/$shareId'
+      path: '/s/$shareId'
+      fullPath: '/s/$shareId'
+      preLoaderRoute: typeof SShareIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/use-cases/': {
       id: '/use-cases/'
       path: '/use-cases'
@@ -604,13 +611,6 @@ declare module '@tanstack/react-router' {
       path: '/integrations/category/$category'
       fullPath: '/integrations/category/$category'
       preLoaderRoute: typeof IntegrationsCategoryCategoryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/s/$shareId': {
-      id: '/s/$shareId'
-      path: '/s/$shareId'
-      fullPath: '/s/$shareId'
-      preLoaderRoute: typeof SShareIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -639,13 +639,13 @@ const rootRouteChildren: RootRouteChildren = {
   CompareSlugRoute: CompareSlugRoute,
   IntegrationsSlugRoute: IntegrationsSlugRoute,
   PressFileRoute: PressFileRoute,
+  SShareIdRoute: SShareIdRoute,
   UseCasesSlugRoute: UseCasesSlugRoute,
   CompareIndexRoute: CompareIndexRoute,
   IntegrationsIndexRoute: IntegrationsIndexRoute,
   PressIndexRoute: PressIndexRoute,
   UseCasesIndexRoute: UseCasesIndexRoute,
   IntegrationsCategoryCategoryRoute: IntegrationsCategoryCategoryRoute,
-  SShareIdRoute: SShareIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

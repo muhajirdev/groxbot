@@ -4,6 +4,8 @@ import {
   createHostedAgentRuntime,
   createPluginTools,
 } from "@groxbot/adapters";
+import { createBillingPort } from "./billing/index.js";
+import { createModelPricingPort } from "./billing/model-pricing-kv.js";
 import { createWakeHandlers } from "@groxbot/core";
 import { serve } from "@hono/node-server";
 import { loadRootEnv } from "./load-root-env.js";
@@ -23,10 +25,14 @@ async function main() {
     name: string;
     payload: Record<string, unknown>;
   }) => Promise<void> = async () => {};
+  const billing = createBillingPort(db, env);
+  const modelPricing = createModelPricingPort(undefined, db);
   const handlers = createWakeHandlers({
     db,
     runtime,
     env: agentRuntimeSource(env),
+    billing,
+    modelPricing,
     enqueue: (job) => enqueue(job),
     bindRuntime: (overlay) => bindAgentRuntime(overlay),
     pluginTools: (input) =>

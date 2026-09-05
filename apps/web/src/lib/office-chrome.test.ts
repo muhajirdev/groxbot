@@ -189,8 +189,10 @@ describe("office chrome", () => {
     expect(css).toMatch(/\.thread-head\s*\{[^}]*min-height:\s*45px/s);
   });
 
-  it("toasts share and copy above the office", () => {
+  it("toasts share and copy from the bottom right", () => {
     expect(css).toMatch(/\.office-toasts\s*\{[^}]*position:\s*fixed/s);
+    expect(css).toMatch(/\.office-toasts\s*\{[^}]*right:/s);
     expect(css).toMatch(/\.office-toast\s*\{[^}]*background:\s*var\(--card\)/s);
+    expect(css).toMatch(/@keyframes office-toast-in/);
   });
 });

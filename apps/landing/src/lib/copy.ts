@@ -271,6 +271,26 @@ export const HOME_ADOPTION = [
   { ...PEOPLE.rahul, role: "Scout", tasks: 980, label: "980" },
 ] as const;
 
+export const HOME_FEATURES = [
+  {
+    title: "For the whole team",
+    body:
+      "Named teammates in one office — not another agent hiding on a laptop.",
+  },
+  {
+    title: "Computer built in",
+    body:
+      "Hire a bot and they already have a cloud computer. Close the laptop; the work keeps going.",
+  },
+  {
+    title: "Knowledge from the thread",
+    body:
+      "What you decide in chat becomes office knowledge — skills, voice, how you work.",
+  },
+] as const;
+
+export const HOME_FAQS = FAQS.slice(0, 6);
+
 export const HOME_KNOWLEDGE = {
   thread: [
     "Maya: Ship Thursday. No jargon. Hold for me.",

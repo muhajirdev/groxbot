@@ -585,36 +585,166 @@ function formatCount(value: number): string {
 }
 
 function BillingTab() {
-  const query = useQuery(orpc.models.get.queryOptions());
-  const settings = query.data;
-  if (!settings) {
-    return (
-      <p className="muted">{query.error ? "Could not load." : "Loading…"}</p>
-    );
-  }
-  if (!settings.hostedGateway && settings.usage.requests === 0) {
+  const billingQuery = useQuery(orpc.billing.status.queryOptions());
+  const [busy, setBusy] = useState<"checkout" | "portal" | "ondemand" | null>(
+    null,
+  );
+  const [error, setError] = useState("");
+
+  const billing = billingQuery.data;
+
+  if (!billing) {
     return (
       <p className="muted">
-        Usage is counted when this workspace uses Groxbot’s included models.
-        Your own keys are not metered here.
+        {billingQuery.error ? "Could not load billing." : "Loading…"}
       </p>
     );
   }
+
+  async function startCheckout(plan: "pro" | "believers") {
+    setBusy("checkout");
+    setError("");
+    try {
+      const result = await client.billing.checkout({ plan });
+      window.location.href = result.url;
+    } catch (caught) {
+      setError(userFacingError(caught, "Could not start checkout."));
+      setBusy(null);
+    }
+  }
+
+  async function openPortal() {
+    setBusy("portal");
+    setError("");
+    try {
+      const result = await client.billing.portal();
+      window.location.href = result.url;
+    } catch (caught) {
+      setError(userFacingError(caught, "Could not open billing portal."));
+      setBusy(null);
+    }
+  }
+
+  async function toggleOnDemand(enabled: boolean) {
+    setBusy("ondemand");
+    setError("");
+    try {
+      await client.billing.updateOnDemand({ onDemandEnabled: enabled });
+      await billingQuery.refetch();
+    } catch (caught) {
+      setError(userFacingError(caught, "Could not update on-demand billing."));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const planLabel =
+    billing.plan === "believers"
+      ? "Believers"
+      : billing.plan === "pro"
+        ? "Pro"
+        : "Free";
+  const usagePercent = billing.includedUsagePercent;
+  const atLimit = usagePercent !== null && usagePercent >= 100;
+
   return (
     <section className="set-block">
-      <p className="group-label">This workspace</p>
-      <p className="hint">
-        Included models only. Your own keys are not counted. Per person rollups
-        come later.
-      </p>
-      <p>
-        {formatCount(settings.usage.requests)} requests ·{" "}
-        {formatCount(settings.usage.totalTokens)} tokens
-      </p>
-      <p className="muted">
-        {formatCount(settings.usage.promptTokens)} prompt ·{" "}
-        {formatCount(settings.usage.completionTokens)} completion
-      </p>
+      <p className="group-label">Workspace plan</p>
+      {billing.enabled ? (
+        <>
+          <p>
+            <strong>{planLabel}</strong>
+            {billing.status !== "none" ? ` · ${billing.status}` : null}
+          </p>
+          {billing.checkoutAvailable && billing.plan === "none" ? (
+            <div className="row">
+              <button
+                type="button"
+                className="btn"
+                disabled={busy !== null}
+                onClick={() => startCheckout("pro")}
+              >
+                Upgrade to Pro
+              </button>
+              <button
+                type="button"
+                className="btn ghost"
+                disabled={busy !== null}
+                onClick={() => startCheckout("believers")}
+              >
+                Believers
+              </button>
+            </div>
+          ) : null}
+          {billing.portalAvailable && billing.plan !== "none" ? (
+            <p>
+              <button
+                type="button"
+                className="btn ghost"
+                disabled={busy !== null}
+                onClick={() => openPortal()}
+              >
+                Manage subscription
+              </button>
+            </p>
+          ) : null}
+          {billing.limitsEnforced && billing.plan !== "none" ? (
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={billing.onDemandEnabled}
+                disabled={busy !== null}
+                onChange={(event) => toggleOnDemand(event.target.checked)}
+              />
+              Keep going after included usage runs out
+            </label>
+          ) : null}
+        </>
+      ) : (
+        <p className="hint">
+          Self-host billing is off. Hosted usage on groxbot.com is unlimited
+          until Polar is configured.
+        </p>
+      )}
+
+      {usagePercent !== null ? (
+        <>
+          <p className="group-label">Hosted usage</p>
+          <p className="hint">
+            Included models only, reset each UTC month. Your own keys are not
+            counted.
+          </p>
+          <div className="billing-usage">
+            <div
+              className="billing-usage-meter"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={usagePercent}
+              aria-label="Monthly included hosted usage"
+            >
+              <span
+                className="billing-usage-fill"
+                style={{ width: `${usagePercent}%` }}
+              />
+            </div>
+            <p className={atLimit ? "warn" : undefined}>
+              <strong>{usagePercent}%</strong> used this month
+            </p>
+            {billing.onDemandActive ? (
+              <p className="muted">On-demand usage is active.</p>
+            ) : null}
+            {atLimit && !billing.onDemandEnabled ? (
+              <p className="warn">
+                Monthly included usage reached. Turn on on-demand or upgrade.
+              </p>
+            ) : null}
+          </div>
+        </>
+      ) : billing.enabled && billing.plan !== "none" ? (
+        <p className="hint">No monthly usage cap on this plan.</p>
+      ) : null}
+      {error ? <p className="warn">{error}</p> : null}
     </section>
   );
 }

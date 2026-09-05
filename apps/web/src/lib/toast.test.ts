@@ -31,7 +31,9 @@ describe("office toast", () => {
   it("clears after the hold", () => {
     vi.useFakeTimers();
     toast(TOAST_LINK_COPIED);
-    vi.advanceTimersByTime(2200);
+    vi.advanceTimersByTime(2400);
+    expect(getToast()?.leaving).toBe(true);
+    vi.advanceTimersByTime(180);
     expect(getToast()).toBeNull();
   });
 

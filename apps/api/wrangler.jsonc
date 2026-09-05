@@ -72,6 +72,14 @@
 			"bucket_name": "groxbot-knowledge"
 		}
 	],
+	"kv_namespaces": [
+		{
+			// Production: wrangler kv namespace create PRODUCT_CACHE (and --preview)
+			"binding": "PRODUCT_CACHE",
+			"id": "3f01d40153a842d7bfd3d28193b8b2d3",
+			"preview_id": "f6889f40e60c48408e7a9e2c085b99a6"
+		}
+	],
 	"vars": {
 		"NODE_ENV": "production",
 		"BETTER_AUTH_URL": "https://api.groxbot.com",

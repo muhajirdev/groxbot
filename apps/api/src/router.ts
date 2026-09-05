@@ -18,6 +18,7 @@ import {
   listKnowledgeShares,
   listWorkspaceApps,
   listWorkspaceMembers,
+  loadBillingStatus,
   loadModelSettings,
   ModelSettingsError,
   PokeError,
@@ -31,7 +32,9 @@ import {
   saveModelSettings,
   sleep,
   toBotDto,
+  updateWorkspaceOnDemand,
   userHasModelCredentials,
+  isWorkspaceBillingManager,
 } from "@groxbot/core";
 import { guestConnectors, threads, userModelCredentials } from "@groxbot/db";
 import { implement, ORPCError } from "@orpc/server";
@@ -260,6 +263,104 @@ export const appRouter = os.router({
         }
         throw caught;
       }
+    }),
+  },
+  billing: {
+    status: os.billing.status.handler(async ({ context }) => {
+      const actor = await requireActor(context);
+      if (context.billing.enabled()) {
+        await context.billing.refreshCustomerState(actor.workspaceId).catch(
+          () => {},
+        );
+      }
+      return loadBillingStatus(
+        context.db,
+        actor.workspaceId,
+        agentRuntimeSource(context.env),
+      );
+    }),
+    checkout: os.billing.checkout.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      if (!context.billing.enabled()) {
+        throw new ORPCError("FAILED_PRECONDITION", {
+          message: "Billing is not available on this deployment.",
+        });
+      }
+      if (
+        !(await isWorkspaceBillingManager(
+          context.db,
+          actor.userId,
+          actor.workspaceId,
+        ))
+      ) {
+        throw new ORPCError("FORBIDDEN", {
+          message: "Only workspace owners and admins can manage billing.",
+        });
+      }
+      const successUrl = `${context.env.webOrigin.replace(/\/$/, "")}/settings?tab=billing`;
+      const forwarded = context.headers?.get("CF-Connecting-IP")?.trim()
+        || context.headers?.get("X-Forwarded-For")?.split(",")[0]?.trim()
+        || undefined;
+      return context.billing.createCheckout({
+        workspaceId: actor.workspaceId,
+        payerUserId: actor.userId,
+        payerEmail: actor.email,
+        plan: input.plan,
+        successUrl,
+        customerIpAddress: forwarded,
+      });
+    }),
+    portal: os.billing.portal.handler(async ({ context }) => {
+      const actor = await requireActor(context);
+      if (!context.billing.enabled()) {
+        throw new ORPCError("FAILED_PRECONDITION", {
+          message: "Billing is not available on this deployment.",
+        });
+      }
+      if (
+        !(await isWorkspaceBillingManager(
+          context.db,
+          actor.userId,
+          actor.workspaceId,
+        ))
+      ) {
+        throw new ORPCError("FORBIDDEN", {
+          message: "Only workspace owners and admins can manage billing.",
+        });
+      }
+      const returnUrl = `${context.env.webOrigin.replace(/\/$/, "")}/settings?tab=billing`;
+      return context.billing.createPortalSession({
+        workspaceId: actor.workspaceId,
+        returnUrl,
+      });
+    }),
+    updateOnDemand: os.billing.updateOnDemand.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      if (!context.billing.enabled()) {
+        throw new ORPCError("FAILED_PRECONDITION", {
+          message: "Billing is not available on this deployment.",
+        });
+      }
+      if (
+        !(await isWorkspaceBillingManager(
+          context.db,
+          actor.userId,
+          actor.workspaceId,
+        ))
+      ) {
+        throw new ORPCError("FORBIDDEN", {
+          message: "Only workspace owners and admins can manage billing.",
+        });
+      }
+      await updateWorkspaceOnDemand(context.db, actor.workspaceId, {
+        onDemandEnabled: input.onDemandEnabled,
+        onDemandSpendCapCents: input.onDemandSpendCapCents ?? null,
+      });
+      return loadBillingStatus(
+        context.db,
+        actor.workspaceId,
+        agentRuntimeSource(context.env),
+      );
     }),
   },
   bots: {

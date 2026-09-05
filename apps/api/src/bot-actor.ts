@@ -26,6 +26,8 @@ import {
   officeUserFromHeaders,
   type Routine,
   stampIncomingOfficeUser,
+  USAGE_BILLING_KIND_ON_DEMAND,
+  type UsageBillingKind,
 } from "@groxbot/contracts";
 import {
   applyOfficeReviewTurn,
@@ -92,8 +94,11 @@ import {
   RoutineError,
   RoutineNotFoundError,
   RoutineScheduleError,
-  readComputerFile,
+  recordComputerUsage,
+  recordHostedModelUsage,
   resolveRunModel,
+  assertHostedUsageAllowed,
+  billingKindForDecision,
   type StoredRoutine,
   searchOfficeHistory,
   shouldArmAwayOfficePing,
@@ -116,6 +121,8 @@ import { AgentContextProvider } from "agents/experimental/memory/session";
 import { and, eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { createBotComputer } from "./bot-computer-workspace.js";
+import { postHostedUsageIngest } from "./billing/ingest-http.js";
+import { createModelPricingPort } from "./billing/model-pricing-kv.js";
 import {
   createBundlingExecutor,
   createOfficeExecuteTool,
@@ -129,7 +136,7 @@ import {
   type OfficeChatSubscriber,
   officeRpcResponse,
 } from "./bot-office-rpc.js";
-import { aiToolsToPi, officeAgentTool } from "./bot-office-tools.js";
+import { aiToolsToPi, officeAgentTool, wrapAgentToolsForComputerUsage } from "./bot-office-tools.js";
 import { createPresentTool } from "./bot-present.js";
 import { createSkillTool } from "./bot-skill.js";
 import { RoutinesConnector } from "./bot-routines-connector.js";
@@ -165,6 +172,7 @@ export interface WorkerEnv {
   LOADER: unknown;
   BROWSER: unknown;
   KNOWLEDGE?: R2Bucket;
+  PRODUCT_CACHE?: KVNamespace;
 }
 
 type StoredJob = {
@@ -293,6 +301,7 @@ export class RoomHome extends Agent<WorkerEnv> {
   private hireName = "";
   private turnModel = HOSTED_STARTER_MODEL;
   private turnEnv: RuntimeSource = {};
+  private turnHosted = false;
   private botLoaded = false;
   private botLoading: Promise<void> | null = null;
   protected officeId = "";
@@ -672,9 +681,39 @@ export class RoomHome extends Agent<WorkerEnv> {
     const startedAt = Date.now();
     const visible = !intro;
     this.officeTurnTouched = false;
-    const tools = intro
+    let computerSeconds = 0;
+    let hostedBillingKind: UsageBillingKind | null = null;
+    if (this.turnHosted && this.officeId) {
+      const env = productEnv(this.env);
+      const source = agentRuntimeSource(env);
+      const { db, close } = createNeonHttpDb(env.databaseUrl);
+      try {
+        const decision = await assertHostedUsageAllowed(
+          db,
+          this.officeId,
+          source,
+        );
+        hostedBillingKind = billingKindForDecision(decision);
+      } catch (error) {
+        this.officeStatus = "error";
+        this.officeError =
+          error instanceof Error
+            ? error.message
+            : "This workspace hit its monthly hosted usage limit.";
+        await this.broadcastOfficeError();
+        await this.broadcastOfficeStatus();
+        return;
+      } finally {
+        await close();
+      }
+    }
+    const baseTools = intro
       ? officeIntroTurnTools(await this.officeAgentTools())
       : await this.officeAgentTools();
+    const tools = wrapAgentToolsForComputerUsage(baseTools, (seconds) => {
+      computerSeconds += seconds;
+      this.officeTurnTouched = true;
+    });
     const system = await this.officeSystemPrompt(bound, tools);
     try {
       const context = await session.buildContext();
@@ -690,6 +729,37 @@ export class RoomHome extends Agent<WorkerEnv> {
         getFollowUpMessages: () =>
           intro ? [] : this.officeSteer.drainMessages(),
         onEvent: async (event) => {
+          if (
+            hostedBillingKind &&
+            event.type === "turn_end" &&
+            event.message.role === "assistant"
+          ) {
+            const usage = event.message.usage;
+            const promptTokens = usage?.input ?? 0;
+            const completionTokens = usage?.output ?? 0;
+            const totalTokens = usage?.totalTokens ?? promptTokens + completionTokens;
+            if (promptTokens > 0 || completionTokens > 0 || totalTokens > 0) {
+              const userId =
+                lastOfficeHumanUserId(await this.officeBound(session)) ||
+                this.ownerUserId ||
+                "";
+              if (userId && this.officeId && this.personId) {
+                this.ctx.waitUntil(
+                  this.persistModelUsage({
+                    workspaceId: this.officeId,
+                    userId,
+                    botId: this.personId,
+                    model: this.turnModel,
+                    billingKind: hostedBillingKind,
+                    promptTokens,
+                    completionTokens,
+                    totalTokens,
+                    piCost: usage?.cost,
+                  }),
+                );
+              }
+            }
+          }
           const incoming =
             "message" in event && event.message ? event.message : null;
           if (
@@ -743,6 +813,20 @@ export class RoomHome extends Agent<WorkerEnv> {
       this.officeStatus = "ready";
       await this.broadcastOfficeStatus();
       const after = await this.officeBound(session);
+      if (computerSeconds > 0 && this.officeId && this.personId) {
+        const userId =
+          lastOfficeHumanUserId(after) || this.ownerUserId || "";
+        if (userId) {
+          this.ctx.waitUntil(
+            this.persistComputerUsage({
+              workspaceId: this.officeId,
+              userId,
+              botId: this.personId,
+              seconds: computerSeconds,
+            }),
+          );
+        }
+      }
       this.ctx.waitUntil(
         this.maybeArmAwayOfficePing({
           visible,
@@ -1252,6 +1336,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     );
     this.turnModel = overlay.model || HOSTED_STARTER_MODEL;
     this.turnEnv = overlay.env;
+    this.turnHosted = overlay.hosted;
     this.soulPrompt = teammatePrompt({
       ...bot,
       modelLabel: labelForModel(this.turnModel),
@@ -1266,6 +1351,70 @@ export class RoomHome extends Agent<WorkerEnv> {
     }
     await ensureComputerHome(this.computer.fs);
     patchComputerWorkspace(this.workspace);
+  }
+
+  private async persistComputerUsage(input: {
+    workspaceId: string;
+    userId: string;
+    botId: string;
+    seconds: number;
+  }): Promise<void> {
+    const { db, close } = createNeonHttpDb(this.env.databaseUrl);
+    try {
+      await recordComputerUsage(db, input);
+    } catch (error) {
+      console.error(
+        `[bot ${this.name}] computer usage +${input.seconds}s`,
+        error,
+      );
+    } finally {
+      await close();
+    }
+  }
+
+  private async persistModelUsage(input: {
+    workspaceId: string;
+    userId: string;
+    botId: string;
+    model: string;
+    billingKind: UsageBillingKind;
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+    piCost?: { input?: number; output?: number; total?: number };
+  }): Promise<void> {
+    const env = productEnv(this.env);
+    const { db, close } = createNeonHttpDb(env.databaseUrl);
+    try {
+      const pricing = createModelPricingPort(this.env.PRODUCT_CACHE, db);
+      const row = await recordHostedModelUsage(db, {
+        workspaceId: input.workspaceId,
+        userId: input.userId,
+        botId: input.botId,
+        model: input.model,
+        billingKind: input.billingKind,
+        promptTokens: input.promptTokens,
+        completionTokens: input.completionTokens,
+        totalTokens: input.totalTokens,
+        piCost: input.piCost,
+        pricing,
+      });
+      if (row?.billingKind === USAGE_BILLING_KIND_ON_DEMAND) {
+        await postHostedUsageIngest(env.apiUrl ?? env.authUrl, env.authSecret, {
+          usageId: row.id,
+          workspaceId: row.workspaceId,
+          userId: row.userId,
+          model: row.model,
+          costCents: row.costCents,
+          promptTokens: row.promptTokens,
+          completionTokens: row.completionTokens,
+        });
+      }
+    } catch (error) {
+      console.error(`[bot ${this.name}] model usage`, error);
+    } finally {
+      await close();
+    }
   }
 
   private async handleWorkspaceList(request: Request): Promise<Response> {

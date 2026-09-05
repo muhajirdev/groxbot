@@ -23,6 +23,9 @@ import { mountPublicKnowledge } from "./public-knowledge.js";
 import { mountRpc } from "./rpc.js";
 import { requireActor } from "./session.js";
 import { acceptInviteFromLink } from "./workspaces.js";
+import { createBillingPort } from "./billing/index.js";
+import { handlePolarWebhook } from "./billing/webhooks.js";
+import { WebhookVerificationError } from "@polar-sh/sdk/webhooks";
 
 export interface AppHandles extends Omit<RpcContext, "headers"> {
   app: Hono;
@@ -92,6 +95,7 @@ export function createApp(
     app,
     db: opts.db,
     auth,
+    billing: createBillingPort(opts.db, env),
     enqueue: opts.enqueue,
     initApp: opts.initApp,
     initRoom: opts.initRoom,
@@ -112,6 +116,65 @@ export function createApp(
   mountRpc(app, handles);
   mountDiscovery(app, env.webOrigin);
   mountPublicKnowledge(app, { db: opts.db, disk: opts.knowledgeDisk });
+
+  app.post("/internal/billing/ingest-usage", async (c) => {
+    const auth = c.req.header("authorization");
+    if (auth !== `Bearer ${env.authSecret}`) {
+      return c.text("Forbidden", 403);
+    }
+    const body = (await c.req.json().catch(() => null)) as {
+      usageId?: unknown;
+      workspaceId?: unknown;
+      userId?: unknown;
+      model?: unknown;
+      costCents?: unknown;
+      promptTokens?: unknown;
+      completionTokens?: unknown;
+    };
+    if (
+      typeof body?.usageId !== "string" ||
+      typeof body.workspaceId !== "string" ||
+      typeof body.userId !== "string" ||
+      typeof body.model !== "string" ||
+      typeof body.costCents !== "number" ||
+      typeof body.promptTokens !== "number" ||
+      typeof body.completionTokens !== "number"
+    ) {
+      return c.text("Bad request", 400);
+    }
+    try {
+      await handles.billing.ingestHostedUsage({
+        usageId: body.usageId,
+        workspaceId: body.workspaceId,
+        userId: body.userId,
+        model: body.model,
+        costCents: body.costCents,
+        promptTokens: body.promptTokens,
+        completionTokens: body.completionTokens,
+      });
+      return c.body(null, 204);
+    } catch (error) {
+      console.error("billing ingest", error);
+      return c.text("Ingest failed", 500);
+    }
+  });
+
+  app.post("/polar/webhooks", async (c) => {
+    if (!env.polarWebhookSecret?.trim()) {
+      return c.text("Not found", 404);
+    }
+    try {
+      const body = Buffer.from(await c.req.arrayBuffer());
+      await handlePolarWebhook(handles.db, env, body, c.req.raw.headers);
+      return c.body(null, 202);
+    } catch (error) {
+      if (error instanceof WebhookVerificationError) {
+        return c.text("Forbidden", 403);
+      }
+      console.error("polar webhook", error);
+      return c.text("Webhook handler failed", 500);
+    }
+  });
 
   app.get("/avatars/:userId", async (c) => {
     const disk = handles.avatars;

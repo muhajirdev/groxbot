@@ -14,16 +14,9 @@ export function SiteHeader(props: { startUrl: string }) {
         <Link className="nav-hide-sm" to="/integrations">
           Integrations
         </Link>
-        <Link className="nav-hide-sm" to="/use-cases">
-          Use cases
-        </Link>
-        <Link className="nav-hide-sm" to="/compare">
-          Compare
-        </Link>
         <a href={SOURCE_REPO} target="_blank" rel="noreferrer">
           GitHub
         </a>
-        <a href={CONTACT_MAILTO}>Email</a>
         <a className="btn" href={props.startUrl}>
           Get started
         </a>

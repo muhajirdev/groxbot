@@ -2,9 +2,14 @@ export const TOAST_LINK_COPIED = "Link copied";
 export const TOAST_SHARED_LINK_COPIED = "Shared. Link copied";
 export const TOAST_SHARED = "Shared";
 
-export type OfficeToastState = { id: number; message: string };
+export type OfficeToastState = {
+  id: number;
+  message: string;
+  leaving: boolean;
+};
 
-const HOLD_MS = 2200;
+const HOLD_MS = 2400;
+const EXIT_MS = 180;
 
 let seq = 0;
 let current: OfficeToastState | null = null;
@@ -38,12 +43,19 @@ export function dismissToast() {
 
 export function toast(message: string) {
   seq += 1;
-  current = { id: seq, message };
+  const id = seq;
+  current = { id, message, leaving: false };
   if (timer) globalThis.clearTimeout(timer);
   timer = globalThis.setTimeout(() => {
-    timer = 0;
-    current = null;
+    if (current?.id !== id) return;
+    current = { ...current, leaving: true };
     emit();
+    timer = globalThis.setTimeout(() => {
+      timer = 0;
+      if (current?.id !== id) return;
+      current = null;
+      emit();
+    }, EXIT_MS);
   }, HOLD_MS);
   emit();
 }

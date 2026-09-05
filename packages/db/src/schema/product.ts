@@ -323,6 +323,12 @@ export const modelUsage = pgTable(
     runId: text("run_id"),
     model: text("model").notNull(),
     source: text("source").notNull(),
+    /** included | on_demand — which monthly pool this row drew from. */
+    billingKind: text("billing_kind").notNull().default("included"),
+    /** Estimated charge at ingest time, in cents (1/100 USD). */
+    costCents: integer("cost_cents").notNull().default(0),
+    /** hosted_tokens | computer_minutes — for Polar meter ingest. */
+    meter: text("meter"),
     promptTokens: integer("prompt_tokens").notNull().default(0),
     completionTokens: integer("completion_tokens").notNull().default(0),
     totalTokens: integer("total_tokens").notNull().default(0),
@@ -333,6 +339,90 @@ export const modelUsage = pgTable(
   (t) => [
     index("model_usage_workspace_created").on(t.workspaceId, t.createdAt),
     index("model_usage_workspace_user").on(t.workspaceId, t.userId),
+    index("model_usage_workspace_billing_created").on(
+      t.workspaceId,
+      t.billingKind,
+      t.createdAt,
+    ),
+  ],
+);
+
+/**
+ * Per-model hosted pricing — cents per million tokens. Seeded in Postgres, not in source.
+ */
+export const modelPricing = pgTable("model_pricing", {
+  model: text("model").primaryKey(),
+  inputCentsPerMillion: integer("input_cents_per_million").notNull().default(0),
+  outputCentsPerMillion: integer("output_cents_per_million").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/**
+ * Hosted plan catalog — limits and Polar product ids live here, not in env or source.
+ * groxbot.com operators seed rows in Postgres (not committed to the public repo).
+ */
+export const billingPlans = pgTable("billing_plans", {
+  /** pro | believers — matches workspace_billing.plan */
+  plan: text("plan").primaryKey(),
+  label: text("label").notNull(),
+  /** Polar subscription product id for checkout. */
+  polarProductId: text("polar_product_id"),
+  /** Higher rank wins when a customer has multiple active subscriptions. */
+  rank: integer("rank").notNull().default(0),
+  /** Included hosted model spend per UTC month, in cents. */
+  monthlyIncludedSpendCents: integer("monthly_included_spend_cents"),
+  /** Optional legacy token cap when spend is not tracked yet. */
+  monthlyTokenLimit: integer("monthly_token_limit"),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/** Workspace billing mirror. Polar updates this; limits gate hosted usage. */
+export const workspaceBilling = pgTable(
+  "workspace_billing",
+  {
+    workspaceId: text("workspace_id")
+      .primaryKey()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    /** none | pro | believers */
+    plan: text("plan").notNull().default("none"),
+    /** none | trialing | active | past_due | canceled | revoked */
+    status: text("status").notNull().default("none"),
+    /**
+     * Included hosted usage budget per UTC month, in cents.
+     * Null = unlimited (self-host) or not yet configured.
+     */
+    monthlyIncludedSpendCents: integer("monthly_included_spend_cents"),
+    /** Legacy token cap until spend-based limits fully replace it. */
+    monthlyTokenLimit: integer("monthly_token_limit"),
+    /**
+     * When included pool is exhausted, continue hosted runs as on-demand
+     * (same rates, billed in arrears via Polar).
+     */
+    onDemandEnabled: boolean("on_demand_enabled").notNull().default(false),
+    /** Optional monthly cap on on-demand spend, in cents. Null = no cap. */
+    onDemandSpendCapCents: integer("on_demand_spend_cap_cents"),
+    polarCustomerId: text("polar_customer_id"),
+    currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+    /** UTC month start for mirrored usage counters below. */
+    usagePeriodStart: timestamp("usage_period_start", { withTimezone: true }),
+    /** Fast gating mirror — reset when usagePeriodStart rolls to a new month. */
+    includedSpendCentsUsed: integer("included_spend_cents_used")
+      .notNull()
+      .default(0),
+    onDemandSpendCentsUsed: integer("on_demand_spend_cents_used")
+      .notNull()
+      .default(0),
+    includedTokensUsed: integer("included_tokens_used").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("workspace_billing_polar_customer_id").on(t.polarCustomerId),
   ],
 );
 

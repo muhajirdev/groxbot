@@ -1,4 +1,4 @@
-import type { AgentRuntime, EnqueueJob, InitApp } from "@groxbot/adapter-kit";
+import type { AgentRuntime, BillingPort, EnqueueJob, InitApp, ModelPricingPort } from "@groxbot/adapter-kit";
 import type { Database } from "@groxbot/db";
 import type { GuestHub } from "./guest-hub.js";
 import { continueRun } from "./run-continue.js";
@@ -10,6 +10,8 @@ export function createWakeHandlers(opts: {
   guests?: GuestHub;
   initApp?: InitApp;
   env?: NodeJS.ProcessEnv;
+  billing?: BillingPort;
+  modelPricing?: ModelPricingPort;
   bindRuntime?: (overlay: {
     env: NodeJS.ProcessEnv;
     model: string;
@@ -38,6 +40,8 @@ export function createWakeHandlers(opts: {
         initApp: opts.initApp,
         bindRuntime: opts.bindRuntime,
         pluginTools: opts.pluginTools,
+        billing: opts.billing,
+        modelPricing: opts.modelPricing,
       });
     },
     "run.abort": async (payload: Record<string, unknown>) => {

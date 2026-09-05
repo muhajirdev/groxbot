@@ -141,6 +141,18 @@ export function resolvePiAiModel(
     );
   }
   const id = piAiGatewayModelId(requested);
+  if (config.groxGatewayUrl) {
+    const baseUrl = config.groxGatewayUrl.replace(/\/$/, "");
+    const template = fallbackGatewayModel(GATEWAY_COMPLETIONS_TEMPLATE_ID);
+    return {
+      ...cloneCompletions(template, id),
+      // Grox gateway is OpenAI-compatible; cloudflare-ai-gateway auth needs CF account env.
+      provider: OPENROUTER_PROVIDER,
+      baseUrl: baseUrl.endsWith("/v1") || baseUrl.endsWith("/compat")
+        ? baseUrl
+        : `${baseUrl}/v1`,
+    };
+  }
   const found = asCompletions(models.getModel(CLOUDFLARE_AI_GATEWAY, id));
   if (found) return found;
   const template =
@@ -166,6 +178,14 @@ function piAiStreamHeaders(
   config: GatewayConfig,
   metadata?: Record<string, string | undefined>,
 ): Record<string, string> {
+  if (config.groxGatewayUrl) {
+    const headers: Record<string, string> = {};
+    const workspaceId = metadata?.workspaceId?.trim();
+    const userId = metadata?.userId?.trim();
+    if (workspaceId) headers["X-Grox-Workspace-Id"] = workspaceId;
+    if (userId) headers["X-Grox-User-Id"] = userId;
+    return headers;
+  }
   if (config.provider === OPENROUTER_PROVIDER) {
     return {
       "HTTP-Referer": config.referer,
@@ -178,6 +198,7 @@ function piAiStreamHeaders(
 }
 
 function piAiStreamEnv(config: GatewayConfig): Record<string, string> {
+  if (config.groxGatewayUrl) return {};
   if (config.provider !== CLOUDFLARE_PROVIDER || !config.accountId) {
     return {};
   }

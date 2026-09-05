@@ -584,8 +584,8 @@ export function Design() {
                 <p className="computer-task">Reading the brief</p>
               </div>
             </Specimen>
-            <Specimen label="Toast" hint="Share publicly and copy link">
-              <div className="flex flex-col items-start gap-2">
+            <Specimen label="Toast" hint="Bottom right. Share and copy.">
+              <div className="flex flex-col items-end gap-2">
                 <OfficeToast message={TOAST_SHARED_LINK_COPIED} />
                 <OfficeToast message={TOAST_LINK_COPIED} />
               </div>

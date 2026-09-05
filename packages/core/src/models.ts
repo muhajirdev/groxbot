@@ -34,8 +34,12 @@ import type { Database } from "@groxbot/db";
 import { secrets, userModelCredentials, workspaceModels } from "@groxbot/db";
 import { eq } from "drizzle-orm";
 import { newId } from "./ids.js";
+import {
+  ensureWorkspaceBilling,
+  utcMonthStartIso,
+} from "./billing.js";
 import { decryptSecret, encryptSecret, secretHint } from "./secret-box.js";
-import { workspaceModelUsage } from "./usage.js";
+import { workspaceMonthlyModelUsage } from "./usage.js";
 
 const PROVIDERS: ModelProvider[] = [...PROVIDER_ORDER];
 
@@ -296,7 +300,8 @@ export async function loadModelSettings(
     available.length > 0 && !modelIsRunnable(defaultModelId, available)
       ? missingProviderMessage(defaultModelId)
       : null;
-  const usage = await workspaceModelUsage(db, actor.workspaceId);
+  const usage = await workspaceMonthlyModelUsage(db, actor.workspaceId);
+  const billing = await ensureWorkspaceBilling(db, actor.workspaceId);
 
   return {
     keys,
@@ -308,7 +313,11 @@ export async function loadModelSettings(
     runtime,
     catalog,
     warning,
-    usage,
+    usage: {
+      ...usage,
+      periodStart: utcMonthStartIso(),
+      monthlyTokenLimit: billing.monthlyTokenLimit,
+    },
   };
 }
 

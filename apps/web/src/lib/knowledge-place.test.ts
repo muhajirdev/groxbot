@@ -24,4 +24,11 @@ describe("knowledge share toasts", () => {
     expect(src).toContain("copyAndToast");
     expect(src).toContain("officeHref");
   });
+
+  it("puts share next to download on the note preview", () => {
+    expect(src).toContain("Share publicly");
+    expect(src).toContain("Copy public link");
+    expect(src).toMatch(/<ShareIcon \/>[\s\S]*?<DownloadIcon \/>[\s\S]*?<TrashIcon \/>/);
+    expect(src).toContain("workspace.sharePath");
+  });
 });

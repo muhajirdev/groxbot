@@ -822,6 +822,7 @@ img.avatar {
 #how,
 #jobs,
 #faq,
+#pricing,
 #enterprise,
 #together,
 #adopt,
@@ -1896,6 +1897,45 @@ img.avatar {
   line-height: 1.45;
 }
 
+.pricing {
+  margin: 8px 0 56px;
+  padding: 56px 0 8px;
+  border-top: 1px solid var(--line);
+}
+
+.pricing-head {
+  margin-bottom: 24px;
+}
+
+.pricing-head h2 {
+  font-size: clamp(28px, 4.2vw, 40px);
+  max-width: 16ch;
+  margin-bottom: 10px;
+}
+
+.pricing-lede {
+  margin: 0;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.45;
+  max-width: 28rem;
+}
+
+.pricing-teaser {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 20px;
+  max-width: 28rem;
+}
+
+.pricing-teaser p {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
 .cta {
   text-align: center;
   padding: 48px 0 56px;
@@ -2329,10 +2369,15 @@ a.chip.on .chip-count,
   .versus.versus-2,
   .versus.versus-4,
   .compare-picks,
-  .faq-band,
+  .faq-band {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .enterprise,
   .tiles,
   .demo,
+  .demo-layout,
   .statement,
   .int-hero,
   .tile.wide,
@@ -2361,6 +2406,22 @@ a.chip.on .chip-count,
   .enterprise {
     padding: 36px 24px;
     gap: 24px;
+  }
+
+  .cards {
+    grid-template-columns: 1fr;
+  }
+
+  .home-section {
+    padding: 56px 0;
+  }
+
+  .home-hero {
+    padding-top: 40px;
+  }
+
+  .home-hero h1 {
+    max-width: none;
   }
 
   .board li {
@@ -2594,5 +2655,135 @@ a.chip.on .chip-count,
 
 .share-foot-link {
   color: var(--ink);
+}
+
+/* Simple home layout */
+.home-hero {
+  text-align: center;
+  padding: 56px 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.home-hero h1 {
+  max-width: 14ch;
+  margin-bottom: 20px;
+}
+
+.home-hero-lede {
+  font-size: clamp(18px, 2.4vw, 22px);
+  line-height: 1.5;
+  color: var(--muted);
+  max-width: 34rem;
+  margin: 0 0 28px;
+}
+
+.home-hero .row {
+  justify-content: center;
+}
+
+.home-hero .preview-wrap {
+  width: 100%;
+  margin-top: 48px;
+  margin-bottom: 0;
+}
+
+.home-strip {
+  text-align: center;
+  padding: 48px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.home-strip p {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 16px;
+}
+
+.home-section {
+  padding: 80px 0;
+  border-top: 1px solid var(--line);
+}
+
+.home-section-head {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.home-section-head h2 {
+  margin-bottom: 12px;
+}
+
+.home-section-head .lede {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.home-integrations .chips {
+  justify-content: center;
+  margin-bottom: 0;
+}
+
+.home-integrations-more {
+  display: block;
+  text-align: center;
+  margin-top: 20px;
+  font-size: 14px;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.home-integrations-more:hover {
+  color: var(--ink);
+}
+
+.home-faq h2 {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.home-faq .faqs {
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+.home-cta {
+  text-align: center;
+  padding: 80px 0 24px;
+  border-top: 1px solid var(--line);
+}
+
+.home-cta .row {
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.home-cta-note {
+  margin: 20px 0 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.demo.home-section {
+  display: block;
+  padding-top: 80px;
+  padding-bottom: 80px;
+}
+
+.demo-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 36px;
+  align-items: start;
+}
+
+.demo.home-section .demo-list {
+  margin-top: 0;
+}
+
+.demo.home-section .demo-pick-text em {
+  display: none;
 }
 

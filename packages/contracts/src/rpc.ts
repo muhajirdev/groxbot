@@ -60,6 +60,13 @@ import {
   SaveModelSettingsInput,
   WakeupKind,
 } from "./models.js";
+import {
+  BillingCheckoutInputSchema,
+  BillingCheckoutOutputSchema,
+  BillingOnDemandInputSchema,
+  BillingPortalOutputSchema,
+  BillingStatusSchema,
+} from "./billing.js";
 
 const botId = z.object({ botId: Id });
 
@@ -93,6 +100,16 @@ export const appContract = oc.router({
   models: {
     get: oc.output(ModelSettingsSchema),
     save: oc.input(SaveModelSettingsInput).output(ModelSettingsSchema),
+  },
+  billing: {
+    status: oc.output(BillingStatusSchema),
+    checkout: oc
+      .input(BillingCheckoutInputSchema)
+      .output(BillingCheckoutOutputSchema),
+    portal: oc.output(BillingPortalOutputSchema),
+    updateOnDemand: oc
+      .input(BillingOnDemandInputSchema)
+      .output(BillingStatusSchema),
   },
   bots: {
     list: oc.output(z.array(BotSchema)),

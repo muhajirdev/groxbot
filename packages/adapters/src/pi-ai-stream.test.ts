@@ -23,6 +23,20 @@ describe("piAiGatewayModelId", () => {
 });
 
 describe("resolvePiAiModel", () => {
+  it("points grox-gateway at the worker OpenAI surface", () => {
+    const model = resolvePiAiModel(
+      loadGatewayConfig({
+        GROX_GATEWAY_URL: "https://grox-gateway.example.com",
+        GROX_GATEWAY_SECRET: "gw-secret",
+      }),
+      HOSTED_STARTER_MODEL,
+    );
+    expect(model.provider).toBe(OPENROUTER_PROVIDER);
+    expect(model.api).toBe("openai-completions");
+    expect(model.id).toBe("workers-ai/@cf/zai-org/glm-5.3-flash");
+    expect(model.baseUrl).toBe("https://grox-gateway.example.com/v1");
+  });
+
   it("clones a catalog Workers AI model when GLM 5.3 Flash is missing", () => {
     const model = resolvePiAiModel(
       loadGatewayConfig({
