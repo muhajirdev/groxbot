@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   composioUserId,
+  connectedAccountForTool,
   PluginError,
   parseToolkit,
   toPluginDto,
@@ -14,11 +15,28 @@ describe("plugin connections", () => {
   it("accepts marketplace slugs", () => {
     expect(parseToolkit("Gmail")).toBe("gmail");
     expect(parseToolkit("google-calendar")).toBe("google-calendar");
+    expect(parseToolkit("microsoft_teams")).toBe("microsoft_teams");
+    expect(parseToolkit("_1password")).toBe("_1password");
   });
 
   it("rejects empty or noisy slugs", () => {
     expect(() => parseToolkit("")).toThrow(PluginError);
-    expect(() => parseToolkit("GMAIL_SEND")).toThrow(PluginError);
+    expect(() => parseToolkit("gmail.send")).toThrow(PluginError);
+    expect(() => parseToolkit("GMAIL SEND")).toThrow(PluginError);
+  });
+
+  it("picks the longest connected toolkit prefix for a tool slug", () => {
+    const accounts = [
+      { toolkit: "gmail", connectedAccountId: "ca_mail" },
+      { toolkit: "microsoft_teams", connectedAccountId: "ca_teams" },
+    ];
+    expect(connectedAccountForTool("GMAIL_SEND_EMAIL", accounts)).toBe(
+      "ca_mail",
+    );
+    expect(
+      connectedAccountForTool("MICROSOFT_TEAMS_SEND_MESSAGE", accounts),
+    ).toBe("ca_teams");
+    expect(connectedAccountForTool("github", accounts)).toBeUndefined();
   });
 
   it("maps a row onto the contract", () => {

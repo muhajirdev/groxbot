@@ -123,6 +123,76 @@ describe("Composio adapter", () => {
       true,
     );
   });
+
+  it("reads a string toolkit field on connected accounts", async () => {
+    const gateway = new HttpComposioGateway("ak", async () =>
+      jsonResponse({
+        items: [{ id: "ca_slack", status: "ACTIVE", toolkit: "slack" }],
+      }),
+    );
+    await expect(gateway.listAccounts("groxbot:ws:1")).resolves.toEqual([
+      { id: "ca_slack", toolkit: "slack", status: "ACTIVE" },
+    ]);
+  });
+
+  it("searches connected toolkits and returns slim hits", async () => {
+    const gateway = new HttpComposioGateway("ak", async (input) => {
+      const url = String(input);
+      expect(url).toMatch(/query=send/);
+      expect(url).toMatch(/toolkit_slug=gmail/);
+      return jsonResponse({
+        items: [
+          {
+            slug: "GMAIL_SEND_EMAIL",
+            name: "Send Email",
+            description: "Send a Gmail message",
+            toolkit: { slug: "gmail" },
+          },
+          {
+            slug: "SLACK_SEND_MESSAGE",
+            name: "Send Slack",
+            toolkit: { slug: "slack" },
+          },
+        ],
+      });
+    });
+    await expect(
+      gateway.search({
+        userId: "groxbot:ws:1",
+        query: "send",
+        toolkits: ["gmail"],
+      }),
+    ).resolves.toEqual([
+      {
+        slug: "GMAIL_SEND_EMAIL",
+        name: "Send Email",
+        description: "Send a Gmail message",
+        toolkit: "gmail",
+      },
+    ]);
+  });
+
+  it("executes a tool with the connected account id", async () => {
+    let body = "";
+    const gateway = new HttpComposioGateway("ak", async (input, init) => {
+      body = String(init?.body ?? "");
+      expect(String(input)).toMatch(/\/tools\/execute\/GMAIL_SEND_EMAIL$/);
+      return jsonResponse({ data: { id: "msg_1" } });
+    });
+    await expect(
+      gateway.execute({
+        userId: "groxbot:ws:1",
+        slug: "GMAIL_SEND_EMAIL",
+        arguments: { to: "a@b.com" },
+        connectedAccountId: "ca_mail",
+      }),
+    ).resolves.toEqual({ data: { id: "msg_1" } });
+    expect(JSON.parse(body)).toMatchObject({
+      user_id: "groxbot:ws:1",
+      connected_account_id: "ca_mail",
+      arguments: { to: "a@b.com" },
+    });
+  });
 });
 
 function jsonResponse(body: unknown, status = 200): Response {

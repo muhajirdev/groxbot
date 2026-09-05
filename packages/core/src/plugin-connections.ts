@@ -52,12 +52,20 @@ export async function listPluginConnections(
   return rows.map(toPluginDto);
 }
 
-export async function listConnectedToolkits(
+export type ConnectedPluginAccount = {
+  toolkit: string;
+  connectedAccountId?: string;
+};
+
+export async function listConnectedPluginAccounts(
   db: Database,
   workspaceId: string,
-): Promise<string[]> {
+): Promise<ConnectedPluginAccount[]> {
   const rows = await db
-    .select({ toolkit: pluginConnections.toolkit })
+    .select({
+      toolkit: pluginConnections.toolkit,
+      connectedAccountId: pluginConnections.connectedAccountId,
+    })
     .from(pluginConnections)
     .where(
       and(
@@ -65,7 +73,40 @@ export async function listConnectedToolkits(
         eq(pluginConnections.status, "connected"),
       ),
     );
-  return rows.map((row) => row.toolkit);
+  return rows.map((row) => ({
+    toolkit: row.toolkit,
+    connectedAccountId: row.connectedAccountId?.trim() || undefined,
+  }));
+}
+
+export async function listConnectedToolkits(
+  db: Database,
+  workspaceId: string,
+): Promise<string[]> {
+  return (await listConnectedPluginAccounts(db, workspaceId)).map(
+    (row) => row.toolkit,
+  );
+}
+
+/** Longest connected toolkit prefix on a Composio tool slug (`GMAIL_SEND_EMAIL` → gmail). */
+export function connectedAccountForTool(
+  slug: string,
+  accounts: readonly ConnectedPluginAccount[],
+): string | undefined {
+  const normalized = slug.trim().toLowerCase().replace(/-/g, "_");
+  if (!normalized) return undefined;
+  let best: { id: string; length: number } | undefined;
+  for (const account of accounts) {
+    const id = account.connectedAccountId?.trim();
+    const toolkit = account.toolkit.trim().toLowerCase().replace(/-/g, "_");
+    if (!id || !toolkit) continue;
+    if (normalized === toolkit || normalized.startsWith(`${toolkit}_`)) {
+      if (!best || toolkit.length > best.length) {
+        best = { id, length: toolkit.length };
+      }
+    }
+  }
+  return best?.id;
 }
 
 export async function getPluginConnection(

@@ -24,12 +24,15 @@ describe("Computer Worker shell wiring", () => {
     expect(room).toMatch(/runGuestTurn/);
     expect(room).toMatch(/personDoorContext/);
     expect(room).toMatch(/buildOfficeSystemPrompt/);
-    expect(room).not.toMatch(/enqueueOnActor\(this\.env\.ROOM_ACTOR, homeRoomId/);
+    expect(room).not.toMatch(
+      /enqueueOnActor\(this\.env\.ROOM_ACTOR, homeRoomId/,
+    );
     expect(home).toMatch(/\/door\/context/);
     expect(home).toMatch(/handleDoorTool/);
     expect(home).toMatch(/mcp:\s*this\.workspaceMcp/);
     expect(home).toMatch(/httpMcpConnectionLike/);
     expect(home).toMatch(/WorkspaceMcpConnector/);
+    expect(home).toMatch(/PluginsConnector/);
     expect(home).not.toMatch(/createMcpOAuthProvider/);
     expect(home).not.toMatch(/handleMcpOAuth/);
     expect(home).not.toMatch(/addMcpServer/);
@@ -43,9 +46,15 @@ describe("Computer Worker shell wiring", () => {
     const home = readSrc("bot-actor.ts");
     const execute = readSrc("bot-execute.ts");
     const connector = readSrc("bot-mcp-connector.ts");
-    expect(connector).toMatch(/class WorkspaceMcpConnector extends McpConnector/);
+    expect(connector).toMatch(
+      /class WorkspaceMcpConnector extends McpConnector/,
+    );
     expect(connector).toMatch(/createConnection/);
+    expect(readSrc("bot-plugins.ts")).toMatch(
+      /class PluginsConnector extends CodemodeConnector/,
+    );
     expect(home).toMatch(/mcpExecuteConnectors/);
+    expect(home).toMatch(/pluginExecuteConnectors/);
     expect(home).toMatch(/executeConnectors/);
     expect(home).toMatch(/createOfficeExecuteTool/);
     expect(home).toMatch(/withOfficeExecuteDescription/);
@@ -90,6 +99,7 @@ describe("Computer Worker shell wiring", () => {
     expect(actor).not.toMatch(/workspaceBash/);
     expect(actor).toMatch(/sqliteSessionStore|DurableSessionStorage/);
     expect(actor).toMatch(/HistoryConnector/);
+    expect(actor).toMatch(/PluginsConnector/);
     expect(actor).toMatch(/officeHistorySearch/);
     expect(actor).toMatch(/ensureComputerHome/);
     expect(actor).toMatch(/jsonClone/);
@@ -141,7 +151,9 @@ describe("Computer Worker shell wiring", () => {
     expect(readSrc("mcp-http.ts")).toMatch(/StreamableHTTPClientTransport/);
     expect(readSrc("mcp-http.ts")).toMatch(/class PostgresMcpOAuthProvider/);
     expect(readSrc("mcp-http.ts")).not.toMatch(/from ["']agents["']/);
-    expect(readSrc("mcp-http.ts")).not.toMatch(/DurableObjectOAuthClientProvider/);
+    expect(readSrc("mcp-http.ts")).not.toMatch(
+      /DurableObjectOAuthClientProvider/,
+    );
     expect(readSrc("bots.ts")).not.toMatch(/getMcpHostBot/);
   });
 
