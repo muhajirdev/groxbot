@@ -491,3 +491,29 @@ export const sidebarSections = pgTable(
   },
   (t) => [index("sidebar_sections_workspace_id").on(t.workspaceId)],
 );
+
+/** Unlisted public link to an office note or folder. Files stay on R2. */
+export const knowledgeShares = pgTable(
+  "knowledge_shares",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    path: text("path").notNull(),
+    kind: text("kind").notNull(),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .references(() => user.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("knowledge_shares_workspace_path_live")
+      .on(t.workspaceId, t.path)
+      .where(sql`${t.revokedAt} is null`),
+    index("knowledge_shares_workspace_id").on(t.workspaceId),
+  ],
+);

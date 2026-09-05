@@ -12,6 +12,7 @@ NODE_ENV=development
 BETTER_AUTH_URL=http://127.0.0.1:3100
 API_URL=http://127.0.0.1:3100
 WEB_ORIGIN=http://127.0.0.1:5173
+LANDING_ORIGIN=http://127.0.0.1:5174
 CORS_ORIGINS=http://127.0.0.1:5173,http://127.0.0.1:5174
 
 # EMAIL_FROM=Groxbot <noreply@mail.groxbot.com>

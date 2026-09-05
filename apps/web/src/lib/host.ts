@@ -1,4 +1,4 @@
-import { CLOUD_API_ORIGIN } from "@groxbot/contracts";
+import { CLOUD_API_ORIGIN, landingOriginForWeb } from "@groxbot/contracts";
 
 const LOCAL_API_ORIGIN = "http://127.0.0.1:3100";
 const LOCAL_WEB_ORIGIN = "http://127.0.0.1:5173";
@@ -28,4 +28,11 @@ export function officeOrigin(): string {
 
 export function officeUrl(path: string): string {
   return new URL(path, `${officeOrigin()}/`).href;
+}
+
+/** Marketing host that serves unlisted knowledge shares. */
+export function landingOrigin(): string {
+  const explicit = import.meta.env.VITE_LANDING_URL?.replace(/\/$/, "");
+  if (explicit) return explicit;
+  return landingOriginForWeb(officeOrigin());
 }

@@ -13,6 +13,8 @@ export const STAGING_LANDING_ORIGIN =
 export const STAGING_WEB_ORIGIN = "https://groxbot-web.qalam.workers.dev";
 export const STAGING_API_ORIGIN = "https://groxbot-api.qalam.workers.dev";
 
+const LOCAL_LANDING_ORIGIN = "http://127.0.0.1:5174";
+
 export function groxbotCookieDomain(origin: string): string | undefined {
   try {
     const { hostname } = new URL(origin);
@@ -36,4 +38,23 @@ export function isGroxbotStagingOrigin(origin: string): boolean {
   } catch {
     return false;
   }
+}
+
+/** Marketing host that matches this office origin. */
+export function landingOriginForWeb(webOrigin: string): string {
+  const origin = webOrigin.replace(/\/$/, "");
+  if (origin === CLOUD_WEB_ORIGIN) return CLOUD_LANDING_ORIGIN;
+  if (origin === STAGING_WEB_ORIGIN) return STAGING_LANDING_ORIGIN;
+  return LOCAL_LANDING_ORIGIN;
+}
+
+export function knowledgeSharePath(shareId: string): string {
+  return `/s/${encodeURIComponent(shareId.trim())}`;
+}
+
+export function knowledgeShareUrl(
+  landingOrigin: string,
+  shareId: string,
+): string {
+  return `${landingOrigin.replace(/\/$/, "")}${knowledgeSharePath(shareId)}`;
 }

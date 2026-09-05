@@ -37,6 +37,7 @@ import { Route as PressFileRouteImport } from './routes/press/$file'
 import { Route as UseCasesIndexRouteImport } from './routes/use-cases/index'
 import { Route as UseCasesSlugRouteImport } from './routes/use-cases/$slug'
 import { Route as IntegrationsCategoryCategoryRouteImport } from './routes/integrations/category/$category'
+import { Route as SShareIdRouteImport } from './routes/s/$shareId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -179,6 +180,11 @@ const IntegrationsCategoryCategoryRoute =
     path: '/integrations/category/$category',
     getParentRoute: () => rootRouteImport,
   } as any)
+const SShareIdRoute = SShareIdRouteImport.update({
+  id: '/s/$shareId',
+  path: '/s/$shareId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -209,6 +215,7 @@ export interface FileRoutesByFullPath {
   '/press/': typeof PressIndexRoute
   '/use-cases/': typeof UseCasesIndexRoute
   '/integrations/category/$category': typeof IntegrationsCategoryCategoryRoute
+  '/s/$shareId': typeof SShareIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -239,6 +246,7 @@ export interface FileRoutesByTo {
   '/press': typeof PressIndexRoute
   '/use-cases': typeof UseCasesIndexRoute
   '/integrations/category/$category': typeof IntegrationsCategoryCategoryRoute
+  '/s/$shareId': typeof SShareIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -270,6 +278,7 @@ export interface FileRoutesById {
   '/press/': typeof PressIndexRoute
   '/use-cases/': typeof UseCasesIndexRoute
   '/integrations/category/$category': typeof IntegrationsCategoryCategoryRoute
+  '/s/$shareId': typeof SShareIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -302,6 +311,7 @@ export interface FileRouteTypes {
     | '/press/'
     | '/use-cases/'
     | '/integrations/category/$category'
+    | '/s/$shareId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -332,6 +342,7 @@ export interface FileRouteTypes {
     | '/press'
     | '/use-cases'
     | '/integrations/category/$category'
+    | '/s/$shareId'
   id:
     | '__root__'
     | '/'
@@ -362,6 +373,7 @@ export interface FileRouteTypes {
     | '/press/'
     | '/use-cases/'
     | '/integrations/category/$category'
+    | '/s/$shareId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -393,6 +405,7 @@ export interface RootRouteChildren {
   PressIndexRoute: typeof PressIndexRoute
   UseCasesIndexRoute: typeof UseCasesIndexRoute
   IntegrationsCategoryCategoryRoute: typeof IntegrationsCategoryCategoryRoute
+  SShareIdRoute: typeof SShareIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -593,6 +606,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IntegrationsCategoryCategoryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/s/$shareId': {
+      id: '/s/$shareId'
+      path: '/s/$shareId'
+      fullPath: '/s/$shareId'
+      preLoaderRoute: typeof SShareIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -625,6 +645,7 @@ const rootRouteChildren: RootRouteChildren = {
   PressIndexRoute: PressIndexRoute,
   UseCasesIndexRoute: UseCasesIndexRoute,
   IntegrationsCategoryCategoryRoute: IntegrationsCategoryCategoryRoute,
+  SShareIdRoute: SShareIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

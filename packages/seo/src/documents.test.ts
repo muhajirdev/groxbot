@@ -46,6 +46,8 @@ describe("discovery documents", () => {
     expect(robotsTxt(origins)).toContain("User-agent: GPTBot");
     expect(robotsTxt(origins)).toContain("Allow: /llms.txt");
     expect(robotsTxt(origins)).toContain("Allow: /compare");
+    expect(robotsTxt(origins)).toContain("Disallow: /s/");
+    expect(robotsTxt(origins)).not.toContain("/s/\nAllow");
   });
 
   it("answers Paperclip and Hermes in faq-ai", () => {

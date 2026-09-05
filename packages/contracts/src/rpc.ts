@@ -21,6 +21,8 @@ import {
   KnowledgeImportResultSchema,
   KnowledgeListSchema,
   KnowledgeSearchSchema,
+  KnowledgeShareKind,
+  KnowledgeShareSchema,
   KnowledgeWriteSchema,
   MAX_COMPUTER_WRITE_BYTES,
   McpConnectionSchema,
@@ -241,6 +243,18 @@ export const appContract = oc.router({
       .output(KnowledgeImportResultSchema),
     remove: oc
       .input(z.object({ path: z.string().min(1).max(240) }))
+      .output(z.object({ ok: z.literal(true) })),
+    shares: oc.output(z.array(KnowledgeShareSchema)),
+    share: oc
+      .input(
+        z.object({
+          path: z.string().min(1).max(240),
+          kind: KnowledgeShareKind,
+        }),
+      )
+      .output(KnowledgeShareSchema),
+    unshare: oc
+      .input(z.object({ shareId: Id }))
       .output(z.object({ ok: z.literal(true) })),
   },
   /** This bot’s Computer workspace. Not a computers catalog. */

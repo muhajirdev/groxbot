@@ -153,9 +153,11 @@ describe("knowledgeMenuItems", () => {
         kind: "file",
         skill: false,
         phase: "actions",
+        shared: false,
       }),
     ).toEqual([
       { id: "download", label: "Download" },
+      { id: "share", label: "Share publicly…" },
       { id: "copy-path", label: "Copy path" },
       { id: "delete", label: "Delete", danger: true },
     ]);
@@ -168,8 +170,9 @@ describe("knowledgeMenuItems", () => {
         kind: "file",
         skill: true,
         phase: "actions",
+        shared: false,
       }).map((item) => item.id),
-    ).toEqual(["download", "use", "copy-path", "delete"]);
+    ).toEqual(["download", "use", "share", "copy-path", "delete"]);
   });
 
   it("lists new file, copy, and delete for a folder", () => {
@@ -179,8 +182,39 @@ describe("knowledgeMenuItems", () => {
         kind: "dir",
         skill: false,
         phase: "actions",
+        shared: false,
       }).map((item) => item.id),
-    ).toEqual(["new-file", "copy-path", "delete"]);
+    ).toEqual(["new-file", "share", "copy-path", "delete"]);
+  });
+
+  it("copies and unpublishes an existing public link", () => {
+    expect(
+      knowledgeMenuItems({
+        name: "constraints",
+        kind: "file",
+        skill: false,
+        phase: "actions",
+        shared: true,
+      }).map((item) => item.id),
+    ).toEqual(["download", "copy-public-link", "unpublish", "copy-path", "delete"]);
+  });
+
+  it("warns that a folder share includes later files", () => {
+    expect(
+      knowledgeMenuItems({
+        name: "playbooks",
+        kind: "dir",
+        skill: false,
+        phase: "confirm-share",
+        shared: false,
+      }),
+    ).toEqual([
+      {
+        id: "confirm-share",
+        label: "Publish this folder — later files too",
+      },
+      { id: "cancel-share", label: "Cancel" },
+    ]);
   });
 
   it("confirms delete with the name", () => {
@@ -190,6 +224,7 @@ describe("knowledgeMenuItems", () => {
         kind: "file",
         skill: false,
         phase: "confirm-delete",
+        shared: false,
       }),
     ).toEqual([
       { id: "delete", label: "Delete constraints", danger: true },

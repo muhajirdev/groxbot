@@ -13,6 +13,7 @@ export * from "./ids.js";
 export * from "./knowledge.js";
 export * from "./knowledge-links.js";
 export * from "./knowledge-search.js";
+export * from "./knowledge-shares.js";
 export * from "./markdown.js";
 export * from "./mcp-connections.js";
 export * from "./mcp-oauth.js";

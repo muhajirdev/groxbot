@@ -11,6 +11,7 @@ import {
   CopyIcon,
   DownloadIcon,
   PlusIcon,
+  ShareIcon,
   SkillsIcon,
   TrashIcon,
 } from "./Icons";
@@ -30,10 +31,14 @@ export type KnowledgeMenuState = {
 
 export function KnowledgeContextMenu(props: {
   menu: KnowledgeMenuState | null;
+  shared: boolean;
   onClose: () => void;
   onPhase: (next: KnowledgeMenuState) => void;
   onDownload: (path: string) => void;
   onCopyPath: (path: string) => void;
+  onCopyPublicLink: (path: string) => void;
+  onShare: (node: KnowledgeTreeNode) => void;
+  onUnpublish: (path: string) => void;
   onUse: (node: KnowledgeTreeNode) => void;
   onNewFile: (folder: string) => void;
   onDelete: (path: string) => void;
@@ -58,6 +63,7 @@ export function KnowledgeContextMenu(props: {
     kind: current.node.kind,
     skill,
     phase: current.phase,
+    shared: props.shared,
   });
 
   return (
@@ -93,13 +99,17 @@ export function KnowledgeContextMenu(props: {
                 <Menu.Item
                   className={cn(
                     itemClass,
-                    item.id === "delete" && "text-danger",
+                    (item.id === "delete" || item.id === "unpublish") &&
+                      "text-danger",
                   )}
                   closeOnClick={
                     item.id === "download" ||
                     item.id === "copy-path" ||
+                    item.id === "copy-public-link" ||
                     item.id === "use" ||
                     item.id === "new-file" ||
+                    item.id === "unpublish" ||
+                    item.id === "confirm-share" ||
                     (item.id === "delete" && current.phase === "confirm-delete")
                   }
                   onClick={() => {
@@ -111,12 +121,32 @@ export function KnowledgeContextMenu(props: {
                       props.onCopyPath(current.node.path);
                       return;
                     }
+                    if (item.id === "copy-public-link") {
+                      props.onCopyPublicLink(current.node.path);
+                      return;
+                    }
                     if (item.id === "use") {
                       props.onUse(current.node);
                       return;
                     }
                     if (item.id === "new-file") {
                       props.onNewFile(current.node.path);
+                      return;
+                    }
+                    if (item.id === "share") {
+                      props.onPhase({ ...current, phase: "confirm-share" });
+                      return;
+                    }
+                    if (item.id === "cancel-share") {
+                      props.onPhase({ ...current, phase: "actions" });
+                      return;
+                    }
+                    if (item.id === "confirm-share") {
+                      props.onShare(current.node);
+                      return;
+                    }
+                    if (item.id === "unpublish") {
+                      props.onUnpublish(current.node.path);
                       return;
                     }
                     if (item.id === "cancel-delete") {
@@ -134,8 +164,11 @@ export function KnowledgeContextMenu(props: {
                   {item.id === "download" ? (
                     <DownloadIcon className="size-3.5 shrink-0 text-muted" />
                   ) : null}
-                  {item.id === "copy-path" ? (
+                  {item.id === "copy-path" || item.id === "copy-public-link" ? (
                     <CopyIcon className="size-3.5 shrink-0 text-muted" />
+                  ) : null}
+                  {item.id === "share" || item.id === "confirm-share" ? (
+                    <ShareIcon className="size-3.5 shrink-0 text-muted" />
                   ) : null}
                   {item.id === "use" ? (
                     <SkillsIcon className="size-3.5 shrink-0 text-muted" />
@@ -143,7 +176,7 @@ export function KnowledgeContextMenu(props: {
                   {item.id === "new-file" ? (
                     <PlusIcon className="size-3.5 shrink-0 text-muted" />
                   ) : null}
-                  {item.id === "delete" ? (
+                  {item.id === "delete" || item.id === "unpublish" ? (
                     <TrashIcon className="size-3.5 shrink-0" />
                   ) : null}
                   <span className="min-w-0 truncate">{item.label}</span>
@@ -156,4 +189,3 @@ export function KnowledgeContextMenu(props: {
     </Menu.Root>
   );
 }
-

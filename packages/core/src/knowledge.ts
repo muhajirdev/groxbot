@@ -173,7 +173,7 @@ export function sanitizeKnowledgePath(raw: string | undefined): string {
   return path;
 }
 
-function isKnowledgeHiddenPath(path: string): boolean {
+export function isKnowledgeHiddenPath(path: string): boolean {
   return isKnowledgeLinksPath(path) || isKnowledgeSearchPath(path);
 }
 

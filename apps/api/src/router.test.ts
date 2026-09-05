@@ -264,5 +264,18 @@ describe("oRPC", () => {
     ).rejects.toMatchObject({
       code: "UNAUTHORIZED",
     });
+    await expect(client.knowledge.shares()).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+    await expect(
+      client.knowledge.share({ path: "how-we-work/voice.md", kind: "file" }),
+    ).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+    await expect(
+      client.knowledge.unshare({ shareId: "ks-test" }),
+    ).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
   });
 });

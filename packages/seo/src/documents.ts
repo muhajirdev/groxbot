@@ -456,6 +456,7 @@ Allow: /mcp.json
 Allow: /.well-known/
 Disallow: /onboarding
 Disallow: /api/
+Disallow: /s/
 
 User-agent: GPTBot
 Allow: /
@@ -552,6 +553,7 @@ User-agent: *
 Allow: /
 Disallow: /onboarding
 Disallow: /api/
+Disallow: /s/
 
 Sitemap: ${abs(web, "/sitemap.xml")}
 

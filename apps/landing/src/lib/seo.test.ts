@@ -132,6 +132,7 @@ describe("sitemap", () => {
     ).toBe(true);
     expect(paths).toContain("/llms.txt");
     expect(paths).toContain("/mcp");
+    expect(paths.some((path) => path.startsWith("/s/"))).toBe(false);
     expect(paths.length).toBe(
       5 +
         DISCOVERY_SITEMAP_PATHS.length +

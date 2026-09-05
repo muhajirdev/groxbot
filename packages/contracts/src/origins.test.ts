@@ -6,6 +6,8 @@ import {
   CLOUD_LANDING_ORIGIN,
   CLOUD_WEB_ORIGIN,
   groxbotCookieDomain,
+  knowledgeShareUrl,
+  landingOriginForWeb,
   STAGING_API_ORIGIN,
   STAGING_LANDING_ORIGIN,
   STAGING_WEB_ORIGIN,
@@ -34,5 +36,16 @@ describe("cloud origins", () => {
     expect(groxbotCookieDomain(CLOUD_API_ORIGIN)).toBe(".groxbot.com");
     expect(groxbotCookieDomain("http://127.0.0.1:5173")).toBeUndefined();
     expect(groxbotCookieDomain(STAGING_WEB_ORIGIN)).toBeUndefined();
+  });
+
+  it("points public knowledge links at the marketing host", () => {
+    expect(landingOriginForWeb(CLOUD_WEB_ORIGIN)).toBe(CLOUD_LANDING_ORIGIN);
+    expect(landingOriginForWeb(STAGING_WEB_ORIGIN)).toBe(STAGING_LANDING_ORIGIN);
+    expect(landingOriginForWeb("http://127.0.0.1:5173")).toBe(
+      "http://127.0.0.1:5174",
+    );
+    expect(knowledgeShareUrl(CLOUD_LANDING_ORIGIN, "ks-1")).toBe(
+      "https://groxbot.com/s/ks-1",
+    );
   });
 });

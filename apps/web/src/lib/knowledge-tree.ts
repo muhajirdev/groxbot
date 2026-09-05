@@ -389,13 +389,18 @@ export function officeSkillNode(row: OfficeSkillRow): KnowledgeTreeNode {
   };
 }
 
-export type KnowledgeMenuPhase = "actions" | "confirm-delete";
+export type KnowledgeMenuPhase = "actions" | "confirm-delete" | "confirm-share";
 
 export type KnowledgeMenuItem =
   | { id: "download"; label: "Download" }
   | { id: "copy-path"; label: "Copy path" }
   | { id: "use"; label: "Use in chat" }
   | { id: "new-file"; label: "New file" }
+  | { id: "share"; label: "Share publicly…" }
+  | { id: "copy-public-link"; label: "Copy public link" }
+  | { id: "unpublish"; label: "Unpublish" }
+  | { id: "confirm-share"; label: string }
+  | { id: "cancel-share"; label: "Cancel" }
   | { id: "delete"; label: string; danger: true }
   | { id: "cancel-delete"; label: "Cancel" };
 
@@ -404,11 +409,24 @@ export function knowledgeMenuItems(input: {
   kind: "dir" | "file";
   skill: boolean;
   phase: KnowledgeMenuPhase;
+  shared: boolean;
 }): KnowledgeMenuItem[] {
   if (input.phase === "confirm-delete") {
     return [
       { id: "delete", label: `Delete ${input.name}`, danger: true },
       { id: "cancel-delete", label: "Cancel" },
+    ];
+  }
+  if (input.phase === "confirm-share") {
+    return [
+      {
+        id: "confirm-share",
+        label:
+          input.kind === "dir"
+            ? "Publish this folder — later files too"
+            : `Publish a public link to ${input.name}`,
+      },
+      { id: "cancel-share", label: "Cancel" },
     ];
   }
   const items: KnowledgeMenuItem[] = [];
@@ -417,6 +435,12 @@ export function knowledgeMenuItems(input: {
   } else {
     items.push({ id: "download", label: "Download" });
     if (input.skill) items.push({ id: "use", label: "Use in chat" });
+  }
+  if (input.shared) {
+    items.push({ id: "copy-public-link", label: "Copy public link" });
+    items.push({ id: "unpublish", label: "Unpublish" });
+  } else {
+    items.push({ id: "share", label: "Share publicly…" });
   }
   items.push({ id: "copy-path", label: "Copy path" });
   items.push({ id: "delete", label: "Delete", danger: true });

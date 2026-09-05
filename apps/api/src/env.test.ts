@@ -57,6 +57,7 @@ describe("loadEnv", () => {
     const env = loadEnv(base);
     expect(env.authUrl).toBe("http://127.0.0.1:3100");
     expect(env.webOrigin).toBe("http://127.0.0.1:5173");
+    expect(env.landingOrigin).toBe("http://127.0.0.1:5174");
     expect(env.apiUrl).toBe("http://127.0.0.1:3100");
     expect(env.tinyfishApiKey).toBeUndefined();
     expect(env.tinyfishApiKeys).toEqual([]);
@@ -80,5 +81,20 @@ describe("loadEnv", () => {
 
   it("trusts the Expo app scheme so magic links can return to a device", () => {
     expect(loadEnv(base).corsOrigins).toContain("groxbot://");
+  });
+
+  it("pairs the landing host with the office origin", () => {
+    expect(
+      loadEnv({
+        ...base,
+        WEB_ORIGIN: "https://app.groxbot.com",
+      }).landingOrigin,
+    ).toBe("https://groxbot.com");
+    expect(
+      loadEnv({
+        ...base,
+        LANDING_ORIGIN: "https://pages.example/",
+      }).landingOrigin,
+    ).toBe("https://pages.example");
   });
 });
