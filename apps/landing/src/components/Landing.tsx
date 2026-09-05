@@ -196,13 +196,17 @@ export function Landing(props: { startUrl: string }) {
             <div className="tile-stage">
               <div className="mini-pane">
                 <div className="mini-pane-head">
-                  Computer
+                  Chief of Staff&apos;s computer
                   <span className="status-pill">
                     <i /> Working
                   </span>
                 </div>
                 <p className="mini-pane-screen">
-                  Files land here. You can leave this open or not.
+                  notes/digest.md
+                  <br />
+                  chief-of-staff.md
+                  <br />
+                  weekly.md
                 </p>
               </div>
             </div>
@@ -214,12 +218,12 @@ export function Landing(props: { startUrl: string }) {
               <div className="desk-split">
                 <div className="desk-card on">
                   <span className="kicker">Bot</span>
-                  <strong>Bot actor</strong>
-                  <span>Named by botId</span>
+                  <strong>Chief of Staff</strong>
+                  <span>Named teammate</span>
                 </div>
                 <div className="desk-card">
                   <span className="kicker">Computer</span>
-                  <strong>Workspace</strong>
+                  <strong>Their screen</strong>
                   <span>Already theirs</span>
                 </div>
               </div>
