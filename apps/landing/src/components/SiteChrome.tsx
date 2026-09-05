@@ -17,6 +17,9 @@ export function SiteHeader(props: { startUrl: string }) {
         <Link className="nav-hide-sm" to="/use-cases">
           Use cases
         </Link>
+        <Link className="nav-hide-sm" to="/compare">
+          Compare
+        </Link>
         <a href={SOURCE_REPO} target="_blank" rel="noreferrer">
           GitHub
         </a>
@@ -36,6 +39,7 @@ export function SiteFooter() {
       <nav className="foot-links" aria-label="Footer">
         <Link to="/integrations">Integrations</Link>
         <Link to="/use-cases">Use cases</Link>
+        <Link to="/compare">Compare</Link>
         <Link to="/press">Press</Link>
         <a href={SOURCE_REPO} target="_blank" rel="noreferrer">
           GitHub
