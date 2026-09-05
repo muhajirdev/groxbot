@@ -16,3 +16,12 @@ describe("knowledge library search", () => {
     expect(src).toMatch(/Searching notes/);
   });
 });
+
+describe("knowledge share toasts", () => {
+  it("toasts that the public link was copied after share or copy", () => {
+    expect(src).toContain("TOAST_SHARED_LINK_COPIED");
+    expect(src).toContain("TOAST_LINK_COPIED");
+    expect(src).toContain("copyAndToast");
+    expect(src).toContain("officeHref");
+  });
+});

@@ -30,9 +30,14 @@ import { KnowledgeGraphMap } from "../components/KnowledgeGraph";
 import { OfficeFeed } from "../components/OfficeFeed";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { PresentSurface } from "../components/PresentToolUI";
+import { OfficeToast } from "../components/ToastHost";
 import { TypingDots } from "../components/TypingDots";
 import { Skeleton } from "../components/ui/skeleton";
 import { AVATAR_COLORS, AVATAR_SHAPES, SUGGESTED_JOBS } from "../lib/jobs";
+import {
+  TOAST_LINK_COPIED,
+  TOAST_SHARED_LINK_COPIED,
+} from "../lib/toast";
 import { applyTheme, readTheme, type Theme } from "../lib/theme";
 import { Button, Chip, cn, Field, Input } from "../ui";
 
@@ -577,6 +582,12 @@ export function Design() {
                   </span>
                 </div>
                 <p className="computer-task">Reading the brief</p>
+              </div>
+            </Specimen>
+            <Specimen label="Toast" hint="Share publicly and copy link">
+              <div className="flex flex-col items-start gap-2">
+                <OfficeToast message={TOAST_SHARED_LINK_COPIED} />
+                <OfficeToast message={TOAST_LINK_COPIED} />
               </div>
             </Specimen>
           </Section>
