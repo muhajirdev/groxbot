@@ -31,11 +31,31 @@ describe("Computer Worker shell wiring", () => {
     expect(home).toMatch(/handleMcpOAuth/);
     expect(home).toMatch(/handleCallbackRequest/);
     expect(home).toMatch(/mcp:\s*this\.workspaceMcp/);
+    expect(home).toMatch(/createMcpOAuthProvider/);
+    expect(home).toMatch(/DurableObjectOAuthClientProvider/);
+    expect(home).toMatch(/MCP_OAUTH_CLIENT_NAME/);
+    expect(home).toMatch(/McpOAuthKv/);
     expect(home).toMatch(/hostMcpConnectionLike/);
     expect(home).toMatch(/remoteMcpConnection/);
     expect(home).toMatch(/\/mcp\/tools/);
     expect(home).toMatch(/\/mcp\/call/);
     expect(home).not.toMatch(/runRoomTurn/);
+  });
+
+  it("keeps workspace MCP as Code Mode connectors inside execute", () => {
+    const home = readSrc("bot-actor.ts");
+    const execute = readSrc("bot-execute.ts");
+    const connector = readSrc("bot-mcp-connector.ts");
+    expect(connector).toMatch(/class WorkspaceMcpConnector extends McpConnector/);
+    expect(connector).toMatch(/createConnection/);
+    expect(home).toMatch(/mcpExecuteConnectors/);
+    expect(home).toMatch(/executeConnectors/);
+    expect(home).toMatch(/createOfficeExecuteTool/);
+    expect(home).toMatch(/withOfficeExecuteDescription/);
+    expect(home).toMatch(/mcp:\s*this\.workspaceMcp\.map/);
+    expect(execute).toMatch(/createCodemodeRuntime/);
+    expect(execute).toMatch(/connectors\.push\(\.\.\.opts\.connectors\)/);
+    expect(home).not.toMatch(/name:\s*"mcp"/);
   });
 
   it("constructs Computer with WorkerShellBackend, not Think bash", () => {

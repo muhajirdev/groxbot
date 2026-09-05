@@ -41,9 +41,7 @@ async function ensureMcpHost(
   row: { id: string; hostBotId: string | null; visibility: string },
 ): Promise<string> {
   if (row.hostBotId) return row.hostBotId;
-  const bot = await getMcpHostBot(context, actor, undefined, {
-    mcpVisibility: row.visibility,
-  });
+  const bot = await getMcpHostBot(context, actor, undefined);
   await saveMcpConnection(context.db, row.id, { hostBotId: bot.id });
   return bot.id;
 }
@@ -90,9 +88,7 @@ export async function connectMcp(
         message: "Add the MCP server first.",
       });
     }
-    const bot = await getMcpHostBot(context, actor, input.botId, {
-      mcpVisibility: existing.visibility,
-    });
+    const bot = await getMcpHostBot(context, actor, input.botId);
     if (!context.mcp) {
       throw new McpError("Remote MCP is only available on the Cloudflare API.");
     }

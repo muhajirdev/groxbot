@@ -380,7 +380,7 @@ export const pluginConnections = pgTable(
   ],
 );
 
-/** Workspace remote MCP catalog. Live OAuth sits on one home actor; every teammate uses it. */
+/** Workspace remote MCP catalog. Encrypted OAuth lives on the row; hostBotId is callback routing. */
 export const mcpConnections = pgTable(
   "mcp_connections",
   {
@@ -403,6 +403,8 @@ export const mcpConnections = pgTable(
      */
     visibility: text("visibility").notNull().default("shared"),
     lastError: text("last_error"),
+    /** AES-GCM blob of Agents OAuth KV (tokens, PKCE). Never return on the DTO. */
+    oauthCiphertext: text("oauth_ciphertext"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

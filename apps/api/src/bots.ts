@@ -68,46 +68,15 @@ export async function getBotThread(
   return { bot: await withOwnRoom(context, actor, bot), thread };
 }
 
-/** Live MCP OAuth sits on a home actor. Private MCP hosts on the owner’s private bot. */
+/** OAuth ceremony runs on a home actor. Tokens live in Postgres, not on that DO. */
 export async function getMcpHostBot(
   context: RpcContext,
   actor: Actor,
   botId?: string,
-  opts?: { mcpVisibility?: string },
 ) {
-  const privateMcp = parseVisibility(opts?.mcpVisibility ?? "shared") === "private";
   if (botId) {
     const { bot } = await getBotThread(context, actor, botId);
-    if (!bot.archivedAt) {
-      if (!privateMcp) return bot;
-      if (
-        parseVisibility(bot.visibility) === "private" &&
-        bot.userId === actor.userId
-      ) {
-        return bot;
-      }
-    }
-  }
-  if (privateMcp) {
-    const [privateHost] = await context.db
-      .select()
-      .from(bots)
-      .where(
-        and(
-          eq(bots.workspaceId, actor.workspaceId),
-          eq(bots.userId, actor.userId),
-          eq(bots.visibility, "private"),
-          isNull(bots.archivedAt),
-        ),
-      )
-      .orderBy(asc(bots.createdAt))
-      .limit(1);
-    if (!privateHost) {
-      throw new ORPCError("PRECONDITION_FAILED", {
-        message: "Hire a private teammate before connecting a private MCP.",
-      });
-    }
-    return withOwnRoom(context, actor, privateHost);
+    if (!bot.archivedAt) return bot;
   }
   const [shared] = await context.db
     .select()

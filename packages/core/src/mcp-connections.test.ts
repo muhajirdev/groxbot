@@ -106,6 +106,7 @@ describe("mcp connections", () => {
         status: "connected",
         visibility: "shared",
         lastError: null,
+        oauthCiphertext: null,
         createdAt: now,
         updatedAt: now,
       }),
@@ -151,7 +152,15 @@ describe("mcp connections", () => {
           userId: "user-1",
         },
       ]),
-    ).toEqual([{ id: "mcp-1", name: "mimpimu", hostBotId: "bot-1" }]);
+    ).toEqual([
+      {
+        id: "mcp-1",
+        name: "mimpimu",
+        url: "",
+        hostBotId: "bot-1",
+        hasOauth: false,
+      },
+    ]);
   });
 
   it("gives a private bot the owner’s private MCP plus shared MCP", () => {
@@ -187,8 +196,20 @@ describe("mcp connections", () => {
         userId: "user-alice",
       }),
     ).toEqual([
-      { id: "mcp-shared", name: "mimpimu", hostBotId: "bot-shared" },
-      { id: "mcp-alice", name: "gmail", hostBotId: "bot-alice" },
+      {
+        id: "mcp-shared",
+        name: "mimpimu",
+        url: "",
+        hostBotId: "bot-shared",
+        hasOauth: false,
+      },
+      {
+        id: "mcp-alice",
+        name: "gmail",
+        url: "",
+        hostBotId: "bot-alice",
+        hasOauth: false,
+      },
     ]);
     expect(
       mcpCatalogForExecute(rows, {
@@ -196,7 +217,38 @@ describe("mcp connections", () => {
         userId: "user-alice",
       }),
     ).toEqual([
-      { id: "mcp-shared", name: "mimpimu", hostBotId: "bot-shared" },
+      {
+        id: "mcp-shared",
+        name: "mimpimu",
+        url: "",
+        hostBotId: "bot-shared",
+        hasOauth: false,
+      },
+    ]);
+  });
+
+  it("binds a connected row that already has Postgres OAuth even without a host bot", () => {
+    expect(
+      mcpCatalogForExecute([
+        {
+          id: "mcp-1",
+          name: "gmail",
+          url: "https://mcp.gmail/mcp",
+          status: "connected",
+          hostBotId: null,
+          visibility: "shared",
+          userId: "user-1",
+          hasOauth: true,
+        },
+      ]),
+    ).toEqual([
+      {
+        id: "mcp-1",
+        name: "gmail",
+        url: "https://mcp.gmail/mcp",
+        hostBotId: "",
+        hasOauth: true,
+      },
     ]);
   });
 

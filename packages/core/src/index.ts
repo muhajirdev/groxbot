@@ -15,6 +15,7 @@ export * from "./knowledge-links.js";
 export * from "./knowledge-search.js";
 export * from "./markdown.js";
 export * from "./mcp-connections.js";
+export * from "./mcp-oauth.js";
 export * from "./models.js";
 export * from "./office-away.js";
 export * from "./office-chat.js";

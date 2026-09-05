@@ -48,19 +48,23 @@ import {
   ensureComputerHome,
   formatRoutinePrompt,
   isMcpOAuthCallbackPath,
+  getMcpConnectionById,
   isoUnixSeconds,
   jsonClone,
   lastOfficeHumanUserId,
   lastOfficeUserIsIntro,
   lastPiAssistantText,
   listComputerEntries,
-  listMcpConnections,
   loadOfficeSkillCatalog,
+  MCP_OAUTH_CLIENT_NAME,
   MCP_OAUTH_SETTLE_MS,
+  mcpBindableForBot,
   mcpCatalogForExecute,
   mcpCatalogStatusFromLive,
   mcpConnectionIsExecutable,
   mcpServerId,
+  McpOAuthKv,
+  postgresMcpOAuthDb,
   parseVisibility,
   newId,
   OFFICE_AWAY_CALLBACK,
@@ -117,9 +121,9 @@ import {
   withOfficeExecuteDescription,
   writeInboxFile,
 } from "@groxbot/core";
-import { bots, member, organization, user } from "@groxbot/db";
+import { bots, mcpConnections, member, organization, user } from "@groxbot/db";
 import { createNeonHttpDb } from "@groxbot/db/neon";
-import { Agent } from "agents";
+import { Agent, DurableObjectOAuthClientProvider } from "agents";
 import { AgentContextProvider } from "agents/experimental/memory/session";
 import { and, eq, inArray, or } from "drizzle-orm";
 import { z } from "zod";
@@ -331,6 +335,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     name: string;
     hostRoomId: string;
   }> = [];
+  private oauthKv: McpOAuthKv | null = null;
 
   async onStart(): Promise<void> {
     const stored = await this.ctx.storage.get<string>("officeId");
@@ -347,6 +352,59 @@ export class RoomHome extends Agent<WorkerEnv> {
     await this.ensureOfficeSession();
     await this.healComputerFiles();
     console.log(`[bot ${this.name}] onStart`);
+  }
+
+  /**
+   * OAuth tokens + PKCE sit in Postgres on the catalog row. Client name is
+   * stable so sharing this teammate does not namespace Gmail onto this DO.
+   */
+  createMcpOAuthProvider(callbackUrl: string) {
+    return new DurableObjectOAuthClientProvider(
+      this.mcpOAuthStorage(),
+      MCP_OAUTH_CLIENT_NAME,
+      callbackUrl,
+    );
+  }
+
+  private mcpOAuthStorage() {
+    if (!this.oauthKv) {
+      this.oauthKv = new McpOAuthKv({
+        workspaceId: () => this.officeId,
+        secret: () => {
+          const env = productEnv(this.env);
+          return encryptionSecret(agentRuntimeSource(env), env.production);
+        },
+        db: {
+          load: async (id) => {
+            const env = productEnv(this.env);
+            const { db } = createNeonHttpDb(env.databaseUrl);
+            return postgresMcpOAuthDb(db).load(id);
+          },
+          save: async (id, ciphertext) => {
+            const env = productEnv(this.env);
+            const { db } = createNeonHttpDb(env.databaseUrl);
+            await postgresMcpOAuthDb(db).save(id, ciphertext);
+          },
+        },
+      });
+    }
+    return this.oauthKv;
+  }
+
+  private catalogMcpBot() {
+    return this.personId
+      ? { visibility: this.botVisibility, userId: this.ownerUserId }
+      : { visibility: "shared" as const, userId: "" };
+  }
+
+  private async requireMcpBind(serverId: string): Promise<boolean> {
+    await this.ensureBotLoaded();
+    if (!this.officeId) return false;
+    const env = productEnv(this.env);
+    const { db } = createNeonHttpDb(env.databaseUrl);
+    const row = await getMcpConnectionById(db, serverId);
+    if (!row || row.workspaceId !== this.officeId) return false;
+    return mcpBindableForBot(row, this.catalogMcpBot());
   }
 
   private pageTinyfishPool(): TinyfishKeyPool {
@@ -1886,13 +1944,26 @@ export class RoomHome extends Agent<WorkerEnv> {
     }
     const env = productEnv(this.env);
     const { db } = createNeonHttpDb(env.databaseUrl);
+    const rows = await db
+      .select()
+      .from(mcpConnections)
+      .where(eq(mcpConnections.workspaceId, this.officeId));
     const catalog = mcpCatalogForExecute(
-      await listMcpConnections(db, this.officeId),
-      this.personId
-        ? { visibility: this.botVisibility, userId: this.ownerUserId }
-        : { visibility: "shared", userId: "" },
+      rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        url: row.url,
+        status: row.status,
+        hostBotId: row.hostBotId,
+        visibility: row.visibility,
+        userId: row.userId,
+        hasOauth: Boolean(row.oauthCiphertext),
+      })),
+      this.catalogMcpBot(),
     );
-    const hostIds = [...new Set(catalog.map((row) => row.hostBotId))];
+    const hostIds = [
+      ...new Set(catalog.map((row) => row.hostBotId).filter(Boolean)),
+    ];
     const hosts =
       hostIds.length === 0
         ? []
@@ -1903,15 +1974,34 @@ export class RoomHome extends Agent<WorkerEnv> {
     const homeByBot = new Map(
       hosts.map((row) => [row.id, row.homeRoomId || row.id]),
     );
-    const next = catalog.flatMap((row) => {
+    const callbackHost = (env.apiUrl ?? env.webOrigin).replace(/\/$/, "");
+    const next: Array<{ id: string; name: string; hostRoomId: string }> = [];
+    for (const row of catalog) {
+      const id = mcpServerId(row.id);
       const hostRoomId =
         homeByBot.get(row.hostBotId) ||
         (row.hostBotId === this.personId || row.hostBotId === this.name
           ? this.name
           : undefined);
-      if (!hostRoomId) return [];
-      return [{ id: row.id, name: row.name, hostRoomId }];
-    });
+      if (row.hasOauth && row.url && !this.mcp.mcpConnections[id]) {
+        try {
+          await this.addMcpServer(row.name, row.url, {
+            id,
+            callbackHost,
+            callbackPath: "api/mcp/oauth",
+          });
+        } catch (error) {
+          console.error("bot actor mcp hydrate", this.name, error);
+        }
+      }
+      const hostedHere =
+        Boolean(this.mcp.mcpConnections[id]) || hostRoomId === this.name;
+      if (hostedHere) {
+        next.push({ id: row.id, name: row.name, hostRoomId: this.name });
+      } else if (hostRoomId) {
+        next.push({ id: row.id, name: row.name, hostRoomId });
+      }
+    }
     if (next.some((row) => row.hostRoomId === this.name)) {
       try {
         await this.mcp.waitForConnections({ timeout: MCP_OAUTH_SETTLE_MS });
@@ -1992,6 +2082,7 @@ export class RoomHome extends Agent<WorkerEnv> {
    */
   private async handleMcpOAuth(request: Request): Promise<Response> {
     this.ensureMcpOAuthCallback();
+    await this.ensureBotLoaded();
     const result = await this.mcp.handleCallbackRequest(request);
     if (result.authSuccess) {
       this.mcp.establishConnection(result.serverId).catch((error) => {
@@ -2030,6 +2121,9 @@ export class RoomHome extends Agent<WorkerEnv> {
       serverId?: unknown;
     };
     const serverId = typeof body.serverId === "string" ? body.serverId : "";
+    if (!(await this.requireMcpBind(serverId))) {
+      return new Response("Forbidden", { status: 403 });
+    }
     const connection = await this.hostMcpConnection(serverId);
     if (!connection) {
       return Response.json({ error: "MCP is not connected." }, { status: 404 });
@@ -2066,6 +2160,9 @@ export class RoomHome extends Agent<WorkerEnv> {
     };
     const serverId = typeof body.serverId === "string" ? body.serverId : "";
     const name = typeof body.name === "string" ? body.name.trim() : "";
+    if (!(await this.requireMcpBind(serverId))) {
+      return new Response("Forbidden", { status: 403 });
+    }
     const connection = await this.hostMcpConnection(serverId);
     if (!connection || !name) {
       return Response.json({ error: "MCP is not connected." }, { status: 404 });
@@ -2095,6 +2192,7 @@ export class RoomHome extends Agent<WorkerEnv> {
 
   private async handleMcpAdd(request: Request): Promise<Response> {
     this.ensureMcpOAuthCallback();
+    await this.ensureBotLoaded();
     const body = (await request.json().catch(() => ({}))) as {
       serverId?: unknown;
       name?: unknown;

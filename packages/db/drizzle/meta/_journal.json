@@ -64,6 +64,13 @@
       "when": 1788563360080,
       "tag": "0008_abnormal_pete_wisdom",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788567005335,
+      "tag": "0009_rich_nightshade",
+      "breakpoints": true
     }
   ]
 }

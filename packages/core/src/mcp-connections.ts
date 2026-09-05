@@ -386,10 +386,12 @@ export function mcpConnectionIsExecutable(state: string | undefined): boolean {
 export type WorkspaceMcpCatalogRow = {
   id: string;
   name: string;
+  url?: string;
   status: string;
   hostBotId: string | null;
   visibility: string;
   userId: string;
+  hasOauth?: boolean;
 };
 
 export type McpCatalogBot = {
@@ -397,24 +399,39 @@ export type McpCatalogBot = {
   userId: string;
 };
 
+export type WorkspaceMcpExecuteRow = {
+  id: string;
+  name: string;
+  url: string;
+  hostBotId: string;
+  hasOauth: boolean;
+};
+
 /**
- * Workspace catalog rows this teammate can bind. Live OAuth still sits on
- * `hostBotId`; other home rooms proxy into that actor.
+ * Workspace catalog rows this teammate can bind. OAuth tokens live on the
+ * catalog row; `hostBotId` is callback routing / legacy live client.
  * Private bot → owner’s private MCP + shared MCP. Shared bot → shared only.
  */
 export function mcpCatalogForExecute(
   rows: readonly WorkspaceMcpCatalogRow[],
   bot?: McpCatalogBot,
-): Array<{ id: string; name: string; hostBotId: string }> {
+): WorkspaceMcpExecuteRow[] {
   const used = new Set<string>();
-  const out: Array<{ id: string; name: string; hostBotId: string }> = [];
+  const out: WorkspaceMcpExecuteRow[] = [];
   for (const row of rows) {
-    if (row.status !== "connected" || !row.hostBotId) continue;
+    if (row.status !== "connected") continue;
+    if (!row.hostBotId && !row.hasOauth) continue;
     if (bot && !mcpBindableForBot(row, bot)) continue;
     let name = row.name.trim() || "mcp";
     if (used.has(name)) name = `${name}-${row.id.slice(0, 8)}`;
     used.add(name);
-    out.push({ id: row.id, name, hostBotId: row.hostBotId });
+    out.push({
+      id: row.id,
+      name,
+      url: row.url ?? "",
+      hostBotId: row.hostBotId ?? "",
+      hasOauth: Boolean(row.hasOauth),
+    });
   }
   return out;
 }
