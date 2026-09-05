@@ -54,6 +54,13 @@ import {
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
 import { landingOrigin } from "../lib/host";
+import {
+  TOAST_LINK_COPIED,
+  TOAST_SHARED,
+  TOAST_SHARED_LINK_COPIED,
+  copyAndToast,
+  toast,
+} from "../lib/toast";
 import { OFFICE_MESSAGES_GC_TIME } from "../lib/office-messages";
 import { tenantBoundQueryFn } from "../lib/tenant-query";
 import { knowledgeListQueryOptions } from "../lib/workspace-catalog";
@@ -87,6 +94,7 @@ export function KnowledgeLibrary(props: {
   path?: string | null;
   /** Playbook list of this knowledge folder. Same files as the tree. */
   folder?: string | null;
+  officeHref?: (path: string) => string;
   onPath: (path: string | null) => void;
   onClose: () => void;
 }) {
@@ -367,6 +375,10 @@ export function KnowledgeLibrary(props: {
         onDownload={workspace.downloadPath}
         onCopyPath={(path) => {
           void navigator.clipboard?.writeText(path);
+        }}
+        onCopyOfficeLink={(path) => {
+          const href = props.officeHref?.(path);
+          if (href) void copyAndToast(href, TOAST_LINK_COPIED);
         }}
         onCopyPublicLink={workspace.copyPublicLink}
         onShare={(node) => {
@@ -805,7 +817,9 @@ function useKnowledgeWorkspace(initialPath: string | null) {
       });
       await queryClient.invalidateQueries({ queryKey: sharesKey });
       const url = knowledgeShareUrl(landingOrigin(), share.id);
-      await navigator.clipboard?.writeText(url);
+      if (!(await copyAndToast(url, TOAST_SHARED_LINK_COPIED))) {
+        toast(TOAST_SHARED);
+      }
     } catch (caught) {
       setError(userFacingError(caught, "Could not share that note."));
     }
@@ -826,8 +840,9 @@ function useKnowledgeWorkspace(initialPath: string | null) {
   function copyPublicLink(path: string) {
     const share = publicShareFor(path);
     if (!share) return;
-    void navigator.clipboard?.writeText(
+    void copyAndToast(
       knowledgeShareUrl(landingOrigin(), share.id),
+      TOAST_LINK_COPIED,
     );
   }
 

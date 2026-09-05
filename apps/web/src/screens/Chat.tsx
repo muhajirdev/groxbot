@@ -106,7 +106,7 @@ import {
   setOfficeMessages,
 } from "../lib/office-messages";
 import { forgetRoomMessages } from "../lib/room-messages";
-import { OFFICE_TO, ROOM_TO } from "../lib/office-route";
+import { OFFICE_TO, ROOM_TO, officeKnowledgeHref } from "../lib/office-route";
 import {
   closeLibrary,
   closePeek,
@@ -2080,6 +2080,16 @@ export function Chat(props: {
               path={desk.knowledge ?? null}
               folder={
                 libraryShowsSkills(desk) ? SKILLS_LIBRARY_PATH : undefined
+              }
+              officeHref={
+                props.roomId
+                  ? (path) =>
+                      officeKnowledgeHref({
+                        workspaceSlug: props.workspace.slug,
+                        roomId: props.roomId as string,
+                        path,
+                      })
+                  : undefined
               }
               onPath={(path) => setDesk(deskLibrary(desk, path))}
               onClose={() => setDesk(closeLibrary(desk))}

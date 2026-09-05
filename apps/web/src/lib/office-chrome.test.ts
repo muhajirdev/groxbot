@@ -188,4 +188,9 @@ describe("office chrome", () => {
     expect(css).toMatch(/\.pane-head\s*\{[^}]*min-height:\s*45px/s);
     expect(css).toMatch(/\.thread-head\s*\{[^}]*min-height:\s*45px/s);
   });
+
+  it("toasts share and copy above the office", () => {
+    expect(css).toMatch(/\.office-toasts\s*\{[^}]*position:\s*fixed/s);
+    expect(css).toMatch(/\.office-toast\s*\{[^}]*background:\s*var\(--card\)/s);
+  });
 });

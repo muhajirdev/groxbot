@@ -36,6 +36,7 @@ export function KnowledgeContextMenu(props: {
   onPhase: (next: KnowledgeMenuState) => void;
   onDownload: (path: string) => void;
   onCopyPath: (path: string) => void;
+  onCopyOfficeLink: (path: string) => void;
   onCopyPublicLink: (path: string) => void;
   onShare: (node: KnowledgeTreeNode) => void;
   onUnpublish: (path: string) => void;
@@ -105,6 +106,7 @@ export function KnowledgeContextMenu(props: {
                   closeOnClick={
                     item.id === "download" ||
                     item.id === "copy-path" ||
+                    item.id === "copy-office-link" ||
                     item.id === "copy-public-link" ||
                     item.id === "use" ||
                     item.id === "new-file" ||
@@ -119,6 +121,10 @@ export function KnowledgeContextMenu(props: {
                     }
                     if (item.id === "copy-path") {
                       props.onCopyPath(current.node.path);
+                      return;
+                    }
+                    if (item.id === "copy-office-link") {
+                      props.onCopyOfficeLink(current.node.path);
                       return;
                     }
                     if (item.id === "copy-public-link") {
@@ -164,7 +170,9 @@ export function KnowledgeContextMenu(props: {
                   {item.id === "download" ? (
                     <DownloadIcon className="size-3.5 shrink-0 text-muted" />
                   ) : null}
-                  {item.id === "copy-path" || item.id === "copy-public-link" ? (
+                  {item.id === "copy-path" ||
+                  item.id === "copy-office-link" ||
+                  item.id === "copy-public-link" ? (
                     <CopyIcon className="size-3.5 shrink-0 text-muted" />
                   ) : null}
                   {item.id === "share" || item.id === "confirm-share" ? (
