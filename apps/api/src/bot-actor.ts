@@ -29,8 +29,8 @@ import {
 } from "@groxbot/contracts";
 import {
   applyOfficeReviewTurn,
-  awayOfficeExcerpt,
   applyOfficeSkillsToSystem,
+  awayOfficeExcerpt,
   buildOfficeSystemPrompt,
   ComputerFileError,
   ComputerPathError,
@@ -52,9 +52,9 @@ import {
   lastOfficeUserIsIntro,
   lastPiAssistantText,
   listComputerEntries,
+  listConnectedPluginAccounts,
   loadOfficeSkillCatalog,
   mcpCatalogForExecute,
-  parseVisibility,
   newId,
   OFFICE_AWAY_CALLBACK,
   OFFICE_AWAY_SETTLE_MS,
@@ -73,21 +73,21 @@ import {
   officeReviewNoteMetadata,
   officeReviewUserText,
   officeRoomUrl,
+  type PiBoundMessage,
+  type PiClientEvent,
+  type PiOfficeSnapshot,
+  type PiSendMessageInput,
+  PiSteerQueue,
   parseOfficeAwayPayload,
   parseOfficeAwayStored,
   parseOfficeChatMessages,
   parseOfficeReviewCounters,
   parseTinyfishKeys,
+  parseVisibility,
   patchComputerWorkspace,
   piAssistantTurnSettled,
-  type PiBoundMessage,
-  type PiClientEvent,
-  type PiOfficeSnapshot,
-  type PiSendMessageInput,
   piLogShouldRun,
-  PiSteerQueue,
   piQueuedUserBound,
-  takePiAssistantDraft,
   prepareRoutineCreate,
   RoutineError,
   RoutineNotFoundError,
@@ -101,8 +101,9 @@ import {
   shouldRunOfficeIntro,
   shouldSendAwayOfficePing,
   soulOverlayFromWrite,
-  teammatePrompt,
   TinyfishKeyPool,
+  takePiAssistantDraft,
+  teammatePrompt,
   tinyfishPoolStart,
   toRoutineDto,
   withComputerOfficeTools,
@@ -124,19 +125,20 @@ import { HistoryConnector } from "./bot-history.js";
 import { KnowledgeConnector } from "./bot-knowledge.js";
 import { bindToMarkdown, createPageAgentTools } from "./bot-markdown.js";
 import { WorkspaceMcpConnector } from "./bot-mcp-connector.js";
-import { httpMcpConnectionLike } from "./mcp-http.js";
 import {
   type OfficeChatSubscriber,
   officeRpcResponse,
 } from "./bot-office-rpc.js";
 import { aiToolsToPi, officeAgentTool } from "./bot-office-tools.js";
+import { PluginsConnector } from "./bot-plugins.js";
 import { createPresentTool } from "./bot-present.js";
-import { createSkillTool } from "./bot-skill.js";
 import { RoutinesConnector } from "./bot-routines-connector.js";
+import { createSkillTool } from "./bot-skill.js";
 import { agentRuntimeSource, productEnv, type RuntimeSource } from "./env.js";
 import { r2KnowledgeDisk } from "./knowledge-r2.js";
 import type { SendEmailBinding } from "./mail.js";
 import { sendAwayOfficeMail } from "./mail.js";
+import { httpMcpConnectionLike } from "./mcp-http.js";
 export interface WorkerEnv {
   DATABASE_URL: string;
   BETTER_AUTH_SECRET: string;
@@ -342,6 +344,10 @@ export class RoomHome extends Agent<WorkerEnv> {
     name: string;
     url: string;
   }> = [];
+  private workspacePlugins: Array<{
+    toolkit: string;
+    connectedAccountId?: string;
+  }> = [];
 
   async onStart(): Promise<void> {
     const stored = await this.ctx.storage.get<string>("officeId");
@@ -390,6 +396,7 @@ export class RoomHome extends Agent<WorkerEnv> {
       connectors,
     });
     const mcp = this.workspaceMcp.map((row) => row.name);
+    const plugins = this.workspacePlugins.map((row) => row.toolkit);
     const knowledge = this.officeKnowledge();
     const skill =
       knowledge && this.officeId
@@ -416,7 +423,12 @@ export class RoomHome extends Agent<WorkerEnv> {
         description: withOfficeExecuteDescription(
           typeof execute.description === "string" ? execute.description : "",
           Boolean(this.env.KNOWLEDGE),
-          { history: true, routines: true, mcp },
+          {
+            history: true,
+            routines: true,
+            mcp,
+            plugins: plugins.length > 0,
+          },
         ),
       },
     ];
@@ -424,6 +436,7 @@ export class RoomHome extends Agent<WorkerEnv> {
 
   private async officeAgentTools(): Promise<AgentTool[]> {
     await this.ensureWorkspaceMcp();
+    await this.ensureWorkspacePlugins();
     return this.getAgentTools();
   }
 
@@ -895,6 +908,7 @@ export class RoomHome extends Agent<WorkerEnv> {
         identity,
         tools,
         mcp: this.workspaceMcp.map((row) => row.name),
+        plugins: this.workspacePlugins.map((row) => row.toolkit),
       }),
       messages.map((row) => row.message),
       { canReadSkills: officeCanReadSkills(tools) },
@@ -1850,6 +1864,7 @@ export class RoomHome extends Agent<WorkerEnv> {
       | KnowledgeConnector
       | WorkspaceMcpConnector
       | RoutinesConnector
+      | PluginsConnector
     > = [
       new HistoryConnector(this.ctx, this.env, () => this),
       new RoutinesConnector(this.ctx, this.env, () => this),
@@ -1865,6 +1880,7 @@ export class RoomHome extends Agent<WorkerEnv> {
       );
     }
     connectors.push(...this.mcpExecuteConnectors());
+    connectors.push(...this.pluginExecuteConnectors());
     return connectors;
   }
 
@@ -1898,6 +1914,36 @@ export class RoomHome extends Agent<WorkerEnv> {
       name: row.name,
       url: row.url,
     }));
+  }
+
+  private async ensureWorkspacePlugins(): Promise<void> {
+    await this.ensureBotLoaded();
+    if (!this.officeId || !this.env.COMPOSIO_API_KEY?.trim()) {
+      this.workspacePlugins = [];
+      return;
+    }
+    const env = productEnv(this.env);
+    const { db } = createNeonHttpDb(env.databaseUrl);
+    this.workspacePlugins = await listConnectedPluginAccounts(
+      db,
+      this.officeId,
+    );
+  }
+
+  private pluginExecuteConnectors(): PluginsConnector[] {
+    const apiKey = this.env.COMPOSIO_API_KEY?.trim();
+    if (!this.officeId || !apiKey || this.workspacePlugins.length === 0) {
+      return [];
+    }
+    const workspaceId = this.officeId;
+    const accounts = this.workspacePlugins;
+    return [
+      new PluginsConnector(this.ctx, this.env, () => ({
+        workspaceId,
+        accounts,
+        apiKey,
+      })),
+    ];
   }
 
   private mcpExecuteConnectors(): WorkspaceMcpConnector[] {

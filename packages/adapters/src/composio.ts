@@ -1,4 +1,8 @@
 import { composioUserId } from "@groxbot/adapter-kit";
+import {
+  type ConnectedPluginAccount,
+  connectedAccountForTool,
+} from "@groxbot/core";
 
 export { composioUserId };
 
@@ -42,6 +46,13 @@ export interface ComposioAccount {
   status: string;
 }
 
+export interface ComposioToolHit {
+  slug: string;
+  name: string;
+  description: string;
+  toolkit: string;
+}
+
 export interface ComposioGateway {
   link(input: {
     userId: string;
@@ -54,13 +65,13 @@ export interface ComposioGateway {
     userId: string;
     query: string;
     toolkits: string[];
-  }): Promise<string>;
+  }): Promise<ComposioToolHit[]>;
   execute(input: {
     userId: string;
     slug: string;
     arguments: Record<string, unknown>;
     connectedAccountId?: string;
-  }): Promise<string>;
+  }): Promise<unknown>;
   deleteAccount(id: string): Promise<void>;
 }
 
@@ -118,10 +129,40 @@ function toolkitOf(item: unknown): string {
   const toolkit = asRecord(row.toolkit);
   return readString(
     row.toolkitSlug,
+    row.toolkit_slug,
     row.appName,
+    typeof row.toolkit === "string" ? row.toolkit : undefined,
     toolkit?.slug,
     toolkit?.name,
   ).toLowerCase();
+}
+
+export function slimComposioTools(
+  value: unknown,
+  toolkits: readonly string[] = [],
+): ComposioToolHit[] {
+  const allowed = new Set(
+    toolkits.map((item) => item.trim().toLowerCase()).filter(Boolean),
+  );
+  const hits: ComposioToolHit[] = [];
+  for (const item of itemsOf(value)) {
+    const row = asRecord(item);
+    const slug = readString(row?.slug, row?.name);
+    if (!slug) continue;
+    const toolkit = toolkitOf(item);
+    if (allowed.size > 0 && toolkit && !allowed.has(toolkit)) continue;
+    hits.push({
+      slug,
+      name: readString(row?.name) || slug,
+      description: readString(row?.description, row?.human_description).slice(
+        0,
+        240,
+      ),
+      toolkit,
+    });
+    if (hits.length >= 8) break;
+  }
+  return hits;
 }
 
 function accountOf(item: unknown): ComposioAccount | undefined {
@@ -215,20 +256,23 @@ export class SdkComposioGateway implements ComposioGateway {
     userId: string;
     query: string;
     toolkits: string[];
-  }): Promise<string> {
+  }): Promise<ComposioToolHit[]> {
     const query = {
       search: input.query,
+      query: input.query,
       toolkits: input.toolkits,
-      limit: 8,
+      limit: input.toolkits.length > 1 ? 24 : 8,
     };
     if (this.sdk.tools?.getRawComposioTools) {
-      return formatComposioResult(
+      return slimComposioTools(
         await this.sdk.tools.getRawComposioTools(query),
+        input.toolkits,
       );
     }
     if (this.sdk.tools?.get) {
-      return formatComposioResult(
+      return slimComposioTools(
         await this.sdk.tools.get(input.userId, query),
+        input.toolkits,
       );
     }
     throw new ComposioError("Composio SDK cannot search tools.");
@@ -239,18 +283,16 @@ export class SdkComposioGateway implements ComposioGateway {
     slug: string;
     arguments: Record<string, unknown>;
     connectedAccountId?: string;
-  }): Promise<string> {
+  }): Promise<unknown> {
     if (!this.sdk.tools?.execute) {
       throw new ComposioError("Composio SDK cannot execute tools.");
     }
-    return formatComposioResult(
-      await this.sdk.tools.execute(input.slug, {
-        userId: input.userId,
-        arguments: input.arguments,
-        connectedAccountId: input.connectedAccountId,
-        dangerouslySkipVersionCheck: true,
-      }),
-    );
+    return this.sdk.tools.execute(input.slug, {
+      userId: input.userId,
+      arguments: input.arguments,
+      connectedAccountId: input.connectedAccountId,
+      dangerouslySkipVersionCheck: true,
+    });
   }
 
   async deleteAccount(id: string): Promise<void> {
@@ -333,10 +375,18 @@ export class HttpComposioGateway implements ComposioGateway {
     userId: string;
     query: string;
     toolkits: string[];
-  }): Promise<string> {
-    const query = new URLSearchParams({ search: input.query, limit: "8" });
-    for (const toolkit of input.toolkits) query.append("toolkit_slug", toolkit);
-    return formatComposioResult(await this.request(`/tools?${query}`));
+  }): Promise<ComposioToolHit[]> {
+    const query = new URLSearchParams({
+      query: input.query,
+      search: input.query,
+      limit: input.toolkits.length > 1 ? "24" : "8",
+    });
+    const toolkit = input.toolkits[0]?.trim();
+    if (toolkit) query.set("toolkit_slug", toolkit);
+    return slimComposioTools(
+      await this.request(`/tools?${query}`),
+      input.toolkits,
+    );
   }
 
   async execute(input: {
@@ -344,18 +394,16 @@ export class HttpComposioGateway implements ComposioGateway {
     slug: string;
     arguments: Record<string, unknown>;
     connectedAccountId?: string;
-  }): Promise<string> {
-    return formatComposioResult(
-      await this.request(`/tools/execute/${encodeURIComponent(input.slug)}`, {
-        method: "POST",
-        body: JSON.stringify({
-          user_id: input.userId,
-          arguments: input.arguments,
-          connected_account_id: input.connectedAccountId,
-          dangerously_skip_version_check: true,
-        }),
+  }): Promise<unknown> {
+    return this.request(`/tools/execute/${encodeURIComponent(input.slug)}`, {
+      method: "POST",
+      body: JSON.stringify({
+        user_id: input.userId,
+        arguments: input.arguments,
+        connected_account_id: input.connectedAccountId,
+        dangerously_skip_version_check: true,
       }),
-    );
+    });
   }
 
   async deleteAccount(id: string): Promise<void> {
@@ -448,6 +496,7 @@ export function createComposioGateway(
 export function createPluginTools(input: {
   workspaceId: string;
   toolkits: string[];
+  accounts?: readonly ConnectedPluginAccount[];
   env?: NodeJS.ProcessEnv;
 }):
   | {
@@ -456,12 +505,23 @@ export function createPluginTools(input: {
     }
   | undefined {
   const env = input.env ?? process.env;
-  if (!composioConfigured(env) || input.toolkits.length === 0) return undefined;
+  const toolkits =
+    input.accounts?.map((row) => row.toolkit).filter(Boolean) ?? input.toolkits;
+  if (!composioConfigured(env) || toolkits.length === 0) return undefined;
   const gateway = createComposioGateway(env);
   const userId = composioUserId(input.workspaceId);
+  const accounts = input.accounts ?? [];
   return {
-    search: (query) =>
-      gateway.search({ userId, query, toolkits: input.toolkits }),
-    execute: (slug, args) => gateway.execute({ userId, slug, arguments: args }),
+    search: async (query) =>
+      formatComposioResult(await gateway.search({ userId, query, toolkits })),
+    execute: async (slug, args) =>
+      formatComposioResult(
+        await gateway.execute({
+          userId,
+          slug,
+          arguments: args,
+          connectedAccountId: connectedAccountForTool(slug, accounts),
+        }),
+      ),
   };
 }
