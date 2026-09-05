@@ -286,6 +286,16 @@ describe("open graph", () => {
       head.meta.find((item) => item.name === "twitter:image")?.content,
     ).toBe(canonicalUrl("/og.png"));
     expect(head.links.some((item) => item.rel === "icon")).toBe(true);
+    expect(
+      head.links.some(
+        (item) => item.rel === "icon" && item.href === "/favicon.ico",
+      ),
+    ).toBe(true);
+    expect(
+      head.links.some(
+        (item) => item.rel === "icon" && item.href === "/favicon.svg",
+      ),
+    ).toBe(true);
     expect(head.links.some((item) => item.rel === "apple-touch-icon")).toBe(
       true,
     );

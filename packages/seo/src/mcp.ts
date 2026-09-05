@@ -1,6 +1,7 @@
 import { identityJson, llmsTxt } from "./documents.js";
 import {
   type DiscoveryOrigins,
+  GROXBOT_FAVICON_PATH,
   GROXBOT_ICON_PATH,
   GROXBOT_NAME,
   GROXBOT_SUMMARY,
@@ -51,7 +52,7 @@ export function mcpServerCard(
         sizes: ["512x512"],
       },
       {
-        src: `${origins.web.replace(/\/$/, "")}/favicon.svg`,
+        src: `${origins.web.replace(/\/$/, "")}${GROXBOT_FAVICON_PATH}`,
         mimeType: "image/svg+xml",
         sizes: ["any"],
       },

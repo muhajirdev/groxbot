@@ -1,7 +1,10 @@
 import {
   type DiscoveryOrigins,
   GROXBOT_ALTERNATE_NAMES,
+  GROXBOT_APPLE_TOUCH_ICON_PATH,
   GROXBOT_EMAIL,
+  GROXBOT_FAVICON_ICO_PATH,
+  GROXBOT_FAVICON_PATH,
   GROXBOT_GITHUB,
   GROXBOT_ICON_PATH,
   GROXBOT_LANGUAGE,
@@ -470,6 +473,7 @@ Allow: /mcp
 Allow: /mcp.json
 Allow: /og.png
 Allow: /og.svg
+Allow: /favicon.ico
 Allow: /favicon.svg
 Allow: /.well-known/
 Disallow: /onboarding
@@ -903,8 +907,10 @@ export function htmlPage(options: {
     <title>${escapeHtml(title)}</title>
     <meta name="description" content="${escapeHtml(description)}" />
     <link rel="canonical" href="${escapeHtml(canonical)}" />
-    <link rel="icon" href="${abs(origins.web, "/favicon.svg")}" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="${abs(origins.web, "/apple-touch-icon.png")}" />
+    <link rel="icon" href="${abs(origins.web, GROXBOT_FAVICON_ICO_PATH)}" type="image/x-icon" sizes="16x16 32x32 48x48" />
+    <link rel="icon" href="${abs(origins.web, GROXBOT_FAVICON_PATH)}" type="image/svg+xml" />
+    <link rel="icon" href="${abs(origins.web, GROXBOT_ICON_PATH)}" type="image/png" sizes="512x512" />
+    <link rel="apple-touch-icon" href="${abs(origins.web, GROXBOT_APPLE_TOUCH_ICON_PATH)}" sizes="180x180" />
     <link rel="describedby" href="${abs(origins.web, "/llms.txt")}" type="text/plain" />
     <link rel="alternate" href="${abs(origins.web, "/index.md")}" type="text/markdown" />
     <link rel="image_src" href="${escapeHtml(image)}" />

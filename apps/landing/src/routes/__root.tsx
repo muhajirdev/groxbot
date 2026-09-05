@@ -1,5 +1,6 @@
 import {
   GROXBOT_APPLE_TOUCH_ICON_PATH,
+  GROXBOT_FAVICON_ICO_PATH,
   GROXBOT_FAVICON_PATH,
   GROXBOT_ICON_PATH,
   GROXBOT_OG_ALT,
@@ -49,6 +50,12 @@ export const Route = createRootRoute({
       { name: "twitter:image:alt", content: GROXBOT_OG_ALT },
     ],
     links: [
+      {
+        rel: "icon",
+        href: GROXBOT_FAVICON_ICO_PATH,
+        type: "image/x-icon",
+        sizes: "16x16 32x32 48x48",
+      },
       { rel: "icon", href: GROXBOT_FAVICON_PATH, type: "image/svg+xml" },
       {
         rel: "icon",

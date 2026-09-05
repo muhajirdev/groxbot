@@ -27,6 +27,7 @@ export const GROXBOT_OG_TYPE = "image/png";
 export const GROXBOT_OG_ALT = `${GROXBOT_NAME} — ${GROXBOT_TAGLINE}`;
 export const GROXBOT_ICON_PATH = "/icon.png";
 export const GROXBOT_FAVICON_PATH = "/favicon.svg";
+export const GROXBOT_FAVICON_ICO_PATH = "/favicon.ico";
 export const GROXBOT_APPLE_TOUCH_ICON_PATH = "/apple-touch-icon.png";
 export const GROXBOT_THEME_COLOR = "#000000";
 

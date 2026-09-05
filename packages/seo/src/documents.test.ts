@@ -57,6 +57,8 @@ describe("discovery documents", () => {
     expect(robotsTxt(origins)).toContain("User-agent: GPTBot");
     expect(robotsTxt(origins)).toContain("Allow: /llms.txt");
     expect(robotsTxt(origins)).toContain("Allow: /og.png");
+    expect(robotsTxt(origins)).toContain("Allow: /favicon.ico");
+    expect(robotsTxt(origins)).toContain("Allow: /favicon.svg");
     expect(robotsTxt(origins)).toContain("Allow: /compare");
     expect(robotsTxt(origins)).toContain("Disallow: /s/");
     expect(robotsTxt(origins)).not.toContain("/s/\nAllow");
@@ -120,6 +122,8 @@ describe("discovery documents", () => {
     const html = llmsHtml(origins);
     expect(html).toContain('property="og:image"');
     expect(html).toContain(`${CLOUD_LANDING_ORIGIN}/og.png`);
+    expect(html).toContain(`${CLOUD_LANDING_ORIGIN}/favicon.ico`);
+    expect(html).toContain(`${CLOUD_LANDING_ORIGIN}/favicon.svg`);
     expect(html).toContain('content="summary_large_image"');
     expect(html).toContain('property="og:image:width" content="1200"');
     expect(html).toContain('property="og:image:height" content="630"');

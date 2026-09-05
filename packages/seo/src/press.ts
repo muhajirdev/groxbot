@@ -206,6 +206,8 @@ ${assets}
 
 - [Open Graph PNG](${abs(web, "/og.png")}): 1200×630. Use this as og:image.
 - [Open Graph SVG](${abs(web, "/og.svg")}): Vector of the same card.
+- [Favicon ICO](${abs(web, "/favicon.ico")}): 16/32/48 tab icon. Browsers request this by default.
+- [Favicon SVG](${abs(web, "/favicon.svg")}): Vector mark for modern browsers.
 - [Icon PNG](${abs(web, "/icon.png")}): 512×512 tile for JSON-LD and manifests.
 - [Apple touch icon](${abs(web, "/apple-touch-icon.png")}): 180×180 home-screen tile.
 

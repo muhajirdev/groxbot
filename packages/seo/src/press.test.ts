@@ -22,6 +22,8 @@ describe("press kit", () => {
     }
     expect(md).toContain("/og.png");
     expect(md).toContain("/og.svg");
+    expect(md).toContain("/favicon.ico");
+    expect(md).toContain("/favicon.svg");
     expect(pressFacts(origins).some((fact) => fact.label === "License")).toBe(
       true,
     );

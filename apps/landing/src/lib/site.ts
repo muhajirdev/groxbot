@@ -1,6 +1,7 @@
 import { CLOUD_LANDING_ORIGIN } from "@groxbot/contracts";
 import {
   GROXBOT_APPLE_TOUCH_ICON_PATH,
+  GROXBOT_FAVICON_ICO_PATH,
   GROXBOT_FAVICON_PATH,
   GROXBOT_ICON_PATH,
   GROXBOT_OG_ALT,
@@ -90,6 +91,12 @@ export function seoHead(input: SeoInput): {
     links: [
       { rel: "canonical", href: url },
       { rel: "image_src", href: image },
+      {
+        rel: "icon",
+        href: GROXBOT_FAVICON_ICO_PATH,
+        type: "image/x-icon",
+        sizes: "16x16 32x32 48x48",
+      },
       {
         rel: "icon",
         href: GROXBOT_FAVICON_PATH,

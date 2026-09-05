@@ -59,7 +59,14 @@ describe("press assets", () => {
       readFileSync(join(publicDir, "apple-touch-icon.png")),
     );
     expect(apple).toEqual({ width: 180, height: 180 });
-    expect(existsSync(join(publicDir, "og.png"))).toBe(true);
+    const ico = readFileSync(join(publicDir, "favicon.ico"));
+    expect(ico.readUInt16LE(0)).toBe(0);
+    expect(ico.readUInt16LE(2)).toBe(1);
+    expect(ico.readUInt16LE(4)).toBe(3);
+    expect(existsSync(join(publicDir, "favicon.svg"))).toBe(true);
+    expect(readFileSync(join(publicDir, "favicon.svg"), "utf8")).toContain(
+      "<svg",
+    );
   });
 
   it("does not invent extra files", () => {
