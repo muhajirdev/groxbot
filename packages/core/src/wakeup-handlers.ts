@@ -15,7 +15,11 @@ export function createWakeHandlers(opts: {
     model: string;
     hosted?: boolean;
   }) => AgentRuntime;
-  pluginTools?: (input: { workspaceId: string; toolkits: string[] }) =>
+  pluginTools?: (input: {
+    workspaceId: string;
+    toolkits: string[];
+    accounts?: Array<{ toolkit: string; connectedAccountId?: string }>;
+  }) =>
     | {
         search: (query: string) => Promise<string>;
         execute: (

@@ -18,67 +18,68 @@ export type OfficeToolPromptContribution = {
   guidelines?: readonly string[];
 };
 
-export const OFFICE_TOOL_PROMPT: Record<string, OfficeToolPromptContribution> = {
-  [OFFICE_SET_CONTEXT_TOOL_NAME]: {
-    snippet:
-      "Save who you are (soul) or short facts about this office (memory). Top-level tool — not a global inside code.",
-    guidelines: [
-      "Call set_context as a top-level tool. It is not a global inside code. label is soul or memory; mode is replace or append. Keep your name on soul.",
-    ],
-  },
-  [OFFICE_CODE_TOOL_NAME]: {
-    snippet:
-      "JavaScript sandbox for knowledge, routines, history, and page helpers. Argument is `code`, not a bash command. You can import npm packages.",
-    guidelines: [
-      "knowledge, routines, and history live inside code (`await knowledge.search({ query })`, `await knowledge.read({ path })`, `await routines.list()`, `await history.search({ query })`). set_context, skill_manage, present, and shell are top-level tools, not sandbox globals.",
-      KNOWLEDGE_MARKDOWN_LINK_HINT,
-    ],
-  },
-  [COMPUTER_SHELL_TOOL_NAME]: {
-    snippet:
-      "Bash on this computer (just-bash). Argument is `command`. cwd is /workspace.",
-    guidelines: [
-      "Use shell for bash on this computer. Do not use code for bash, and do not unpack binary streams in the shell.",
-    ],
-  },
-  list: { snippet: "List files on this computer." },
-  read: { snippet: "Read a file on this computer." },
-  write: { snippet: "Write a file on this computer." },
-  edit: { snippet: "Patch a file on this computer." },
-  delete: { snippet: "Delete a file on this computer." },
-  find: { snippet: "Find files on this computer by name." },
-  grep: { snippet: "Search file contents on this computer." },
-  publish: { snippet: "Publish an asset from this computer." },
-  web_search: {
-    snippet: "Search the public web (TinyFish).",
-    guidelines: [
-      "Search the public web with web_search, then read a page with fetch_url. Do not open a browser just to read a page.",
-    ],
-  },
-  fetch_url: { snippet: "Read a public URL (TinyFish)." },
-  to_markdown: {
-    snippet: "Convert HTML or a computer file (PDF/doc) to Markdown.",
-  },
-  [PRESENT_TOOL_NAME]: {
-    snippet:
-      "Show a glanceable JSON tree in the thread (`$type` plus `children`). Facts, a short table, a chart, or a File chip.",
-    guidelines: [
-      "For a glanceable result, call present with a JSON tree (`$type` plus `children`). Put long notes and drafts in a file on this computer, then present a File with that path (`place` computer). After skill_manage create/patch, present a File with the office path (`place` knowledge).",
-    ],
-  },
-  [SKILL_TOOL_NAME]: {
-    snippet:
-      "Create or patch a SKILL.md in the office library at skills/<name>/SKILL.md.",
-    guidelines: [
-      "Reusable how-to is a skill. Patch an existing skill before creating one. YAML name + description required. /skill:name loads it for this turn. /learn a source or workflow authors one.",
-    ],
-  },
-  room_list: { snippet: "List papers in this room. Not your computer." },
-  room_read: { snippet: "Read a paper in this room." },
-  room_write: {
-    snippet: "Write a paper in this room. Shared with everyone seated here.",
-  },
-};
+export const OFFICE_TOOL_PROMPT: Record<string, OfficeToolPromptContribution> =
+  {
+    [OFFICE_SET_CONTEXT_TOOL_NAME]: {
+      snippet:
+        "Save who you are (soul) or short facts about this office (memory). Top-level tool — not a global inside code.",
+      guidelines: [
+        "Call set_context as a top-level tool. It is not a global inside code. label is soul or memory; mode is replace or append. Keep your name on soul.",
+      ],
+    },
+    [OFFICE_CODE_TOOL_NAME]: {
+      snippet:
+        "JavaScript sandbox for knowledge, routines, history, and page helpers. Argument is `code`, not a bash command. You can import npm packages.",
+      guidelines: [
+        "knowledge, routines, and history live inside code (`await knowledge.search({ query })`, `await knowledge.read({ path })`, `await routines.list()`, `await history.search({ query })`). set_context, skill_manage, present, and shell are top-level tools, not sandbox globals.",
+        KNOWLEDGE_MARKDOWN_LINK_HINT,
+      ],
+    },
+    [COMPUTER_SHELL_TOOL_NAME]: {
+      snippet:
+        "Bash on this computer (just-bash). Argument is `command`. cwd is /workspace.",
+      guidelines: [
+        "Use shell for bash on this computer. Do not use code for bash, and do not unpack binary streams in the shell.",
+      ],
+    },
+    list: { snippet: "List files on this computer." },
+    read: { snippet: "Read a file on this computer." },
+    write: { snippet: "Write a file on this computer." },
+    edit: { snippet: "Patch a file on this computer." },
+    delete: { snippet: "Delete a file on this computer." },
+    find: { snippet: "Find files on this computer by name." },
+    grep: { snippet: "Search file contents on this computer." },
+    publish: { snippet: "Publish an asset from this computer." },
+    web_search: {
+      snippet: "Search the public web (TinyFish).",
+      guidelines: [
+        "Search the public web with web_search, then read a page with fetch_url. Do not open a browser just to read a page.",
+      ],
+    },
+    fetch_url: { snippet: "Read a public URL (TinyFish)." },
+    to_markdown: {
+      snippet: "Convert HTML or a computer file (PDF/doc) to Markdown.",
+    },
+    [PRESENT_TOOL_NAME]: {
+      snippet:
+        "Show a glanceable JSON tree in the thread (`$type` plus `children`). Facts, a short table, a chart, or a File chip.",
+      guidelines: [
+        "For a glanceable result, call present with a JSON tree (`$type` plus `children`). Put long notes and drafts in a file on this computer, then present a File with that path (`place` computer). After skill_manage create/patch, present a File with the office path (`place` knowledge).",
+      ],
+    },
+    [SKILL_TOOL_NAME]: {
+      snippet:
+        "Create or patch a SKILL.md in the office library at skills/<name>/SKILL.md.",
+      guidelines: [
+        "Reusable how-to is a skill. Patch an existing skill before creating one. YAML name + description required. /skill:name loads it for this turn. /learn a source or workflow authors one.",
+      ],
+    },
+    room_list: { snippet: "List papers in this room. Not your computer." },
+    room_read: { snippet: "Read a paper in this room." },
+    room_write: {
+      snippet: "Write a paper in this room. Shared with everyone seated here.",
+    },
+  };
 
 const COMPUTER_FS_TOOLS = new Set([
   "list",
@@ -107,24 +108,46 @@ export function officeToolPromptContribution(
 }
 
 export function officeMcpGuideline(names: readonly string[]): string | null {
-  const listed = [
-    ...new Set(names.map((name) => name.trim()).filter(Boolean)),
-  ];
+  const listed = [...new Set(names.map((name) => name.trim()).filter(Boolean))];
   if (listed.length === 0) return null;
   const ticks = listed.map((name) => `\`${name}\``).join(", ");
   const first = listed[0]!;
   return `Workspace MCP inside code: ${ticks}. Call \`await ${first}.<method>(args)\`. Not a top-level tool. Search for methods, then \`await codemode.describe("${first}.<method>")\` — do not describe the whole connector.`;
 }
 
+export function officePluginsGuideline(
+  toolkits: readonly string[],
+): string | null {
+  const listed = [
+    ...new Set(toolkits.map((name) => name.trim()).filter(Boolean)),
+  ];
+  if (listed.length === 0) return null;
+  const ticks = listed.map((name) => `\`${name}\``).join(", ");
+  return `Connected plugins inside code: ${ticks}. Search with \`await plugins.search({ query })\`, then \`await plugins.execute({ slug, arguments })\`. Not a top-level tool.`;
+}
+
+function officeCodeSandboxPhrase(opts: {
+  mcp: boolean;
+  plugins: boolean;
+}): string {
+  const parts = ["knowledge", "routines", "history", "page helpers"];
+  if (opts.mcp) parts.push("workspace MCP");
+  if (opts.plugins) parts.push("plugins");
+  return `${parts.slice(0, -1).join(", ")}, and ${parts.at(-1)}`;
+}
+
 export function buildOfficeSystemPrompt(opts: {
   identity: string;
   tools: readonly OfficePromptTool[];
   mcp?: readonly string[];
+  plugins?: readonly string[];
 }): string {
   const names = opts.tools.map((row) => row.name).filter(Boolean);
   const byName = new Map(opts.tools.map((row) => [row.name, row]));
-  const mcpGuideline = names.includes(OFFICE_CODE_TOOL_NAME)
-    ? officeMcpGuideline(opts.mcp ?? [])
+  const hasCode = names.includes(OFFICE_CODE_TOOL_NAME);
+  const mcpGuideline = hasCode ? officeMcpGuideline(opts.mcp ?? []) : null;
+  const pluginsGuideline = hasCode
+    ? officePluginsGuideline(opts.plugins ?? [])
     : null;
   const visible: string[] = [];
   for (const name of names) {
@@ -134,10 +157,13 @@ export function buildOfficeSystemPrompt(opts: {
     );
     if (!contribution) continue;
     const snippet =
-      name === OFFICE_CODE_TOOL_NAME && mcpGuideline
+      name === OFFICE_CODE_TOOL_NAME
         ? contribution.snippet.replace(
             "knowledge, routines, history, and page helpers",
-            "knowledge, routines, history, page helpers, and workspace MCP",
+            officeCodeSandboxPhrase({
+              mcp: Boolean(mcpGuideline),
+              plugins: Boolean(pluginsGuideline),
+            }),
           )
         : contribution.snippet;
     visible.push(`- ${name}: ${snippet}`);
@@ -170,6 +196,7 @@ export function buildOfficeSystemPrompt(opts: {
     }
   }
   if (mcpGuideline) add(mcpGuideline);
+  if (pluginsGuideline) add(pluginsGuideline);
   if (names.length === 1 && names[0] === OFFICE_SET_CONTEXT_TOOL_NAME) {
     add(
       "This turn only has set_context. Call that tool first (label soul, mode replace), then greet in 1–2 short lines and ask if they want a role, personality, or working style. Do not write the overlay as chat text.",

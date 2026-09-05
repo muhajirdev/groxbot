@@ -3,9 +3,10 @@ import { OFFICE_CODE_TOOL_NAME } from "./execute-imports.js";
 import { SKILL_TOOL_NAME } from "./office-skill.js";
 import {
   buildOfficeSystemPrompt,
+  OFFICE_SET_CONTEXT_TOOL_NAME,
   officeCanReadSkills,
   officeMcpGuideline,
-  OFFICE_SET_CONTEXT_TOOL_NAME,
+  officePluginsGuideline,
 } from "./office-system-prompt.js";
 
 describe("buildOfficeSystemPrompt", () => {
@@ -68,14 +69,26 @@ describe("buildOfficeSystemPrompt", () => {
     expect(prompt).not.toMatch(/codemode\.describe\("mimpimu"\)/);
   });
 
-  it("omits workspace MCP on the intro turn", () => {
+  it("names connected plugins inside code when the sandbox is on this turn", () => {
+    const prompt = buildOfficeSystemPrompt({
+      identity,
+      tools: [{ name: OFFICE_CODE_TOOL_NAME }],
+      plugins: ["gmail", "github"],
+    });
+    expect(prompt).toMatch(/and plugins/);
+    expect(prompt).toContain(officePluginsGuideline(["gmail", "github"]));
+    expect(prompt).toMatch(/plugins\.search\(\{ query \}\)/);
+    expect(prompt).toMatch(/plugins\.execute\(\{ slug, arguments \}\)/);
+  });
+
+  it("omits plugins on the intro turn", () => {
     const prompt = buildOfficeSystemPrompt({
       identity,
       tools: [{ name: OFFICE_SET_CONTEXT_TOOL_NAME }],
-      mcp: ["mimpimu"],
+      plugins: ["gmail"],
     });
-    expect(prompt).not.toMatch(/mimpimu/);
-    expect(prompt).not.toMatch(/workspace MCP/);
+    expect(prompt).not.toMatch(/gmail/);
+    expect(prompt).not.toMatch(/plugins\.search/);
   });
 
   it("shows (none) when the catalog is empty", () => {

@@ -109,4 +109,16 @@ describe("withOfficeExecuteDescription", () => {
     expect(next).not.toMatch(/codemode\.describe\("mimpimu"\)/);
     expect(next).not.toMatch(/^- `mimpimu`$/m);
   });
+
+  it("hints plugins so the bot can search and execute connected apps", () => {
+    const next = withOfficeExecuteDescription(generated, false, {
+      plugins: true,
+    });
+    expect(next).toMatch(
+      /- `plugins` — connected Gmail\/Slack\/GitHub-style apps/,
+    );
+    expect(next).toMatch(/plugins\.search\(\{ query \}\)/);
+    expect(next).toMatch(/plugins\.execute\(\{ slug, arguments \}\)/);
+    expect(next).not.toMatch(/^- `plugins`$/m);
+  });
 });
