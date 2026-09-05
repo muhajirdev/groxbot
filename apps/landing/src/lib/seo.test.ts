@@ -241,6 +241,24 @@ describe("llms discovery", () => {
     expect(landingLlmsTxt()).toContain("AI is better together");
   });
 
+  it("points the homepage at the compare pages", async () => {
+    const { COMPARE, COMPARE_LINKS, COMPARE_CALLOUT } = await import("./copy");
+    expect(COMPARE.map((item) => item.name)).toEqual([
+      "OpenClaw / Hermes",
+      "Paperclip",
+      "Grok Bot",
+      "Groxbot",
+    ]);
+    expect(COMPARE.some((item) => item.ours)).toBe(true);
+    expect(COMPARE_CALLOUT.title).toMatch(/Hermes.*OpenClaw.*Paperclip/i);
+    expect(COMPARE_LINKS.map((link) => link.slug)).toEqual([
+      "grok-bot-vs-hermes-vs-openclaw-vs-paperclip",
+      "grok-bot-vs-hermes",
+      "grok-bot-vs-openclaw",
+      "grok-bot-vs-paperclip",
+    ]);
+  });
+
   it("gives each landing thesis its own section headline", () => {
     expect(THESES.map((item) => item.id)).toEqual([
       "together",

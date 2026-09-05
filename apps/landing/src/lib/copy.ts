@@ -124,6 +124,12 @@ export const COMPARE = [
     ours: false,
   },
   {
+    name: "Paperclip",
+    kicker: "Orchestration",
+    line: "Org charts and budgets for agents — not a team chat.",
+    ours: false,
+  },
+  {
     name: "Grok Bot",
     kicker: "Closed",
     line: "Named teammates with a computer — behind a paywall.",
@@ -132,10 +138,27 @@ export const COMPARE = [
   {
     name: "Groxbot",
     kicker: "The office",
-    line: "Named teammates. Shared knowledge. Source on GitHub.",
+    line: "Multiplayer. Shared knowledge. Source on GitHub.",
     ours: true,
   },
 ] as const;
+
+/** Homepage links into the SEO compare set. */
+export const COMPARE_LINKS = [
+  {
+    label: "All four",
+    slug: "grok-bot-vs-hermes-vs-openclaw-vs-paperclip",
+  },
+  { label: "vs Hermes", slug: "grok-bot-vs-hermes" },
+  { label: "vs OpenClaw", slug: "grok-bot-vs-openclaw" },
+  { label: "vs Paperclip", slug: "grok-bot-vs-paperclip" },
+] as const;
+
+export const COMPARE_CALLOUT = {
+  kicker: "Compare",
+  title: "Groxbot vs Hermes vs OpenClaw vs Paperclip",
+  lede: "Multiplayer and a shared knowledge base are the gap. Hermes still leads the solo self-evolving agent — Groxbot is the self-improving office.",
+} as const;
 
 export const FAQS = [
   {

@@ -3,6 +3,8 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   COMPARE,
+  COMPARE_CALLOUT,
+  COMPARE_LINKS,
   CONTACT_MAILTO,
   DEMOS,
   demoLogo,
@@ -38,12 +40,25 @@ export function Landing(props: { startUrl: string }) {
           <p className="lede hero-tagline">{HERO_PITCH}</p>
           <p className="thesis">
             Like Grok Bot, for the team. OpenClaw and Hermes are personal.
-            Groxbot is the office.
+            Paperclip orchestrates agents. Groxbot is the office —{" "}
+            <Link
+              className="thesis-link"
+              to="/compare/$slug"
+              params={{
+                slug: "grok-bot-vs-hermes-vs-openclaw-vs-paperclip",
+              }}
+            >
+              see the comparison
+            </Link>
+            .
           </p>
           <div className="row">
             <a className="btn lg" href={props.startUrl}>
               Get started
             </a>
+            <Link className="btn ghost" to="/compare">
+              Compare
+            </Link>
           </div>
         </section>
 
@@ -78,7 +93,7 @@ export function Landing(props: { startUrl: string }) {
           <p className="kicker">{THESES[0].kicker}</p>
           <h2 id="thesis-together">{THESES[0].title}</h2>
           <p className="lede">{THESES[0].lede}</p>
-          <div className="versus">
+          <div className="versus versus-4">
             {COMPARE.map((item) => (
               <article
                 key={item.name}
@@ -90,16 +105,35 @@ export function Landing(props: { startUrl: string }) {
               </article>
             ))}
           </div>
-          <p className="compare-more">
-            <Link
-              to="/compare/$slug"
-              params={{
-                slug: "grok-bot-vs-hermes-vs-openclaw-vs-paperclip",
-              }}
-            >
-              Full comparison: Groxbot vs Hermes vs OpenClaw vs Paperclip
-            </Link>
-          </p>
+          <aside className="compare-callout" aria-label="Full comparison">
+            <p className="kicker">{COMPARE_CALLOUT.kicker}</p>
+            <h3>{COMPARE_CALLOUT.title}</h3>
+            <p>{COMPARE_CALLOUT.lede}</p>
+            <div className="compare-callout-actions">
+              <Link
+                className="btn"
+                to="/compare/$slug"
+                params={{ slug: COMPARE_LINKS[0].slug }}
+              >
+                Open full comparison
+              </Link>
+              <Link className="btn ghost" to="/compare">
+                All matchups
+              </Link>
+            </div>
+            <ul className="compare-chips">
+              {COMPARE_LINKS.map((link) => (
+                <li key={link.slug}>
+                  <Link
+                    to="/compare/$slug"
+                    params={{ slug: link.slug }}
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </aside>
         </section>
 
         <section id="adopt" className="adopt" aria-labelledby="thesis-adopt">
