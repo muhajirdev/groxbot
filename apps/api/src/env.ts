@@ -1,4 +1,5 @@
 import {
+  CLOUD_ADMIN_ORIGIN,
   CLOUD_API_ORIGIN,
   CLOUD_APP_ORIGIN,
   CLOUD_LANDING_ORIGIN,
@@ -12,6 +13,7 @@ import {
   hostedCloudflareGateway,
   IN_PROCESS_WAKEUP,
   landingOriginForWeb,
+  STAGING_ADMIN_ORIGIN,
   STAGING_API_ORIGIN,
   STAGING_LANDING_ORIGIN,
   STAGING_WEB_ORIGIN,
@@ -127,6 +129,8 @@ export type EnvStrings = {
   POLAR_ACCESS_TOKEN?: string;
   POLAR_WEBHOOK_SECRET?: string;
   POLAR_ENVIRONMENT?: string;
+  GROX_GATEWAY_URL?: string;
+  GROX_GATEWAY_SECRET?: string;
 };
 
 /** BYOK / hosted gateway keys. Same names as wrangler vars, not Node process.env. */
@@ -165,14 +169,18 @@ export function loadEnv(source: EnvStrings): Env {
       landingOrigin,
       CLOUD_LANDING_ORIGIN,
       CLOUD_WEB_ORIGIN,
+      CLOUD_ADMIN_ORIGIN,
       CLOUD_API_ORIGIN,
       STAGING_WEB_ORIGIN,
+      STAGING_ADMIN_ORIGIN,
       STAGING_LANDING_ORIGIN,
       STAGING_API_ORIGIN,
       "http://127.0.0.1:5173",
       "http://localhost:5173",
       "http://127.0.0.1:5174",
       "http://localhost:5174",
+      "http://127.0.0.1:5177",
+      "http://localhost:5177",
       "http://127.0.0.1:8081",
       "http://localhost:8081",
       CLOUD_APP_ORIGIN,

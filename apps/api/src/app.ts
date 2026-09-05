@@ -63,6 +63,7 @@ export function createApp(
     routines?: RpcContext["routines"];
     mcp?: RpcContext["mcp"];
     forgetBot?: RpcContext["forgetBot"];
+    forgetApp?: RpcContext["forgetApp"];
   },
 ): AppHandles {
   const oauth = oauthCredentials(env);
@@ -108,6 +109,7 @@ export function createApp(
     routines: opts.routines,
     mcp: opts.mcp,
     forgetBot: opts.forgetBot,
+    forgetApp: opts.forgetApp,
     close: async () => {
       guests.stop();
       await opts.close();

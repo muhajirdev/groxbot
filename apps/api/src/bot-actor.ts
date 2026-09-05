@@ -26,7 +26,6 @@ import {
   officeUserFromHeaders,
   type Routine,
   stampIncomingOfficeUser,
-  USAGE_BILLING_KIND_ON_DEMAND,
   type UsageBillingKind,
 } from "@groxbot/contracts";
 import {
@@ -1399,15 +1398,7 @@ export class RoomHome extends Agent<WorkerEnv> {
         piCost: input.piCost,
         pricing,
       });
-      // grox-gateway ingests every hosted completion to Polar; avoid double meter events.
-      const hostedViaGroxGateway = gatewayConfigured({
-        GROX_GATEWAY_URL: env.groxGatewayUrl,
-        GROX_GATEWAY_SECRET: env.groxGatewaySecret,
-      });
-      if (
-        row?.billingKind === USAGE_BILLING_KIND_ON_DEMAND &&
-        !hostedViaGroxGateway
-      ) {
+      if (row) {
         await postHostedUsageIngest(env.apiUrl ?? env.authUrl, env.authSecret, {
           usageId: row.id,
           workspaceId: row.workspaceId,
@@ -1485,7 +1476,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     }
   }
 
-  private async handleDestroy(): Promise<Response> {
+  protected async handleDestroy(): Promise<Response> {
     try {
       await this.stopOffice();
     } catch (error) {

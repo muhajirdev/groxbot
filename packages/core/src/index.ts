@@ -56,4 +56,5 @@ export * from "./usage.js";
 export * from "./usage-mirror.js";
 export * from "./visibility.js";
 export * from "./wakeup-handlers.js";
+export * from "./admin.js";
 export * from "./workspace.js";

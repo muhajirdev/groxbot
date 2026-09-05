@@ -61,6 +61,14 @@ import {
   WakeupKind,
 } from "./models.js";
 import {
+  AdminListInput,
+  AdminPurgeInput,
+  AdminPurgeResultSchema,
+  AdminStatsSchema,
+  AdminUsersPageSchema,
+  AdminWorkspacesPageSchema,
+} from "./admin.js";
+import {
   BillingCheckoutInputSchema,
   BillingCheckoutOutputSchema,
   BillingOnDemandInputSchema,
@@ -100,6 +108,12 @@ export const appContract = oc.router({
   models: {
     get: oc.output(ModelSettingsSchema),
     save: oc.input(SaveModelSettingsInput).output(ModelSettingsSchema),
+  },
+  admin: {
+    stats: oc.output(AdminStatsSchema),
+    users: oc.input(AdminListInput).output(AdminUsersPageSchema),
+    workspaces: oc.input(AdminListInput).output(AdminWorkspacesPageSchema),
+    purgeAll: oc.input(AdminPurgeInput).output(AdminPurgeResultSchema),
   },
   billing: {
     status: oc.output(BillingStatusSchema),

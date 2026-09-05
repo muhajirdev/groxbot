@@ -238,3 +238,16 @@ export async function ensureDeploymentOwner(
   }
   return ownerUserId === userId;
 }
+
+export async function requireDeploymentOwner(
+  context: RpcContext,
+): Promise<SessionUser> {
+  const user = await requireUser(context);
+  const isOwner = await ensureDeploymentOwner(context, user.userId);
+  if (!isOwner) {
+    throw new ORPCError("FORBIDDEN", {
+      message: "Deployment owner access required.",
+    });
+  }
+  return { ...user, isDeploymentOwner: true };
+}

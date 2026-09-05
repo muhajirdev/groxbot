@@ -39,6 +39,12 @@ import {
 import { guestConnectors, threads, userModelCredentials } from "@groxbot/db";
 import { implement, ORPCError } from "@orpc/server";
 import { and, eq } from "drizzle-orm";
+import {
+  getAdminStats,
+  getAdminUsers,
+  getAdminWorkspaces,
+  purgeAdminData,
+} from "./admin.js";
 import { updateAccount } from "./account.js";
 import {
   archiveBot,
@@ -263,6 +269,20 @@ export const appRouter = os.router({
         }
         throw caught;
       }
+    }),
+  },
+  admin: {
+    stats: os.admin.stats.handler(async ({ context }) => {
+      return getAdminStats(context);
+    }),
+    users: os.admin.users.handler(async ({ context, input }) => {
+      return getAdminUsers(context, input);
+    }),
+    workspaces: os.admin.workspaces.handler(async ({ context, input }) => {
+      return getAdminWorkspaces(context, input);
+    }),
+    purgeAll: os.admin.purgeAll.handler(async ({ context }) => {
+      return purgeAdminData(context);
     }),
   },
   billing: {

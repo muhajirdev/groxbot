@@ -31,7 +31,7 @@ describe("resolvePiAiModel", () => {
       }),
       HOSTED_STARTER_MODEL,
     );
-    expect(model.provider).toBe(OPENROUTER_PROVIDER);
+    expect(model.provider).toBe("grox-gateway");
     expect(model.api).toBe("openai-completions");
     expect(model.id).toBe("workers-ai/@cf/zai-org/glm-5.3-flash");
     expect(model.baseUrl).toBe("https://grox-gateway.example.com/v1");

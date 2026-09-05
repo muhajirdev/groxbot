@@ -126,6 +126,7 @@ export default {
           suspendBotRoutines(env.ROOM_ACTOR, await onHome(botId), suspended),
       },
       forgetBot: (homeRoomId) => destroyBotActor(env.ROOM_ACTOR, homeRoomId),
+      forgetApp: (appId) => apps.destroy(appId),
       email: env.EMAIL,
     });
 

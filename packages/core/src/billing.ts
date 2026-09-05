@@ -93,6 +93,14 @@ function includedPoolExhausted(
   return false;
 }
 
+function onDemandCapExceeded(
+  billing: WorkspaceBillingRow,
+  monthly: MonthlyUsageSnapshot,
+): boolean {
+  const cap = billing.onDemandSpendCapCents;
+  return cap !== null && cap >= 0 && monthly.onDemandSpendCents >= cap;
+}
+
 /** Decide whether the next hosted run uses included pool, on-demand, or should be blocked. */
 export function hostedUsageDecision(
   billing: WorkspaceBillingRow,
@@ -105,11 +113,13 @@ export function hostedUsageDecision(
   if (!includedPoolExhausted(billing, monthly)) {
     return USAGE_BILLING_KIND_INCLUDED;
   }
-  if (!billing.onDemandEnabled) return "blocked";
-  const cap = billing.onDemandSpendCapCents;
-  if (cap !== null && cap >= 0 && monthly.onDemandSpendCents >= cap) {
-    return "blocked";
+  // Paid Polar subs keep going as metered overage. Optional spend cap still binds.
+  if (hostedSubscriptionAllowsUsage(billing)) {
+    if (onDemandCapExceeded(billing, monthly)) return "blocked";
+    return USAGE_BILLING_KIND_ON_DEMAND;
   }
+  if (!billing.onDemandEnabled) return "blocked";
+  if (onDemandCapExceeded(billing, monthly)) return "blocked";
   return USAGE_BILLING_KIND_ON_DEMAND;
 }
 
@@ -151,9 +161,9 @@ export function onDemandUsageActive(
   billing: WorkspaceBillingRow,
   monthly: MonthlyUsageSnapshot,
 ): boolean {
+  if (!includedPoolExhausted(billing, monthly)) return false;
   return (
-    billing.onDemandEnabled &&
-    includedPoolExhausted(billing, monthly)
+    billing.onDemandEnabled || hostedSubscriptionAllowsUsage(billing)
   );
 }
 

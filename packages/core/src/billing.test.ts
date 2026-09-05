@@ -49,14 +49,14 @@ describe("billing limits", () => {
     ).toBe("on_demand");
   });
 
-  it("blocks when included is exhausted and on-demand is off", () => {
+  it("keeps subscribed workspaces on Polar overage when included is exhausted", () => {
     expect(
       hostedUsageDecision(baseBilling, {
         includedSpendCents: 0,
         onDemandSpendCents: 0,
         includedTokens: 1_000_000,
       }),
-    ).toBe("blocked");
+    ).toBe("on_demand");
   });
 
   it("respects on-demand spend caps", () => {
@@ -86,7 +86,7 @@ describe("billing limits", () => {
         },
         { includedSpendCents: 2_000, onDemandSpendCents: 0, includedTokens: 0 },
       ),
-    ).toBe("blocked");
+    ).toBe("on_demand");
   });
 
   it("computes included usage percent from spend when configured", () => {
@@ -116,13 +116,13 @@ describe("billing limits", () => {
     ).toBeNull();
   });
 
-  it("flags on-demand when included usage is exhausted", () => {
+  it("flags Polar overage when a subscribed included pool is exhausted", () => {
     expect(
       onDemandUsageActive(
         {
           ...baseBilling,
           monthlyIncludedSpendCents: 1_000,
-          onDemandEnabled: true,
+          onDemandEnabled: false,
         },
         { includedSpendCents: 1_000, onDemandSpendCents: 0, includedTokens: 0 },
       ),

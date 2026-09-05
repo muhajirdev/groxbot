@@ -262,7 +262,7 @@ function OfficeThreadRuntime(props: {
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <OfficeThread
+      <OfficeThreadView
         botId={props.botId}
         botName={props.botName}
         hideComposer={props.archived}
@@ -274,7 +274,7 @@ function OfficeThreadRuntime(props: {
   );
 }
 
-function OfficeThread(props: {
+function OfficeThreadView(props: {
   botId: string;
   botName: string;
   hideComposer: boolean;

@@ -53,6 +53,11 @@ function bindingFrom(value: string): string | { email: string; name?: string } {
     : parsed.address;
 }
 
+function logMagicLinkDev(env: MailEnv, email: string, url: string) {
+  if (env.production) return;
+  console.info(`[groxbot] Magic link for ${email}:\n${url}`);
+}
+
 export function createMailer(env: MailEnv): Mailer {
   const binding = env.email;
   const fromRaw = env.emailFrom?.trim() ?? "";
@@ -61,6 +66,7 @@ export function createMailer(env: MailEnv): Mailer {
     return {
       kind: MAIL_CLOUDFLARE,
       sendMagicLink: async ({ email, url }) => {
+        logMagicLinkDev(env, email, url);
         await binding.send({
           to: email,
           from,
@@ -84,7 +90,7 @@ export function createMailer(env: MailEnv): Mailer {
     kind: MAIL_LOG,
     sendMagicLink: async ({ email, url }) => {
       requireMailInProduction(env);
-      console.info(`[groxbot] Magic link for ${email}:\n${url}`);
+      logMagicLinkDev(env, email, url);
     },
     sendInvitation: async ({ email, url, organizationName, inviterName }) => {
       requireMailInProduction(env);

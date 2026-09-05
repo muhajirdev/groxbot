@@ -9,6 +9,7 @@ import { Mascot } from "../components/Mascot";
 import { Screen } from "../components/Screen";
 import { authClient } from "../lib/auth";
 import { userFacingError } from "../lib/errors";
+import { apiOrigin } from "../lib/host";
 import { invitationIdFromInput, rememberInvite } from "../lib/invite";
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
@@ -136,6 +137,9 @@ export function LoginScreen({
         <View style={styles.block}>
           <Text style={styles.title}>{heading}</Text>
           <Text style={styles.body}>Like Grok Bot, for the whole team.</Text>
+          <Text selectable style={styles.host}>
+            {apiOrigin()}
+          </Text>
           {error ? <Text style={styles.error}>{error}</Text> : null}
           {inviteId && peek ? (
             <Button
@@ -174,5 +178,6 @@ const styles = StyleSheet.create({
   block: { gap: 12, paddingTop: 24 },
   title: { color: colors.text, fontSize: 28, fontWeight: "700" },
   body: { color: colors.muted, fontSize: 16, lineHeight: 22 },
+  host: { color: colors.faint, fontSize: 13 },
   error: { color: colors.danger },
 });
