@@ -1013,6 +1013,9 @@ export function Chat(props: {
       name: string;
       visibility: "private" | "shared";
       title?: string;
+      marketplaceId?: string;
+      instructions?: string;
+      description?: string;
     }) => {
       const trimmed = input.name.trim();
       if (!trimmed || hiring.current) return;
@@ -1045,6 +1048,13 @@ export function Chat(props: {
           avatarColor,
           visibility: input.visibility,
           ...(title ? { title } : {}),
+          ...(input.marketplaceId
+            ? { marketplaceId: input.marketplaceId }
+            : {}),
+          ...(input.instructions
+            ? { instructions: input.instructions }
+            : {}),
+          ...(input.description ? { description: input.description } : {}),
         });
         cacheBot(created);
         patchThreadMeta(id, { opening: false });

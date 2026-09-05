@@ -15,6 +15,9 @@ export type HireMarketplaceInput = {
   name: string;
   visibility: "private" | "shared";
   title?: string;
+  marketplaceId?: string;
+  instructions?: string;
+  description?: string;
 };
 
 type View = "browse" | "custom";
@@ -76,6 +79,9 @@ export function HireMarketplaceModal(props: {
       name: fields.name,
       title: fields.title,
       visibility,
+      marketplaceId: fields.marketplaceId,
+      instructions: fields.instructions,
+      description: fields.description,
     });
   }
 
@@ -171,6 +177,12 @@ export function HireMarketplaceModal(props: {
                           {item.title}
                         </p>
                       ) : null}
+                      <p className="muted m-0 mt-1.5 text-[11px]">
+                        Soul · memory
+                        {item.skills.length
+                          ? ` · ${item.skills.length} skill${item.skills.length === 1 ? "" : "s"}`
+                          : ""}
+                      </p>
                     </div>
                     <button
                       className="mini shrink-0"

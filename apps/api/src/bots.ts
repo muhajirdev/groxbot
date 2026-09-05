@@ -1,4 +1,10 @@
-import { type Bot, validateModelId } from "@groxbot/contracts";
+import {
+  type Bot,
+  getBotMarketplaceTemplate,
+  marketplaceSkillMarkdown,
+  marketplaceSkillPath,
+  validateModelId,
+} from "@groxbot/contracts";
 import {
   appendEvent,
   createRoom,
@@ -194,8 +200,24 @@ export async function createBot(
     avatarShape: string;
     homeRoomId?: string;
     visibility?: "private" | "shared";
+    marketplaceId?: string;
   },
 ): Promise<Bot> {
+  const pack = input.marketplaceId
+    ? getBotMarketplaceTemplate(input.marketplaceId)
+    : undefined;
+  if (input.marketplaceId && !pack) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: "Unknown marketplace bot.",
+    });
+  }
+  const name = pack?.name ?? input.name;
+  const title =
+    pack?.kind === "person" && pack.title?.trim()
+      ? pack.title.trim()
+      : (input.title?.trim() ?? "");
+  const description = pack?.blurb ?? input.description;
+  const instructions = pack?.soul ?? input.instructions;
   const botId = input.id?.trim() || newId();
   const threadId = newId();
   const homeRoomId = input.homeRoomId?.trim() || newId();
@@ -204,10 +226,10 @@ export async function createBot(
     id: botId,
     workspaceId: actor.workspaceId,
     userId: actor.userId,
-    name: input.name,
-    title: input.title?.trim() ?? "",
-    description: input.description,
-    instructions: input.instructions,
+    name,
+    title,
+    description,
+    instructions,
     avatarColor: input.avatarColor,
     avatarShape: input.avatarShape,
     guestKind: "off",
@@ -232,7 +254,7 @@ export async function createBot(
   const home = await createRoom(context.db, {
     workspaceId: actor.workspaceId,
     userId: actor.userId,
-    name: input.name,
+    name,
     memberBotIds: [botId],
     id: homeRoomId,
     own: true,
@@ -244,10 +266,27 @@ export async function createBot(
   if (context.initRoom) {
     await context.initRoom(home.id, {
       workspaceId: actor.workspaceId,
-      name: input.name,
+      name,
       botId,
-      members: [{ id: botId, name: input.name, homeRoomId: home.id }],
+      members: [{ id: botId, name, homeRoomId: home.id }],
+      ...(pack
+        ? {
+            hirePackage: {
+              soul: pack.soul,
+              memory: pack.memory,
+              skipIntro: true,
+            },
+          }
+        : {}),
     });
+  }
+  if (pack && context.knowledge) {
+    for (const skill of pack.skills) {
+      await context.knowledge.write(actor.workspaceId, {
+        path: marketplaceSkillPath(skill),
+        content: marketplaceSkillMarkdown(skill),
+      });
+    }
   }
   const [bot] = await context.db
     .select()

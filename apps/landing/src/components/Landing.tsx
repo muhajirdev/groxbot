@@ -238,8 +238,8 @@ export function Landing(props: { startUrl: string }) {
           <p className="kicker">Hire catalog</p>
           <h2 id="hire-catalog">Bots you can hire today.</h2>
           <p className="lede tight">
-            Same curated list as New bot in the office — roles and a few known
-            names. Not plugins. Not a skill store.
+            Each listing is a full teammate package — soul, starter memory, and
+            playbook skills. Same catalog as New bot in the office. Not plugins.
           </p>
           <div className="cards hire-catalog-cards">
             {LANDING_HIRE_BOTS.map((bot) => (
@@ -250,6 +250,15 @@ export function Landing(props: { startUrl: string }) {
                   <p className="hire-catalog-title">{bot.title}</p>
                 ) : null}
                 <p className="hire-catalog-blurb">{bot.blurb}</p>
+                <p className="hire-catalog-meta">
+                  Soul · memory · {bot.skills.length} skill
+                  {bot.skills.length === 1 ? "" : "s"}
+                </p>
+                <ul className="hire-catalog-skills">
+                  {bot.skills.map((skill) => (
+                    <li key={skill.slug}>{skill.name}</li>
+                  ))}
+                </ul>
                 <a className="btn ghost hire-catalog-cta" href={props.startUrl}>
                   Hire {bot.name}
                 </a>
