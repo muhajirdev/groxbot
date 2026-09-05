@@ -1,9 +1,17 @@
 import { WORKSPACE_ID_HEADER } from "@groxbot/contracts";
 import { afterEach, describe, expect, it } from "vitest";
-import { rpcWorkspaceHeaders, setRpcWorkspaceId } from "./rpc-workspace";
+import {
+  liveCatalogId,
+  resetRpcWorkspace,
+  rpcWorkspaceEpoch,
+  rpcWorkspaceHeaders,
+  rpcWorkspaceId,
+  setLiveCatalogId,
+  setRpcWorkspaceId,
+} from "./rpc-workspace";
 
 afterEach(() => {
-  setRpcWorkspaceId(null);
+  resetRpcWorkspace();
 });
 
 describe("rpcWorkspaceHeaders", () => {
@@ -16,5 +24,25 @@ describe("rpcWorkspaceHeaders", () => {
     expect(rpcWorkspaceHeaders()).toEqual({
       [WORKSPACE_ID_HEADER]: "ws_2",
     });
+    expect(rpcWorkspaceId()).toBe("ws_2");
+  });
+
+  it("bumps the epoch only when the office actually changes", () => {
+    const start = rpcWorkspaceEpoch();
+    setRpcWorkspaceId("ws_1");
+    expect(rpcWorkspaceEpoch()).toBe(start + 1);
+    setRpcWorkspaceId("ws_1");
+    expect(rpcWorkspaceEpoch()).toBe(start + 1);
+    setRpcWorkspaceId("ws_2");
+    expect(rpcWorkspaceEpoch()).toBe(start + 2);
+  });
+
+  it("tracks which catalog slice is live", () => {
+    expect(liveCatalogId()).toBeNull();
+    setLiveCatalogId("ws_1");
+    expect(liveCatalogId()).toBe("ws_1");
+    resetRpcWorkspace();
+    expect(liveCatalogId()).toBeNull();
+    expect(rpcWorkspaceId()).toBeNull();
   });
 });

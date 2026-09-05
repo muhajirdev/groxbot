@@ -107,8 +107,55 @@ export function writeCachedWorkspace(input: {
   );
 }
 
+export const LAST_ROOMS_KEY = "groxbot.lastRooms";
+
+export function parseLastRooms(
+  raw: string | null | undefined,
+): Record<string, string> {
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+    const out: Record<string, string> = {};
+    for (const [workspaceId, roomId] of Object.entries(parsed)) {
+      const id = workspaceId.trim();
+      const room = typeof roomId === "string" ? roomId.trim() : "";
+      if (id && room) out[id] = room;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+export function readLastRoom(workspaceId: string): string | null {
+  const id = workspaceId.trim();
+  if (!id) return null;
+  return parseLastRooms(workspaceStorage()?.getItem(LAST_ROOMS_KEY))[id] ?? null;
+}
+
+export function writeLastRoom(workspaceId: string, roomId: string): void {
+  const id = workspaceId.trim();
+  const room = roomId.trim();
+  if (!id || !room) return;
+  const storage = workspaceStorage();
+  if (!storage) return;
+  const map = parseLastRooms(storage.getItem(LAST_ROOMS_KEY));
+  if (map[id] === room) return;
+  map[id] = room;
+  storage.setItem(LAST_ROOMS_KEY, JSON.stringify(map));
+}
+
+export function clearLastRooms(): void {
+  workspaceStorage()?.removeItem(LAST_ROOMS_KEY);
+}
+
 export function clearCachedWorkspace(): void {
-  workspaceStorage()?.removeItem(WORKSPACE_CACHE_KEY);
+  const storage = workspaceStorage();
+  storage?.removeItem(WORKSPACE_CACHE_KEY);
+  storage?.removeItem(LAST_ROOMS_KEY);
 }
 
 /** Live office wins; keep the last local name while `me` is still loading. */
@@ -168,10 +215,35 @@ export function workspaceMenuItems(opts: {
   return [...current, ...others, { kind: "create" }];
 }
 
-/** Empty offices hire first; otherwise open a live teammate. */
+function catalogHasRoomId(
+  roomId: string,
+  rooms: { id: string }[],
+  bots: { id: string; homeRoomId?: string }[],
+): boolean {
+  return (
+    rooms.some((room) => room.id === roomId) ||
+    bots.some((bot) => bot.homeRoomId === roomId || bot.id === roomId)
+  );
+}
+
+/** Last desk in this office if we still know it; else a live teammate; empty offices hire. */
 export function destinationAfterWorkspaceChange(
   bots: { id: string; homeRoomId?: string; archivedAt?: string | null }[],
+  opts?: {
+    lastRoomId?: string | null;
+    rooms?: { id: string }[];
+  },
 ): WorkspaceDestination {
+  const lastRoomId = opts?.lastRoomId?.trim() || "";
+  const rooms = opts?.rooms ?? [];
+  if (lastRoomId) {
+    if (bots.length === 0 && rooms.length === 0) {
+      return { to: "/room/$roomId", roomId: lastRoomId };
+    }
+    if (catalogHasRoomId(lastRoomId, rooms, bots)) {
+      return { to: "/room/$roomId", roomId: lastRoomId };
+    }
+  }
   const live = bots.find((bot) => !bot.archivedAt) ?? bots[0];
   if (!live) return { to: "/onboarding" };
   return { to: "/room/$roomId", roomId: live.homeRoomId || live.id };

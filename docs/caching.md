@@ -28,6 +28,7 @@ Canonical feel: **Settings**. Cmd+, opens at once. General is `me` already on th
 | Office / room transcripts | IndexedDB bag + keep-alive | Cap’n Web snapshot |
 | Plugins catalog | IndexedDB after first open | GitHub JSON on a cold miss; virtualized grid |
 | Workspace switcher label | `groxbot.workspace` localStorage hint | Live `me` (not persisted) |
+| Workspace switch | Per-workspace catalog snapshot in Query + IndexedDB; last desk in `groxbot.lastRooms` | Background refetch. `workspaces.activate` does not block paint |
 
 A loading spinner that replaces the dialog, a blank settings tab, or a 5s GitHub wait before Plugins “opens” is a bug against this rule.
 
@@ -61,7 +62,7 @@ QueryClient  apps/web/src/lib/orpc.ts
 TanStack DB  apps/web/src/lib/collections.ts
      │  query collections: bots, rooms, apps, plugins, mcp
      └  local-only: thread-meta  (RAM, not persisted)
-localStorage / sessionStorage    prefs + workspace name + invite
+localStorage / sessionStorage    prefs + workspace name + last desk + invite
 ```
 
 Code:
@@ -74,6 +75,7 @@ Code:
 | Collections | `apps/web/src/lib/collections.ts` |
 | Roster preview overlay | `apps/web/src/lib/bot-preview.ts` |
 | Workspace name hint | `apps/web/src/lib/workspace-switcher.ts` |
+| Per-workspace catalog snapshot | `apps/web/src/lib/workspace-catalog.ts` |
 | Theme / notify / review prefs | `apps/web/src/lib/theme.ts`, `prefs.ts` |
 
 ## QueryClient defaults
@@ -95,6 +97,8 @@ Catalog collections set `gcTime` to `OFFICE_MESSAGES_GC_TIME` (7 days) so rows o
 | `bots.list` | Roster. Query collection. Last line overlaid from the office transcript cache so a refetch that sends `""` does not blank the sidebar. |
 | `rooms.list` | Group room catalog (not someone’s `homeRoomId`). Query collection. Last line overlaid from the room transcript cache. Home rooms are not in this list — do not refetch it just because the URL is a home `roomId`. |
 | `workspaces.list` | Workspace picker + `/$workspaceSlug` layout. `gcTime` 7 days. Cookie session / `me` stay memory-only; this list is names and slugs. |
+| `["workspace-catalog", workspaceId]` | Last roster / rooms / sections / apps / connectors / knowledge tree for that office. Switch paints this onto the live `bots.list` keys. |
+| `sections.list` | Sidebar groups. Query collection. |
 | `apps.list` | Live app cards. Query collection. |
 | `plugins.list` / `mcp.list` | Connectors. Query collections. Refetch on window focus. |
 | `["plugin-catalog"]` | Slim Composio toolkit cards for the Plugins modal. First open fetches GitHub; after that, IndexedDB is the hot cache. Do not bundle the catalog into the web app, and do not prefetch it on boot. |
@@ -121,6 +125,8 @@ Tests: `apps/web/src/lib/office-persist.test.ts`. Node has no IndexedDB (`office
 
 **Query collections** (`queryCollectionOptions`) bind a list RPC to rows. UI uses `useLiveQuery`. Route loaders call `loadOfficeRoomCatalog` / `botsCollection.preload()` — after persist restore that is a cache hit. A home `roomId` is on the roster, not `rooms.list`; do not refetch rooms just because the collection does not have that id.
 
+Switching offices is a **slice swap**, not a cache wipe. `prepareWorkspaceSwitch` snapshots the live catalogs under `["workspace-catalog", fromId]`, restores `toId` onto the live keys, then navigates. Transcripts stay (`office-messages` / `room-messages` are keyed by room). Knowledge file bodies are unscoped paths — they are dropped on switch so the other office cannot paint the wrong note. `clearThreadStore` is sign-out only.
+
 Optimistic hire / plugin / MCP patches use `collection.utils.write*`. If sync has not started, those helpers throw; callers catch.
 
 **`threadMetaCollection`** is `localOnlyCollectionOptions`. Cursor, working, error, opening. RAM only. Lost on reload. Do not persist it.
@@ -142,6 +148,7 @@ Query persist is async-to-disk and **awaited** before paint, so catalog and thre
 `orpc.me` is not persisted (see above). The top-left office name would otherwise render `"Workspace"` until `me` returns. That name is a tiny localStorage hint:
 
 - Key `groxbot.workspace` → `{ id, name }`
+- Key `groxbot.lastRooms` → `{ [workspaceId]: roomId }` so a switch reopens the last desk
 - Read synchronously in `WorkspaceSwitcher`
 - Write when live `me` (or a rename / create / join) has both id and name
 - Ignore the cached name if the live `workspaceId` differs
@@ -152,6 +159,8 @@ Other keys (not Query):
 | Key | |
 |---|---|
 | `groxbot.theme` | Appearance |
+| `groxbot.workspace` | Current office name hint |
+| `groxbot.lastRooms` | Last `roomId` per office |
 | `groxbot.sideWidth` | Roster column. Drag the list edge. |
 | `groxbot.paneWidth` | Computer / settings / knowledge peek column. Drag the pane edge. |
 | `groxbot.notify.{botId}` | Desktop notify |
@@ -168,7 +177,7 @@ Do not put email, tokens, or file bodies in localStorage. Do not put the roster 
 `clearThreadStore()` (then `queryClient.clear()`):
 
 1. Drop office message queries
-2. Remove `groxbot.workspace`
+2. Remove `groxbot.workspace` and `groxbot.lastRooms`
 3. `persister.removeClient()` (IndexedDB blob)
 4. Empty thread-meta, bots, apps, plugins, mcp collections
 
@@ -192,5 +201,5 @@ If the UI is a **label that must not flash** and the query must not be persisted
 - Hand-write an IndexedDB object store next to `persistQueryClient`.
 - Treat TanStack DB as durable storage. Only query collections ride IDB, and only because they share QueryClient keys.
 - Use persist as the office transcript seed. Reload seed is a snapshot; the actor still owns the log.
-- Persist binary `encoding` file reads, or raise download `gcTime` into the 7-day window without adding them to the dehydrate whitelist.
+- Wipe IndexedDB or `clearThreadStore` on workspace switch. Snapshot the live slice; restore the other office; refetch in the background.
 - Copy this persist onto Expo until mobile has a real IDB story.

@@ -50,6 +50,7 @@ import {
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
 import { OFFICE_MESSAGES_GC_TIME } from "../lib/office-messages";
+import { knowledgeListQueryOptions } from "../lib/workspace-catalog";
 import { Button, cn, Field, Input, Textarea } from "../ui";
 import {
   CloseIcon,
@@ -488,10 +489,7 @@ function useKnowledgeWorkspace(initialPath: string | null) {
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState("");
   const [localFiles, setLocalFiles] = useState<Record<string, File>>({});
-  const listQuery = useQuery({
-    ...orpc.knowledge.list.queryOptions(),
-    gcTime: OFFICE_MESSAGES_GC_TIME,
-  });
+  const listQuery = useQuery(knowledgeListQueryOptions());
   const graphQuery = useQuery({
     ...orpc.knowledge.graph.queryOptions(),
     gcTime: OFFICE_MESSAGES_GC_TIME,

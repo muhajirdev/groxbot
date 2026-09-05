@@ -1,6 +1,6 @@
 import { Menu } from "@base-ui/react/menu";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useRouter } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { userFacingError } from "../lib/errors";
 import { OFFICE_TO, officeParams } from "../lib/office-route";
@@ -26,8 +26,6 @@ export function WorkspaceSwitcher(props: {
   workspaceSlug?: string | null;
 }) {
   const navigate = useNavigate();
-  const router = useRouter();
-  const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -56,16 +54,19 @@ export function WorkspaceSwitcher(props: {
     setCached(slug ? { id, name, slug } : { id, name });
   }, [props.workspaceId, props.name, props.workspaceSlug]);
 
-  async function enterOffice(slug: string) {
+  async function enterOffice(workspace: {
+    id: string;
+    name: string;
+    slug: string;
+  }) {
     await enterActiveWorkspace({
-      queryClient,
-      invalidateRouter: () => router.invalidate(),
+      workspace,
       goOnboarding: () =>
         navigate({ to: "/onboarding", search: {}, viewTransition: true }),
       goBot: (roomId) =>
         navigate({
           to: OFFICE_TO,
-          params: officeParams(slug, roomId),
+          params: officeParams(workspace.slug, roomId),
           viewTransition: true,
         }),
     });
@@ -78,8 +79,9 @@ export function WorkspaceSwitcher(props: {
       const created = await client.workspaces.create({ name });
       setRpcWorkspaceId(created.id);
       writeCachedWorkspace(created);
+      setCached(created);
       setCreateOpen(false);
-      await enterOffice(created.slug);
+      await enterOffice(created);
     } catch (caught) {
       setCreateError(userFacingError(caught, "Could not create workspace"));
     } finally {
@@ -94,17 +96,16 @@ export function WorkspaceSwitcher(props: {
       setCreateOpen(true);
       return;
     }
-    if (item.current || busy) return;
-    setBusy(true);
+    if (item.current) return;
     setNotice(null);
+    setCached({ id: item.id, name: item.name, slug: item.slug });
+    void client.workspaces.activate({ workspaceId: item.id }).catch((caught) => {
+      setNotice(userFacingError(caught, "Could not switch workspace"));
+    });
     try {
-      setRpcWorkspaceId(item.id);
-      await client.workspaces.activate({ workspaceId: item.id });
-      await enterOffice(item.slug);
+      await enterOffice(item);
     } catch (caught) {
       setNotice(userFacingError(caught, "Could not switch workspace"));
-    } finally {
-      setBusy(false);
     }
   }
 

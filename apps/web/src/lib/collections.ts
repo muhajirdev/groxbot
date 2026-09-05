@@ -17,6 +17,8 @@ import { clearRoomMessages, overlayRoomList } from "./room-messages";
 import { client } from "./rpc";
 import { clearOfficeMessages, OFFICE_MESSAGES_GC_TIME } from "./office-messages";
 import { clearPersistedOfficeCache } from "./office-persist";
+import { resetRpcWorkspace } from "./rpc-workspace";
+import { tenantBoundQueryFn } from "./tenant-query";
 import { clearCachedWorkspace } from "./workspace-switcher";
 
 export type ThreadMeta = {
@@ -40,7 +42,9 @@ export const botsCollection = createCollection(
     id: "bots",
     queryClient,
     queryKey: orpc.bots.list.queryOptions().queryKey,
-    queryFn: async () => overlayBotList(await client.bots.list()),
+    queryFn: tenantBoundQueryFn(orpc.bots.list.queryOptions().queryKey, async () =>
+      overlayBotList(await client.bots.list()),
+    ),
     getKey: (bot) => bot.id,
     staleTime: 30_000,
     gcTime: OFFICE_MESSAGES_GC_TIME,
@@ -58,7 +62,9 @@ export const roomsCollection = createCollection(
     id: "rooms",
     queryClient,
     queryKey: orpc.rooms.list.queryOptions().queryKey,
-    queryFn: async () => overlayRoomList(await client.rooms.list()),
+    queryFn: tenantBoundQueryFn(orpc.rooms.list.queryOptions().queryKey, async () =>
+      overlayRoomList(await client.rooms.list()),
+    ),
     getKey: (room) => room.id,
     staleTime: 30_000,
     gcTime: OFFICE_MESSAGES_GC_TIME,
@@ -76,7 +82,9 @@ export const sectionsCollection = createCollection(
     id: "sidebar-sections",
     queryClient,
     queryKey: orpc.sections.list.queryOptions().queryKey,
-    queryFn: () => client.sections.list(),
+    queryFn: tenantBoundQueryFn(orpc.sections.list.queryOptions().queryKey, () =>
+      client.sections.list(),
+    ),
     getKey: (section) => section.id,
     staleTime: 30_000,
     gcTime: OFFICE_MESSAGES_GC_TIME,
@@ -94,7 +102,9 @@ export const appsCollection = createCollection(
     id: "workspace-apps",
     queryClient,
     queryKey: orpc.apps.list.queryOptions().queryKey,
-    queryFn: () => client.apps.list(),
+    queryFn: tenantBoundQueryFn(orpc.apps.list.queryOptions().queryKey, () =>
+      client.apps.list(),
+    ),
     getKey: (app) => app.id,
     staleTime: 15_000,
     gcTime: OFFICE_MESSAGES_GC_TIME,
@@ -108,7 +118,9 @@ export const mcpCollection = createCollection(
     id: "mcp",
     queryClient,
     queryKey: orpc.mcp.list.queryOptions().queryKey,
-    queryFn: () => client.mcp.list(),
+    queryFn: tenantBoundQueryFn(orpc.mcp.list.queryOptions().queryKey, () =>
+      client.mcp.list(),
+    ),
     getKey: (item) => item.id,
     staleTime: 15_000,
     gcTime: OFFICE_MESSAGES_GC_TIME,
@@ -122,7 +134,9 @@ export const pluginsCollection = createCollection(
     id: "plugins",
     queryClient,
     queryKey: orpc.plugins.list.queryOptions().queryKey,
-    queryFn: () => client.plugins.list(),
+    queryFn: tenantBoundQueryFn(orpc.plugins.list.queryOptions().queryKey, () =>
+      client.plugins.list(),
+    ),
     getKey: (item) => item.id,
     staleTime: 15_000,
     gcTime: OFFICE_MESSAGES_GC_TIME,
@@ -149,6 +163,26 @@ function dropSyncedKeys<TKey extends string | number>(collection: {
     collection.utils.writeDelete(keys);
   } catch {
     // Query sync never started; there is nothing durable to drop.
+  }
+}
+
+export function replaceSyncedRows<T extends { id: string }>(
+  collection: {
+    keys(): IterableIterator<string | number>;
+    utils: {
+      writeUpsert: (item: T) => void;
+      writeDelete: (keys: string | number | Array<string | number>) => void;
+    };
+  },
+  rows: readonly T[],
+): void {
+  try {
+    for (const row of rows) collection.utils.writeUpsert(row);
+    const keep = new Set(rows.map((row) => row.id));
+    const stale = [...collection.keys()].filter((id) => !keep.has(String(id)));
+    if (stale.length > 0) collection.utils.writeDelete(stale);
+  } catch {
+    // Query sync never started; QueryClient still holds the swapped slice.
   }
 }
 
@@ -208,6 +242,7 @@ export function clearThreadStore(): void {
   clearOfficeMessages();
   clearRoomMessages();
   clearCachedWorkspace();
+  resetRpcWorkspace();
   void clearPersistedOfficeCache();
   const metaKeys = [...threadMetaCollection.keys()];
   if (metaKeys.length > 0) threadMetaCollection.delete(metaKeys);

@@ -3,6 +3,7 @@ import {
   canSaveWorkspaceName,
   destinationAfterWorkspaceChange,
   parseCachedWorkspace,
+  parseLastRooms,
   resolveWorkspace,
   workspaceDisplayName,
   workspaceFromCache,
@@ -67,6 +68,21 @@ describe("parseCachedWorkspace", () => {
     expect(
       parseCachedWorkspace(JSON.stringify({ id: "  ", name: "Acme" })),
     ).toBeNull();
+  });
+});
+
+describe("parseLastRooms", () => {
+  it("reads a map of last desks", () => {
+    expect(
+      parseLastRooms(JSON.stringify({ "ws-1": "home-1", "ws-2": "room-9" })),
+    ).toEqual({ "ws-1": "home-1", "ws-2": "room-9" });
+  });
+
+  it("ignores junk", () => {
+    expect(parseLastRooms(null)).toEqual({});
+    expect(parseLastRooms("{")).toEqual({});
+    expect(parseLastRooms(JSON.stringify(["home-1"]))).toEqual({});
+    expect(parseLastRooms(JSON.stringify({ "ws-1": 1 }))).toEqual({});
   });
 });
 
@@ -165,17 +181,33 @@ describe("destinationAfterWorkspaceChange", () => {
     expect(destinationAfterWorkspaceChange([])).toEqual({ to: "/onboarding" });
   });
 
-  it("opens the first live teammate’s home room", () => {
+  it("opens the last desk when it is still in this office", () => {
     expect(
-      destinationAfterWorkspaceChange([
-        { id: "bot-archived", archivedAt: "2026-01-01T00:00:00.000Z" },
-        { id: "bot-live", archivedAt: null },
-      ]),
-    ).toEqual({ to: "/room/$roomId", roomId: "bot-live" });
+      destinationAfterWorkspaceChange(
+        [{ id: "bot-live", homeRoomId: "home-live", archivedAt: null }],
+        { lastRoomId: "home-live" },
+      ),
+    ).toEqual({ to: "/room/$roomId", roomId: "home-live" });
     expect(
-      destinationAfterWorkspaceChange([
-        { id: "bot-live", homeRoomId: "home-live", archivedAt: null },
-      ]),
+      destinationAfterWorkspaceChange(
+        [{ id: "bot-live", homeRoomId: "home-live", archivedAt: null }],
+        { lastRoomId: "room-group", rooms: [{ id: "room-group" }] },
+      ),
+    ).toEqual({ to: "/room/$roomId", roomId: "room-group" });
+  });
+
+  it("uses the remembered room when the catalog has not loaded yet", () => {
+    expect(
+      destinationAfterWorkspaceChange([], { lastRoomId: "home-live" }),
+    ).toEqual({ to: "/room/$roomId", roomId: "home-live" });
+  });
+
+  it("ignores a last desk that belongs to a different office", () => {
+    expect(
+      destinationAfterWorkspaceChange(
+        [{ id: "bot-live", homeRoomId: "home-live", archivedAt: null }],
+        { lastRoomId: "other-home" },
+      ),
     ).toEqual({ to: "/room/$roomId", roomId: "home-live" });
   });
 });

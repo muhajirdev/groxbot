@@ -32,5 +32,5 @@ function RoomPage() {
   const { roomId } = Route.useParams();
   const { workspace } = Route.useRouteContext();
   const desk = Route.useSearch();
-  return <Chat roomId={roomId} workspace={workspace} desk={desk} />;
+  return <Chat key={workspace.id} roomId={roomId} workspace={workspace} desk={desk} />;
 }

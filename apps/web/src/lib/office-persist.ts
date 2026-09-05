@@ -25,6 +25,7 @@ export function workspaceListQueryOptions() {
 const CATALOG_KEYS = new Set([
   JSON.stringify(orpc.bots.list.queryOptions().queryKey),
   JSON.stringify(orpc.rooms.list.queryOptions().queryKey),
+  JSON.stringify(orpc.sections.list.queryOptions().queryKey),
   JSON.stringify(orpc.workspaces.list.queryOptions().queryKey),
   JSON.stringify(orpc.apps.list.queryOptions().queryKey),
   JSON.stringify(orpc.plugins.list.queryOptions().queryKey),
@@ -64,6 +65,12 @@ export function shouldDehydrateOfficeQuery(query: {
   if (query.state.status !== "success") return false;
   if (query.queryKey[0] === OFFICE_MESSAGES_ROOT) return true;
   if (query.queryKey[0] === ROOM_MESSAGES_ROOT) return true;
+  if (
+    query.queryKey[0] === "workspace-catalog" &&
+    typeof query.queryKey[1] === "string"
+  ) {
+    return true;
+  }
   if (isComputerListQueryKey(query.queryKey)) return true;
   if (
     isKnowledgeReadQueryKey(query.queryKey) ||

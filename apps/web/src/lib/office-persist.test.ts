@@ -70,6 +70,24 @@ describe("query persist", () => {
     ).toBe(true);
     expect(
       shouldDehydrateOfficeQuery({
+        queryKey: orpc.sections.list.queryOptions().queryKey,
+        state: { status: "success" },
+      }),
+    ).toBe(true);
+    expect(
+      shouldDehydrateOfficeQuery({
+        queryKey: ["workspace-catalog", "ws-1"],
+        state: { status: "success" },
+      }),
+    ).toBe(true);
+    expect(
+      shouldDehydrateOfficeQuery({
+        queryKey: ["workspace-catalog"],
+        state: { status: "success" },
+      }),
+    ).toBe(false);
+    expect(
+      shouldDehydrateOfficeQuery({
         queryKey: ["plugin-catalog"],
         state: { status: "success" },
       }),

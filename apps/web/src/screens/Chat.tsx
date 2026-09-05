@@ -103,7 +103,6 @@ import {
 } from "../lib/office-keepalive";
 import {
   forgetOfficeMessages,
-  OFFICE_MESSAGES_GC_TIME,
   setOfficeMessages,
 } from "../lib/office-messages";
 import { forgetRoomMessages } from "../lib/room-messages";
@@ -149,6 +148,8 @@ import {
   isArchivedBot,
   officeProfileLabel,
 } from "../lib/session";
+import { knowledgeListQueryOptions } from "../lib/workspace-catalog";
+import { writeLastRoom } from "../lib/workspace-switcher";
 import {
   type BotMenuPhase,
   botMenuBox,
@@ -474,10 +475,7 @@ export function Chat(props: {
   const me = meQuery.data;
   const desk = officeSearch(props.desk);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const knowledgeListQuery = useQuery({
-    ...orpc.knowledge.list.queryOptions(),
-    gcTime: OFFICE_MESSAGES_GC_TIME,
-  });
+  const knowledgeListQuery = useQuery(knowledgeListQueryOptions());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<"general" | "models">(
     "general",
@@ -679,6 +677,10 @@ export function Chat(props: {
   useEffect(() => {
     setCollapsedIds(new Set(readCollapsedSections(props.workspace.id)));
   }, [props.workspace.id]);
+
+  useEffect(() => {
+    if (props.roomId) writeLastRoom(props.workspace.id, props.roomId);
+  }, [props.workspace.id, props.roomId]);
 
   useEffect(() => {
     if (!sectionsCollection.isReady()) void sectionsCollection.preload();

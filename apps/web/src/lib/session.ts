@@ -3,16 +3,17 @@ import type { QueryClient } from "@tanstack/react-query";
 import { redirect } from "@tanstack/react-router";
 import {
   botsCollection,
-  clearThreadStore,
-  peekBots,
-  peekRooms,
   roomsCollection,
   upsertBot,
 } from "./collections";
 import { OFFICE_TO, officeParams } from "./office-route";
 import { orpc, queryClient } from "./orpc";
 import { sessionQueryKey, sessionQueryOptions } from "./session-query";
-import { destinationAfterWorkspaceChange } from "./workspace-switcher";
+import {
+  listedBots,
+  listedRooms,
+  prepareWorkspaceSwitch,
+} from "./workspace-catalog";
 
 export { sessionQueryKey };
 
@@ -55,15 +56,15 @@ export async function loadOfficeRoomCatalog(roomId: string): Promise<{
   rooms: Room[];
   bots: Bot[];
 }> {
-  let rooms = peekRooms();
-  let bots = peekBots();
+  let rooms = listedRooms();
+  let bots = listedBots();
   if (catalogHasRoom(roomId, rooms, bots)) {
     return { rooms, bots };
   }
 
   await Promise.all([roomsCollection.preload(), botsCollection.preload()]);
-  rooms = peekRooms();
-  bots = peekBots();
+  rooms = listedRooms();
+  bots = listedBots();
   if (catalogHasRoom(roomId, rooms, bots)) {
     return { rooms, bots };
   }
@@ -72,7 +73,7 @@ export async function loadOfficeRoomCatalog(roomId: string): Promise<{
     roomsCollection.utils.refetch(),
     botsCollection.utils.refetch(),
   ]);
-  return { rooms: peekRooms(), bots: peekBots() };
+  return { rooms: listedRooms(), bots: listedBots() };
 }
 
 export function isArchivedBot(bot: Bot): boolean {
@@ -95,21 +96,21 @@ export async function cacheCreatedBot(bot: Bot) {
 }
 
 export async function loadBotsForRoute(requiredBotId?: string): Promise<Bot[]> {
-  let bots = peekBots();
+  let bots = listedBots();
   const haveRequired =
     requiredBotId === undefined
       ? bots.length > 0 || botsCollection.isReady()
       : bots.some((bot) => bot.id === requiredBotId);
   if (!haveRequired) {
     await botsCollection.preload();
-    bots = peekBots();
+    bots = listedBots();
   }
   const missingRequired =
     requiredBotId !== undefined &&
     !bots.some((bot) => bot.id === requiredBotId);
   if (missingRequired) {
     await botsCollection.utils.refetch();
-    bots = peekBots();
+    bots = listedBots();
   }
   return bots;
 }
@@ -128,22 +129,13 @@ export async function redirectAuthedHome(): Promise<never> {
   });
 }
 
-/** Drop the current office cache and open the active workspace. */
+/** Swap the live office slice and open it. Do not wipe persist — the other office stays cached. */
 export async function enterActiveWorkspace(opts: {
-  queryClient: QueryClient;
-  invalidateRouter: () => Promise<unknown>;
+  workspace: { id: string; name: string; slug: string };
   goOnboarding: () => Promise<unknown>;
   goBot: (roomId: string) => Promise<unknown>;
 }): Promise<void> {
-  clearThreadStore();
-  await opts.queryClient.invalidateQueries();
-  if (botsCollection.isReady()) {
-    await botsCollection.utils.refetch();
-  } else {
-    await botsCollection.preload();
-  }
-  const dest = destinationAfterWorkspaceChange(peekBots());
-  await opts.invalidateRouter();
+  const dest = prepareWorkspaceSwitch(opts.workspace);
   if (dest.to === "/onboarding") {
     await opts.goOnboarding();
     return;

@@ -2,8 +2,7 @@ import { unstable_useComposerInput } from "@assistant-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { matchOfficeLearn, matchOfficeSkills } from "../lib/knowledge-slash";
 import { officeSkills } from "../lib/knowledge-tree";
-import { orpc } from "../lib/orpc";
-import { OFFICE_MESSAGES_GC_TIME } from "../lib/office-messages";
+import { knowledgeListQueryOptions } from "../lib/workspace-catalog";
 
 const MAX_HITS = 8;
 
@@ -11,9 +10,8 @@ const MAX_HITS = 8;
 export function OfficeSkillSlash() {
   const { value, setText } = unstable_useComposerInput();
   const listing = useQuery({
-    ...orpc.knowledge.list.queryOptions(),
+    ...knowledgeListQueryOptions(),
     enabled: value.trimStart().startsWith("/"),
-    gcTime: OFFICE_MESSAGES_GC_TIME,
   });
   const learn = matchOfficeLearn(value);
   const hits = matchOfficeSkills(
