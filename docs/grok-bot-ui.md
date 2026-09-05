@@ -74,11 +74,9 @@ Composer:
 - `/` = saved skill.
 - Send while it is working = redirect. “Stop now” = halt (does not undo).
 
-Job-title chips on marketing (use as first-bot suggestions, not as a template gallery product):
+Job-title chips and the office **New bot** surface share a curated hire catalog (roles and a few known-person names). Browse/search in the marketplace modal, or pick chips on first-run onboarding — same templates, same `bots.create` path. This is **not** Plugins (Composio connectors), **not** Knowledge skills/playbooks, and **not** a user-published template store.
 
-Sales Outbound · Talent Scout · Paid Media · Expense Manager · Product Performance · Bug Reproduction · Account Health · Chief of Staff
-
-Docs examples: **Talent Scout**, **Expense Manager**, **Bug Reproduction**. Avoid **General Helper**.
+Examples: **Talent Scout**, **Expense Manager**, **Bug Reproduction**, **Chief of Staff**. Avoid **General Helper**.
 
 ---
 
