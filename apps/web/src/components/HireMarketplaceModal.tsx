@@ -3,7 +3,7 @@ import {
   hireFieldsFromTemplate,
   type BotMarketplaceTemplate,
 } from "@groxbot/contracts";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   hireMarketplaceCards,
   hireMarketplaceCategories,
@@ -18,6 +18,27 @@ export type HireMarketplaceInput = {
 };
 
 type View = "browse" | "custom";
+
+const CATEGORIES = hireMarketplaceCategories(BOT_MARKETPLACE_CATALOG);
+
+function PrivateHireToggle(props: {
+  checked: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer select-none items-center gap-1.5 text-[12px] text-muted">
+      <input
+        type="checkbox"
+        checked={props.checked}
+        className="size-3.5"
+        title="Only you. Can't join a shared room."
+        onChange={(event) => props.onChange(event.target.checked)}
+      />
+      {props.label}
+    </label>
+  );
+}
 
 export function HireMarketplaceModal(props: {
   open: boolean;
@@ -39,32 +60,24 @@ export function HireMarketplaceModal(props: {
     setPriv(false);
   }, [props.open]);
 
-  const categories = useMemo(
-    () => hireMarketplaceCategories(BOT_MARKETPLACE_CATALOG),
-    [],
-  );
-  const cards = useMemo(
-    () =>
-      props.open
-        ? hireMarketplaceCards({
-            catalog: BOT_MARKETPLACE_CATALOG,
-            query,
-            category,
-          })
-        : [],
-    [category, props.open, query],
-  );
+  const cards = props.open
+    ? hireMarketplaceCards({
+        catalog: BOT_MARKETPLACE_CATALOG,
+        query,
+        category,
+      })
+    : [];
+  const visibility = priv ? "private" : "shared";
+  const customReady = Boolean(name.trim());
 
   function hireTemplate(template: BotMarketplaceTemplate) {
     const fields = hireFieldsFromTemplate(template);
     props.onHire({
       name: fields.name,
       title: fields.title,
-      visibility: priv ? "private" : "shared",
+      visibility,
     });
   }
-
-  const customReady = Boolean(name.trim());
 
   return (
     <ModalShell
@@ -109,7 +122,7 @@ export function HireMarketplaceModal(props: {
             </Button>
           </div>
           <div className="flex flex-wrap gap-1.5 border-b border-line px-[18px] py-2">
-            {categories.map((label) => {
+            {CATEGORIES.map((label) => {
               const active =
                 label === "All" ? category === null : category === label;
               return (
@@ -127,16 +140,11 @@ export function HireMarketplaceModal(props: {
             })}
           </div>
           <div className="flex items-center justify-between gap-2 border-b border-line px-[18px] py-2">
-            <label className="flex cursor-pointer select-none items-center gap-1.5 text-[12px] text-muted">
-              <input
-                type="checkbox"
-                checked={priv}
-                className="size-3.5"
-                title="Only you. Can't join a shared room."
-                onChange={(event) => setPriv(event.target.checked)}
-              />
-              Private hire
-            </label>
+            <PrivateHireToggle
+              checked={priv}
+              label="Private hire"
+              onChange={setPriv}
+            />
             <p className="m-0 text-[12px] text-muted">
               Hire a teammate — not a plugin or skill.
             </p>
@@ -186,7 +194,7 @@ export function HireMarketplaceModal(props: {
             if (!next) return;
             props.onHire({
               name: next,
-              visibility: priv ? "private" : "shared",
+              visibility,
             });
           }}
         >
@@ -204,16 +212,11 @@ export function HireMarketplaceModal(props: {
             />
           </Field>
           <div className="flex items-center justify-between gap-2">
-            <label className="flex cursor-pointer select-none items-center gap-1.5 text-[12px] text-muted">
-              <input
-                type="checkbox"
-                checked={priv}
-                className="size-3.5"
-                title="Only you. Can't join a shared room."
-                onChange={(event) => setPriv(event.target.checked)}
-              />
-              Private
-            </label>
+            <PrivateHireToggle
+              checked={priv}
+              label="Private"
+              onChange={setPriv}
+            />
             <div className="flex gap-2">
               <Button
                 className="px-3 py-1.5 text-[13px]"

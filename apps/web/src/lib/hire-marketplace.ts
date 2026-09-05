@@ -1,5 +1,4 @@
 import {
-  BOT_MARKETPLACE_CATEGORIES,
   filterBotMarketplace,
   type BotMarketplaceTemplate,
 } from "@groxbot/contracts";
@@ -17,6 +16,5 @@ export function hireMarketplaceCards(input: {
 export function hireMarketplaceCategories(
   catalog: readonly BotMarketplaceTemplate[],
 ): string[] {
-  const fromCatalog = [...new Set(catalog.map((row) => row.category))];
-  return ["All", ...(fromCatalog.length ? fromCatalog : [...BOT_MARKETPLACE_CATEGORIES])];
+  return ["All", ...new Set(catalog.map((row) => row.category))];
 }
