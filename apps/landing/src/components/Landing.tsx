@@ -14,6 +14,7 @@ import {
   TAGLINE,
   THESES,
 } from "../lib/copy";
+import { LANDING_HIRE_BOTS } from "../lib/bot-marketplace";
 import { HOME_INTEGRATIONS } from "../lib/teasers";
 import { DemoThread } from "./DemoThread";
 import { OfficePreview } from "./OfficePreview";
@@ -228,6 +229,34 @@ export function Landing(props: { startUrl: string }) {
         </section>
 
         <DemoShowcase />
+
+        <section
+          id="hire"
+          className="band catalog"
+          aria-labelledby="hire-catalog"
+        >
+          <p className="kicker">Hire catalog</p>
+          <h2 id="hire-catalog">Bots you can hire today.</h2>
+          <p className="lede tight">
+            Same curated list as New bot in the office — roles and a few known
+            names. Not plugins. Not a skill store.
+          </p>
+          <div className="cards hire-catalog-cards">
+            {LANDING_HIRE_BOTS.map((bot) => (
+              <article key={bot.id} className="card">
+                <p className="kicker">{bot.category}</p>
+                <h3>{bot.name}</h3>
+                {bot.kind === "person" && bot.title ? (
+                  <p className="hire-catalog-title">{bot.title}</p>
+                ) : null}
+                <p className="hire-catalog-blurb">{bot.blurb}</p>
+                <a className="btn ghost hire-catalog-cta" href={props.startUrl}>
+                  Hire {bot.name}
+                </a>
+              </article>
+            ))}
+          </div>
+        </section>
 
         <section className="band catalog">
           <p className="kicker">Integrations</p>
