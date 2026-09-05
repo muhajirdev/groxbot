@@ -9,13 +9,13 @@ import {
   GROXBOT_OG_PATH,
   GROXBOT_OG_TYPE,
   GROXBOT_OG_WIDTH,
-  GROXBOT_TAGLINE,
   GROXBOT_THEME_COLOR,
 } from "@groxbot/seo";
+import { HERO_PITCH } from "./copy";
 
 export const SITE_NAME = "Groxbot";
-export const DEFAULT_TITLE = `${SITE_NAME} — ${GROXBOT_TAGLINE}`;
-export const DEFAULT_DESCRIPTION = `${GROXBOT_TAGLINE}. Like Grok Bot, for the team. Named teammates, each with a computer, open source. Self-host for your team.`;
+export const DEFAULT_TITLE = `${HERO_PITCH} | ${SITE_NAME}`;
+export const DEFAULT_DESCRIPTION = `${HERO_PITCH} Like Grok Bot, for the team. Named teammates, each with a computer. Self-host for your team.`;
 
 const LOCAL_LANDING_ORIGIN = "http://127.0.0.1:5174";
 

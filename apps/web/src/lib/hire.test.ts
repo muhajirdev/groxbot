@@ -59,4 +59,15 @@ describe("draftCreatedBot", () => {
     });
     expect(bot.visibility).toBe("private");
   });
+
+  it("preserves optional title when provided", () => {
+    const bot = draftCreatedBot({
+      id: "bot-1",
+      workspaceId: "ws-1",
+      name: "Hormozi",
+      avatarColor: "#e45c9a",
+      title: "Offer & content coach",
+    });
+    expect(bot.title).toBe("Offer & content coach");
+  });
 });
