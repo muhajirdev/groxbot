@@ -1,10 +1,10 @@
 {
   "name": "groxbot",
-  "install": "corepack enable && corepack pnpm install --frozen-lockfile",
+  "install": "./.cursor/run.sh corepack pnpm install --frozen-lockfile",
   "terminals": [
     {
       "name": "dev",
-      "command": "pnpm dev"
+      "command": "./.cursor/run.sh pnpm dev"
     }
   ]
 }

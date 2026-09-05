@@ -4,8 +4,8 @@
   "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
-    "start": "wrangler dev",
+    "dev": "wrangler dev --local",
+    "start": "wrangler dev --local",
     "dev:node": "tsx watch src/index.ts",
     "deploy": "wrangler deploy",
     "upload": "wrangler versions upload",
