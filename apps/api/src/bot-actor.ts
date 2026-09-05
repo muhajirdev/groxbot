@@ -306,6 +306,26 @@ export class RoomHome extends Agent<WorkerEnv> {
   private reviewBusy = false;
   private soulOverlay = new AgentContextProvider(this, "soul-evolved");
   private memoryBlock = new AgentContextProvider(this, "memory");
+
+  /** Seed a marketplace package onto this home room (soul + memory + skip intro). */
+  protected async applyHirePackage(input: {
+    soul?: string;
+    memory?: string;
+    skipIntro?: boolean;
+  }): Promise<void> {
+    const soul = input.soul?.trim() ?? "";
+    const memory = input.memory?.trim() ?? "";
+    if (soul) {
+      await this.ensureBotLoaded();
+      await this.soulOverlay.set(soulOverlayFromWrite(this.soulPrompt, soul));
+    }
+    if (memory) {
+      await this.memoryBlock.set(memory);
+    }
+    if (input.skipIntro || soul) {
+      await this.ctx.storage.put(OFFICE_INTRO_STORAGE, true);
+    }
+  }
   private officeSubscribers = new Set<OfficeChatSubscriber>();
   /** Human steered this in-flight turn from the composer. */
   private officeTurnTouched = false;

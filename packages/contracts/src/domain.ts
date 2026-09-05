@@ -53,6 +53,11 @@ export const CreateBotInput = z.object({
   /** Client-generated home RoomActor id so 1:1 can open at /room/$homeRoomId. */
   homeRoomId: Id.max(64).optional(),
   visibility: Visibility.optional(),
+  /**
+   * Curated marketplace package id. When set, the server seeds soul, memory,
+   * and starter skills from `BOT_MARKETPLACE_CATALOG`.
+   */
+  marketplaceId: z.string().min(1).max(80).optional(),
 });
 
 export const UpdateBotInput = z.object({

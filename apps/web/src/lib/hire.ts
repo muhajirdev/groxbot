@@ -31,6 +31,7 @@ export function draftCreatedBot(input: {
   homeRoomId?: string;
   userId?: string;
   visibility?: "private" | "shared";
+  title?: string;
 }): Bot {
   const now = new Date().toISOString();
   return {
@@ -39,7 +40,7 @@ export function draftCreatedBot(input: {
     userId: input.userId ?? "user",
     visibility: input.visibility ?? "shared",
     name: input.name,
-    title: "",
+    title: input.title ?? "",
     description: "",
     instructions: "",
     avatarColor: input.avatarColor,

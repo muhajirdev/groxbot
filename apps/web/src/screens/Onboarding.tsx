@@ -165,7 +165,7 @@ export function Onboarding(props: { invite?: string }) {
     runGateTransition(() => setStep(next));
   }
 
-  function pickJob(job: (typeof SUGGESTED_JOBS)[number]) {
+  function pickJob(job: string) {
     runGateTransition(() => {
       setName(job);
       setStep(5);

@@ -37,7 +37,7 @@ import {
 import { CommandPalette, SearchTrigger } from "../components/CommandPalette";
 import { ComputerPane } from "../components/ComputerPane";
 import { CreateRoomDialog } from "../components/CreateRoomDialog";
-import { HireDialog } from "../components/HireDialog";
+import { HireMarketplaceModal } from "../components/HireMarketplaceModal";
 import {
   CaretSwapIcon,
   ChevronDownIcon,
@@ -1011,7 +1011,14 @@ export function Chat(props: {
   }
 
   const hire = useCallback(
-    async (input: { name: string; visibility: "private" | "shared" }) => {
+    async (input: {
+      name: string;
+      visibility: "private" | "shared";
+      title?: string;
+      marketplaceId?: string;
+      instructions?: string;
+      description?: string;
+    }) => {
       const trimmed = input.name.trim();
       if (!trimmed || hiring.current) return;
       hiring.current = true;
@@ -1020,6 +1027,7 @@ export function Chat(props: {
       const homeRoomId = crypto.randomUUID();
       const roster = peekBots();
       const avatarColor = nextAvatarColor(roster);
+      const title = input.title?.trim() || undefined;
       const draft = draftCreatedBot({
         id,
         homeRoomId,
@@ -1028,6 +1036,7 @@ export function Chat(props: {
         avatarColor,
         userId: me?.userId,
         visibility: input.visibility,
+        ...(title ? { title } : {}),
       });
       try {
         await cacheCreatedBot(draft);
@@ -1040,6 +1049,14 @@ export function Chat(props: {
           name: trimmed,
           avatarColor,
           visibility: input.visibility,
+          ...(title ? { title } : {}),
+          ...(input.marketplaceId
+            ? { marketplaceId: input.marketplaceId }
+            : {}),
+          ...(input.instructions
+            ? { instructions: input.instructions }
+            : {}),
+          ...(input.description ? { description: input.description } : {}),
         });
         cacheBot(created);
         patchThreadMeta(id, { opening: false });
@@ -2155,7 +2172,7 @@ export function Chat(props: {
             }}
             onAction={runPaletteAction}
           />
-          <HireDialog
+          <HireMarketplaceModal
             open={hireOpen}
             onClose={() => setHireOpen(false)}
             onHire={(input) => void hire(input)}

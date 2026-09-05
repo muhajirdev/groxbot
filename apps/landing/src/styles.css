@@ -1971,6 +1971,61 @@ img.avatar {
   max-width: 20ch;
 }
 
+.hire-catalog-cards {
+  margin-top: 28px;
+}
+
+.hire-catalog-cards .card h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.hire-catalog-title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.hire-catalog-blurb {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.hire-catalog-meta {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.hire-catalog-skills {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.hire-catalog-skills li {
+  font-size: 11px;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 8px;
+}
+
+.hire-catalog-cta {
+  margin-top: 14px;
+}
+
+@media (max-width: 900px) {
+  .hire-catalog-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
 .faq-band {
   max-width: 720px;
   margin: 0 auto;
