@@ -1,7 +1,8 @@
 import { GROXBOT_EMAIL, GROXBOT_TAGLINE } from "@groxbot/seo";
-import { canonicalUrl, landingOrigin, SITE_NAME } from "./site";
-import type { Integration } from "./integrations";
+import type { ComparePage } from "../data/compare";
 import type { UseCase } from "../data/use-cases";
+import type { Integration } from "./integrations";
+import { canonicalUrl, landingOrigin, SITE_NAME } from "./site";
 
 export function organizationJsonLd(): Record<string, unknown> {
   return {
@@ -106,5 +107,28 @@ export function useCaseJsonLd(item: UseCase): Record<string, unknown>[] {
       { name: item.title, path: `/use-cases/${item.slug}` },
     ]),
     faqJsonLd(item.faqs),
+  ];
+}
+
+export function compareJsonLd(page: ComparePage): Record<string, unknown>[] {
+  return [
+    breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      { name: "Compare", path: "/compare" },
+      { name: page.title, path: `/compare/${page.slug}` },
+    ]),
+    faqJsonLd(page.faqs),
+    {
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      name: page.title,
+      url: canonicalUrl(`/compare/${page.slug}`),
+      description: page.description,
+      about: page.products.map((product) => ({
+        "@type": "SoftwareApplication",
+        name: product.name,
+        description: product.summary,
+      })),
+    },
   ];
 }

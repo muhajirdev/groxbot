@@ -46,6 +46,7 @@ Product API is oRPC. One wakeup queue per bot. Each bot has a computer (@cloudfl
 - [Markdown homepage](${abs(web, "/index.md")}): LLM-readable welcome copy
 - [Integrations](${abs(web, "/integrations")}): Gmail, Slack, GitHub, and 1,000+ tools — plus a computer for indie products
 - [Use cases](${abs(web, "/use-cases")}): Job-shaped first messages
+- [Compare](${abs(web, "/compare")}): Groxbot vs Hermes vs OpenClaw vs Paperclip — and each pairwise vs
 - [Press kit](${abs(web, "/press")}): Logos, naming, and boilerplate
 - [Get started](${office}/login): Sign in to the office
 - [MCP](${abs(web, "/mcp")}): Public MCP discovery and Streamable HTTP
@@ -257,7 +258,19 @@ A: Same motion: talk to named teammates. Groxbot is multiplayer (one office, sha
 
 Q: How is Groxbot different from OpenClaw?
 A: OpenClaw is a personal agent on your machine. Groxbot is the office: named teammates, each with a computer, Postgres for team data, and a messaging UI the whole company can sit in.
-URL: [${GROXBOT_NAME}](${web}/)
+URL: [${GROXBOT_NAME}](${web}/compare/grok-bot-vs-hermes-vs-openclaw-vs-paperclip)
+
+---
+
+Q: How is Groxbot different from Hermes?
+A: Hermes is a personal agent on your machine, like OpenClaw. Groxbot is the office. Hermes can dial out as a guest runtime if you turn that on — off by default.
+URL: [${GROXBOT_NAME}](${web}/compare/grok-bot-vs-hermes-vs-openclaw-vs-paperclip)
+
+---
+
+Q: How is Groxbot different from Paperclip?
+A: Paperclip is a multi-agent orchestration layer — org charts, tickets, budgets on top of worker agents. Groxbot is the office UI itself: hire named teammates, message them, grant tools when they hit a wall. You do not need a separate management layer to start.
+URL: [${GROXBOT_NAME}](${web}/compare/grok-bot-vs-hermes-vs-openclaw-vs-paperclip)
 
 ---
 
@@ -433,6 +446,8 @@ Allow: /identity.json
 Allow: /brand.txt
 Allow: /press
 Allow: /press.md
+Allow: /compare
+Allow: /use-cases
 Allow: /faq-ai.txt
 Allow: /developer-ai.txt
 Allow: /robots-ai.txt
@@ -613,6 +628,12 @@ export function identityJson(
           "Gmail, Slack, GitHub, and 1,000+ tools — plus a computer for indie products",
       },
       {
+        name: "Compare",
+        url: abs(web, "/compare"),
+        description:
+          "Groxbot vs Hermes vs OpenClaw vs Paperclip — office vs personal vs orchestration",
+      },
+      {
         name: "Press kit",
         url: abs(web, "/press"),
         description: "Logos, naming, and boilerplate",
@@ -727,6 +748,14 @@ export const SITEMAP_PATHS = [
   "/index.md",
   "/integrations",
   "/use-cases",
+  "/compare",
+  "/compare/grok-bot-vs-hermes-vs-openclaw-vs-paperclip",
+  "/compare/grok-bot-vs-hermes",
+  "/compare/grok-bot-vs-openclaw",
+  "/compare/grok-bot-vs-paperclip",
+  "/compare/hermes-vs-openclaw",
+  "/compare/hermes-vs-paperclip",
+  "/compare/openclaw-vs-paperclip",
   "/press",
   "/press.md",
   "/llms.txt",
@@ -769,6 +798,7 @@ Like Grok Bot, for the whole team. If OpenClaw is for your personal use, Groxbot
 Create a Bot, message it, grant access as needed. No workflow builder.
 
 - [Get started](${office}/login)
+- [Compare](${abs(origins.web, "/compare/grok-bot-vs-hermes-vs-openclaw-vs-paperclip")}): Groxbot vs Hermes vs OpenClaw vs Paperclip
 - [Press kit](${abs(origins.web, "/press")})
 - [llms.txt](${abs(origins.web, "/llms.txt")})
 - [MCP](${abs(origins.web, "/mcp")})

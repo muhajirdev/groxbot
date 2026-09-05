@@ -109,11 +109,19 @@ describe("use cases", () => {
 });
 
 describe("sitemap", () => {
-  it("includes hubs, categories, integrations, and use cases", () => {
+  it("includes hubs, categories, integrations, use cases, and compare pages", async () => {
+    const { COMPARE_PAGES } = await import("../data/compare");
     const paths = sitemapEntries().map((entry) => entry.path);
     expect(paths).toContain("/");
     expect(paths).toContain("/integrations");
     expect(paths).toContain("/use-cases");
+    expect(paths).toContain("/compare");
+    expect(paths).toContain(
+      "/compare/grok-bot-vs-hermes-vs-openclaw-vs-paperclip",
+    );
+    expect(paths).toContain("/compare/grok-bot-vs-hermes");
+    expect(paths).toContain("/compare/grok-bot-vs-openclaw");
+    expect(paths).toContain("/compare/grok-bot-vs-paperclip");
     expect(paths).toContain("/press");
     expect(paths).toContain("/press.md");
     expect(paths).toContain("/integrations/gmail");
@@ -126,18 +134,90 @@ describe("sitemap", () => {
     expect(paths).toContain("/mcp");
     expect(paths.some((path) => path.startsWith("/s/"))).toBe(false);
     expect(paths.length).toBe(
-      4 +
+      5 +
         DISCOVERY_SITEMAP_PATHS.length +
         integrationCategories().length +
         INTEGRATIONS.length +
-        USE_CASES.length,
+        USE_CASES.length +
+        COMPARE_PAGES.length,
     );
   });
 
   it("emits xml with canonical groxbot.com urls", () => {
     const xml = sitemapXml();
     expect(xml).toContain(canonicalUrl("/integrations/postiz"));
+    expect(xml).toContain(
+      canonicalUrl("/compare/grok-bot-vs-hermes-vs-openclaw-vs-paperclip"),
+    );
+    expect(xml).toContain(canonicalUrl("/compare/grok-bot-vs-hermes"));
     expect(xml).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+  });
+});
+
+describe("compare pages", () => {
+  it("ships the four-way page plus every pairwise vs", async () => {
+    const { COMPARE_PAGES, FEATURE_ROWS, getComparePage } = await import(
+      "../data/compare"
+    );
+    const page = getComparePage(
+      "grok-bot-vs-hermes-vs-openclaw-vs-paperclip",
+    );
+    expect(page).toBeDefined();
+    expect(COMPARE_PAGES).toHaveLength(7);
+    expect(COMPARE_PAGES.map((item) => item.slug)).toEqual(
+      expect.arrayContaining([
+        "grok-bot-vs-hermes-vs-openclaw-vs-paperclip",
+        "grok-bot-vs-hermes",
+        "grok-bot-vs-openclaw",
+        "grok-bot-vs-paperclip",
+        "hermes-vs-openclaw",
+        "hermes-vs-paperclip",
+        "openclaw-vs-paperclip",
+      ]),
+    );
+    expect(page?.products.map((item) => item.id)).toEqual([
+      "groxbot",
+      "hermes",
+      "openclaw",
+      "paperclip",
+    ]);
+    expect(page?.products.some((item) => item.ours)).toBe(true);
+    expect(page?.faqs.length).toBeGreaterThan(2);
+    expect(FEATURE_ROWS.map((row) => row.label)).toEqual(
+      expect.arrayContaining([
+        "Multiplayer",
+        "Shared knowledge base",
+        "Open source",
+        "Mobile app",
+        "Use any model",
+        "Bring your own key",
+        "Self-evolving agent",
+        "Self-improving organization",
+      ]),
+    );
+    expect(FEATURE_ROWS.find((row) => row.label === "Multiplayer")?.values.groxbot).toBe(
+      true,
+    );
+    expect(
+      FEATURE_ROWS.find((row) => row.label === "Shared knowledge base")?.values
+        .hermes,
+    ).not.toBe(true);
+    for (const row of page?.rows ?? []) {
+      expect(Object.keys(row.values).sort()).toEqual([
+        "groxbot",
+        "hermes",
+        "openclaw",
+        "paperclip",
+      ]);
+    }
+    const pair = getComparePage("grok-bot-vs-hermes");
+    expect(pair?.products.map((item) => item.id)).toEqual([
+      "groxbot",
+      "hermes",
+    ]);
+    for (const row of pair?.rows ?? []) {
+      expect(Object.keys(row.values).sort()).toEqual(["groxbot", "hermes"]);
+    }
   });
 });
 
@@ -148,6 +228,7 @@ describe("llms discovery", () => {
     expect(txt).toContain("/mcp");
     expect(txt).toContain("/identity.json");
     expect(txt).toContain("/use-cases/");
+    expect(txt).toContain("/compare/");
     expect(txt).toContain("/press");
   });
 

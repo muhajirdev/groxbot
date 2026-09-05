@@ -28,6 +28,8 @@ import { Route as PressDotmdRouteImport } from './routes/press[.]md'
 import { Route as RobotsAiDottxtRouteImport } from './routes/robots-ai[.]txt'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as CompareIndexRouteImport } from './routes/compare/index'
+import { Route as CompareSlugRouteImport } from './routes/compare/$slug'
 import { Route as IntegrationsIndexRouteImport } from './routes/integrations/index'
 import { Route as IntegrationsSlugRouteImport } from './routes/integrations/$slug'
 import { Route as PressIndexRouteImport } from './routes/press/index'
@@ -132,6 +134,16 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CompareIndexRoute = CompareIndexRouteImport.update({
+  id: '/compare/',
+  path: '/compare/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CompareSlugRoute = CompareSlugRouteImport.update({
+  id: '/compare/$slug',
+  path: '/compare/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IntegrationsIndexRoute = IntegrationsIndexRouteImport.update({
   id: '/integrations/',
   path: '/integrations/',
@@ -194,9 +206,11 @@ export interface FileRoutesByFullPath {
   '/robots-ai.txt': typeof RobotsAiDottxtRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/compare/$slug': typeof CompareSlugRoute
   '/integrations/$slug': typeof IntegrationsSlugRoute
   '/press/$file': typeof PressFileRoute
   '/use-cases/$slug': typeof UseCasesSlugRoute
+  '/compare/': typeof CompareIndexRoute
   '/integrations/': typeof IntegrationsIndexRoute
   '/press/': typeof PressIndexRoute
   '/use-cases/': typeof UseCasesIndexRoute
@@ -223,9 +237,11 @@ export interface FileRoutesByTo {
   '/robots-ai.txt': typeof RobotsAiDottxtRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/compare/$slug': typeof CompareSlugRoute
   '/integrations/$slug': typeof IntegrationsSlugRoute
   '/press/$file': typeof PressFileRoute
   '/use-cases/$slug': typeof UseCasesSlugRoute
+  '/compare': typeof CompareIndexRoute
   '/integrations': typeof IntegrationsIndexRoute
   '/press': typeof PressIndexRoute
   '/use-cases': typeof UseCasesIndexRoute
@@ -253,9 +269,11 @@ export interface FileRoutesById {
   '/robots-ai.txt': typeof RobotsAiDottxtRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/compare/$slug': typeof CompareSlugRoute
   '/integrations/$slug': typeof IntegrationsSlugRoute
   '/press/$file': typeof PressFileRoute
   '/use-cases/$slug': typeof UseCasesSlugRoute
+  '/compare/': typeof CompareIndexRoute
   '/integrations/': typeof IntegrationsIndexRoute
   '/press/': typeof PressIndexRoute
   '/use-cases/': typeof UseCasesIndexRoute
@@ -284,9 +302,11 @@ export interface FileRouteTypes {
     | '/robots-ai.txt'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/compare/$slug'
     | '/integrations/$slug'
     | '/press/$file'
     | '/use-cases/$slug'
+    | '/compare/'
     | '/integrations/'
     | '/press/'
     | '/use-cases/'
@@ -313,9 +333,11 @@ export interface FileRouteTypes {
     | '/robots-ai.txt'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/compare/$slug'
     | '/integrations/$slug'
     | '/press/$file'
     | '/use-cases/$slug'
+    | '/compare'
     | '/integrations'
     | '/press'
     | '/use-cases'
@@ -342,9 +364,11 @@ export interface FileRouteTypes {
     | '/robots-ai.txt'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/compare/$slug'
     | '/integrations/$slug'
     | '/press/$file'
     | '/use-cases/$slug'
+    | '/compare/'
     | '/integrations/'
     | '/press/'
     | '/use-cases/'
@@ -372,9 +396,11 @@ export interface RootRouteChildren {
   RobotsAiDottxtRoute: typeof RobotsAiDottxtRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  CompareSlugRoute: typeof CompareSlugRoute
   IntegrationsSlugRoute: typeof IntegrationsSlugRoute
   PressFileRoute: typeof PressFileRoute
   UseCasesSlugRoute: typeof UseCasesSlugRoute
+  CompareIndexRoute: typeof CompareIndexRoute
   IntegrationsIndexRoute: typeof IntegrationsIndexRoute
   PressIndexRoute: typeof PressIndexRoute
   UseCasesIndexRoute: typeof UseCasesIndexRoute
@@ -517,6 +543,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/compare/': {
+      id: '/compare/'
+      path: '/compare'
+      fullPath: '/compare/'
+      preLoaderRoute: typeof CompareIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/compare/$slug': {
+      id: '/compare/$slug'
+      path: '/compare/$slug'
+      fullPath: '/compare/$slug'
+      preLoaderRoute: typeof CompareSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/integrations/': {
       id: '/integrations/'
       path: '/integrations'
@@ -596,9 +636,11 @@ const rootRouteChildren: RootRouteChildren = {
   RobotsAiDottxtRoute: RobotsAiDottxtRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  CompareSlugRoute: CompareSlugRoute,
   IntegrationsSlugRoute: IntegrationsSlugRoute,
   PressFileRoute: PressFileRoute,
   UseCasesSlugRoute: UseCasesSlugRoute,
+  CompareIndexRoute: CompareIndexRoute,
   IntegrationsIndexRoute: IntegrationsIndexRoute,
   PressIndexRoute: PressIndexRoute,
   UseCasesIndexRoute: UseCasesIndexRoute,

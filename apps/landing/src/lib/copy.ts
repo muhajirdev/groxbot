@@ -151,6 +151,10 @@ export const FAQS = [
     a: "Hermes is a personal agent on your machine, like OpenClaw. Groxbot is the office. Hermes can dial out as a guest runtime if you turn that on — off by default.",
   },
   {
+    q: "How is this different from Paperclip?",
+    a: "Paperclip orchestrates a fleet of agents with org charts and budgets. Groxbot is the place people work: hire a Bot, message it, grant tools when it hits a wall. You do not need a workflow builder or a separate management layer to start.",
+  },
+  {
     q: "Do I need a workflow builder?",
     a: "No. Create a Bot, message it, grant access as needed. There isn’t anything to learn — it’s like bringing on a coworker.",
   },
