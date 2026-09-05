@@ -39,6 +39,10 @@ describe("discovery documents", () => {
     expect(sitemap).toContain(
       `${CLOUD_LANDING_ORIGIN}/compare/grok-bot-vs-hermes-vs-openclaw-vs-paperclip`,
     );
+    expect(sitemap).toContain(`${CLOUD_LANDING_ORIGIN}/compare/grok-bot-vs-hermes`);
+    expect(sitemap).toContain(
+      `${CLOUD_LANDING_ORIGIN}/compare/grok-bot-vs-openclaw`,
+    );
     expect(robotsTxt(origins)).toContain("User-agent: GPTBot");
     expect(robotsTxt(origins)).toContain("Allow: /llms.txt");
     expect(robotsTxt(origins)).toContain("Allow: /compare");

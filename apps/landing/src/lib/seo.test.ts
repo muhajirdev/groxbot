@@ -109,7 +109,8 @@ describe("use cases", () => {
 });
 
 describe("sitemap", () => {
-  it("includes hubs, categories, integrations, and use cases", () => {
+  it("includes hubs, categories, integrations, use cases, and compare pages", async () => {
+    const { COMPARE_PAGES } = await import("../data/compare");
     const paths = sitemapEntries().map((entry) => entry.path);
     expect(paths).toContain("/");
     expect(paths).toContain("/integrations");
@@ -118,6 +119,9 @@ describe("sitemap", () => {
     expect(paths).toContain(
       "/compare/grok-bot-vs-hermes-vs-openclaw-vs-paperclip",
     );
+    expect(paths).toContain("/compare/grok-bot-vs-hermes");
+    expect(paths).toContain("/compare/grok-bot-vs-openclaw");
+    expect(paths).toContain("/compare/grok-bot-vs-paperclip");
     expect(paths).toContain("/press");
     expect(paths).toContain("/press.md");
     expect(paths).toContain("/integrations/gmail");
@@ -134,7 +138,7 @@ describe("sitemap", () => {
         integrationCategories().length +
         INTEGRATIONS.length +
         USE_CASES.length +
-        1,
+        COMPARE_PAGES.length,
     );
   });
 
@@ -144,18 +148,32 @@ describe("sitemap", () => {
     expect(xml).toContain(
       canonicalUrl("/compare/grok-bot-vs-hermes-vs-openclaw-vs-paperclip"),
     );
+    expect(xml).toContain(canonicalUrl("/compare/grok-bot-vs-hermes"));
     expect(xml).toContain('<?xml version="1.0" encoding="UTF-8"?>');
   });
 });
 
 describe("compare pages", () => {
-  it("covers Groxbot, Hermes, OpenClaw, and Paperclip", async () => {
-    const { COMPARE_PAGES, getComparePage } = await import("../data/compare");
+  it("ships the four-way page plus every pairwise vs", async () => {
+    const { COMPARE_PAGES, FEATURE_ROWS, getComparePage } = await import(
+      "../data/compare"
+    );
     const page = getComparePage(
       "grok-bot-vs-hermes-vs-openclaw-vs-paperclip",
     );
     expect(page).toBeDefined();
-    expect(COMPARE_PAGES).toHaveLength(1);
+    expect(COMPARE_PAGES).toHaveLength(7);
+    expect(COMPARE_PAGES.map((item) => item.slug)).toEqual(
+      expect.arrayContaining([
+        "grok-bot-vs-hermes-vs-openclaw-vs-paperclip",
+        "grok-bot-vs-hermes",
+        "grok-bot-vs-openclaw",
+        "grok-bot-vs-paperclip",
+        "hermes-vs-openclaw",
+        "hermes-vs-paperclip",
+        "openclaw-vs-paperclip",
+      ]),
+    );
     expect(page?.products.map((item) => item.id)).toEqual([
       "groxbot",
       "hermes",
@@ -164,6 +182,25 @@ describe("compare pages", () => {
     ]);
     expect(page?.products.some((item) => item.ours)).toBe(true);
     expect(page?.faqs.length).toBeGreaterThan(2);
+    expect(FEATURE_ROWS.map((row) => row.label)).toEqual(
+      expect.arrayContaining([
+        "Multiplayer",
+        "Shared knowledge base",
+        "Open source",
+        "Mobile app",
+        "Use any model",
+        "Bring your own key",
+        "Self-evolving agent",
+        "Self-improving organization",
+      ]),
+    );
+    expect(FEATURE_ROWS.find((row) => row.label === "Multiplayer")?.values.groxbot).toBe(
+      true,
+    );
+    expect(
+      FEATURE_ROWS.find((row) => row.label === "Shared knowledge base")?.values
+        .hermes,
+    ).not.toBe(true);
     for (const row of page?.rows ?? []) {
       expect(Object.keys(row.values).sort()).toEqual([
         "groxbot",
@@ -171,6 +208,14 @@ describe("compare pages", () => {
         "openclaw",
         "paperclip",
       ]);
+    }
+    const pair = getComparePage("grok-bot-vs-hermes");
+    expect(pair?.products.map((item) => item.id)).toEqual([
+      "groxbot",
+      "hermes",
+    ]);
+    for (const row of pair?.rows ?? []) {
+      expect(Object.keys(row.values).sort()).toEqual(["groxbot", "hermes"]);
     }
   });
 });

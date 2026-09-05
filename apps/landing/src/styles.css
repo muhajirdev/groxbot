@@ -963,8 +963,47 @@ img.avatar {
   color: var(--ink);
 }
 
+.versus.versus-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .versus.versus-4 {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.compare-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.compare-yes {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  color: #3ecf8e;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.compare-no {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  color: color-mix(in srgb, var(--muted) 75%, transparent);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.compare-text {
+  color: inherit;
 }
 
 .compare-best {
@@ -2287,6 +2326,7 @@ a.chip.on .chip-count,
   .split,
   .pair,
   .versus,
+  .versus.versus-2,
   .versus.versus-4,
   .compare-picks,
   .faq-band,
