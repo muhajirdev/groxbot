@@ -8,7 +8,12 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Resvg } from "@resvg/resvg-js";
-import { iconTileSvg, lookupPressAsset, ogCardSvg } from "../src/lib/press-assets.ts";
+import { flattenPngToRgb } from "../src/lib/png-rgb.ts";
+import {
+  iconTileSvg,
+  lookupPressAsset,
+  ogCardSvg,
+} from "../src/lib/press-assets.ts";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = join(ROOT, "../public");
@@ -33,7 +38,12 @@ async function loadFontFile(): Promise<string> {
   return path;
 }
 
-function renderPng(svg: string, width: number, fontFile: string): Buffer {
+function renderPng(
+  svg: string,
+  width: number,
+  fontFile: string,
+  background: "transparent" | "#000000" = "transparent",
+): Buffer {
   const resvg = new Resvg(svg, {
     fitTo: { mode: "width", value: width },
     font: {
@@ -41,7 +51,7 @@ function renderPng(svg: string, width: number, fontFile: string): Buffer {
       defaultFontFamily: "Source Sans 3",
       loadSystemFonts: false,
     },
-    background: "transparent",
+    background,
   });
   return Buffer.from(resvg.render().asPng());
 }
@@ -88,7 +98,9 @@ async function main(): Promise<void> {
     { file: "icon.png", svg: iconTileSvg("#000000"), width: 512 },
   ];
   for (const target of targets) {
-    const png = renderPng(target.svg, target.width, fontFile);
+    const background = target.file === "og.png" ? "#000000" : "transparent";
+    let png = renderPng(target.svg, target.width, fontFile, background);
+    if (target.file === "og.png") png = flattenPngToRgb(png);
     const out = join(PUBLIC_DIR, target.file);
     writeFileSync(out, png);
     console.log(`wrote ${out} (${png.byteLength} bytes)`);

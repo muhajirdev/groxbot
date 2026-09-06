@@ -51,8 +51,10 @@ describe("press assets", () => {
       dirname(fileURLToPath(import.meta.url)),
       "../../public",
     );
-    const og = pngSize(readFileSync(join(publicDir, "og.png")));
+    const ogBuf = readFileSync(join(publicDir, "og.png"));
+    const og = pngSize(ogBuf);
     expect(og).toEqual({ width: 1200, height: 630 });
+    expect(ogBuf[25]).toBe(2);
     const icon = pngSize(readFileSync(join(publicDir, "icon.png")));
     expect(icon).toEqual({ width: 512, height: 512 });
     const apple = pngSize(
