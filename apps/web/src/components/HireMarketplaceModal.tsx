@@ -1,3 +1,4 @@
+import type { AvatarShape } from "@groxbot/contracts";
 import {
   BOT_MARKETPLACE_CATALOG,
   hireFieldsFromTemplate,
@@ -7,8 +8,10 @@ import { useEffect, useState } from "react";
 import {
   hireMarketplaceCards,
   hireMarketplaceCategories,
+  marketplaceAvatar,
 } from "../lib/hire-marketplace";
 import { Button, Field, Input, ModalShell, cn } from "../ui";
+import { AvatarMark } from "./Avatar";
 import { CloseIcon, SearchIcon } from "./Icons";
 
 export type HireMarketplaceInput = {
@@ -18,6 +21,8 @@ export type HireMarketplaceInput = {
   marketplaceId?: string;
   instructions?: string;
   description?: string;
+  avatarColor?: string;
+  avatarShape?: AvatarShape;
 };
 
 type View = "name" | "browse";
@@ -26,7 +31,6 @@ const CATEGORIES = hireMarketplaceCategories(BOT_MARKETPLACE_CATALOG);
 
 function PrivateHireToggle(props: {
   checked: boolean;
-  label: string;
   onChange: (checked: boolean) => void;
 }) {
   return (
@@ -35,10 +39,10 @@ function PrivateHireToggle(props: {
         type="checkbox"
         checked={props.checked}
         className="size-3.5"
-        title="Only you. Can't join a shared room."
+        title="Only you. They can't join a shared room."
         onChange={(event) => props.onChange(event.target.checked)}
       />
-      {props.label}
+      Private
     </label>
   );
 }
@@ -51,6 +55,7 @@ export function HireMarketplaceModal(props: {
   const [view, setView] = useState<View>("name");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string | null>(null);
+  const [browseAll, setBrowseAll] = useState(false);
   const [name, setName] = useState("");
   const [priv, setPriv] = useState(false);
 
@@ -59,15 +64,18 @@ export function HireMarketplaceModal(props: {
     setView("name");
     setQuery("");
     setCategory(null);
+    setBrowseAll(false);
     setName("");
     setPriv(false);
   }, [props.open]);
 
+  const searching = Boolean(query.trim() || category);
   const cards = props.open
     ? hireMarketplaceCards({
         catalog: BOT_MARKETPLACE_CATALOG,
         query,
         category,
+        all: browseAll,
       })
     : [];
   const visibility = priv ? "private" : "shared";
@@ -75,6 +83,7 @@ export function HireMarketplaceModal(props: {
 
   function hireTemplate(template: BotMarketplaceTemplate) {
     const fields = hireFieldsFromTemplate(template);
+    const face = marketplaceAvatar(template.id);
     props.onHire({
       name: fields.name,
       title: fields.title,
@@ -82,6 +91,8 @@ export function HireMarketplaceModal(props: {
       marketplaceId: fields.marketplaceId,
       instructions: fields.instructions,
       description: fields.description,
+      avatarColor: face.color,
+      avatarShape: face.shape,
     });
   }
 
@@ -91,8 +102,8 @@ export function HireMarketplaceModal(props: {
       wide={view === "browse"}
       className={
         view === "browse"
-          ? "h-[min(86vh,720px)]"
-          : "w-[min(340px,calc(100%-48px))] p-0"
+          ? "h-[min(72vh,560px)] w-[min(720px,calc(100%-32px))] rounded-[18px]"
+          : "w-[min(340px,calc(100%-48px))] rounded-[18px] p-0"
       }
       onClose={props.onClose}
     >
@@ -111,7 +122,7 @@ export function HireMarketplaceModal(props: {
         >
           <div className="flex items-center justify-between gap-2">
             <h2 className="m-0 text-[15px] font-semibold tracking-tight">
-              New bot
+              Hire someone
             </h2>
             <button
               className="icon-btn"
@@ -123,7 +134,8 @@ export function HireMarketplaceModal(props: {
             </button>
           </div>
           <p className="m-0 text-[13px] text-muted">
-            Name a teammate. Their role grows in the office thread.
+            Give them a name. They get a desk, a computer, and a thread with
+            you.
           </p>
           <Field label="Name" className="mb-0">
             <Input
@@ -135,33 +147,27 @@ export function HireMarketplaceModal(props: {
               onValueChange={setName}
             />
           </Field>
-          <PrivateHireToggle
-            checked={priv}
-            label="Private"
-            onChange={setPriv}
-          />
-          <div className="flex items-center justify-between gap-2">
-            <button
-              className="m-0 border-0 bg-transparent p-0 text-[12px] text-muted underline-offset-2 hover:text-ink hover:underline"
-              type="button"
-              onClick={() => setView("browse")}
-            >
-              Browse bot templates
-            </button>
-            <Button
-              className="px-3 py-1.5 text-[13px]"
-              type="submit"
-              disabled={!customReady}
-            >
-              Hire
-            </Button>
-          </div>
+          <Button
+            className="w-full px-3 py-2 text-[13px]"
+            type="submit"
+            disabled={!customReady}
+          >
+            Hire
+          </Button>
+          <button
+            className="m-0 justify-self-start border-0 bg-transparent p-0 text-[13px] text-muted underline-offset-2 hover:text-ink hover:underline"
+            type="button"
+            onClick={() => setView("browse")}
+          >
+            Or pick a role
+          </button>
+          <PrivateHireToggle checked={priv} onChange={setPriv} />
         </form>
       ) : (
         <>
-          <div className="flex items-center justify-between border-b border-line px-3.5 py-2">
+          <div className="flex items-center justify-between gap-2 px-3.5 py-3">
             <h2 className="m-0 text-[15px] font-semibold tracking-tight">
-              Bot templates
+              Pick a role
             </h2>
             <button
               className="icon-btn"
@@ -172,91 +178,87 @@ export function HireMarketplaceModal(props: {
               <CloseIcon />
             </button>
           </div>
-          <div className="flex flex-wrap items-center gap-2 border-b border-line px-[18px] py-2">
-            <label className="search-field compact min-w-[160px] flex-1">
+          <div className="flex flex-wrap items-center gap-2 px-3.5 pb-3">
+            <label className="search-field compact hire-role-search min-w-0 max-w-[240px] flex-1">
               <SearchIcon />
               <input
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search roles"
                 autoComplete="off"
+                spellCheck={false}
+                placeholder="Filter"
+                className="min-w-0"
+                onChange={(event) => setQuery(event.target.value)}
               />
             </label>
-            <Button
-              className="px-3 py-1.5 text-[13px]"
-              variant="ghost"
-              type="button"
-              onClick={() => setView("name")}
-            >
-              Back
-            </Button>
+            <PrivateHireToggle checked={priv} onChange={setPriv} />
+            {!searching ? (
+              <button
+                className="ml-auto m-0 border-0 bg-transparent p-0 text-[12px] text-muted underline-offset-2 hover:text-ink hover:underline"
+                type="button"
+                onClick={() => {
+                  setBrowseAll((open) => !open);
+                  if (browseAll) setCategory(null);
+                }}
+              >
+                {browseAll ? "Show a few" : "See all roles"}
+              </button>
+            ) : null}
           </div>
-          <div className="flex flex-wrap gap-1.5 border-b border-line px-[18px] py-2">
-            {CATEGORIES.map((label) => {
-              const active =
-                label === "All" ? category === null : category === label;
-              return (
-                <button
-                  key={label}
-                  type="button"
-                  className={cn("chip", active && "on")}
-                  onClick={() =>
-                    setCategory(label === "All" ? null : label)
-                  }
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-          <div className="flex items-center justify-between gap-2 border-b border-line px-[18px] py-2">
-            <PrivateHireToggle
-              checked={priv}
-              label="Private hire"
-              onChange={setPriv}
-            />
-            <p className="m-0 text-[12px] text-muted">
-              Hire a teammate — not a plugin or skill.
-            </p>
-          </div>
-          <div className="min-h-0 flex-1 overflow-auto px-[18px] py-4">
+          {browseAll && !query.trim() ? (
+            <div className="flex flex-wrap gap-1.5 px-3.5 pb-2">
+              {CATEGORIES.map((label) => {
+                const active =
+                  label === "All" ? category === null : category === label;
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    className={cn("chip", active && "on")}
+                    onClick={() =>
+                      setCategory(label === "All" ? null : label)
+                    }
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+          <div className="min-h-0 flex-1 overflow-auto px-2.5 pb-3">
             {cards.length === 0 ? (
-              <p className="muted py-10 text-center">
+              <p className="px-3 py-8 text-center text-sm text-muted">
                 {query.trim()
-                  ? `No bots match “${query.trim()}”.`
-                  : "No bots in this category."}
+                  ? `Nothing matches “${query.trim()}”.`
+                  : "Nothing in this category."}
               </p>
             ) : (
-              <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-2.5">
-                {cards.map((item) => (
-                  <article
-                    key={item.id}
-                    className="flex items-start justify-between gap-2.5 rounded-[14px] bg-card-2 p-3"
-                  >
-                    <div className="min-w-0">
-                      <strong className="mb-1 block">{item.name}</strong>
-                      <p className="muted m-0 text-xs">{item.blurb}</p>
-                      {item.kind === "person" && item.title ? (
-                        <p className="muted m-0 mt-1 text-[11px]">
-                          {item.title}
-                        </p>
-                      ) : null}
-                      <p className="muted m-0 mt-1.5 text-[11px]">
-                        Soul · memory
-                        {item.skills.length
-                          ? ` · ${item.skills.length} skill${item.skills.length === 1 ? "" : "s"}`
-                          : ""}
-                      </p>
-                    </div>
+              <div className="grid grid-cols-1 gap-1.5 min-[640px]:grid-cols-2">
+                {cards.map((item) => {
+                  const face = marketplaceAvatar(item.id);
+                  return (
                     <button
-                      className="mini shrink-0"
+                      key={item.id}
                       type="button"
+                      className="flex w-full items-center gap-2.5 rounded-[12px] border-0 bg-card-2 px-3 py-2.5 text-left text-inherit hover:bg-hover"
                       onClick={() => hireTemplate(item)}
                     >
-                      Hire
+                      <AvatarMark
+                        name={item.name}
+                        color={face.color}
+                        shape={face.shape}
+                        size="sm"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">
+                          {item.name}
+                        </span>
+                        <span className="block truncate text-[12px] text-muted">
+                          {item.blurb}
+                        </span>
+                      </span>
                     </button>
-                  </article>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

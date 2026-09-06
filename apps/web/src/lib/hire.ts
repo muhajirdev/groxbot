@@ -28,6 +28,7 @@ export function draftCreatedBot(input: {
   workspaceId: string;
   name: string;
   avatarColor: string;
+  avatarShape?: Bot["avatarShape"];
   homeRoomId?: string;
   userId?: string;
   visibility?: "private" | "shared";
@@ -44,7 +45,7 @@ export function draftCreatedBot(input: {
     description: "",
     instructions: "",
     avatarColor: input.avatarColor,
-    avatarShape: "circle",
+    avatarShape: input.avatarShape ?? "circle",
     parentBotId: null,
     threadId: input.id,
     homeRoomId: input.homeRoomId ?? input.id,

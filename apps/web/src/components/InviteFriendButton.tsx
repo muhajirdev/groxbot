@@ -86,14 +86,16 @@ export function InviteFriendButton(props: { workspaceId: string }) {
         className="w-[min(380px,calc(100%-48px))] p-4"
         onClose={close}
       >
-        <div className="grid gap-3">
-          <h2 className="m-0 text-[15px] font-semibold tracking-tight">
-            Invite friends
-          </h2>
-          <p className="m-0 text-[13px] leading-5 text-muted">
-            Anyone with this link can join this workspace. Delete it to stop new
-            joins.
-          </p>
+        <div className="grid gap-3.5">
+          <div className="grid gap-1.5">
+            <h2 className="m-0 text-[15px] font-semibold tracking-tight">
+              Invite friends
+            </h2>
+            <p className="m-0 text-[12px] leading-5 text-muted">
+              Anyone with this link can join this workspace. Delete it to stop
+              new joins.
+            </p>
+          </div>
           {loading ? (
             <p className="m-0 text-[13px] text-muted">Loading…</p>
           ) : url ? (
@@ -103,13 +105,14 @@ export function InviteFriendButton(props: { workspaceId: string }) {
                   readOnly
                   value={url}
                   aria-label="Invite link"
+                  className="bg-bg text-[13px]"
                   onFocus={(event) => event.currentTarget.select()}
                 />
               </Field>
-              <div className="flex justify-end gap-2">
+              <div className="flex items-center justify-between gap-3">
                 <Button
-                  className="px-3 py-1.5 text-[13px] text-danger"
-                  variant="ghost"
+                  className="text-danger hover:text-danger"
+                  variant="text"
                   type="button"
                   disabled={busy !== null}
                   onClick={() => void deleteLink()}
@@ -117,7 +120,7 @@ export function InviteFriendButton(props: { workspaceId: string }) {
                   {busy === "delete" ? "Deleting…" : "Delete"}
                 </Button>
                 <Button
-                  className="px-3 py-1.5 text-[13px]"
+                  className="px-3 py-1.5 text-[13px] font-semibold tracking-tight"
                   type="button"
                   disabled={busy !== null}
                   onClick={() => void copyLink()}
@@ -129,7 +132,7 @@ export function InviteFriendButton(props: { workspaceId: string }) {
           ) : (
             <div className="flex justify-end">
               <Button
-                className="px-3 py-1.5 text-[13px]"
+                className="px-3 py-1.5 text-[13px] font-semibold tracking-tight"
                 type="button"
                 disabled={busy !== null}
                 onClick={() => void createLink()}

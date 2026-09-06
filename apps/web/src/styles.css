@@ -2270,6 +2270,11 @@ a.btn {
   min-width: 180px;
 }
 
+.search-field.hire-role-search {
+  background: var(--card-2);
+  border: 1px solid var(--line);
+}
+
 .pane {
   min-height: 0;
   display: flex;

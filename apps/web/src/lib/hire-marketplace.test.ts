@@ -6,6 +6,7 @@ import {
 import {
   hireMarketplaceCards,
   hireMarketplaceCategories,
+  marketplaceAvatar,
 } from "./hire-marketplace";
 
 describe("hireMarketplaceCards", () => {
@@ -31,6 +32,37 @@ describe("hireMarketplaceCards", () => {
       category: "Finance",
     });
     expect(none).toEqual([]);
+  });
+
+  it("opens on a short starter list", () => {
+    const cards = hireMarketplaceCards({
+      catalog: BOT_MARKETPLACE_CATALOG,
+      query: "",
+      category: null,
+    });
+    expect(cards.length).toBeGreaterThan(0);
+    expect(cards.length).toBeLessThan(16);
+    expect(cards.every((row) => row.starter)).toBe(true);
+  });
+
+  it("can show the full catalog", () => {
+    const cards = hireMarketplaceCards({
+      catalog: BOT_MARKETPLACE_CATALOG,
+      query: "",
+      category: null,
+      all: true,
+    });
+    expect(cards.length).toBe(BOT_MARKETPLACE_CATALOG.length);
+  });
+});
+
+describe("marketplaceAvatar", () => {
+  it("keeps a stable face per template", () => {
+    const a = marketplaceAvatar("chief-of-staff");
+    const b = marketplaceAvatar("chief-of-staff");
+    const c = marketplaceAvatar("talent-scout");
+    expect(a).toEqual(b);
+    expect(`${a.color}:${a.shape}`).not.toBe(`${c.color}:${c.shape}`);
   });
 });
 

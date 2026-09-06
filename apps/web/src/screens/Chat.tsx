@@ -1057,6 +1057,8 @@ export function Chat(props: {
       marketplaceId?: string;
       instructions?: string;
       description?: string;
+      avatarColor?: string;
+      avatarShape?: Bot["avatarShape"];
     }) => {
       const trimmed = input.name.trim();
       if (!trimmed || hiring.current) return;
@@ -1067,7 +1069,8 @@ export function Chat(props: {
       const id = crypto.randomUUID();
       const homeRoomId = crypto.randomUUID();
       const roster = peekBots();
-      const avatarColor = nextAvatarColor(roster);
+      const avatarColor = input.avatarColor ?? nextAvatarColor(roster);
+      const avatarShape = input.avatarShape ?? "circle";
       const title = input.title?.trim() || undefined;
       const draft = draftCreatedBot({
         id,
@@ -1075,6 +1078,7 @@ export function Chat(props: {
         workspaceId: props.workspace.id,
         name: trimmed,
         avatarColor,
+        avatarShape,
         userId: me?.userId,
         visibility: input.visibility,
         ...(title ? { title } : {}),
@@ -1090,6 +1094,7 @@ export function Chat(props: {
           homeRoomId,
           name: trimmed,
           avatarColor,
+          avatarShape,
           visibility: input.visibility,
           ...(title ? { title } : {}),
           ...(input.marketplaceId
@@ -1734,7 +1739,7 @@ export function Chat(props: {
               rooms.length === 0 &&
               archivedBots.length === 0 &&
               sections.length === 0 ? (
-                <p className="empty">Hire someone to sit here.</p>
+                <p className="empty">No bots yet.</p>
               ) : null}
               {workspaceApps.length > 0 ? (
                 <div className="mt-2">
@@ -2073,11 +2078,10 @@ export function Chat(props: {
               ) : (
                 <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6">
                   <p className="m-0 text-[15px] font-semibold tracking-tight">
-                    This office is waiting for someone.
+                    No bots yet
                   </p>
-                  <p className="m-0 max-w-[38ch] text-center text-[13px] text-muted">
-                    Hire your first teammate. Give them a name and a job — they'll
-                    live here with you.
+                  <p className="m-0 max-w-[32ch] text-center text-[13px] text-muted">
+                    Hire one to get started.
                   </p>
                   <Button
                     type="button"
@@ -2085,7 +2089,7 @@ export function Chat(props: {
                       if (!hiring.current) setHireOpen(true);
                     }}
                   >
-                    Hire your first
+                    New bot
                   </Button>
                 </div>
               )}
