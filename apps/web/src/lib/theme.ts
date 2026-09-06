@@ -1,4 +1,5 @@
 export type Theme = "system" | "light" | "dark";
+export type Appearance = "light" | "dark";
 
 const KEY = "groxbot.theme";
 
@@ -8,11 +9,16 @@ export function readTheme(): Theme {
   return "dark";
 }
 
+export function resolvedAppearance(theme: Theme): "light" | "dark" {
+  if (theme === "light") return "light";
+  if (theme === "dark") return "dark";
+  if (typeof window === "undefined") return "dark";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
 export function applyTheme(theme: Theme): void {
   localStorage.setItem(KEY, theme);
-  const dark =
-    theme === "dark" ||
-    (theme === "system" &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches);
-  document.documentElement.dataset.theme = dark ? "dark" : "light";
+  document.documentElement.dataset.theme = resolvedAppearance(theme);
 }

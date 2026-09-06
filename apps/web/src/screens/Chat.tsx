@@ -180,7 +180,11 @@ import {
   sectionMenuBox,
   sectionMenuItems,
 } from "../lib/sidebar";
-import { applyTheme, readTheme, type Theme } from "../lib/theme";
+import {
+  applyOfficeColor,
+  readOfficeColor,
+  type OfficeColorId,
+} from "../lib/office-color";
 import {
   dropThreadMeta,
   ensureThreadMeta,
@@ -544,7 +548,7 @@ export function Chat(props: {
     y: number;
     phase: SectionMenuPhase;
   } | null>(null);
-  const [theme, setTheme] = useState<Theme>(readTheme());
+  const [officeColor, setOfficeColor] = useState<OfficeColorId>(readOfficeColor);
   const [pokeView, setPokeView] = useState<{
     threadId: string;
     peerName: string;
@@ -1276,8 +1280,8 @@ export function Chat(props: {
   );
 
   useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
+    applyOfficeColor(officeColor);
+  }, [officeColor]);
 
   const blocking =
     hireOpen ||
@@ -1618,7 +1622,7 @@ export function Chat(props: {
                   />
                 </div>
                 <div className="no-drag relative flex shrink-0 items-center gap-0.5">
-                  <InviteFriendButton />
+                  <InviteFriendButton workspaceId={props.workspace.id} />
                   {bot ? (
                     <Button
                       className="hidden max-[720px]:grid"
@@ -2185,11 +2189,11 @@ export function Chat(props: {
           <AppSettings
             open={settingsOpen}
             me={me}
-            theme={theme}
+            officeColor={officeColor}
             initialTab={settingsTab}
-            onTheme={(value) => {
-              setTheme(value);
-              applyTheme(value);
+            onOfficeColor={(id) => {
+              setOfficeColor(id);
+              applyOfficeColor(id);
             }}
             onClose={() => {
               setSettingsOpen(false);
@@ -2239,6 +2243,11 @@ export function Chat(props: {
             open={onboardOpen}
             youName={youName}
             youEmail={youEmail}
+            officeColor={officeColor}
+            onOfficeColor={(id) => {
+              setOfficeColor(id);
+              applyOfficeColor(id);
+            }}
             onContinue={() => {
               onboardDismissed.current = true;
               setOnboardOpen(false);

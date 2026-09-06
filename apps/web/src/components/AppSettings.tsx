@@ -29,7 +29,8 @@ import {
   writeTimezonePref,
 } from "../lib/prefs";
 import { client } from "../lib/rpc";
-import type { Theme } from "../lib/theme";
+import { OfficeColorPicker } from "./OfficeColorPicker";
+import type { OfficeColorId } from "../lib/office-color";
 import { rememberListedWorkspace } from "../lib/workspace-catalog";
 import {
   canSaveWorkspaceName,
@@ -45,8 +46,8 @@ type Tab = "general" | "models" | "billing" | "updates";
 export function AppSettings(props: {
   open: boolean;
   me: Me | undefined;
-  theme: Theme;
-  onTheme: (theme: Theme) => void;
+  officeColor: OfficeColorId;
+  onOfficeColor: (id: OfficeColorId) => void;
   onClose: () => void;
   onSignOut: () => void;
   initialTab?: Tab;
@@ -147,17 +148,13 @@ export function AppSettings(props: {
                 </section>
                 <section className="set-block">
                   <p className="group-label">Appearance</p>
-                  <label className="field">
-                    <span>Theme</span>
-                    <select
-                      value={props.theme}
-                      onChange={(e) => props.onTheme(e.target.value as Theme)}
-                    >
-                      <option value="system">Follow System</option>
-                      <option value="dark">Dark</option>
-                      <option value="light">Light</option>
-                    </select>
-                  </label>
+                  <div className="field">
+                    <span>Office color</span>
+                    <OfficeColorPicker
+                      value={props.officeColor}
+                      onChange={props.onOfficeColor}
+                    />
+                  </div>
                 </section>
                 <section className="set-block">
                   <p className="group-label">System</p>

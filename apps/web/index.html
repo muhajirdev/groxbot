@@ -25,12 +25,33 @@
     </style>
     <script>
       try {
+        var color = localStorage.getItem("groxbot.officeColor") || "";
         var theme = localStorage.getItem("groxbot.theme");
-        var dark =
-          theme !== "light" &&
-          (theme !== "system" ||
-            matchMedia("(prefers-color-scheme: dark)").matches);
-        document.documentElement.dataset.theme = dark ? "dark" : "light";
+        var map = {
+          night: ["night", "dark"],
+          dusk: ["dusk", "dark"],
+          paper: ["paper", "light"],
+          blush: ["blush", "light"],
+          clay: ["dusk", "dark"],
+          umber: ["night", "dark"],
+          moss: ["night", "dark"],
+          teal: ["night", "dark"],
+          dust: ["paper", "light"],
+          bone: ["paper", "light"],
+          sage: ["paper", "light"],
+          mist: ["paper", "light"],
+        };
+        var pair = map[color];
+        var lightPref =
+          theme === "light" ||
+          (theme === "system" &&
+            matchMedia("(prefers-color-scheme: light)").matches);
+        if (pair) {
+          document.documentElement.dataset.officeColor = pair[0];
+          document.documentElement.dataset.theme = pair[1];
+        } else {
+          document.documentElement.dataset.theme = lightPref ? "light" : "dark";
+        }
       } catch (e) {}
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />

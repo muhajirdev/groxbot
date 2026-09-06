@@ -196,29 +196,47 @@ export async function peekInvitation(db: Database, raw: string) {
 
 const OPEN_INVITE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
+function openInvitationWhere(workspaceId: string) {
+  return and(
+    eq(invitation.organizationId, workspaceId),
+    sql`lower(${invitation.email}) = ${OPEN_INVITE_EMAIL}`,
+    eq(invitation.status, "pending"),
+  );
+}
+
+export async function getOpenInvitation(
+  db: Database,
+  workspaceId: string,
+): Promise<string | null> {
+  const [existing] = await db
+    .select({ id: invitation.id })
+    .from(invitation)
+    .where(
+      and(openInvitationWhere(workspaceId), gt(invitation.expiresAt, new Date())),
+    )
+    .limit(1);
+  return existing?.id ?? null;
+}
+
+export async function deleteOpenInvitation(
+  db: Database,
+  workspaceId: string,
+): Promise<void> {
+  await db.delete(invitation).where(openInvitationWhere(workspaceId));
+}
+
 export async function ensureOpenInvitation(
   db: Database,
   input: { workspaceId: string; inviterId: string },
 ): Promise<string> {
   const expiresAt = new Date(Date.now() + OPEN_INVITE_TTL_MS);
-  const [existing] = await db
-    .select({ id: invitation.id })
-    .from(invitation)
-    .where(
-      and(
-        eq(invitation.organizationId, input.workspaceId),
-        sql`lower(${invitation.email}) = ${OPEN_INVITE_EMAIL}`,
-        eq(invitation.status, "pending"),
-        gt(invitation.expiresAt, new Date()),
-      ),
-    )
-    .limit(1);
-  if (existing) {
+  const existingId = await getOpenInvitation(db, input.workspaceId);
+  if (existingId) {
     await db
       .update(invitation)
       .set({ expiresAt })
-      .where(eq(invitation.id, existing.id));
-    return existing.id;
+      .where(eq(invitation.id, existingId));
+    return existingId;
   }
   const id = crypto.randomUUID();
   await db.insert(invitation).values({

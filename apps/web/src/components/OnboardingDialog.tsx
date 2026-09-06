@@ -6,8 +6,10 @@ import {
   ONBOARDING_VIDEO_SRC,
   onboardingFirstName,
 } from "../lib/onboarding";
+import type { OfficeColorId } from "../lib/office-color";
 import { ModalShell } from "../ui";
 import { CloseIcon } from "./Icons";
+import { OfficeColorPicker } from "./OfficeColorPicker";
 import { PersonAvatar } from "./PersonAvatar";
 
 export function OnboardingVideo(props: { className?: string }) {
@@ -34,6 +36,8 @@ export function OnboardingVideo(props: { className?: string }) {
 export function OnboardingWelcome(props: {
   youName?: string | null;
   youEmail?: string | null;
+  officeColor?: OfficeColorId;
+  onOfficeColor?: (id: OfficeColorId) => void;
   onContinue: () => void;
 }) {
   const firstName = onboardingFirstName({
@@ -105,10 +109,17 @@ export function OnboardingWelcome(props: {
             <FounderSignature />
             <strong>{FOUNDER_NAME}</strong>
           </div>
-          <p className="onboard-ps">
-            P.S. If something's off, write me —{" "}
-            <a href={`mailto:${FOUNDER_EMAIL}`}>{FOUNDER_EMAIL}</a>. I read it.
-          </p>
+          <div className="onboard-ps">
+            <p>
+              P.S. If something's off, write me —{" "}
+              <a href={`mailto:${FOUNDER_EMAIL}`}>{FOUNDER_EMAIL}</a>. I read it.
+            </p>
+            <p>This place is yours. Pick a color that feels like you.</p>
+            <OfficeColorPicker
+              value={props.officeColor}
+              onChange={props.onOfficeColor}
+            />
+          </div>
           <button className="onboard-go" type="button" onClick={props.onContinue}>
             OK, let's see my office
           </button>
@@ -171,6 +182,8 @@ export function OnboardingDialog(props: {
   open: boolean;
   youName?: string | null;
   youEmail?: string | null;
+  officeColor?: OfficeColorId;
+  onOfficeColor?: (id: OfficeColorId) => void;
   onContinue: () => void;
 }) {
   return (
@@ -182,6 +195,8 @@ export function OnboardingDialog(props: {
       <OnboardingWelcome
         youName={props.youName}
         youEmail={props.youEmail}
+        officeColor={props.officeColor}
+        onOfficeColor={props.onOfficeColor}
         onContinue={props.onContinue}
       />
     </ModalShell>

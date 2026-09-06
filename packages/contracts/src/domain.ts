@@ -478,6 +478,10 @@ export const InviteWorkspaceInput = z.object({
 });
 
 export const WorkspaceInviteLinkSchema = z.object({
+  url: z.string().nullable(),
+});
+
+export const WorkspaceCreatedInviteLinkSchema = z.object({
   url: z.string(),
 });
 

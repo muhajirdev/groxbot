@@ -6,7 +6,7 @@ import type { authClient } from "../lib/auth";
 import { workspaceListQueryOptions } from "../lib/office-persist";
 import { orpc, queryClient } from "../lib/orpc";
 import { loadSession, readSession } from "../lib/session";
-import { applyTheme, readTheme } from "../lib/theme";
+import { applyOfficeColor, readOfficeColor } from "../lib/office-color";
 
 export interface RouterContext {
   queryClient: typeof queryClient;
@@ -57,7 +57,7 @@ async function loadAuthedContext(client: typeof queryClient) {
 
 function RootComponent() {
   useEffect(() => {
-    applyTheme(readTheme());
+    applyOfficeColor(readOfficeColor());
   }, []);
 
   return (

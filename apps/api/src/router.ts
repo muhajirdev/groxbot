@@ -103,6 +103,8 @@ import {
 import {
   activateWorkspace,
   createWorkspace,
+  deleteWorkspaceInviteLink,
+  getWorkspaceInviteLink,
   inviteToWorkspace,
   inviteWorkspaceLink,
   joinWorkspace,
@@ -200,8 +202,18 @@ export const appRouter = os.router({
       return inviteToWorkspace(context, input.email);
     }),
     inviteLink: os.workspaces.inviteLink.handler(async ({ context }) => {
-      return inviteWorkspaceLink(context);
+      return getWorkspaceInviteLink(context);
     }),
+    createInviteLink: os.workspaces.createInviteLink.handler(
+      async ({ context }) => {
+        return inviteWorkspaceLink(context);
+      },
+    ),
+    deleteInviteLink: os.workspaces.deleteInviteLink.handler(
+      async ({ context }) => {
+        return deleteWorkspaceInviteLink(context);
+      },
+    ),
     invitations: os.workspaces.invitations.handler(async ({ context }) => {
       const user = await requireUser(context);
       return pendingInvitations(context, user.email);

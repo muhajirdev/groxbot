@@ -3,7 +3,9 @@ import {
   invitationIdFromInput,
   invitationUrl,
   ensureWorkspaceBilling,
+  deleteOpenInvitation,
   ensureOpenInvitation,
+  getOpenInvitation,
   isWorkspaceMember,
   listPendingInvitations,
   peekInvitation,
@@ -150,6 +152,16 @@ export async function joinWorkspace(
   return joinWithHeaders(context, user.headers, invitationId);
 }
 
+export async function getWorkspaceInviteLink(context: RpcContext) {
+  const actor = await requireActor(context);
+  const invitationId = await getOpenInvitation(context.db, actor.workspaceId);
+  return {
+    url: invitationId
+      ? invitationUrl(context.env.webOrigin, invitationId)
+      : null,
+  };
+}
+
 export async function inviteWorkspaceLink(context: RpcContext) {
   const actor = await requireActor(context);
   const invitationId = await ensureOpenInvitation(context.db, {
@@ -157,6 +169,12 @@ export async function inviteWorkspaceLink(context: RpcContext) {
     inviterId: actor.userId,
   });
   return { url: invitationUrl(context.env.webOrigin, invitationId) };
+}
+
+export async function deleteWorkspaceInviteLink(context: RpcContext) {
+  const actor = await requireActor(context);
+  await deleteOpenInvitation(context.db, actor.workspaceId);
+  return { ok: true as const };
 }
 
 export async function inviteToWorkspace(context: RpcContext, email: string) {

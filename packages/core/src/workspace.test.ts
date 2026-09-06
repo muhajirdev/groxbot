@@ -1,6 +1,12 @@
-import { OPEN_INVITE_EMAIL, isOpenInvitationEmail } from "@groxbot/contracts";
+import {
+  OPEN_INVITE_EMAIL,
+  WorkspaceInviteLinkSchema,
+  isOpenInvitationEmail,
+} from "@groxbot/contracts";
 import { describe, expect, it } from "vitest";
 import {
+  deleteOpenInvitation,
+  getOpenInvitation,
   invitationIdFromInput,
   invitationUrl,
   officeRoomUrl,
@@ -8,6 +14,26 @@ import {
   slugForWorkspace,
   workspaceAuthMessage,
 } from "./workspace.js";
+
+function inviteDb(
+  existing: { id: string } | null,
+  hooks?: { deleted?: () => void },
+) {
+  return {
+    select: () => ({
+      from: () => ({
+        where: () => ({
+          limit: async () => (existing ? [existing] : []),
+        }),
+      }),
+    }),
+    delete: () => ({
+      where: async () => {
+        hooks?.deleted?.();
+      },
+    }),
+  } as never;
+}
 
 describe("slugForWorkspace", () => {
   it("slugifies the name and appends a short salt", () => {
@@ -102,5 +128,31 @@ describe("open invitation email", () => {
     expect(isOpenInvitationEmail(OPEN_INVITE_EMAIL)).toBe(true);
     expect(isOpenInvitationEmail("  Open-Invite@groxbot.invalid ")).toBe(true);
     expect(isOpenInvitationEmail("teammate@company.com")).toBe(false);
+  });
+});
+
+describe("open invite link", () => {
+  it("allows a missing shareable link", () => {
+    expect(WorkspaceInviteLinkSchema.parse({ url: null })).toEqual({
+      url: null,
+    });
+  });
+
+  it("returns the live open invite", async () => {
+    await expect(
+      getOpenInvitation(inviteDb({ id: "inv_live" }), "ws_1"),
+    ).resolves.toBe("inv_live");
+    await expect(getOpenInvitation(inviteDb(null), "ws_1")).resolves.toBeNull();
+  });
+
+  it("deletes the pending open invite", async () => {
+    let deleted = false;
+    await deleteOpenInvitation(
+      inviteDb({ id: "inv_live" }, { deleted: () => {
+        deleted = true;
+      } }),
+      "ws_1",
+    );
+    expect(deleted).toBe(true);
   });
 });
