@@ -26,11 +26,6 @@ function mcpHostLabel(url: string): string {
   }
 }
 
-function pluginAccountCountLabel(count: number): string {
-  if (count <= 0) return "";
-  return count === 1 ? "1 account" : `${count} accounts`;
-}
-
 function pluginAccountDetail(row: PluginConnection): string {
   const scope = row.visibility === "private" ? "Private" : "Shared";
   if (row.status === "error" && row.lastError?.trim()) return row.lastError;
@@ -51,7 +46,6 @@ export function PluginsScreen({ navigation, route }: Props) {
   const [tab, setTab] = useState<Tab>("search");
   const [mcpName, setMcpName] = useState("");
   const [mcpUrl, setMcpUrl] = useState("");
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [probes, setProbes] = useState<Record<string, McpProbeResult>>({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -67,13 +61,6 @@ export function PluginsScreen({ navigation, route }: Props) {
     return map;
   }, [catalog]);
   const connections = connectionsQuery.data ?? [];
-  const accountCounts = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const row of connections) {
-      map.set(row.toolkit, (map.get(row.toolkit) ?? 0) + 1);
-    }
-    return map;
-  }, [connections]);
 
   const q = query.trim().toLowerCase();
   const visible = catalog.filter((item) => {
@@ -182,7 +169,6 @@ export function PluginsScreen({ navigation, route }: Props) {
       });
       setMcpName("");
       setMcpUrl("");
-      setAdvancedOpen(false);
       await queryClient.invalidateQueries({ queryKey: orpc.mcp.list.key() });
       if (result.redirectUrl) {
         await WebBrowser.openBrowserAsync(result.redirectUrl);
@@ -211,20 +197,17 @@ export function PluginsScreen({ navigation, route }: Props) {
       <Field placeholder="Search" value={query} onChangeText={setQuery} />
       {tab === "search"
         ? visible.slice(0, 40).map((item) => {
-            const count = accountCounts.get(item.id) ?? 0;
-            const countLabel = pluginAccountCountLabel(count);
             return (
               <View key={item.id} style={styles.card}>
                 <Text style={styles.name}>{item.name}</Text>
                 {item.blurb ? (
                   <Text style={styles.body} numberOfLines={2}>
                     {item.blurb}
-                    {countLabel ? ` · ${countLabel}` : ""}
                   </Text>
                 ) : null}
                 <View style={styles.row}>
                   <Button
-                    label={count > 0 ? "Add another" : "Add"}
+                    label="Add"
                     tone="ghost"
                     busy={busy === item.id}
                     onPress={() => void addAccount(item)}
@@ -334,29 +317,25 @@ export function PluginsScreen({ navigation, route }: Props) {
           ))
         : null}
       {tab === "installed" && query.trim().length === 0 ? (
-        <>
-          <Pressable onPress={() => setAdvancedOpen((open) => !open)}>
-            <Text style={styles.meta}>
-              {advancedOpen ? "Hide advanced" : "Advanced"}
-            </Text>
-          </Pressable>
-          {advancedOpen ? (
-            <>
-              <Field label="Name" value={mcpName} onChangeText={setMcpName} />
-              <Field
-                label="URL"
-                value={mcpUrl}
-                onChangeText={setMcpUrl}
-                keyboardType="url"
-              />
-              <Button
-                label="Connect"
-                onPress={() => void addRemoteMcp()}
-                busy={busy === "mcp-add"}
-              />
-            </>
-          ) : null}
-        </>
+        <View style={styles.card}>
+          <Text style={styles.name}>Custom MCP</Text>
+          <Text style={styles.body}>
+            Connect a remote server by URL. Shared with the team unless you make
+            it private.
+          </Text>
+          <Field label="Name" value={mcpName} onChangeText={setMcpName} />
+          <Field
+            label="URL"
+            value={mcpUrl}
+            onChangeText={setMcpUrl}
+            keyboardType="url"
+          />
+          <Button
+            label={busy === "mcp-add" ? "Opening…" : "Add"}
+            onPress={() => void addRemoteMcp()}
+            busy={busy === "mcp-add"}
+          />
+        </View>
       ) : null}
     </Screen>
   );

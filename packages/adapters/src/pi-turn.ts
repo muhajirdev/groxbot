@@ -4,7 +4,10 @@ import type {
   AgentTool,
   StreamFn,
 } from "@earendil-works/pi-agent-core";
-import { runAgentLoopContinue } from "@earendil-works/pi-agent-core";
+import {
+  convertToLlm as harnessConvertToLlm,
+  runAgentLoopContinue,
+} from "@earendil-works/pi-agent-core";
 import type {
   Api,
   AssistantMessage,
@@ -25,6 +28,10 @@ import {
   HOSTED_STARTER_MODEL,
   hostedAiEnabled,
 } from "@groxbot/contracts";
+import {
+  HOSTED_OFFICE_CONTEXT_WINDOW,
+  pruneLiveToolResults,
+} from "@groxbot/core";
 import type { ChatMessage, GatewayEnv } from "./gateway.js";
 import {
   completionUsage,
@@ -69,7 +76,7 @@ export function piCompletionsModel(id: string): Model<"openai-completions"> {
     reasoning: false,
     input: ["text"],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    contextWindow: 128_000,
+    contextWindow: HOSTED_OFFICE_CONTEXT_WINDOW,
     maxTokens: 8192,
   };
 }
@@ -123,12 +130,24 @@ function toPiMessages(lines: OwnedPiLine[], model: Model<Api>): Message[] {
 }
 
 function convertToLlm(messages: AgentMessage[]): Message[] {
-  return messages.filter(
-    (message): message is Message =>
-      message.role === "user" ||
-      message.role === "assistant" ||
-      message.role === "toolResult",
-  );
+  try {
+    return pruneLiveToolResults(harnessConvertToLlm(messages));
+  } catch {
+    return messages.filter(
+      (message): message is Message =>
+        message.role === "user" ||
+        message.role === "assistant" ||
+        message.role === "toolResult",
+    );
+  }
+}
+
+async function transformContext(messages: AgentMessage[]): Promise<AgentMessage[]> {
+  try {
+    return pruneLiveToolResults(messages);
+  } catch {
+    return messages;
+  }
 }
 
 export interface PiTurnResult {
@@ -147,12 +166,18 @@ function toLoopMessages(
   model: Model<Api>,
 ): Message[] {
   if (messages.length > 0 && messages.every((row) => isPiMessage(row))) {
-    return messages.filter(
-      (row): row is Message =>
-        row.role === "user" ||
-        row.role === "assistant" ||
-        row.role === "toolResult",
-    );
+    try {
+      return pruneLiveToolResults(
+        harnessConvertToLlm(messages as AgentMessage[]),
+      );
+    } catch {
+      return messages.filter(
+        (row): row is Message =>
+          row.role === "user" ||
+          row.role === "assistant" ||
+          row.role === "toolResult",
+      );
+    }
   }
   return toPiMessages(messages as OwnedPiLine[], model);
 }
@@ -193,6 +218,7 @@ export async function runPiTurn(input: {
     {
       model: input.model,
       convertToLlm,
+      transformContext,
       toolExecution: "sequential",
       getSteeringMessages: () => safePiQueue(input.getSteeringMessages),
       getFollowUpMessages: () => safePiQueue(input.getFollowUpMessages),

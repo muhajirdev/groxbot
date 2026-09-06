@@ -67,6 +67,9 @@ describe("buildOfficeSystemPrompt", () => {
     expect(prompt).toContain(officeMcpGuideline(["mimpimu"]));
     expect(prompt).toMatch(/codemode\.describe\("mimpimu\.<method>"\)/);
     expect(prompt).not.toMatch(/codemode\.describe\("mimpimu"\)/);
+    expect(prompt).toMatch(/do not `codemode\.search` for it/);
+    expect(prompt).toMatch(/compact projection/);
+    expect(prompt).toMatch(/counts and groups/);
   });
 
   it("names connected plugins inside code when the sandbox is on this turn", () => {
@@ -77,8 +80,23 @@ describe("buildOfficeSystemPrompt", () => {
     });
     expect(prompt).toMatch(/and plugins/);
     expect(prompt).toContain(officePluginsGuideline(["gmail", "github"]));
-    expect(prompt).toMatch(/plugins\.search\(\{ query \}\)/);
+    expect(prompt).toMatch(/plugins\.search\(\{ query: "gmail" \}\)/);
+    expect(prompt).not.toMatch(/GMAIL_FETCH_EMAILS/);
     expect(prompt).toMatch(/plugins\.execute\(\{ slug, arguments \}\)/);
+    expect(prompt).toMatch(/not a sentence/);
+    expect(prompt).toMatch(/compact projection/);
+  });
+
+  it("uses the connected toolkit as the search example, not a hardcoded app", () => {
+    const prompt = buildOfficeSystemPrompt({
+      identity,
+      tools: [{ name: OFFICE_CODE_TOOL_NAME }],
+      plugins: ["slack"],
+    });
+    expect(prompt).toContain(officePluginsGuideline(["slack"]));
+    expect(prompt).toMatch(/plugins\.search\(\{ query: "slack" \}\)/);
+    expect(prompt).not.toMatch(/GMAIL_FETCH_EMAILS/);
+    expect(prompt).not.toMatch(/gmail/i);
   });
 
   it("omits plugins on the intro turn", () => {

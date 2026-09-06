@@ -5,6 +5,7 @@ import type { WorkersAiBinding } from "@groxbot/adapters/edge";
 import {
   appendOfficeAssistantText,
   appendOfficeUserText,
+  compactOfficeSession,
   DurableSessionStorage,
   gatewayConfigured,
   gatewayRequestModel,
@@ -49,6 +50,7 @@ import {
   ensureComputerHome,
   formatRoutinePrompt,
   isoUnixSeconds,
+  isContextOverflowError,
   jsonClone,
   lastOfficeHumanUserId,
   lastOfficeUserIsIntro,
@@ -70,6 +72,7 @@ import {
   officeCanReadSkills,
   officeIntroTurnTools,
   officeIntroUserText,
+  officeModelContextWindow,
   officeReviewAnnounce,
   officeReviewDue,
   officeReviewNoteMetadata,
@@ -509,11 +512,17 @@ export class RoomHome extends Agent<WorkerEnv> {
     if (request.method === "POST" && url.pathname === "/routines/create") {
       return this.handleRoutinesCreate(request);
     }
+    if (request.method === "POST" && url.pathname === "/routines/update") {
+      return this.handleRoutinesUpdate(request);
+    }
     if (request.method === "POST" && url.pathname === "/routines/pause") {
       return this.handleRoutinesSetActive(request, false);
     }
     if (request.method === "POST" && url.pathname === "/routines/resume") {
       return this.handleRoutinesSetActive(request, true);
+    }
+    if (request.method === "POST" && url.pathname === "/routines/run") {
+      return this.handleRoutinesRun(request);
     }
     if (request.method === "POST" && url.pathname === "/routines/remove") {
       return this.handleRoutinesRemove(request);
@@ -749,88 +758,109 @@ export class RoomHome extends Agent<WorkerEnv> {
     });
     const system = await this.officeSystemPrompt(bound, tools);
     try {
-      const context = await session.buildContext();
-      const result = await runPiTurn({
-        systemPrompt: system,
-        messages: context.messages,
-        model,
-        streamFn,
-        tools,
-        signal: abort.signal,
-        getSteeringMessages: () =>
-          intro ? [] : this.officeSteer.drainMessages(),
-        getFollowUpMessages: () =>
-          intro ? [] : this.officeSteer.drainMessages(),
-        onEvent: async (event) => {
-          if (
-            hostedBillingKind &&
-            event.type === "turn_end" &&
-            event.message.role === "assistant"
-          ) {
-            const usage = event.message.usage;
-            const promptTokens = usage?.input ?? 0;
-            const completionTokens = usage?.output ?? 0;
-            const totalTokens = usage?.totalTokens ?? promptTokens + completionTokens;
-            if (promptTokens > 0 || completionTokens > 0 || totalTokens > 0) {
-              const userId =
-                lastOfficeHumanUserId(await this.officeBound(session)) ||
-                this.ownerUserId ||
-                "";
-              if (userId && this.officeId && this.personId) {
-                this.ctx.waitUntil(
-                  this.persistModelUsage({
-                    workspaceId: this.officeId,
-                    userId,
-                    botId: this.personId,
-                    model: this.turnModel,
-                    billingKind: hostedBillingKind,
-                    promptTokens,
-                    completionTokens,
-                    totalTokens,
-                    piCost: usage?.cost,
-                  }),
-                );
+      const runTurn = async () => {
+        const context = await session.buildContext();
+        return runPiTurn({
+          systemPrompt: system,
+          messages: context.messages,
+          model,
+          streamFn,
+          tools,
+          signal: abort.signal,
+          getSteeringMessages: () =>
+            intro ? [] : this.officeSteer.drainMessages(),
+          getFollowUpMessages: () =>
+            intro ? [] : this.officeSteer.drainMessages(),
+          onEvent: async (event) => {
+            if (
+              hostedBillingKind &&
+              event.type === "turn_end" &&
+              event.message.role === "assistant"
+            ) {
+              const usage = event.message.usage;
+              const promptTokens = usage?.input ?? 0;
+              const completionTokens = usage?.output ?? 0;
+              const totalTokens =
+                usage?.totalTokens ?? promptTokens + completionTokens;
+              if (promptTokens > 0 || completionTokens > 0 || totalTokens > 0) {
+                const userId =
+                  lastOfficeHumanUserId(await this.officeBound(session)) ||
+                  this.ownerUserId ||
+                  "";
+                if (userId && this.officeId && this.personId) {
+                  this.ctx.waitUntil(
+                    this.persistModelUsage({
+                      workspaceId: this.officeId,
+                      userId,
+                      botId: this.personId,
+                      model: this.turnModel,
+                      billingKind: hostedBillingKind,
+                      promptTokens,
+                      completionTokens,
+                      totalTokens,
+                      piCost: usage?.cost,
+                    }),
+                  );
+                }
               }
             }
-          }
-          const incoming =
-            "message" in event && event.message ? event.message : null;
-          if (
-            incoming?.role === "user" &&
-            (event.type === "message_start" || event.type === "message_end")
-          ) {
-            const queued =
-              event.type === "message_end"
-                ? this.officeSteer.takeEmitted()
-                : this.officeSteer.peekEmitted();
-            if (event.type === "message_end" && queued) {
-              await appendOfficeUserText(session, queued);
+            const incoming =
+              "message" in event && event.message ? event.message : null;
+            if (
+              incoming?.role === "user" &&
+              (event.type === "message_start" || event.type === "message_end")
+            ) {
+              const queued =
+                event.type === "message_end"
+                  ? this.officeSteer.takeEmitted()
+                  : this.officeSteer.peekEmitted();
+              if (event.type === "message_end" && queued) {
+                await appendOfficeUserText(session, queued);
+              }
+              const cloned = jsonClone(event);
+              if (!cloned) return;
+              await this.broadcastOfficeEvent({
+                ...cloned,
+                ...(queued
+                  ? { id: queued.id, metadata: queued.metadata }
+                  : {}),
+              });
+              return;
             }
+            const draftId = takePiAssistantDraft(assistantDraft, event);
+            await persistOfficeSessionEvent(session, event, draftId);
             const cloned = jsonClone(event);
             if (!cloned) return;
             await this.broadcastOfficeEvent({
               ...cloned,
-              ...(queued
-                ? { id: queued.id, metadata: queued.metadata }
+              ...(draftId &&
+              (event.type === "message_update" ||
+                event.type === "message_end" ||
+                event.type === "message_start")
+                ? { id: draftId }
                 : {}),
             });
-            return;
-          }
-          const draftId = takePiAssistantDraft(assistantDraft, event);
-          await persistOfficeSessionEvent(session, event, draftId);
-          const cloned = jsonClone(event);
-          if (!cloned) return;
-          await this.broadcastOfficeEvent({
-            ...cloned,
-            ...(draftId &&
-            (event.type === "message_update" ||
-              event.type === "message_end" ||
-              event.type === "message_start")
-              ? { id: draftId }
-              : {}),
-          });
-        },
+          },
+        });
+      };
+      await this.compactOfficeContext(session, {
+        model,
+        streamFn,
+        signal: abort.signal,
       });
+      let result = await runTurn();
+      if (
+        result.stopReason === "error" &&
+        isContextOverflowError(result.errorMessage)
+      ) {
+        const compacted = await this.compactOfficeContext(session, {
+          model,
+          streamFn,
+          signal: abort.signal,
+          force: true,
+        });
+        if (compacted) result = await runTurn();
+      }
       if (result.stopReason === "aborted" || abort.signal.aborted) {
         this.officeStatus = "ready";
         await this.broadcastOfficeStatus();
@@ -1347,6 +1377,29 @@ export class RoomHome extends Agent<WorkerEnv> {
     return piCompletionsModel(gatewayRequestModel(this.turnModel));
   }
 
+  private async compactOfficeContext(
+    session: Session,
+    opts: {
+      model: ReturnType<RoomHome["turnPiModel"]>;
+      streamFn: NonNullable<ReturnType<RoomHome["turnStreamFn"]>>;
+      signal?: AbortSignal;
+      force?: boolean;
+    },
+  ): Promise<boolean> {
+    try {
+      return await compactOfficeSession(session, {
+        model: opts.model,
+        streamFn: opts.streamFn,
+        signal: opts.signal,
+        contextWindow: officeModelContextWindow(opts.model),
+        force: opts.force,
+      });
+    } catch (error) {
+      console.error("bot actor compact", this.name, error);
+      return false;
+    }
+  }
+
   private async loadBot(): Promise<void> {
     const env = productEnv(this.env);
     const source = agentRuntimeSource(env);
@@ -1653,6 +1706,12 @@ export class RoomHome extends Agent<WorkerEnv> {
       const tools = await this.officeAgentTools();
       const bound = await this.officeBound(session);
       const system = await this.officeSystemPrompt(bound, tools);
+      const model = this.turnPiModel();
+      await this.compactOfficeContext(session, {
+        model,
+        streamFn,
+        signal: abort.signal,
+      });
       const context = await session.buildContext();
       const result = await runPiTurn({
         systemPrompt: system,
@@ -1664,7 +1723,7 @@ export class RoomHome extends Agent<WorkerEnv> {
             timestamp: Date.now(),
           },
         ],
-        model: this.turnPiModel(),
+        model,
         streamFn,
         tools,
         signal: abort.signal,
@@ -1794,6 +1853,57 @@ export class RoomHome extends Agent<WorkerEnv> {
     );
   }
 
+  async updateRoutine(
+    id: string,
+    input: {
+      name: string;
+      prompt: string;
+      cron: string;
+      timezone?: string;
+    },
+  ): Promise<Routine> {
+    const live = await this.liveRoutineById(id);
+    const parked = (await this.parkedRoutines())[id];
+    if (!live && !parked) throw new RoutineNotFoundError();
+    const payload = routinePayloadFromCreate({
+      ...input,
+      timezone: await this.resolveOfficeTimezone(
+        input.timezone ?? live?.payload.timezone ?? parked?.timezone,
+      ),
+    });
+    payload.createdAt =
+      live?.payload.createdAt ?? parked?.createdAt ?? payload.createdAt;
+    if (live) {
+      const previous = live.payload;
+      await this.cancelSchedule(id);
+      try {
+        const row = await this.armRoutine(payload);
+        return toRoutineDto(
+          this.botKey(),
+          storedRoutine(row.id, payload, true),
+          isoUnixSeconds(row.time),
+        );
+      } catch (error) {
+        try {
+          await this.armRoutine(previous);
+        } catch {
+          /* keep the original error */
+        }
+        throw error;
+      }
+    }
+    if (!parked) throw new RoutineNotFoundError();
+    await this.putParkedRoutine(id, {
+      ...payload,
+      fireOnUnarchive: parked.fireOnUnarchive,
+    });
+    return toRoutineDto(
+      this.botKey(),
+      storedRoutine(id, payload, false),
+      null,
+    );
+  }
+
   async pauseRoutine(id: string): Promise<Routine> {
     const live = await this.liveRoutineById(id);
     if (live) {
@@ -1844,6 +1954,21 @@ export class RoomHome extends Agent<WorkerEnv> {
     const parked = (await this.parkedRoutines())[id];
     if (parked) await this.deleteParkedRoutine(id);
     if (!cancelled && !parked) throw new RoutineNotFoundError();
+  }
+
+  async runRoutine(id: string): Promise<void> {
+    if (await this.routinesSuspended()) {
+      throw new RoutineError("This teammate is archived.");
+    }
+    const live = await this.liveRoutineById(id);
+    const parked = (await this.parkedRoutines())[id];
+    const payload = live?.payload ?? parked ?? null;
+    if (!payload) throw new RoutineNotFoundError();
+    await this.appendOfficeUserAndRun({
+      id: crypto.randomUUID(),
+      content: formatRoutinePrompt(payload.name, payload.prompt),
+      metadata: { source: "routine", custom: { source: "routine" } },
+    });
   }
 
   async setRoutinesSuspended(suspended: boolean): Promise<void> {
@@ -1956,6 +2081,30 @@ export class RoomHome extends Agent<WorkerEnv> {
     }
   }
 
+  private async handleRoutinesUpdate(request: Request): Promise<Response> {
+    const body = (await request.json().catch(() => ({}))) as {
+      id?: unknown;
+      name?: unknown;
+      prompt?: unknown;
+      cron?: unknown;
+      timezone?: unknown;
+    };
+    const id = typeof body.id === "string" ? body.id : "";
+    try {
+      return Response.json(
+        await this.updateRoutine(id, {
+          name: typeof body.name === "string" ? body.name : "",
+          prompt: typeof body.prompt === "string" ? body.prompt : "",
+          cron: typeof body.cron === "string" ? body.cron : "",
+          timezone:
+            typeof body.timezone === "string" ? body.timezone : undefined,
+        }),
+      );
+    } catch (error) {
+      return routineHttpError(error);
+    }
+  }
+
   private async handleRoutinesSetActive(
     request: Request,
     active: boolean,
@@ -1966,6 +2115,17 @@ export class RoomHome extends Agent<WorkerEnv> {
       return Response.json(
         active ? await this.resumeRoutine(id) : await this.pauseRoutine(id),
       );
+    } catch (error) {
+      return routineHttpError(error);
+    }
+  }
+
+  private async handleRoutinesRun(request: Request): Promise<Response> {
+    const body = (await request.json().catch(() => ({}))) as { id?: unknown };
+    const id = typeof body.id === "string" ? body.id : "";
+    try {
+      await this.runRoutine(id);
+      return Response.json({ ok: true });
     } catch (error) {
       return routineHttpError(error);
     }

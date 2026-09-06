@@ -2,6 +2,12 @@ import { type ThreadMeta, threadMetaCollection } from "./collections";
 
 export const OFFICE_WORKING = "working…";
 
+export function threadIsWorking(
+  meta: Pick<ThreadMeta, "working" | "opening"> | undefined,
+): boolean {
+  return Boolean(meta?.opening || meta?.working);
+}
+
 export function readCursor(botId: string): number {
   return threadMetaCollection.get(botId)?.cursor ?? -1;
 }

@@ -120,6 +120,13 @@
       "when": 1788621567219,
       "tag": "0016_rare_supreme_intelligence",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1788696949724,
+      "tag": "0017_flat_molten_man",
+      "breakpoints": true
     }
   ]
 }

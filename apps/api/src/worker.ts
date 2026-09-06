@@ -23,7 +23,9 @@ import {
   pauseBotRoutine,
   removeBotRoutine,
   resumeBotRoutine,
+  runBotRoutine,
   suspendBotRoutines,
+  updateBotRoutine,
 } from "./bot-routines.js";
 import { productEnv } from "./env.js";
 import { knowledgeAccess } from "./knowledge.js";
@@ -116,10 +118,14 @@ export default {
           listBotRoutines(env.ROOM_ACTOR, await onHome(botId)),
         create: async (botId, input) =>
           createBotRoutine(env.ROOM_ACTOR, await onHome(botId), input),
+        update: async (botId, id, input) =>
+          updateBotRoutine(env.ROOM_ACTOR, await onHome(botId), id, input),
         pause: async (botId, id) =>
           pauseBotRoutine(env.ROOM_ACTOR, await onHome(botId), id),
         resume: async (botId, id) =>
           resumeBotRoutine(env.ROOM_ACTOR, await onHome(botId), id),
+        run: async (botId, id) =>
+          runBotRoutine(env.ROOM_ACTOR, await onHome(botId), id),
         remove: async (botId, id) =>
           removeBotRoutine(env.ROOM_ACTOR, await onHome(botId), id),
         suspend: async (botId, suspended) =>

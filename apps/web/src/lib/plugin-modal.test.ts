@@ -11,9 +11,13 @@ import {
   pluginAccountCountByToolkit,
   pluginAccountCountLabel,
   pluginAccountDetail,
+  pluginAuthBusyLabel,
+  pluginAuthOpeningCopy,
   pluginGridColumns,
   pluginListRows,
   pluginScopeLabel,
+  showsCustomMcpSearchCard,
+  showsMcpAddForm,
   visiblePluginCards,
 } from "./plugin-modal";
 import type { PluginCard } from "./plugins";
@@ -43,10 +47,10 @@ const canvas: PluginCard = {
 };
 
 describe("visiblePluginCards", () => {
-  it("keeps the catalog on Search and only installed ids on Installed", () => {
+  it("keeps the catalog on Browse and only installed ids on Installed", () => {
     const catalog = [gmail, github, canvas];
     expect(
-      visiblePluginCards(catalog, "", "search", new Set(["gmail"])).map(
+      visiblePluginCards(catalog, "", "browse", new Set(["gmail"])).map(
         (item) => item.id,
       ),
     ).toEqual(["gmail", "github", "docs-canvas"]);
@@ -60,7 +64,7 @@ describe("visiblePluginCards", () => {
   it("filters by name or id", () => {
     const catalog = [gmail, github];
     expect(
-      visiblePluginCards(catalog, "hub", "search", new Set()).map(
+      visiblePluginCards(catalog, "hub", "browse", new Set()).map(
         (item) => item.id,
       ),
     ).toEqual(["github"]);
@@ -68,15 +72,15 @@ describe("visiblePluginCards", () => {
 });
 
 describe("groupVisiblePlugins", () => {
-  it("groups Search by category", () => {
-    const groups = groupVisiblePlugins("search", [gmail, github]);
+  it("groups Browse by category", () => {
+    const groups = groupVisiblePlugins("browse", [gmail, github]);
     expect([...groups.keys()]).toEqual(["Email", "Developer Tools"]);
   });
 
   it("groups Installed without an empty placeholder section", () => {
     expect([...groupVisiblePlugins("installed", []).keys()]).toEqual([]);
     const groups = groupVisiblePlugins("installed", [gmail, canvas]);
-    expect([...groups.keys()]).toEqual(["Installed", "Skills"]);
+    expect([...groups.keys()]).toEqual(["Installed"]);
   });
 });
 
@@ -95,7 +99,7 @@ describe("catalogWithInstalledPlaceholders", () => {
 
 describe("pluginListRows", () => {
   it("chunks a category into grid rows", () => {
-    const groups = groupVisiblePlugins("search", [gmail, github, canvas]);
+    const groups = groupVisiblePlugins("browse", [gmail, github, canvas]);
     const rows = pluginListRows(groups, 2);
     expect(
       rows.filter((row) => row.type === "label").map((row) => row.category),
@@ -115,6 +119,14 @@ describe("pluginGridColumns", () => {
     expect(pluginGridColumns(200)).toBe(1);
     expect(pluginGridColumns(410)).toBe(2);
     expect(pluginGridColumns(630)).toBe(3);
+  });
+});
+
+describe("plugin auth copy", () => {
+  it("names the app while the sign-in window is opening", () => {
+    expect(pluginAuthOpeningCopy("Gmail")).toBe("Opening Gmail to sign in…");
+    expect(pluginAuthOpeningCopy("")).toBe("Opening this plugin to sign in…");
+    expect(pluginAuthBusyLabel()).toBe("Opening…");
   });
 });
 
@@ -196,6 +208,22 @@ describe("plugin accounts", () => {
     expect(
       matchesPluginAccountQuery({ toolkit: "github" }, "GitHub", "mail"),
     ).toBe(false);
+  });
+});
+
+describe("custom MCP add path", () => {
+  it("keeps a Custom MCP card at the top of Search", () => {
+    expect(showsCustomMcpSearchCard("")).toBe(false);
+    expect(showsCustomMcpSearchCard("mcp")).toBe(true);
+    expect(showsCustomMcpSearchCard("Custom")).toBe(true);
+    expect(showsCustomMcpSearchCard("gmail")).toBe(false);
+  });
+
+  it("shows the add form when Installed has no servers yet", () => {
+    expect(showsMcpAddForm("", false, 0)).toBe(true);
+    expect(showsMcpAddForm("", false, 1)).toBe(false);
+    expect(showsMcpAddForm("", true, 1)).toBe(true);
+    expect(showsMcpAddForm("linear", true, 0)).toBe(false);
   });
 });
 

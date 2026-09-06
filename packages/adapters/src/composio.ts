@@ -1,8 +1,14 @@
 import { composioUserId } from "@groxbot/adapter-kit";
 import {
+  capToolPayload,
   type ConnectedPluginAccount,
   connectedAccountForTool,
   pluginAccountsForTool,
+  PLUGIN_SEARCH_FETCH_LIMIT,
+  pluginExecuteArguments,
+  pluginSearchParams,
+  pluginSearchQuery,
+  rankPluginHits,
 } from "@groxbot/core";
 
 export { composioUserId };
@@ -52,6 +58,7 @@ export interface ComposioToolHit {
   name: string;
   description: string;
   toolkit: string;
+  params?: string[];
 }
 
 export interface ComposioGateway {
@@ -153,18 +160,35 @@ export function slimComposioTools(
     if (!slug) continue;
     const toolkit = toolkitOf(item);
     if (allowed.size > 0 && toolkit && !allowed.has(toolkit)) continue;
+    const params = toolParamNames(row);
     hits.push({
       slug,
       name: readString(row?.name) || slug,
       description: readString(row?.description, row?.human_description).slice(
         0,
-        240,
+        120,
       ),
       toolkit,
+      ...(params.length > 0 ? { params } : {}),
     });
-    if (hits.length >= 8) break;
+    if (hits.length >= PLUGIN_SEARCH_FETCH_LIMIT) break;
   }
   return hits;
+}
+
+function toolParamNames(row: Record<string, unknown> | undefined): string[] {
+  const schema = asRecord(row?.input_parameters) ?? asRecord(row?.inputParameters);
+  if (!schema) return [];
+  const props = asRecord(schema.properties);
+  const keys = props
+    ? Object.keys(props)
+    : Object.keys(schema).filter(
+        (key) =>
+          !["type", "properties", "required", "additionalProperties"].includes(
+            key,
+          ),
+      );
+  return keys.slice(0, 8);
 }
 
 function accountOf(item: unknown): ComposioAccount | undefined {
@@ -263,22 +287,33 @@ export class SdkComposioGateway implements ComposioGateway {
     query: string;
     toolkits: string[];
   }): Promise<ComposioToolHit[]> {
-    const query = {
-      search: input.query,
-      query: input.query,
+    const q = pluginSearchQuery(input.query, input.toolkits) || input.query;
+    const params = pluginSearchParams(input.query, input.toolkits);
+    const query: Record<string, unknown> = {
       toolkits: input.toolkits,
-      limit: input.toolkits.length > 1 ? 24 : 8,
+      limit: PLUGIN_SEARCH_FETCH_LIMIT,
+      important: true,
     };
+    if (params.query) {
+      query.search = params.query;
+      query.query = params.query;
+    }
     if (this.sdk.tools?.getRawComposioTools) {
-      return slimComposioTools(
-        await this.sdk.tools.getRawComposioTools(query),
-        input.toolkits,
+      return rankPluginHits(
+        slimComposioTools(
+          await this.sdk.tools.getRawComposioTools(query),
+          input.toolkits,
+        ),
+        q,
       );
     }
     if (this.sdk.tools?.get) {
-      return slimComposioTools(
-        await this.sdk.tools.get(input.userId, query),
-        input.toolkits,
+      return rankPluginHits(
+        slimComposioTools(
+          await this.sdk.tools.get(input.userId, query),
+          input.toolkits,
+        ),
+        q,
       );
     }
     throw new ComposioError("Composio SDK cannot search tools.");
@@ -295,7 +330,7 @@ export class SdkComposioGateway implements ComposioGateway {
     }
     return this.sdk.tools.execute(input.slug, {
       userId: input.userId,
-      arguments: input.arguments,
+      arguments: pluginExecuteArguments(input.slug, input.arguments),
       connectedAccountId: input.connectedAccountId,
       dangerouslySkipVersionCheck: true,
     });
@@ -338,10 +373,15 @@ export class SdkComposioGateway implements ComposioGateway {
 const COMPOSIO_API = "https://backend.composio.dev/api/v3";
 
 export class HttpComposioGateway implements ComposioGateway {
+  private readonly fetchImpl: typeof fetch;
+
   constructor(
     private readonly apiKey: string,
-    private readonly fetchImpl: typeof fetch = fetch,
-  ) {}
+    fetchImpl: typeof fetch = fetch,
+  ) {
+    // Workers `fetch` throws Illegal invocation if called as `this.fetchImpl()`.
+    this.fetchImpl = fetchImpl.bind(globalThis);
+  }
 
   async link(input: {
     userId: string;
@@ -385,16 +425,43 @@ export class HttpComposioGateway implements ComposioGateway {
     query: string;
     toolkits: string[];
   }): Promise<ComposioToolHit[]> {
-    const query = new URLSearchParams({
-      query: input.query,
-      search: input.query,
-      limit: input.toolkits.length > 1 ? "24" : "8",
-    });
-    const toolkit = input.toolkits[0]?.trim();
-    if (toolkit) query.set("toolkit_slug", toolkit);
-    return slimComposioTools(
-      await this.request(`/tools?${query}`),
-      input.toolkits,
+    const q = pluginSearchQuery(input.query, input.toolkits) || input.query;
+    const params = pluginSearchParams(input.query, input.toolkits);
+    const toolkits = [
+      ...new Set(input.toolkits.map((item) => item.trim()).filter(Boolean)),
+    ];
+    const slugs = toolkits.length > 0 ? toolkits : [""];
+    const results = await Promise.allSettled(
+      slugs.map((toolkit) => {
+        const query = new URLSearchParams({
+          important: "true",
+          limit: String(PLUGIN_SEARCH_FETCH_LIMIT),
+          toolkit_versions: "latest",
+        });
+        if (params.query) {
+          query.set("query", params.query);
+          query.set("search", params.query);
+        }
+        if (toolkit) query.set("toolkit_slug", toolkit);
+        return this.request(`/tools?${query}`);
+      }),
+    );
+    const bodies = results.flatMap((result) =>
+      result.status === "fulfilled" ? [result.value] : [],
+    );
+    if (bodies.length === 0) {
+      const failed = results.find(
+        (result): result is PromiseRejectedResult =>
+          result.status === "rejected",
+      );
+      if (failed) throw failed.reason;
+    }
+    return rankPluginHits(
+      slimComposioTools(
+        { items: bodies.flatMap((body) => itemsOf(body)) },
+        input.toolkits,
+      ),
+      q,
     );
   }
 
@@ -408,9 +475,10 @@ export class HttpComposioGateway implements ComposioGateway {
       method: "POST",
       body: JSON.stringify({
         user_id: input.userId,
-        arguments: input.arguments,
+        arguments: pluginExecuteArguments(input.slug, input.arguments),
         connected_account_id: input.connectedAccountId,
         dangerously_skip_version_check: true,
+        version: "latest",
       }),
     });
   }
@@ -547,12 +615,15 @@ export function createPluginTools(input: {
         );
       }
       return formatComposioResult(
-        await gateway.execute({
-          userId,
-          slug,
-          arguments: args,
-          connectedAccountId,
-        }),
+        await capToolPayload(
+          await gateway.execute({
+            userId,
+            slug,
+            arguments: args,
+            connectedAccountId,
+          }),
+          { name: slug },
+        ),
       );
     },
   };

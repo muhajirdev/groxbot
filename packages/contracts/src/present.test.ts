@@ -27,7 +27,8 @@ describe("runPresent", () => {
   it("rejects a missing $type", () => {
     expect(runPresent({ title: "Nope" })).toEqual({
       ok: false,
-      message: "present needs a $type from the office UI vocabulary.",
+      message:
+        'present needs { "$type": "Card", ... } as the argument itself — not wrapped in raw. For a short list, write markdown instead of retrying.',
     });
   });
 
@@ -57,6 +58,52 @@ describe("runPresent", () => {
     ).toBe(true);
   });
 
+  it("wraps stringified children with no root $type as a Card", () => {
+    const result = runPresent({
+      children:
+        '[{"$type":"Alert","kind":"warning","title":"Needs you","children":[{"$type":"Text","text":"Google security alert"}]},{"$type":"Text","text":"4 newsletters"}]',
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.$type).toBe("Card");
+    const tree = sanitizePresentTree({
+      children:
+        '[{"$type":"Alert","kind":"warning","title":"Needs you","children":[{"$type":"Text","text":"Google security alert"}]}]',
+    });
+    expect(tree?.$type).toBe("Card");
+    expect(tree?.children?.[0]).toMatchObject({
+      $type: "Alert",
+      title: "Needs you",
+    });
+  });
+
+  it("infers Table when headers/cells are present without $type", () => {
+    const result = runPresent({
+      $type: "Card",
+      title: "Inbox",
+      children: [
+        {
+          $type: "Table",
+          children: [
+            {
+              headers: ["From", "Subject"],
+              cells: [["Pat", "Hello"]],
+            },
+          ],
+        },
+      ],
+    });
+    expect(result).toEqual({
+      ok: true,
+      $type: "Card",
+      preview: "Inbox",
+    });
+    const tree = sanitizePresentTree({
+      $type: "Table",
+      children: [{ headers: ["From"], cells: [["Pat"]] }],
+    });
+    expect(tree?.children?.[0]?.$type).toBe("Table");
+  });
+
   it("parses children passed as a JSON string", () => {
     const result = runPresent({
       $type: "Card",
@@ -82,6 +129,38 @@ describe("runPresent", () => {
     expect(tree?.children?.[1]).toMatchObject({
       $type: "Badge",
       value: "Live in-thread UI",
+    });
+  });
+
+  it("unwraps a card stuffed in raw (Pi invalid-JSON wrapper)", () => {
+    const card = {
+      $type: "Card",
+      title: "Inbox",
+      children: [{ $type: "Fact", label: "From", value: "Pat" }],
+    };
+    expect(runPresent({ raw: JSON.stringify(card) })).toEqual({
+      ok: true,
+      $type: "Card",
+      preview: "Inbox",
+    });
+    expect(runPresent({ raw: card })).toEqual({
+      ok: true,
+      $type: "Card",
+      preview: "Inbox",
+    });
+  });
+
+  it("accepts type as an alias for $type", () => {
+    expect(
+      runPresent({
+        type: "Card",
+        title: "Inbox",
+        children: [{ type: "Fact", label: "Unread", value: "201" }],
+      }),
+    ).toEqual({
+      ok: true,
+      $type: "Card",
+      preview: "Inbox",
     });
   });
 

@@ -6,7 +6,7 @@ import type {
   ThreadMessage,
   WorkspaceApp,
 } from "@groxbot/contracts";
-import { eq, useLiveQuery } from "@tanstack/react-db";
+import { useLiveQuery } from "@tanstack/react-db";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
@@ -22,7 +22,7 @@ import {
 } from "react";
 import { AppPane } from "../components/AppPane";
 import { AppSettings } from "../components/AppSettings";
-import { AvatarMark, MemberStack } from "../components/Avatar";
+import { AvatarMark, MemberStack, PresenceDot } from "../components/Avatar";
 import { BotSettingsPane } from "../components/BotSettingsPane";
 import { BotContextMenu } from "../components/BotContextMenu";
 import {
@@ -38,8 +38,8 @@ import { CommandPalette, SearchTrigger } from "../components/CommandPalette";
 import { ComputerPane } from "../components/ComputerPane";
 import { CreateRoomDialog } from "../components/CreateRoomDialog";
 import { HireMarketplaceModal } from "../components/HireMarketplaceModal";
+import { MarketplaceModal } from "../components/MarketplaceModal";
 import { OnboardingDialog } from "../components/OnboardingDialog";
-import { SkillsStoreModal } from "../components/SkillsStoreModal";
 import {
   CaretSwapIcon,
   ChevronDownIcon,
@@ -60,7 +60,6 @@ import { SidebarCreateMenu } from "../components/SidebarCreateMenu";
 import { KnowledgeLibrary, KnowledgePeek } from "../components/KnowledgePlace";
 import { KeptOfficeThread } from "../components/OfficeThread";
 import { PersonAvatar } from "../components/PersonAvatar";
-import { PluginsModal } from "../components/PluginsModal";
 import {
   Tooltip,
   TooltipContent,
@@ -72,6 +71,7 @@ import { WorkspaceSwitcher } from "../components/WorkspaceSwitcher";
 import { InviteFriendButton } from "../components/InviteFriendButton";
 import { APP_KIND_COLOR, APP_KIND_LABEL } from "../lib/app-kind";
 import { authClient } from "../lib/auth";
+import type { MarketplaceTab } from "../lib/marketplace";
 import {
   appsCollection,
   botsCollection,
@@ -192,6 +192,7 @@ import {
   patchThreadMeta,
   readCursor,
   readThreadMeta,
+  threadIsWorking,
 } from "../lib/thread-cache";
 import { scheduleKnowledgeFilePrefetch } from "../lib/file-cache";
 import { scheduleThreadPrefetch } from "../lib/thread-prefetch";
@@ -216,6 +217,14 @@ function asMessage(payload: Record<string, unknown>): ThreadMessage | null {
     runId: payload.runId ? String(payload.runId) : null,
     createdAt: String(payload.createdAt ?? new Date().toISOString()),
   };
+}
+
+function botRowLabel(item: Bot, pinned: boolean, working: boolean): string {
+  const bits = [item.name];
+  if (item.visibility === "private") bits.push("private");
+  if (pinned) bits.push("pinned");
+  if (working) bits.push("working");
+  return bits.join(", ");
 }
 
 const BotRow = memo(function BotRow(props: {
@@ -246,15 +255,7 @@ const BotRow = memo(function BotRow(props: {
           props.selected && "bg-selected",
           props.muted && "opacity-70",
         )}
-        aria-label={
-          item.visibility === "private"
-            ? pinned
-              ? `${item.name}, private, pinned`
-              : `${item.name}, private`
-            : pinned
-              ? `${item.name}, pinned`
-              : item.name
-        }
+        aria-label={botRowLabel(item, pinned, props.working)}
         onClick={props.onPick}
         onContextMenu={(event) => {
           event.preventDefault();
@@ -269,7 +270,8 @@ const BotRow = memo(function BotRow(props: {
             mood={props.working ? "working" : "idle"}
             size="sm"
           />
-          {pinned ? (
+          <PresenceDot on={props.working} selected={props.selected} />
+          {pinned && !props.working ? (
             <span
               className="chat-conv-pin pointer-events-none absolute -right-px -bottom-px hidden size-3.5 place-items-center rounded-full bg-bg-side text-muted min-[721px]:max-[960px]:grid"
               title="Pinned"
@@ -318,6 +320,7 @@ const BotRow = memo(function BotRow(props: {
 const RoomRow = memo(function RoomRow(props: {
   item: Room;
   selected: boolean;
+  working?: boolean;
   desk: OfficeSearch;
   workspaceSlug: string;
   onMenu: (event: MouseEvent, room: Room) => void;
@@ -340,13 +343,16 @@ const RoomRow = memo(function RoomRow(props: {
           event.preventDefault();
           props.onMenu(event, item);
         }}
-        aria-label={item.name}
+        aria-label={props.working ? `${item.name}, working` : item.name}
         className={cn(
           "chat-conv grid min-w-0 grid-cols-[28px_minmax(0,1fr)] items-center gap-2 rounded-[10px] border-0 bg-transparent px-1.5 py-1.5 text-left text-inherit no-underline",
           props.selected && "bg-selected",
         )}
       >
-        <MemberStack faces={roomSidebarFaces(item.members)} />
+        <span className="relative inline-grid shrink-0">
+          <MemberStack faces={roomSidebarFaces(item.members)} />
+          <PresenceDot on={Boolean(props.working)} selected={props.selected} />
+        </span>
         <span className="chat-conv-copy min-w-0">
           <span className="flex items-center justify-between gap-2">
             <span className="truncate text-[13px] font-semibold">{item.name}</span>
@@ -501,13 +507,14 @@ export function Chat(props: {
   const [settingsTab, setSettingsTab] = useState<"general" | "models">(
     "general",
   );
-  const [pluginsOpen, setPluginsOpen] = useState(false);
+  const [marketplaceOpen, setMarketplaceOpen] = useState(false);
+  const [marketplaceTab, setMarketplaceTab] =
+    useState<MarketplaceTab>("plugins");
   const [hireOpen, setHireOpen] = useState(false);
   const onboardDismissed = useRef(false);
   const [onboardOpen, setOnboardOpen] = useState(() =>
     workspaceNeedsOnboarding(listedBots()),
   );
-  const [skillsStoreOpen, setSkillsStoreOpen] = useState(false);
   const [roomOpen, setRoomOpen] = useState(false);
   const [roomDelete, setRoomDelete] = useState<Room | null>(null);
   const [sectionOpen, setSectionOpen] = useState(false);
@@ -596,21 +603,24 @@ export function Chat(props: {
       props.roomId,
     ).mounted;
   }, [props.roomId, roomKeepAlive]);
-  const metaQuery = useLiveQuery(
-    (q) => {
-      if (!activeId) return undefined;
-      return q
-        .from({ meta: threadMetaCollection })
-        .where(({ meta }) => eq(meta.botId, activeId))
-        .findOne();
-    },
-    [activeId],
+  const threadMetasQuery = useLiveQuery((q) =>
+    q.from({ meta: threadMetaCollection }),
   );
+  const threadMetas = threadMetasQuery.data;
   const meta =
-    metaQuery.data ?? (activeId ? readThreadMeta(activeId) : undefined);
+    (activeId
+      ? threadMetas?.find((row) => row.botId === activeId)
+      : undefined) ?? (activeId ? readThreadMeta(activeId) : undefined);
   const hiringThis = Boolean(meta?.opening);
   const working = meta?.working ?? "";
   const error = meta?.error ?? "";
+  const workingIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const row of threadMetas ?? []) {
+      if (threadIsWorking(row)) ids.add(row.botId);
+    }
+    return ids;
+  }, [threadMetas]);
   const liveBots = useMemo(() => {
     return bots.filter((item) => !isArchivedBot(item)).sort(compareSidebarBots);
   }, [bots]);
@@ -1066,6 +1076,7 @@ export function Chat(props: {
       onboardDismissed.current = true;
       setOnboardOpen(false);
       setHireOpen(false);
+      setMarketplaceOpen(false);
       const id = crypto.randomUUID();
       const homeRoomId = crypto.randomUUID();
       const roster = peekBots();
@@ -1288,14 +1299,19 @@ export function Chat(props: {
     applyOfficeColor(officeColor);
   }, [officeColor]);
 
+  const openMarketplace = useCallback((tab: MarketplaceTab) => {
+    setMarketplaceTab(tab);
+    setMarketplaceOpen(true);
+  }, []);
+
   const blocking =
     hireOpen ||
+    marketplaceOpen ||
     onboardOpen ||
     roomOpen ||
     sectionOpen ||
     Boolean(sectionRename) ||
     settingsOpen ||
-    pluginsOpen ||
     paletteOpen ||
     Boolean(roomDelete);
   const cycleBots = useCallback(
@@ -1332,12 +1348,12 @@ export function Chat(props: {
         return;
       }
       if (id === "plugins") {
-        setPluginsOpen(true);
+        openMarketplace("plugins");
         return;
       }
       if (id === "skills-store") {
         setDesk(deskLibrary(desk, SKILLS_LIBRARY_PATH));
-        setSkillsStoreOpen(true);
+        openMarketplace("skills");
         return;
       }
       if (id === "knowledge") {
@@ -1359,7 +1375,7 @@ export function Chat(props: {
       }
       setDesk(deskComputer());
     },
-    [desk, room, setDesk],
+    [desk, openMarketplace, room, setDesk],
   );
 
   useHotkeys([
@@ -1372,7 +1388,9 @@ export function Chat(props: {
         setSectionMenu(null);
       },
       options: {
-        enabled: (!hireOpen && !onboardOpen && !settingsOpen && !pluginsOpen) || paletteOpen,
+        enabled:
+          (!hireOpen && !marketplaceOpen && !onboardOpen && !settingsOpen) ||
+          paletteOpen,
       },
     },
     {
@@ -1381,7 +1399,9 @@ export function Chat(props: {
         setPaletteOpen(false);
         if (!hiring.current) setHireOpen(true);
       },
-      options: { enabled: !settingsOpen && !pluginsOpen && !onboardOpen && !hireOpen },
+      options: {
+        enabled: !settingsOpen && !onboardOpen && !hireOpen && !marketplaceOpen,
+      },
     },
     {
       hotkey: "Mod+,",
@@ -1390,7 +1410,7 @@ export function Chat(props: {
         setSettingsTab("general");
         setSettingsOpen(true);
       },
-      options: { enabled: !hireOpen && !onboardOpen },
+      options: { enabled: !hireOpen && !marketplaceOpen && !onboardOpen },
     },
     {
       hotkey: "Escape",
@@ -1435,7 +1455,7 @@ export function Chat(props: {
       hotkey: "Escape",
       callback: () => setDesk(closeLibrary(desk)),
       options: {
-        enabled: Boolean(desk.library) && !paletteOpen && !hireOpen && !onboardOpen,
+        enabled: Boolean(desk.library) && !paletteOpen && !hireOpen && !marketplaceOpen && !onboardOpen,
       },
     },
   ]);
@@ -1641,7 +1661,7 @@ export function Chat(props: {
                   ) : null}
                   <SidebarCreateMenu
                     disabled={hiringThis}
-                    active={hireOpen || onboardOpen || roomOpen || sectionOpen}
+                    active={hireOpen || marketplaceOpen || onboardOpen || roomOpen || sectionOpen}
                     onNewBot={() => {
                       if (!hiring.current) setHireOpen(true);
                     }}
@@ -1666,11 +1686,7 @@ export function Chat(props: {
                     key={row.item.id}
                     item={row.item}
                     selected={!isRoom && row.item.id === currentBotId}
-                    working={
-                      !isRoom &&
-                      row.item.id === currentBotId &&
-                      (hiringThis || Boolean(working))
-                    }
+                    working={workingIds.has(row.item.id)}
                     desk={desk}
                     workspaceSlug={props.workspace.slug}
                     onMenu={openBotMenu}
@@ -1681,6 +1697,7 @@ export function Chat(props: {
                     key={row.item.id}
                     item={row.item}
                     selected={row.item.id === props.roomId}
+                    working={workingIds.has(row.item.id)}
                     desk={desk}
                     workspaceSlug={props.workspace.slug}
                     onMenu={openRoomMenu}
@@ -1721,11 +1738,7 @@ export function Chat(props: {
                             key={item.id}
                             item={item}
                             selected={!isRoom && item.id === currentBotId}
-                            working={
-                              !isRoom &&
-                              item.id === currentBotId &&
-                              (hiringThis || Boolean(working))
-                            }
+                            working={workingIds.has(item.id)}
                             desk={desk}
                             workspaceSlug={props.workspace.slug}
                             onMenu={openBotMenu}
@@ -1826,8 +1839,8 @@ export function Chat(props: {
                 <button
                   className="chat-dock-item"
                   type="button"
-                  aria-pressed={pluginsOpen}
-                  onClick={() => setPluginsOpen(true)}
+                  aria-pressed={marketplaceOpen && marketplaceTab === "plugins"}
+                  onClick={() => openMarketplace("plugins")}
                 >
                   <PlugIcon className="size-5" />
                   <span>Plugins</span>
@@ -2181,15 +2194,30 @@ export function Chat(props: {
               }
               onPath={(path) => setDesk(deskLibrary(desk, path))}
               onClose={() => setDesk(closeLibrary(desk))}
-              onOpenStore={() => setSkillsStoreOpen(true)}
+              onOpenStore={() => openMarketplace("skills")}
             />
           ) : null}
           </div>
-          <PluginsModal
-            open={pluginsOpen}
+          <MarketplaceModal
+            open={marketplaceOpen}
+            tab={marketplaceTab}
+            onTabChange={setMarketplaceTab}
             botId={activeId}
             meUserId={me?.userId}
-            onClose={() => setPluginsOpen(false)}
+            onClose={() => setMarketplaceOpen(false)}
+            onHire={(input) => void hire(input)}
+            onPasteImport={() => {
+              setMarketplaceOpen(false);
+              setDesk(deskLibrary(desk, SKILLS_LIBRARY_PATH));
+            }}
+            onInstalled={(path) => {
+              setDesk(deskLibrary(desk, path));
+            }}
+          />
+          <HireMarketplaceModal
+            open={hireOpen}
+            onClose={() => setHireOpen(false)}
+            onHire={(input) => void hire(input)}
           />
           <AppSettings
             open={settingsOpen}
@@ -2256,21 +2284,6 @@ export function Chat(props: {
             onContinue={() => {
               onboardDismissed.current = true;
               setOnboardOpen(false);
-            }}
-          />
-          <HireMarketplaceModal
-            open={hireOpen}
-            onClose={() => setHireOpen(false)}
-            onHire={(input) => void hire(input)}
-          />
-          <SkillsStoreModal
-            open={skillsStoreOpen}
-            onClose={() => setSkillsStoreOpen(false)}
-            onPasteImport={() => {
-              setDesk(deskLibrary(desk, SKILLS_LIBRARY_PATH));
-            }}
-            onInstalled={(path) => {
-              setDesk(deskLibrary(desk, path));
             }}
           />
           <CreateRoomDialog

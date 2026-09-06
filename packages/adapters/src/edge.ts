@@ -28,17 +28,21 @@ export {
 } from "./gateway.js";
 export { openObjectParameters } from "./office-pi.js";
 export {
+  DurableSessionStorage,
+  ensurePiSessionTables,
+  sqliteSessionStore,
+} from "./durable-session-storage.js";
+export {
+  compactOfficeSession,
+  OFFICE_COMPACTION_SETTINGS,
+} from "./office-compact.js";
+export {
   appendOfficeAssistantText,
   appendOfficeUserText,
   migrateOfficeChatToSession,
   persistOfficeSessionEvent,
   piBoundFromSessionEntries,
 } from "./office-session.js";
-export {
-  DurableSessionStorage,
-  ensurePiSessionTables,
-  sqliteSessionStore,
-} from "./durable-session-storage.js";
 export { Session } from "@earendil-works/pi-agent-core";
 export {
   createGatewayStreamFn,

@@ -4,6 +4,7 @@ import {
   isComputerListQueryKey,
   isComputerReadQueryKey,
   isKnowledgeReadQueryKey,
+  isRoutinesListQueryKey,
   shouldDehydrateOfficeQuery,
   officeCacheEnabled,
 } from "./office-persist";
@@ -109,6 +110,31 @@ describe("query persist", () => {
         queryKey: orpc.me.queryOptions().queryKey,
         state: { status: "success" },
       }),
+    ).toBe(false);
+  });
+
+  it("dehydrates each bot’s routines list", () => {
+    const listed = orpc.routines.list.queryOptions({
+      input: { botId: "bot-1" },
+    }).queryKey;
+    const other = orpc.routines.list.queryOptions({
+      input: { botId: "bot-2" },
+    }).queryKey;
+    expect(isRoutinesListQueryKey(listed)).toBe(true);
+    expect(isRoutinesListQueryKey(other)).toBe(true);
+    expect(
+      shouldDehydrateOfficeQuery({
+        queryKey: listed,
+        state: { status: "success" },
+      }),
+    ).toBe(true);
+    expect(
+      isRoutinesListQueryKey(orpc.computer.list.queryOptions({
+        input: { botId: "bot-1" },
+      }).queryKey),
+    ).toBe(false);
+    expect(
+      isRoutinesListQueryKey(orpc.bots.list.queryOptions().queryKey),
     ).toBe(false);
   });
 

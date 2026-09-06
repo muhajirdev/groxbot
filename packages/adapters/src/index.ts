@@ -3,6 +3,7 @@ export * from "./composio.js";
 export * from "./durable-session-storage.js";
 export * from "./gateway.js";
 export * from "./home.js";
+export * from "./office-compact.js";
 export * from "./office-pi.js";
 export * from "./office-session.js";
 export * from "./realtime.js";

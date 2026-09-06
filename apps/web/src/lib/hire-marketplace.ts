@@ -5,6 +5,17 @@ import {
 } from "@groxbot/contracts";
 import { AVATAR_COLORS, AVATAR_SHAPES } from "./jobs";
 
+export type HireMarketplaceInput = {
+  name: string;
+  visibility: "private" | "shared";
+  title?: string;
+  marketplaceId?: string;
+  instructions?: string;
+  description?: string;
+  avatarColor?: string;
+  avatarShape?: AvatarShape;
+};
+
 /** Visible marketplace cards for the current search + category. */
 export function hireMarketplaceCards(input: {
   catalog: readonly BotMarketplaceTemplate[];

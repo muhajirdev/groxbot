@@ -115,10 +115,12 @@ describe("withOfficeExecuteDescription", () => {
       plugins: true,
     });
     expect(next).toMatch(
-      /- `plugins` — connected Gmail\/Slack\/GitHub-style accounts/,
+      /- `plugins` — connected accounts on this workspace/,
     );
     expect(next).toMatch(/plugins\.search\(\{ query \}\)/);
+    expect(next).not.toMatch(/GMAIL_FETCH_EMAILS/);
     expect(next).toMatch(/plugins\.execute\(\{ slug, arguments \}\)/);
+    expect(next).toMatch(/not a sentence/);
     expect(next).not.toMatch(/^- `plugins`$/m);
   });
 });

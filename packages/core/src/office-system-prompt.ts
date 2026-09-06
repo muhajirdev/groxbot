@@ -38,8 +38,8 @@ export const OFFICE_TOOL_PROMPT: Record<string, OfficeToolPromptContribution> =
     [COMPUTER_SHELL_TOOL_NAME]: {
       snippet:
         "Bash on this computer (just-bash). Argument is `command`. cwd is /workspace.",
-      guidelines: [
-        "Use shell for bash on this computer. Do not use code for bash, and do not unpack binary streams in the shell.",
+        guidelines: [
+        "Use shell for bash on this computer. Do not use code for bash.",
       ],
     },
     list: { snippet: "List files on this computer." },
@@ -112,7 +112,7 @@ export function officeMcpGuideline(names: readonly string[]): string | null {
   if (listed.length === 0) return null;
   const ticks = listed.map((name) => `\`${name}\``).join(", ");
   const first = listed[0]!;
-  return `Workspace MCP inside code: ${ticks}. Call \`await ${first}.<method>(args)\`. Not a top-level tool. Search for methods, then \`await codemode.describe("${first}.<method>")\` — do not describe the whole connector.`;
+  return `Workspace MCP inside code: ${ticks}. Call \`await ${first}.<method>(args)\`. Not a top-level tool. If the connector is already listed, call it — do not \`codemode.search\` for it. Search for methods, then \`await codemode.describe("${first}.<method>")\` — do not describe the whole connector. Map/filter in code; return a compact projection, never \`console.log\` the raw payload.`;
 }
 
 export function officePluginsGuideline(
@@ -123,7 +123,8 @@ export function officePluginsGuideline(
   ];
   if (listed.length === 0) return null;
   const ticks = listed.map((name) => `\`${name}\``).join(", ");
-  return `Connected plugin accounts inside code: ${ticks}. Search with \`await plugins.search({ query })\`, then \`await plugins.execute({ slug, arguments })\`. If several accounts of the same app exist, pass \`account\` from search. Not a top-level tool.`;
+  const example = listed[0]!;
+  return `Connected plugin accounts inside code: ${ticks}. One \`await plugins.search({ query: "${example}" })\` — a short toolkit or verb, not a sentence. Then \`await plugins.execute({ slug, arguments })\`. Return a compact projection. Do not \`codemode.search\` for a connected plugin. If several accounts of the same app exist, pass \`account\` from search. Not a top-level tool.`;
 }
 
 function officeCodeSandboxPhrase(opts: {
@@ -180,7 +181,7 @@ export function buildOfficeSystemPrompt(opts: {
   };
 
   add(
-    "Be concise. A few sentences. Do the work with tools; don't narrate every step. Don't announce a save you didn't make.",
+    "Be concise. A few sentences. A summary is counts and groups, not every row unless they asked for the full list. Do the work with tools; don't narrate every step. Don't announce a save you didn't make.",
   );
   if (names.some((name) => COMPUTER_FS_TOOLS.has(name))) {
     add(

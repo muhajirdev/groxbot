@@ -56,9 +56,15 @@ describe("Computer Worker shell wiring", () => {
     expect(readSrc("bot-plugins.ts")).toMatch(
       /Several accounts can run this tool/,
     );
-    expect(readSrc("bot-plugins.ts")).toMatch(/pass account from search/);
+    expect(readSrc("bot-plugins.ts")).toMatch(/plugins\.search\(\{ query \}\)/);
+    expect(readSrc("bot-plugins.ts")).not.toMatch(/GMAIL_FETCH_EMAILS/);
+    expect(readSrc("bot-plugins.ts")).toMatch(/capToolPayload/);
     expect(home).toMatch(/mcpExecuteConnectors/);
     expect(home).toMatch(/pluginExecuteConnectors/);
+    expect(home).toMatch(/compactOfficeSession/);
+    expect(home).toMatch(/isContextOverflowError/);
+    expect(home).toMatch(/isContextOverflowError\(result\.errorMessage\)/);
+    expect(home).toMatch(/force:\s*true/);
     expect(home).toMatch(/executeConnectors/);
     expect(home).toMatch(/createOfficeExecuteTool/);
     expect(home).toMatch(/withOfficeExecuteDescription/);
@@ -118,6 +124,8 @@ describe("Computer Worker shell wiring", () => {
     expect(execute).toMatch(/from "ai"/);
     expect(markdown).not.toMatch(/from "ai"/);
     expect(readSrc("bot-present.ts")).not.toMatch(/from "ai"/);
+    expect(readSrc("bot-present.ts")).toMatch(/passthrough\(\)/);
+    expect(readSrc("bot-present.ts")).not.toMatch(/\$type:\s*z/);
     expect(readSrc("bot-skill.ts")).not.toMatch(/from "ai"/);
     expect(execute).not.toMatch(/stateConnector/);
     expect(execute).not.toMatch(/createWorkspaceStateBackend/);

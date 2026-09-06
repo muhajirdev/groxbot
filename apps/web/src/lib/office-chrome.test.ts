@@ -10,6 +10,10 @@ const threadAui = readFileSync(
   "utf8",
 );
 const chatScreen = readFileSync(join(root, "../screens/Chat.tsx"), "utf8");
+const computerPane = readFileSync(
+  join(root, "../components/ComputerPane.tsx"),
+  "utf8",
+);
 
 function rootBlock(marker: string): string {
   const start = css.indexOf(marker);
@@ -111,7 +115,20 @@ describe("office chrome", () => {
     expect(contrast(token(blush, "--muted"), side)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(token(blush, "--muted"), card)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(token(blush, "--accent"), side)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(token(blush, "--danger"), side)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(token(blush, "--danger"), card)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(token(blush, "--line"), side)).toBeLessThan(2);
+  });
+
+  it("keeps paper danger readable on the cream shell", () => {
+    const paper = rootBlock(':root[data-office-color="paper"] {');
+    const side = token(paper, "--bg-side");
+    const card = token(paper, "--card");
+    expect(contrast(token(paper, "--danger"), side)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(token(paper, "--danger"), card)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(token(light, "--danger"), token(light, "--bg-side"))).toBeGreaterThanOrEqual(
+      4.5,
+    );
   });
 
   it("fits four office places in the dock", () => {
@@ -181,6 +198,28 @@ describe("office chrome", () => {
     );
   });
 
+  it("paints thread errors in ink, not pale dark-mode red", () => {
+    const error = threadAui.slice(
+      threadAui.indexOf("const MessageError"),
+      threadAui.indexOf("const AssistantWorkingStatus"),
+    );
+    expect(error).toContain("aui-message-error-root");
+    expect(error).not.toContain("dark:text-red-200");
+    expect(error).not.toContain("text-destructive");
+    expect(css).toMatch(
+      /\.aui-message-error-root\s*\{[^}]*color:\s*var\(--ink\)/s,
+    );
+  });
+
+  it("paints day separators from message createdAt", () => {
+    expect(threadAui).toMatch(/data-slot="aui_message-day"/);
+    expect(threadAui).toContain("messageDaySep");
+    expect(threadAui).toMatch(
+      /data-slot="aui_message-day"[\s\S]*?text-muted-foreground/,
+    );
+    expect(css).toMatch(/\.aui-root\s*\{[^}]*--color-muted:\s*var\(--hover\)/s);
+  });
+
   it("paints a filed review as a Filed note, not a chat bubble", () => {
     expect(threadAui).toMatch(/data-slot="office-learned"/);
     expect(threadAui).toMatch(/>Filed</);
@@ -224,6 +263,22 @@ describe("office chrome", () => {
     expect(header).toMatch(/uppercase/);
     expect(header).not.toMatch(/text-\[12px\]/);
     expect(header).not.toMatch(/text-\[13px\]/);
+  });
+
+  it("keeps routines a left-aligned list, not a centered empty-state", () => {
+    expect(css).not.toMatch(/\.routines\s*\{[^}]*text-align:\s*center/s);
+    expect(css).not.toMatch(/\.routine-toggle\s*\{[^}]*border-radius:\s*99px/s);
+    expect(css).not.toMatch(/\.create-routine\s*\{/);
+    expect(css).not.toMatch(/\.routine-remove\s*\{/);
+    expect(computerPane).toMatch(/className="icon-btn routine-toggle"/);
+  });
+
+  it("edits a routine in a sheet with test run and delete", () => {
+    expect(computerPane).toContain("Edit Routine");
+    expect(computerPane).toContain("Test run");
+    expect(computerPane).toContain("Delete");
+    expect(computerPane).toContain("openEdit");
+    expect(computerPane).not.toMatch(/>\s*Remove\s*</);
   });
 
   it("aligns the computer bar with the thread head", () => {

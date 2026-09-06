@@ -106,6 +106,7 @@ Catalog collections set `gcTime` to `OFFICE_MESSAGES_GC_TIME` (7 days) so rows o
 | `knowledge.list` | Office tree. `useQuery` only (no collection). |
 | `knowledge.read` / `computer.read` | Text preview bodies only (`encoding: "text"`, cap 64k). Idle prefetch after paint (32, two at a time, skip cache hits). Cmd+K also prefetches the highlighted file. Matcher strips `botId`/`path`. |
 | `computer.list` `{ botId }` | Each teammate’s file tree. Matcher strips `botId`/`path` so every bot’s list shares the procedure. **Not** `computer.download`. |
+| `routines.list` `{ botId }` | Each teammate’s recurring jobs. Same matcher as `computer.list`. Pause / create / update / remove patch Query immediately. |
 
 Writes into a query collection (`writeUpsert` / `writeUpdate` / `writeDelete`) go through QueryClient, then into IDB on the next persist throttle. `patchBot({ lastPreview })` is that path.
 
@@ -117,7 +118,6 @@ Writes into a query collection (`writeUpsert` / `writeUpdate` / `writeDelete`) g
 | `orpc.me` | Email, `needsModel`, `needsWorkspace`. Stale `me` would mis-route. |
 | `knowledge.graph` | Derived; cheap GET. |
 | `knowledge.download` / `computer.download` | Binary / base64 blobs. Images and PDFs refetch with 60s stale. |
-| `routines.list` | Computer pane. Memory Query is enough for a session; not the office shell. |
 | `models.get`, `workspaces.members` | Settings. Instant from Query after first fetch; do not put key status or member emails in IndexedDB. |
 
 Tests: `apps/web/src/lib/office-persist.test.ts`. Node has no IndexedDB (`officeCacheEnabled() === false`).
@@ -165,6 +165,7 @@ Other keys (not Query):
 | `groxbot.sideWidth` | Roster column. Drag the list edge. |
 | `groxbot.paneWidth` | Computer / settings / knowledge peek column. Drag the pane edge. |
 | `groxbot.notify.{botId}` | Desktop notify |
+| `groxbot.showToolCalls` | Dev: show `Used tool` / tool-call groups in chat. Off unless `"1"`. Console: `localStorage.setItem("groxbot.showToolCalls","1"); location.reload()` |
 | `sessionStorage` `groxbot.invite` | Invite id across the gate |
 
 Do not put email, tokens, or file bodies in localStorage. Do not put the roster or transcripts there — that is Query + IDB.

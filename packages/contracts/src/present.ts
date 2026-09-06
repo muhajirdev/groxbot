@@ -41,11 +41,11 @@ export const PRESENT_MAX_DEPTH = 8;
 export const PRESENT_MAX_NODES = 80;
 
 export const PRESENT_TOOL_DESCRIPTION = [
-  "Show a glanceable UI in this thread. Args are one JSON tree: `$type` names a component, other keys are props, `children` is an array of objects — never a stringified JSON array.",
+  "Show a glanceable UI in this thread. The tool argument IS the tree: `$type` names a component, other keys are props, `children` is an array of objects — never a stringified JSON array, never wrapped in raw/tree/card.",
   `Allowed $type: ${PRESENT_TYPES.join(", ")}.`,
   'Example: { "$type": "Card", "title": "Q3", "children": [{ "$type": "Fact", "label": "Bookings", "value": "$1.2M" }] }.',
   'After you save a file, present File: { "$type": "File", "path": "notes/q3.md", "place": "computer" } or place "knowledge" for the office library. Image src is an http(s) URL only.',
-  "Use this for facts, a short table, a chart, a saved file, or a choice. Put long notes and drafts in a file on this computer. Keep the chat reply to one short line.",
+  "Use this for facts, a short table, a chart, a saved file, or a choice. Put long notes and drafts in a file on this computer. Keep the chat reply to one short line. If present fails, write markdown — do not retry the same tree.",
 ].join(" ");
 
 export type PresentOk = {
@@ -59,22 +59,23 @@ export type PresentErr = { ok: false; message: string };
 export type PresentResult = PresentOk | PresentErr;
 
 export function runPresent(input: unknown): PresentResult {
-  const tree = sanitizePresentTree(input);
+  const coerced = coercePresentInput(input);
+  const tree = sanitizePresentTree(coerced);
   if (!tree) {
-    if (isRecord(input) && typeof input.$type === "string") {
-      if (!TYPE_SET.has(input.$type)) {
+    if (isRecord(coerced) && typeof coerced.$type === "string") {
+      if (!TYPE_SET.has(coerced.$type)) {
         return {
           ok: false,
-          message: `Unknown present $type “${input.$type}”.`,
+          message: `Unknown present $type “${coerced.$type}”.`,
         };
       }
-      if (input.$type === "Image") {
+      if (coerced.$type === "Image") {
         return {
           ok: false,
           message: "present Image src must be an http(s) URL.",
         };
       }
-      if (input.$type === "File") {
+      if (coerced.$type === "File") {
         return {
           ok: false,
           message: "present File needs an office-root path (no ..).",
@@ -83,7 +84,8 @@ export function runPresent(input: unknown): PresentResult {
     }
     return {
       ok: false,
-      message: "present needs a $type from the office UI vocabulary.",
+      message:
+        'present needs { "$type": "Card", ... } as the argument itself — not wrapped in raw. For a short list, write markdown instead of retrying.',
     };
   }
   return {
@@ -145,7 +147,17 @@ export function presentPreviewFromParts(parts: unknown): string {
   return "";
 }
 
-/** Models often pass `children` as a JSON string. Turn that back into a tree. */
+const PRESENT_WRAPPER_KEYS = [
+  "raw",
+  "tree",
+  "card",
+  "ui",
+  "present",
+  "component",
+  "node",
+] as const;
+
+/** Models wrap the tree, alias `type`, or stringify `children`. Normalize that. */
 export function coercePresentInput(input: unknown): unknown {
   if (typeof input === "string") {
     const parsed = tryParsePresentJson(input);
@@ -172,10 +184,41 @@ export function coercePresentInput(input: unknown): unknown {
     }
     return out;
   }
-  if (isRecord(input) && "children" in input) {
-    return { ...input, children: coercePresentInput(input.children) };
+  if (!isRecord(input)) return input;
+  if (!str(input.$type) && !str(input.type)) {
+    for (const key of PRESENT_WRAPPER_KEYS) {
+      if (!(key in input)) continue;
+      const inner = input[key];
+      if (
+        typeof inner === "string" ||
+        isRecord(inner) ||
+        Array.isArray(inner)
+      ) {
+        return coercePresentInput(inner);
+      }
+    }
   }
-  return input;
+  const next: Record<string, unknown> = { ...input };
+  if (!str(next.$type) && str(next.type)) next.$type = str(next.type);
+  if ("children" in next) next.children = coercePresentInput(next.children);
+  if (!str(next.$type) && looksLikePresentKids(next.children)) {
+    next.$type = "Card";
+  } else if (!str(next.$type) && (next.headers != null || next.cells != null)) {
+    next.$type = "Table";
+  }
+  return next;
+}
+
+function looksLikePresentKids(value: unknown): boolean {
+  const list = Array.isArray(value) ? value : value == null ? [] : [value];
+  if (list.length === 0) return false;
+  return list.some(
+    (item) =>
+      isRecord(item) &&
+      (Boolean(str(item.$type)) ||
+        Boolean(str(item.type)) ||
+        "children" in item),
+  );
 }
 
 export function sanitizePresentTree(
@@ -302,7 +345,13 @@ function clip(value: string, max = 140): string {
 }
 
 function tryParsePresentJson(raw: string): unknown | undefined {
-  const text = raw.trim();
+  let text = raw.trim();
+  if (text.startsWith("```")) {
+    text = text
+      .replace(/^```(?:json)?\s*/iu, "")
+      .replace(/\s*```$/u, "")
+      .trim();
+  }
   if (!text.startsWith("{") && !text.startsWith("[")) return undefined;
   try {
     return JSON.parse(text) as unknown;

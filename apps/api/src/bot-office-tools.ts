@@ -6,8 +6,8 @@ import {
   isComputerMeterTool,
   jsonClone,
   OFFICE_CODE_TOOL_NAME,
+  persistToolPayload,
   resolveAiSdkToolResult,
-  stringifyToolOutput,
 } from "@groxbot/core";
 import { z } from "zod";
 
@@ -40,9 +40,10 @@ export function officeAgentTool(opts: {
       const result = jsonClone(
         await opts.execute(objectArgs(params), { toolCallId, signal }),
       );
+      const persisted = persistToolPayload(result);
       return {
-        content: [{ type: "text", text: stringifyToolOutput(result) }],
-        details: result,
+        content: [{ type: "text", text: persisted.text }],
+        details: persisted.details,
       };
     },
   };
@@ -142,9 +143,10 @@ export function aiToolToPi(name: string, raw: unknown): AgentTool | null {
         }),
         signal,
       );
+      const persisted = persistToolPayload(result);
       return {
-        content: [{ type: "text", text: stringifyToolOutput(result) }],
-        details: result,
+        content: [{ type: "text", text: persisted.text }],
+        details: persisted.details,
       };
     },
   };

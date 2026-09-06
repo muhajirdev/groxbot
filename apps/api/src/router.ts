@@ -668,6 +668,21 @@ export const appRouter = os.router({
         throwRoutineError(error);
       }
     }),
+    update: os.routines.update.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      await getBotThread(context, actor, input.botId);
+      try {
+        if (!context.routines) throw new RoutineError();
+        return await context.routines.update(input.botId, input.id, {
+          name: input.name,
+          prompt: input.prompt,
+          cron: input.cron,
+          timezone: input.timezone,
+        });
+      } catch (error) {
+        throwRoutineError(error);
+      }
+    }),
     pause: os.routines.pause.handler(async ({ context, input }) => {
       const actor = await requireActor(context);
       await getBotThread(context, actor, input.botId);
@@ -689,6 +704,22 @@ export const appRouter = os.router({
       try {
         if (!context.routines) throw new RoutineError();
         return await context.routines.resume(input.botId, input.id);
+      } catch (error) {
+        throwRoutineError(error);
+      }
+    }),
+    run: os.routines.run.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      const { bot } = await getBotThread(context, actor, input.botId);
+      if (bot.archivedAt) {
+        throw new ORPCError("PRECONDITION_FAILED", {
+          message: "This teammate is archived.",
+        });
+      }
+      try {
+        if (!context.routines) throw new RoutineError();
+        await context.routines.run(input.botId, input.id);
+        return { ok: true as const };
       } catch (error) {
         throwRoutineError(error);
       }

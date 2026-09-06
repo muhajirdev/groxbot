@@ -5,6 +5,7 @@ import {
   createComposioGateway,
 } from "@groxbot/adapters/edge";
 import {
+  capToolPayload,
   type ConnectedPluginAccount,
   composioUserId,
   connectedAccountForTool,
@@ -44,7 +45,8 @@ export class PluginsConnector extends CodemodeConnector {
       listed.length
         ? `Accounts this teammate can use: ${listed.join(", ")}.`
         : "No accounts yet.",
-      "Search for a tool slug first. If several accounts of the same app exist, pass account from search into execute.",
+      "Search for a tool slug first with a short query (the connected app name, or a verb like send), not a sentence. If several accounts of the same app exist, pass account from search into execute.",
+      "Execute already returns a compact result. Return that.",
     ].join(" ");
   }
 
@@ -52,7 +54,7 @@ export class PluginsConnector extends CodemodeConnector {
     return {
       search: {
         description:
-          'Search tools on connected plugin accounts. Call plugins.search({ query: "send email" }). A query string is also accepted. Returns slugs and account ids for plugins.execute.',
+          'Search tools on connected plugin accounts. Call plugins.search({ query }) with a short toolkit or verb — sentences match nothing. Returns slugs and account ids for plugins.execute.',
         inputSchema: {
           type: "object",
           properties: {
@@ -86,7 +88,7 @@ export class PluginsConnector extends CodemodeConnector {
       },
       execute: {
         description:
-          'Run a connected plugin tool. Call plugins.execute({ slug: "GMAIL_SEND_EMAIL", arguments: { ... } }). If search listed several accounts, pass account (the id).',
+          'Run a connected plugin tool. Call plugins.execute({ slug, arguments }) with a slug from plugins.search. Returns a compact result. If search listed several accounts, pass account (the id).',
         inputSchema: {
           type: "object",
           properties: {
@@ -114,12 +116,13 @@ export class PluginsConnector extends CodemodeConnector {
             }
             throw new PluginError("No connected account for that plugin tool.");
           }
-          return this.gateway(host).execute({
+          const raw = await this.gateway(host).execute({
             userId: composioUserId(host.workspaceId),
             slug,
             arguments: objectArg(args, "arguments"),
             connectedAccountId,
           });
+          return capToolPayload(raw);
         },
       },
     };

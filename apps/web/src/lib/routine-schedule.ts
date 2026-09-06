@@ -143,6 +143,36 @@ export function formatRoutineWhen(cron: string, timezone: string): string {
   return `${label} · ${timezone.replaceAll("_", " ")}`;
 }
 
+export function formatRoutineNext(iso: string, now = new Date()): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const time = date.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  const sameDay =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+  if (sameDay) return time;
+  return `${date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  })} ${time}`;
+}
+
+export function formatRoutineRow(item: {
+  cron: string;
+  active: boolean;
+  nextRunAt?: string | null;
+}): string {
+  const when = formatRoutineScheduleLabel(item.cron);
+  if (!item.active) return "Paused";
+  if (!item.nextRunAt) return when;
+  const next = formatRoutineNext(item.nextRunAt);
+  return next ? `${when} · ${next}` : when;
+}
+
 export function resolveRoutineTimezone(
   pref: string,
   detected = defaultRoutineTimezone(),

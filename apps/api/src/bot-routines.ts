@@ -54,6 +54,26 @@ export async function resumeBotRoutine(
   return callBotRoutines<Routine>(actors, botId, "/routines/resume", { id });
 }
 
+export async function updateBotRoutine(
+  actors: ActorBinding,
+  botId: string,
+  id: string,
+  input: RoutineCreateBody,
+): Promise<Routine> {
+  return callBotRoutines<Routine>(actors, botId, "/routines/update", {
+    id,
+    ...input,
+  });
+}
+
+export async function runBotRoutine(
+  actors: ActorBinding,
+  botId: string,
+  id: string,
+): Promise<void> {
+  await callBotRoutines(actors, botId, "/routines/run", { id });
+}
+
 export async function removeBotRoutine(
   actors: ActorBinding,
   botId: string,

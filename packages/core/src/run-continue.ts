@@ -99,17 +99,17 @@ export const KNOWLEDGE_EXECUTE_HINT =
   KNOWLEDGE_MARKDOWN_LINK_HINT;
 
 export const ROUTINES_EXECUTE_HINT =
-  "`routines` — this bot’s recurring jobs. `await routines.list()` / `create({ name, prompt, schedule })`. Schedules like `every weekday at 09:00`. Timezone comes from Settings.";
+  "`routines` — this bot’s recurring jobs. `await routines.list()` / `create({ name, prompt, schedule })` / `update({ id, name, prompt, schedule })` / `run({ id })`. Schedules like `every weekday at 09:00`. Timezone comes from Settings.";
 
 export const HISTORY_EXECUTE_HINT =
   "`history` — this office thread. `await history.search({ query })` for older turns the live window may have dropped. Not other teammates, not the knowledge library.";
 
 export const PLUGINS_EXECUTE_HINT =
-  "`plugins` — connected Gmail/Slack/GitHub-style accounts. `await plugins.search({ query })` then `await plugins.execute({ slug, arguments })`. Private accounts stay on the owner’s private teammate. If several accounts of the same app exist, pass `account` from search.";
+  "`plugins` — connected accounts on this workspace. One `await plugins.search({ query })` (short toolkit or verb, not a sentence), then `await plugins.execute({ slug, arguments })`. Return a compact projection. Private accounts stay on the owner’s private teammate. If several accounts of the same app exist, pass `account` from search.";
 
 export function mcpExecuteHint(name: string): string {
   const safe = name.trim() || "mcp";
-  return `\`${safe}\` — connected workspace MCP. \`await ${safe}.<method>(args)\`. Search for methods, then \`await codemode.describe("${safe}.<method>")\`. Do not describe the whole connector.`;
+  return `\`${safe}\` — connected workspace MCP. \`await ${safe}.<method>(args)\`. If this connector is already listed, call it — do not \`codemode.search\` for it. Search for methods, then \`await codemode.describe("${safe}.<method>")\`. Do not describe the whole connector. Return a compact projection from code, never the raw payload.`;
 }
 
 export function withOfficeExecuteDescription(

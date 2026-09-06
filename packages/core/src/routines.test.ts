@@ -185,6 +185,14 @@ describe("MemoryRoutineStore", () => {
     });
     expect(store.list("bot_a")).toHaveLength(1);
     expect(store.setActive("bot_a", created.id, false).active).toBe(false);
+    const updated = store.update("bot_a", created.id, {
+      name: "Morning digest",
+      prompt: "Write the digest.",
+      cron: "every day at 08:00",
+    });
+    expect(updated.name).toBe("Morning digest");
+    expect(updated.schedule).toBe("every day at 08:00");
+    expect(store.get("bot_a", created.id).name).toBe("Morning digest");
     store.remove("bot_a", created.id);
     expect(store.list("bot_a")).toEqual([]);
     expect(() => store.remove("bot_a", created.id)).toThrow(

@@ -37,6 +37,9 @@ const CATALOG_KEYS = new Set([
 const COMPUTER_LIST_KEY_PREFIX = queryKeyWithoutFileInput(
   orpc.computer.list.queryOptions({ input: { botId: "_" } }).queryKey,
 );
+const ROUTINES_LIST_KEY_PREFIX = queryKeyWithoutFileInput(
+  orpc.routines.list.queryOptions({ input: { botId: "_" } }).queryKey,
+);
 const COMPUTER_READ_KEY_PREFIX = queryKeyWithoutFileInput(
   orpc.computer.read.queryOptions({
     input: { botId: "_", path: "_" },
@@ -48,6 +51,10 @@ const KNOWLEDGE_READ_KEY_PREFIX = queryKeyWithoutFileInput(
 
 export function isComputerListQueryKey(queryKey: readonly unknown[]): boolean {
   return queryKeyWithoutFileInput(queryKey) === COMPUTER_LIST_KEY_PREFIX;
+}
+
+export function isRoutinesListQueryKey(queryKey: readonly unknown[]): boolean {
+  return queryKeyWithoutFileInput(queryKey) === ROUTINES_LIST_KEY_PREFIX;
 }
 
 export function isComputerReadQueryKey(queryKey: readonly unknown[]): boolean {
@@ -72,6 +79,7 @@ export function shouldDehydrateOfficeQuery(query: {
     return true;
   }
   if (isComputerListQueryKey(query.queryKey)) return true;
+  if (isRoutinesListQueryKey(query.queryKey)) return true;
   if (
     isKnowledgeReadQueryKey(query.queryKey) ||
     isComputerReadQueryKey(query.queryKey)

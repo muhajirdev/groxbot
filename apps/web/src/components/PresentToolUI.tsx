@@ -141,10 +141,11 @@ const officeLibrary = {
 export function PresentSurface(props: {
   tree: unknown;
   streaming?: boolean;
+  empty?: ReactNode;
 }): ReactNode {
   const coerced = coercePresentInput(props.tree);
   const tree = props.streaming ? coerced : sanitizePresentTree(coerced);
-  if (!tree || typeof tree !== "object") return null;
+  if (!tree || typeof tree !== "object") return props.empty ?? null;
   return (
     <div data-aui="root" data-slot="office-present">
       {renderGenerativeUI(tree, officeLibrary, {
@@ -158,6 +159,19 @@ export const PresentToolUI = makeAssistantToolUI({
   toolName: PRESENT_TOOL_NAME,
   display: "standalone",
   render: ({ args, status }) => (
-    <PresentSurface tree={args} streaming={status?.type !== "complete"} />
+    <PresentSurface
+      tree={args}
+      streaming={status?.type !== "complete"}
+      empty={
+        <p
+          data-slot="office-present-status"
+          className="text-muted-foreground py-1.5 text-sm"
+        >
+          {status?.type !== "complete"
+            ? "Composing a card…"
+            : "Couldn’t compose that card"}
+        </p>
+      }
+    />
   ),
 });
