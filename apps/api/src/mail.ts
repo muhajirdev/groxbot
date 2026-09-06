@@ -17,7 +17,11 @@ export interface MailEnv {
   emailFrom?: string;
   emailBinding?: boolean;
   email?: SendEmailBinding;
+  accessRequestTo?: string;
 }
+
+/** Hosted groxbot.com access requests. Not the public hello@ mailbox. */
+export const DEFAULT_ACCESS_REQUEST_TO = "muhajir@expandra.ai";
 
 export interface Mailer {
   kind: MailKind;
@@ -120,6 +124,36 @@ function escapeHtml(value: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+export async function sendAccessRequestMail(
+  env: MailEnv,
+  input: { email: string; name: string; note: string },
+): Promise<void> {
+  const fromRaw = env.emailFrom?.trim() ?? "";
+  const to = env.accessRequestTo?.trim() || DEFAULT_ACCESS_REQUEST_TO;
+  const email = input.email.trim();
+  const name = input.name.trim() || "—";
+  const note = input.note.trim() || "—";
+  const subject = `Access request: ${email}`;
+  const text = `Someone requested Groxbot access.\n\nName: ${name}\nEmail: ${email}\nNote: ${note}\n`;
+  const html = `<p>Someone requested Groxbot access.</p><p>Name: ${escapeHtml(name)}<br>Email: ${escapeHtml(email)}<br>Note: ${escapeHtml(note)}</p>`;
+  if (env.email && fromRaw) {
+    await env.email.send({
+      to,
+      from: bindingFrom(fromRaw),
+      subject,
+      text,
+      html,
+    });
+    return;
+  }
+  if (env.production) {
+    throw new Error(
+      "Access requests need the EMAIL Worker binding and EMAIL_FROM.",
+    );
+  }
+  console.info(`[groxbot] Access request for ${to}:\n${text}`);
 }
 
 /** Teammate ping after a long office turn. Not a digest. */

@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Landing } from "../components/Landing";
-import { appLoginUrl } from "../lib/app-url";
+import { appAccessUrl } from "../lib/app-url";
 import { FAQS } from "../lib/copy";
 import { faqJsonLd, organizationJsonLd, softwareJsonLd } from "../lib/json-ld";
 import { DEFAULT_DESCRIPTION, DEFAULT_TITLE, seoHead } from "../lib/site";
 
 export const Route = createFileRoute("/")({
-  loader: () => ({ startUrl: appLoginUrl() }),
+  loader: () => ({ startUrl: appAccessUrl() }),
   head: () =>
     seoHead({
       title: DEFAULT_TITLE,

@@ -8,7 +8,7 @@ import {
 import { Breadcrumbs, SiteChrome } from "../../components/SiteChrome";
 import { UseCaseApps } from "../../components/UseCaseApps";
 import { getUseCase, relatedUseCases } from "../../data/use-cases";
-import { appLoginUrl } from "../../lib/app-url";
+import { appAccessUrl } from "../../lib/app-url";
 import { getIntegration } from "../../lib/integrations";
 import { useCaseJsonLd } from "../../lib/json-ld";
 import { seoHead } from "../../lib/site";
@@ -17,7 +17,7 @@ export const Route = createFileRoute("/use-cases/$slug")({
   loader: ({ params }) => {
     const item = getUseCase(params.slug);
     if (!item) throw notFound();
-    return { startUrl: appLoginUrl(), item };
+    return { startUrl: appAccessUrl(), item };
   },
   head: ({ loaderData }) => {
     if (!loaderData?.item) return {};
@@ -62,7 +62,7 @@ function UseCasePage() {
           />
           <div className="row mt-1">
             <a className="btn lg" href={startUrl}>
-              Get started
+              Request access
             </a>
           </div>
         </section>
@@ -110,8 +110,8 @@ function UseCasePage() {
           <section className="py-2 pb-12">
             <h2>Tools this job uses</h2>
             <p className="lede tight">
-              Connect them when the Bot hits a wall. Nothing goes live until
-              you say so.
+              Connect them when the Bot hits a wall. Nothing goes live until you
+              say so.
             </p>
             <div className="chips !my-1 !mb-0">
               {integrations.map((row) => (
@@ -180,7 +180,7 @@ function UseCasePage() {
             message is a real task.
           </p>
           <a className="btn lg" href={startUrl}>
-            Get started
+            Request access
           </a>
         </section>
       </main>

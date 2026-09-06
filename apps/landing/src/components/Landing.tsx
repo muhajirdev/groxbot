@@ -18,6 +18,7 @@ import { HOME_INTEGRATIONS } from "../lib/teasers";
 import { DemoThread } from "./DemoThread";
 import { OfficePreview } from "./OfficePreview";
 import { PersonFace } from "./PersonFace";
+import { RequestAccessForm } from "./RequestAccess";
 import { SiteChrome } from "./SiteChrome";
 
 export function Landing(props: { startUrl: string }) {
@@ -40,14 +41,7 @@ export function Landing(props: { startUrl: string }) {
           <p className="thesis">
             Self-host it, or use groxbot.com. No workflow builder.
           </p>
-          <div className="row">
-            <a className="btn lg" href={props.startUrl}>
-              Get started
-            </a>
-            <a className="btn ghost" href={CONTACT_MAILTO}>
-              Email
-            </a>
-          </div>
+          <RequestAccessForm />
         </section>
 
         <OfficePreview />
@@ -343,7 +337,7 @@ export function Landing(props: { startUrl: string }) {
             Name it. Open the thread. Give it a real task.
           </p>
           <a className="btn lg" href={props.startUrl}>
-            Get started
+            Request access
           </a>
         </section>
       </main>

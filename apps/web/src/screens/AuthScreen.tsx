@@ -6,7 +6,7 @@ import { GateMark, GateShell } from "../components/Gate";
 import { GoogleIcon } from "../components/Icons";
 import { authClient } from "../lib/auth";
 import { userFacingError } from "../lib/errors";
-import { apiOrigin, officeUrl } from "../lib/host";
+import { apiOrigin, landingOrigin, officeUrl } from "../lib/host";
 import { readRememberedInvite, rememberInvite } from "../lib/invite";
 import { orpc } from "../lib/orpc";
 import { Field, Input } from "../ui";
@@ -121,14 +121,14 @@ export function AuthScreen(props: { errorFromUrl?: string; invite?: string }) {
     ? `Join ${peek.organizationName}.`
     : invite
       ? "Join a workspace."
-      : "Get started";
+      : "Sign in";
   const lede = peek
     ? `You've been invited as ${peek.email}.`
     : invite
       ? peekQuery.isError || peekQuery.data === null
         ? "That invite is missing or expired. Sign in, then paste a new one."
         : "Sign in to join the workspace you were invited to."
-      : "Named AI teammates you message like people. Each has a real computer. The whole team sits in one office.";
+      : "Already have a seat? Sign in. Hosted groxbot.com is request-access for now.";
 
   return (
     <GateShell>
@@ -216,9 +216,12 @@ export function AuthScreen(props: { errorFromUrl?: string; invite?: string }) {
                 Use a different email
               </button>
             ) : (
-              <Link to="/" viewTransition>
-                Back
-              </Link>
+              <>
+                <a href={`${landingOrigin()}/#access`}>Request access</a>
+                <Link to="/" viewTransition>
+                  Back
+                </Link>
+              </>
             )}
           </div>
         </div>

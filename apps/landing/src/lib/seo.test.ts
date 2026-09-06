@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { INDIE_INTEGRATIONS } from "../data/indie-integrations";
 import { USE_CASES } from "../data/use-cases";
 import { categoryFamily } from "./category-copy";
-import { FOOTER_BLURB, TAGLINE, THESES, WHAT } from "./copy";
+import { FAQS, FOOTER_BLURB, TAGLINE, THESES, WHAT } from "./copy";
 import { DISCOVERY_SITEMAP_PATHS, landingLlmsTxt } from "./discovery";
 import {
   computerIntegrations,
@@ -254,5 +254,10 @@ describe("llms discovery", () => {
     ]);
     expect(THESES[3]?.why).toMatch(/anytime, anywhere/);
     expect(THESES[3]?.why).toMatch(/good decisions and good ideas/);
+  });
+
+  it("gates hosted signup behind request access", () => {
+    expect(FAQS.some((item) => /invite-only/i.test(item.q))).toBe(true);
+    expect(landingLlmsTxt()).toMatch(/Request access/);
   });
 });

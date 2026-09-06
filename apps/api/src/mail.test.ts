@@ -3,8 +3,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   cloudflareMailConfigured,
   createMailer,
+  DEFAULT_ACCESS_REQUEST_TO,
   mailFrom,
   parseFrom,
+  sendAccessRequestMail,
   sendAwayOfficeMail,
 } from "./mail.js";
 
@@ -146,5 +148,26 @@ describe("sendAwayOfficeMail", () => {
     expect(String(send.mock.calls[0]?.[0]?.html)).toContain(
       "&lt;script&gt;x&lt;/script&gt;",
     );
+  });
+});
+
+describe("sendAccessRequestMail", () => {
+  it("mails the founder inbox", async () => {
+    const send = vi.fn(async () => ({ messageId: "msg_access" }));
+    await sendAccessRequestMail(
+      {
+        emailFrom: "Groxbot <noreply@mail.groxbot.com>",
+        email: { send },
+      },
+      {
+        email: "maya@acme.com",
+        name: "Maya",
+        note: "Need a CoS",
+      },
+    );
+    expect(send.mock.calls[0]?.[0]).toMatchObject({
+      to: DEFAULT_ACCESS_REQUEST_TO,
+      subject: "Access request: maya@acme.com",
+    });
   });
 });

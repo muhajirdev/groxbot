@@ -1,4 +1,5 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { landingOrigin } from "../lib/host";
 import { orpc } from "../lib/orpc";
 import { redirectAuthedHome } from "../lib/session";
 import { Welcome } from "../screens/Welcome";
@@ -29,9 +30,14 @@ function WelcomePage() {
   return (
     <Welcome
       start={
-        <Link to="/login" viewTransition className="btn lg">
-          Get started
-        </Link>
+        <>
+          <a className="btn lg" href={`${landingOrigin()}/#access`}>
+            Request access
+          </a>
+          <Link to="/login" viewTransition className="btn ghost">
+            Sign in
+          </Link>
+        </>
       }
     />
   );

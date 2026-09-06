@@ -41,6 +41,7 @@ export interface Env {
   hostedAiBinding?: boolean;
   emailBinding?: boolean;
   emailFrom?: string;
+  accessRequestTo?: string;
   encryptionKey?: string;
   composioApiKey?: string;
   tinyfishApiKey?: string;
@@ -112,6 +113,7 @@ export type EnvStrings = {
   CLOUDFLARE_API_TOKEN?: string;
   CLOUDFLARE_AI_GATEWAY_ID?: string;
   EMAIL_FROM?: string;
+  ACCESS_REQUEST_TO?: string;
   ENCRYPTION_KEY?: string;
   COMPOSIO_API_KEY?: string;
   TINYFISH_API_KEY?: string;
@@ -182,6 +184,7 @@ export function loadEnv(source: EnvStrings): Env {
     cloudflareAiGatewayId:
       read(source, "CLOUDFLARE_AI_GATEWAY_ID")?.trim() || undefined,
     emailFrom: read(source, "EMAIL_FROM"),
+    accessRequestTo: read(source, "ACCESS_REQUEST_TO")?.trim() || undefined,
     encryptionKey: read(source, "ENCRYPTION_KEY"),
     composioApiKey: read(source, "COMPOSIO_API_KEY")?.trim() || undefined,
     tinyfishApiKeys,

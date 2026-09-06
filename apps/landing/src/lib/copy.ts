@@ -195,6 +195,10 @@ export const FAQS = [
     a: "Self-host and the office stays in your Postgres and sandboxes — groxbot.com never sees it. Hosted stores it for you. Either way, a Bot talking to a model sends the prompt to the provider behind your key. Pick one with a zero-retention agreement if you need that. We do not claim zero retention: the office is meant to remember.",
   },
   {
+    q: "Is groxbot.com invite-only?",
+    a: "Hosted groxbot.com is request-access for now. Fill in the form on the homepage. We’ll email you. Self-host for your own team is still free on GitHub. If you already have a seat, sign in.",
+  },
+  {
     q: "How do I talk to a person?",
     a: `Email ${CONTACT_EMAIL}. GitHub issues for the source. The office is for the product — this mailbox is for you.`,
   },

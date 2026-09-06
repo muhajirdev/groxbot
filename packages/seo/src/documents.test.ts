@@ -115,4 +115,10 @@ describe("discovery documents", () => {
     expect(faqAiTxt(origins)).toContain(GROXBOT_WHAT);
     expect(identityJson(origins).slogan).toBe(GROXBOT_WHAT);
   });
+
+  it("points hosted signup at request access, not open login", () => {
+    expect(faqAiTxt(origins)).toMatch(/How do I get into groxbot.com/i);
+    expect(llmsTxt(origins)).toMatch(/Request access/);
+    expect(llmsTxt(origins)).toContain(`${CLOUD_LANDING_ORIGIN}/#access`);
+  });
 });

@@ -12,6 +12,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
+import { mountAccessRequest } from "./access.js";
 import type { RpcContext } from "./context.js";
 import { mountDiscovery } from "./discovery.js";
 import { DURABLE_OBJECT_WAKEUP, type Env, oauthCredentials } from "./env.js";
@@ -63,7 +64,8 @@ export function createApp(
   },
 ): AppHandles {
   const oauth = oauthCredentials(env);
-  const mail = createMailer({ ...env, email: opts.email });
+  const mailEnv = { ...env, email: opts.email };
+  const mail = createMailer(mailEnv);
   const auth = createAuth(opts.db, {
     secret: env.authSecret,
     baseURL: env.authUrl,
@@ -112,6 +114,7 @@ export function createApp(
   mountRpc(app, handles);
   mountDiscovery(app, env.webOrigin);
   mountPublicKnowledge(app, { db: opts.db, disk: opts.knowledgeDisk });
+  mountAccessRequest(app, mailEnv);
 
   app.get("/avatars/:userId", async (c) => {
     const disk = handles.avatars;
