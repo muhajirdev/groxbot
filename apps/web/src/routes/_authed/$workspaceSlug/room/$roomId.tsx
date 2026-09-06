@@ -1,5 +1,4 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { OFFICE_TO, officeParams } from "../../../../lib/office-route";
 import { officeSearch } from "../../../../lib/office-search";
 import {
   loadOfficeRoomCatalog,
