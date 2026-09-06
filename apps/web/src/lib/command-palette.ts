@@ -37,7 +37,7 @@ export const PALETTE_ACTIONS = [
     id: "hire",
     label: "New bot",
     shortcut: "Mod+N",
-    keywords: ["new", "hire", "create", "bot", "teammate"],
+    keywords: ["new", "hire", "create", "bot", "teammate", "marketplace", "role"],
   },
   {
     id: "room",
@@ -86,6 +86,12 @@ export const PALETTE_ACTIONS = [
     label: "Skills",
     shortcut: "",
     keywords: ["skills", "playbook", "skill"],
+  },
+  {
+    id: "skills-store",
+    label: "Skills store",
+    shortcut: "",
+    keywords: ["skills", "store", "marketplace", "playbook", "install", "import"],
   },
   {
     id: "workspace",

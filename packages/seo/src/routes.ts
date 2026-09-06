@@ -14,7 +14,7 @@ import {
   robotsTxt,
   sitemapXml,
 } from "./documents.js";
-import type { DiscoveryOrigins } from "./identity.js";
+import { type DiscoveryOrigins, GROXBOT_OG_PATH } from "./identity.js";
 import {
   apiCatalog,
   handleMcpRpc,
@@ -139,6 +139,7 @@ export function discoveryLinkHeader(origins: DiscoveryOrigins): string {
     `<${web}/llms.txt>; rel="describedby"; type="text/plain"`,
     `<${web}/index.md>; rel="alternate"; type="text/markdown"`,
     `<${web}/.well-known/mcp.json>; rel="describedby"; type="application/json"`,
+    `<${web}${GROXBOT_OG_PATH}>; rel="preview"; type="image/png"`,
   ].join(", ");
 }
 

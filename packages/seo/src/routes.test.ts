@@ -34,6 +34,14 @@ describe("discovery routes", () => {
     expect(lookupDiscovery("/mcp.json", origins)?.body).toContain(
       "io.groxbot/docs",
     );
+    expect(lookupDiscovery("/mcp.json", origins)?.body).toContain("/icon.png");
+    expect(mcpGetResponse("text/html", origins).body).toContain(
+      'property="og:image"',
+    );
+    expect(mcpGetResponse("text/html", origins).body).toContain("/og.png");
+    expect(mcpGetResponse("text/html", origins).body).toContain(
+      "summary_large_image",
+    );
   });
 
   it("answers MCP initialize and product-info tools", () => {

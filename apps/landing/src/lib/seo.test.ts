@@ -1,12 +1,16 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { INDIE_INTEGRATIONS } from "../data/indie-integrations";
 import { USE_CASES } from "../data/use-cases";
 import { categoryFamily } from "./category-copy";
-import { FOOTER_BLURB, TAGLINE, THESES } from "./copy";
-import { DISCOVERY_SITEMAP_PATHS, landingLlmsTxt } from "./discovery";
+import { FOOTER_BLURB, HERO_PITCH, TAGLINE, THESES } from "./copy";
+import {
+  DISCOVERY_SITEMAP_PATHS,
+  discoveryResponse,
+  landingLlmsTxt,
+} from "./discovery";
 import {
   computerIntegrations,
   getIntegration,
@@ -15,7 +19,12 @@ import {
   relatedIntegrations,
   searchIntegrations,
 } from "./integrations";
-import { canonicalUrl, DEFAULT_DESCRIPTION, DEFAULT_TITLE } from "./site";
+import {
+  canonicalUrl,
+  DEFAULT_DESCRIPTION,
+  DEFAULT_TITLE,
+  seoHead,
+} from "./site";
 import { sitemapEntries, sitemapXml } from "./sitemap";
 import { slugify } from "./slug";
 
@@ -151,6 +160,8 @@ describe("sitemap", () => {
     );
     expect(xml).toContain(canonicalUrl("/compare/grok-bot-vs-hermes"));
     expect(xml).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+    expect(xml).toContain("xmlns:image=");
+    expect(xml).toContain(canonicalUrl("/og.png"));
   });
 });
 
@@ -159,9 +170,7 @@ describe("compare pages", () => {
     const { COMPARE_PAGES, FEATURE_ROWS, getComparePage } = await import(
       "../data/compare"
     );
-    const page = getComparePage(
-      "grok-bot-vs-hermes-vs-openclaw-vs-paperclip",
-    );
+    const page = getComparePage("grok-bot-vs-hermes-vs-openclaw-vs-paperclip");
     expect(page).toBeDefined();
     expect(COMPARE_PAGES).toHaveLength(7);
     expect(COMPARE_PAGES.map((item) => item.slug)).toEqual(
@@ -195,9 +204,9 @@ describe("compare pages", () => {
         "Self-improving organization",
       ]),
     );
-    expect(FEATURE_ROWS.find((row) => row.label === "Multiplayer")?.values.groxbot).toBe(
-      true,
-    );
+    expect(
+      FEATURE_ROWS.find((row) => row.label === "Multiplayer")?.values.groxbot,
+    ).toBe(true);
     expect(
       FEATURE_ROWS.find((row) => row.label === "Shared knowledge base")?.values
         .hermes,
@@ -230,14 +239,34 @@ describe("llms discovery", () => {
     expect(txt).toContain("/use-cases/");
     expect(txt).toContain("/compare/");
     expect(txt).toContain("/press");
+    expect(txt).toContain("/og.png");
   });
 
   it("leads public copy with AI is better together", () => {
     expect(TAGLINE).toBe("AI is better together");
-    expect(DEFAULT_TITLE).toBe("Groxbot — AI is better together");
-    expect(DEFAULT_DESCRIPTION).toMatch(/^AI is better together\./);
+    expect(HERO_PITCH).toBe("Multiplayer. Open source.");
+    expect(DEFAULT_TITLE).toBe("Multiplayer. Open source. | Groxbot");
+    expect(DEFAULT_DESCRIPTION).toMatch(/^Multiplayer\. Open source\./);
     expect(FOOTER_BLURB).toMatch(/^AI is better together\./);
     expect(landingLlmsTxt()).toContain("AI is better together");
+  });
+
+  it("points the homepage at the compare pages", async () => {
+    const { COMPARE, COMPARE_LINKS, COMPARE_CALLOUT } = await import("./copy");
+    expect(COMPARE.map((item) => item.name)).toEqual([
+      "OpenClaw / Hermes",
+      "Paperclip",
+      "Grok Bot",
+      "Groxbot",
+    ]);
+    expect(COMPARE.some((item) => item.ours)).toBe(true);
+    expect(COMPARE_CALLOUT.title).toMatch(/Hermes.*OpenClaw.*Paperclip/i);
+    expect(COMPARE_LINKS.map((link) => link.slug)).toEqual([
+      "grok-bot-vs-hermes-vs-openclaw-vs-paperclip",
+      "grok-bot-vs-hermes",
+      "grok-bot-vs-openclaw",
+      "grok-bot-vs-paperclip",
+    ]);
   });
 
   it("gives each landing thesis its own section headline", () => {
@@ -255,5 +284,79 @@ describe("llms discovery", () => {
     ]);
     expect(THESES[3]?.why).toMatch(/anytime, anywhere/);
     expect(THESES[3]?.why).toMatch(/good decisions and good ideas/);
+  });
+});
+
+describe("open graph", () => {
+  it("emits a 1200x630 PNG share card on every public page", () => {
+    const head = seoHead({
+      title: DEFAULT_TITLE,
+      description: DEFAULT_DESCRIPTION,
+      path: "/",
+    });
+    const image = head.meta.find((item) => item.property === "og:image");
+    expect(image?.content).toBe(canonicalUrl("/og.png"));
+    expect(
+      head.meta.find((item) => item.property === "og:image:width")?.content,
+    ).toBe("1200");
+    expect(
+      head.meta.find((item) => item.property === "og:image:height")?.content,
+    ).toBe("630");
+    expect(
+      head.meta.find((item) => item.name === "twitter:card")?.content,
+    ).toBe("summary_large_image");
+    expect(
+      head.meta.find((item) => item.name === "twitter:image")?.content,
+    ).toBe(canonicalUrl("/og.png"));
+    expect(head.links.some((item) => item.rel === "icon")).toBe(true);
+    expect(
+      head.links.some(
+        (item) => item.rel === "icon" && item.href === "/favicon.ico",
+      ),
+    ).toBe(true);
+    expect(
+      head.links.some(
+        (item) => item.rel === "icon" && item.href === "/favicon.svg",
+      ),
+    ).toBe(true);
+    expect(head.links.some((item) => item.rel === "apple-touch-icon")).toBe(
+      true,
+    );
+  });
+
+  it("keeps shared notes out of the index", () => {
+    const head = seoHead({
+      title: "Notes",
+      description: "A shared office note.",
+      path: "/s/abc",
+      robots: "noindex, nofollow",
+    });
+    expect(head.meta.find((item) => item.name === "robots")?.content).toBe(
+      "noindex, nofollow",
+    );
+    expect(head.links.some((item) => item.rel === "describedby")).toBe(false);
+    expect(
+      head.meta.find((item) => item.property === "og:image")?.content,
+    ).toBe(canonicalUrl("/og.png"));
+  });
+});
+
+describe("MCP well-known discovery", () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+
+  it("serves the server card for /.well-known/mcp.json", async () => {
+    const res = discoveryResponse("/.well-known/mcp.json");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("application/json");
+    expect(await res.text()).toContain("streamable-http");
+  });
+
+  it("registers well-known MCP routes in the generated route tree", () => {
+    const tree = readFileSync(join(here, "../routeTree.gen.ts"), "utf8");
+    expect(tree).toContain("/.well-known/mcp.json");
+    expect(tree).toContain("/.well-known/mcp'");
+    expect(tree).toContain("/.well-known/mcp/server-card.json");
+    expect(tree).toContain("/.well-known/api-catalog");
+    expect(tree).not.toContain("routes/.well-known/");
   });
 });

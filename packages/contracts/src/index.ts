@@ -1,5 +1,6 @@
 export * from "./admin.js";
 export * from "./billing.js";
+export * from "./bot-marketplace.js";
 export * from "./domain.js";
 export * from "./events.js";
 export * from "./ids.js";
@@ -9,3 +10,4 @@ export * from "./office-user.js";
 export * from "./origins.js";
 export * from "./present.js";
 export * from "./rpc.js";
+export * from "./skills-store.js";

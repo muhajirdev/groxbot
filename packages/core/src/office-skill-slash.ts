@@ -55,6 +55,7 @@ export const OFFICE_SKILL_CATALOG_INSTRUCTIONS = [
   "The following skills provide specialized instructions for specific tasks.",
   "When a task matches a skill's description, load the SKILL.md at the listed location with knowledge.read({ path }) inside code before proceeding.",
   "When a skill references relative paths, resolve them against the skill directory (the parent of SKILL.md) in the office library.",
+  "To find more playbooks, search the curated store with skills_store.search inside code, then skills_store.install({ id }) (needs approval). Installed skills appear here on the next turn.",
 ].join(" ");
 
 export function formatAvailableSkillsXml(

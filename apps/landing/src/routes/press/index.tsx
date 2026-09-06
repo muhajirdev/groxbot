@@ -58,7 +58,11 @@ function PressPage() {
             The name is one word, capital G.
           </p>
           <div className="row">
-            <a className="btn" href={pressAssetHref("groxbot-mark.svg")} download>
+            <a
+              className="btn"
+              href={pressAssetHref("groxbot-mark.svg")}
+              download
+            >
               Download mark
             </a>
             <a className="btn ghost" href="/press.md">
@@ -144,16 +148,18 @@ function PressPage() {
           <section className="py-2">
             <p className="kicker">Logos</p>
             <h2 className="!mb-2.5 !text-[clamp(28px,4.2vw,40px)]">
-              SVG only. Do not recolor the face.
+              SVG for print. PNG for crawlers.
             </h2>
             <p className="lede tight !mb-5">
               Keep the mascot pink. Two slits, no mouth, no photoreal head. Do
               not add drop shadows or outlines. Wordmark type is Source Sans 3,
-              same as the site.
+              same as the site. Link previews use the 1200×630 PNG at{" "}
+              <a href="/og.png">/og.png</a>.
             </p>
             <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
               {PRESS_ASSETS.map((asset) => {
                 const light = asset.file.includes("light");
+                const og = asset.file.includes("-og.");
                 return (
                   <article
                     key={asset.file}
@@ -162,18 +168,30 @@ function PressPage() {
                       light
                         ? "bg-[#f4f4f4] text-[#171614] [&_.kicker]:text-[#6b675f] [&_p]:text-[#6b675f] [&_.btn.ghost]:border-current [&_.btn.ghost]:text-inherit"
                         : "bg-[var(--card)]",
+                      og && "md:col-span-2",
                     )}
                   >
                     <LogoPreview file={asset.file} label={asset.label} />
                     <p className="kicker !m-0">{asset.label}</p>
                     <p className="!m-0 text-sm leading-relaxed">{asset.note}</p>
-                    <a
-                      className="btn ghost"
-                      href={pressAssetHref(asset.file)}
-                      download={asset.file}
-                    >
-                      Download SVG
-                    </a>
+                    <div className="row !m-0">
+                      <a
+                        className="btn ghost"
+                        href={pressAssetHref(asset.file)}
+                        download={asset.file}
+                      >
+                        Download SVG
+                      </a>
+                      {og ? (
+                        <a
+                          className="btn ghost"
+                          href="/og.png"
+                          download="groxbot-og.png"
+                        >
+                          Download PNG
+                        </a>
+                      ) : null}
+                    </div>
                   </article>
                 );
               })}
@@ -221,8 +239,8 @@ function PressPage() {
           <p className="kicker">Contact</p>
           <h2>Press: {CONTACT_EMAIL}</h2>
           <p className="lede tight">
-            That mailbox is for press and people. GitHub for the source.
-            Naming rules for machines: <a href="/brand.txt">/brand.txt</a>.
+            That mailbox is for press and people. GitHub for the source. Naming
+            rules for machines: <a href="/brand.txt">/brand.txt</a>.
           </p>
           <div className="row">
             <a className="btn" href={CONTACT_MAILTO}>
@@ -250,6 +268,7 @@ function LogoPreview(props: { file: string; label: string }) {
   const light = props.file.includes("light");
   const framed = props.file.includes("dark") || light;
   const lockup = props.file.includes("lockup");
+  const og = props.file.includes("-og.");
 
   return (
     <div
@@ -258,28 +277,26 @@ function LogoPreview(props: { file: string; label: string }) {
         framed && "rounded-[28px] p-6",
         light && "bg-[#f4f4f4]",
         framed && !light && "bg-black",
+        og && "min-h-[180px] rounded-[18px] bg-black p-0",
       )}
+      role="img"
       aria-label={props.label}
     >
-      {lockup ? (
+      {og ? (
+        <img
+          src={pressAssetHref(props.file)}
+          alt={props.label}
+          className="h-auto w-full rounded-[18px]"
+        />
+      ) : lockup ? (
         <span className="inline-flex items-center gap-3.5">
-          <MascotMark
-            name="Groxbot"
-            color="#e45c9a"
-            shape="circle"
-            size="lg"
-          />
+          <MascotMark name="Groxbot" color="#e45c9a" shape="circle" size="lg" />
           <span className="text-[28px] font-semibold tracking-[-0.02em]">
             Groxbot
           </span>
         </span>
       ) : (
-        <MascotMark
-          name="Groxbot"
-          color="#e45c9a"
-          shape="circle"
-          size="lg"
-        />
+        <MascotMark name="Groxbot" color="#e45c9a" shape="circle" size="lg" />
       )}
     </div>
   );

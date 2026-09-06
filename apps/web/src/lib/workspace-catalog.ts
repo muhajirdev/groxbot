@@ -6,6 +6,7 @@ import type {
   PluginConnection,
   Room,
   SidebarSection,
+  Workspace,
   WorkspaceApp,
 } from "@groxbot/contracts";
 import {
@@ -21,6 +22,7 @@ import {
   sectionsCollection,
 } from "./collections";
 import { OFFICE_MESSAGES_GC_TIME } from "./office-messages";
+import { workspaceListQueryOptions } from "./office-persist";
 import { orpc, queryClient } from "./orpc";
 import { client } from "./rpc";
 import {
@@ -220,6 +222,25 @@ export function patchMeWorkspace(workspace: {
       };
     },
   );
+}
+
+/** Keep `workspaces.list` current so the office URL does not bounce to onboarding. */
+export function rememberListedWorkspace(workspace: {
+  id?: string | null;
+  name?: string | null;
+  slug?: string | null;
+}): void {
+  const id = workspace.id?.trim() || "";
+  const name = workspace.name?.trim() || "";
+  const slug = workspace.slug?.trim() || "";
+  if (!id || !name || !slug) return;
+  const key = workspaceListQueryOptions().queryKey;
+  const current = queryClient.getQueryData<Workspace[]>(key) ?? [];
+  const row = { id, name, slug };
+  const next = current.some((item) => item.id === id)
+    ? current.map((item) => (item.id === id ? row : item))
+    : [...current, row];
+  queryClient.setQueryData(key, next);
 }
 
 export function workspaceSwitchDestination(

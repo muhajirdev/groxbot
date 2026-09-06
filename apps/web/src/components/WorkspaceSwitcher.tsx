@@ -8,6 +8,7 @@ import { workspaceListQueryOptions } from "../lib/office-persist";
 import { client } from "../lib/rpc";
 import { setRpcWorkspaceId } from "../lib/rpc-workspace";
 import { enterActiveWorkspace } from "../lib/session";
+import { rememberListedWorkspace } from "../lib/workspace-catalog";
 import {
   readCachedWorkspace,
   resolveWorkspace,
@@ -77,6 +78,7 @@ export function WorkspaceSwitcher(props: {
     setCreateError(null);
     try {
       const created = await client.workspaces.create({ name });
+      rememberListedWorkspace(created);
       setRpcWorkspaceId(created.id);
       writeCachedWorkspace(created);
       setCached(created);

@@ -1,11 +1,15 @@
-import { mascotMarkElements, mascotMarkSvg } from "@groxbot/mascot";
-import { PRESS_ASSETS } from "@groxbot/seo";
+import { mascotMarkElements, mascotMarkSvg } from "@groxbot/mascot/svg";
+import {
+  GROXBOT_OG_ALT,
+  GROXBOT_OG_HEIGHT,
+  GROXBOT_OG_WIDTH,
+  PRESS_ASSETS,
+} from "@groxbot/seo";
 
 /** Bump when the mark geometry changes so browsers drop stale /press/*.svg. */
 export const PRESS_ASSET_VERSION = "slit-2026-08-17";
 
-const FONT =
-  "'Source Sans 3', 'Segoe UI', system-ui, sans-serif";
+const FONT = "'Source Sans 3', 'Segoe UI', system-ui, sans-serif";
 
 function framedMark(bg: string, paintId: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -30,6 +34,25 @@ function lockup(theme: "dark" | "light"): string {
 `;
 }
 
+export function iconTileSvg(bg = "#000000"): string {
+  return framedMark(bg, "groxbot-icon-tile");
+}
+
+export function ogCardSvg(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${GROXBOT_OG_WIDTH}" height="${GROXBOT_OG_HEIGHT}" viewBox="0 0 ${GROXBOT_OG_WIDTH} ${GROXBOT_OG_HEIGHT}" role="img">
+  <title>${GROXBOT_OG_ALT}</title>
+  <rect width="${GROXBOT_OG_WIDTH}" height="${GROXBOT_OG_HEIGHT}" fill="#000000" />
+  <ellipse cx="300" cy="315" rx="300" ry="250" fill="#e45c9a" opacity="0.14" />
+  <g transform="translate(108 147) scale(3.36)">${mascotMarkElements({ paintId: "og-mark", name: "Groxbot" })}</g>
+  <text x="520" y="262" fill="#f4f4f4" font-size="76" font-weight="600" font-family="${FONT}">Groxbot</text>
+  <text x="520" y="332" fill="#e45c9a" font-size="34" font-weight="600" font-family="${FONT}">AI is better together</text>
+  <text x="520" y="386" fill="#8a8a8a" font-size="24" font-weight="400" font-family="${FONT}">Like Grok Bot, for the team.</text>
+  <rect x="0" y="622" width="${GROXBOT_OG_WIDTH}" height="8" fill="#e45c9a" />
+</svg>
+`;
+}
+
 const BODIES: Record<string, string> = {
   "groxbot-mark.svg": mascotMarkSvg({
     name: "Groxbot",
@@ -39,6 +62,7 @@ const BODIES: Record<string, string> = {
   "groxbot-mark-light.svg": framedMark("#f4f4f4", "groxbot-mark-light"),
   "groxbot-lockup-dark.svg": lockup("dark"),
   "groxbot-lockup-light.svg": lockup("light"),
+  "groxbot-og.svg": ogCardSvg(),
 };
 
 export function pressAssetHref(file: string): string {
@@ -59,6 +83,16 @@ export function lookupPressAsset(file: string):
     contentType: "image/svg+xml; charset=utf-8",
     body,
   };
+}
+
+export function svgAssetResponse(body: string, filename: string): Response {
+  return new Response(body, {
+    headers: {
+      "content-type": "image/svg+xml; charset=utf-8",
+      "cache-control": "public, max-age=86400, must-revalidate",
+      "content-disposition": `inline; filename="${filename}"`,
+    },
+  });
 }
 
 export function pressAssetFiles(): string[] {

@@ -5,6 +5,7 @@ import {
   parseCachedWorkspace,
   parseLastRooms,
   resolveWorkspace,
+  resolveWorkspaceForRoute,
   workspaceDisplayName,
   workspaceFromCache,
   workspaceFromList,
@@ -33,6 +34,69 @@ describe("workspaceFromList", () => {
     expect(workspaceFromList(offices, "studio")?.id).toBe("ws-2");
     expect(workspaceFromList(offices, "ws-1")?.slug).toBe("acme");
     expect(workspaceFromList(offices, "missing")).toBeUndefined();
+  });
+});
+
+describe("resolveWorkspaceForRoute", () => {
+  const acme = { id: "ws-1", name: "Acme", slug: "acme" };
+  const muhajir = {
+    id: "ws-m",
+    name: "Muhajir",
+    slug: "muhajir-5v6j44mv",
+  };
+
+  it("uses the listed office without fetching", async () => {
+    let fetched = 0;
+    await expect(
+      resolveWorkspaceForRoute({
+        slug: "acme",
+        listed: [acme],
+        hinted: null,
+        fetchList: async () => {
+          fetched += 1;
+          return [];
+        },
+      }),
+    ).resolves.toEqual({ workspace: acme, needsListRefresh: false });
+    expect(fetched).toBe(0);
+  });
+
+  it("opens from the last office when workspaces.list is still empty", async () => {
+    let fetched = 0;
+    await expect(
+      resolveWorkspaceForRoute({
+        slug: "muhajir-5v6j44mv",
+        listed: [],
+        hinted: muhajir,
+        fetchList: async () => {
+          fetched += 1;
+          return [];
+        },
+      }),
+    ).resolves.toEqual({ workspace: muhajir, needsListRefresh: true });
+    expect(fetched).toBe(0);
+  });
+
+  it("refetches when the slug is missing and there is no local hint", async () => {
+    await expect(
+      resolveWorkspaceForRoute({
+        slug: "muhajir-5v6j44mv",
+        listed: [],
+        hinted: null,
+        fetchList: async () => [muhajir],
+      }),
+    ).resolves.toEqual({ workspace: muhajir, needsListRefresh: false });
+  });
+
+  it("does not bounce when a fresh list still lacks the slug", async () => {
+    await expect(
+      resolveWorkspaceForRoute({
+        slug: "muhajir-5v6j44mv",
+        listed: [acme],
+        hinted: null,
+        fetchList: async () => [acme],
+      }),
+    ).resolves.toBeUndefined();
   });
 });
 

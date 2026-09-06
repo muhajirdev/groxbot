@@ -11,7 +11,13 @@ import {
   robotsTxt,
   sitemapXml,
 } from "./documents.js";
-import { cloudOrigins, GROXBOT_STACK, GROXBOT_SUMMARY, GROXBOT_TAGLINE, originsFromWeb } from "./identity.js";
+import {
+  cloudOrigins,
+  GROXBOT_STACK,
+  GROXBOT_SUMMARY,
+  GROXBOT_TAGLINE,
+  originsFromWeb,
+} from "./identity.js";
 
 const origins = cloudOrigins();
 
@@ -23,7 +29,10 @@ describe("discovery documents", () => {
     expect(txt).toContain("hello@groxbot.com");
     expect(txt).toContain(`](${CLOUD_LANDING_ORIGIN}/llms.txt)`);
     expect(txt).toContain("/press");
+    expect(txt).toContain("/og.png");
     expect(identityJson(origins).name).toBe("Groxbot");
+    expect(identityJson(origins).logo).toBe(`${CLOUD_LANDING_ORIGIN}/icon.png`);
+    expect(identityJson(origins).image).toBe(`${CLOUD_LANDING_ORIGIN}/og.png`);
     expect(aiJson(origins).name).toBe("Groxbot");
     const pages = identityJson(origins).sitePages as Array<{ name: string }>;
     expect(pages.some((page) => page.name === "Press kit")).toBe(true);
@@ -39,12 +48,17 @@ describe("discovery documents", () => {
     expect(sitemap).toContain(
       `${CLOUD_LANDING_ORIGIN}/compare/grok-bot-vs-hermes-vs-openclaw-vs-paperclip`,
     );
-    expect(sitemap).toContain(`${CLOUD_LANDING_ORIGIN}/compare/grok-bot-vs-hermes`);
+    expect(sitemap).toContain(
+      `${CLOUD_LANDING_ORIGIN}/compare/grok-bot-vs-hermes`,
+    );
     expect(sitemap).toContain(
       `${CLOUD_LANDING_ORIGIN}/compare/grok-bot-vs-openclaw`,
     );
     expect(robotsTxt(origins)).toContain("User-agent: GPTBot");
     expect(robotsTxt(origins)).toContain("Allow: /llms.txt");
+    expect(robotsTxt(origins)).toContain("Allow: /og.png");
+    expect(robotsTxt(origins)).toContain("Allow: /favicon.ico");
+    expect(robotsTxt(origins)).toContain("Allow: /favicon.svg");
     expect(robotsTxt(origins)).toContain("Allow: /compare");
     expect(robotsTxt(origins)).toContain("Disallow: /s/");
     expect(robotsTxt(origins)).not.toContain("/s/\nAllow");
@@ -101,5 +115,22 @@ describe("discovery documents", () => {
     expect(llmsTxt(origins)).toContain(GROXBOT_TAGLINE);
     expect(brandTxt(origins)).toContain(`## Tagline\n\n${GROXBOT_TAGLINE}`);
     expect(faqAiTxt(origins)).toContain(GROXBOT_TAGLINE);
+  });
+
+  it("puts a large-image Open Graph card on HTML discovery pages", async () => {
+    const { llmsHtml, jsonLd } = await import("./documents.js");
+    const html = llmsHtml(origins);
+    expect(html).toContain('property="og:image"');
+    expect(html).toContain(`${CLOUD_LANDING_ORIGIN}/og.png`);
+    expect(html).toContain(`${CLOUD_LANDING_ORIGIN}/favicon.ico`);
+    expect(html).toContain(`${CLOUD_LANDING_ORIGIN}/favicon.svg`);
+    expect(html).toContain('content="summary_large_image"');
+    expect(html).toContain('property="og:image:width" content="1200"');
+    expect(html).toContain('property="og:image:height" content="630"');
+    const graph = jsonLd(origins)["@graph"] as Array<Record<string, unknown>>;
+    expect(graph[0]?.logo).toMatchObject({
+      url: `${CLOUD_LANDING_ORIGIN}/icon.png`,
+    });
+    expect(graph[1]?.image).toBe(`${CLOUD_LANDING_ORIGIN}/og.png`);
   });
 });
