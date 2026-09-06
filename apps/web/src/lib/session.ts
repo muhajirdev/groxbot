@@ -85,6 +85,34 @@ export function firstLiveBot(bots: Bot[]): Bot | undefined {
   return bots.find((bot) => !isArchivedBot(bot)) ?? bots[0];
 }
 
+/**
+ * Unknown `/room/$roomId` → a live desk. Same id again would be a
+ * TanStack redirect loop; missing roster → hire.
+ */
+export function unknownRoomRedirect(opts: {
+  roomId: string;
+  workspaceSlug: string;
+  rooms: { id: string }[];
+  bots: { id: string; homeRoomId?: string; archivedAt?: string | null }[];
+}):
+  | { to: "/onboarding"; search: Record<string, never> }
+  | {
+      to: typeof OFFICE_TO;
+      params: { workspaceSlug: string; roomId: string };
+    }
+  | null {
+  if (catalogHasRoom(opts.roomId, opts.rooms, opts.bots)) return null;
+  const first =
+    opts.bots.find((bot) => !bot.archivedAt) ?? opts.bots[0];
+  if (!first) return { to: "/onboarding", search: {} };
+  const fallback = first.homeRoomId || first.id;
+  if (fallback === opts.roomId) return null;
+  return {
+    to: OFFICE_TO,
+    params: officeParams(opts.workspaceSlug, fallback),
+  };
+}
+
 export function cacheBot(bot: Bot) {
   upsertBot(bot);
 }

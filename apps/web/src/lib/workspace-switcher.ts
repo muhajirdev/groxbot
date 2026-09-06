@@ -78,6 +78,38 @@ export function workspaceFromList<T extends { id: string; slug: string }>(
   );
 }
 
+export type WorkspaceRef = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
+export type ResolvedWorkspace = {
+  workspace: WorkspaceRef;
+  /** List cache missed — confirm membership without blocking the office URL. */
+  needsListRefresh: boolean;
+};
+
+/**
+ * Open `/$workspaceSlug` from the list, then last office, then a forced
+ * refetch. An empty `workspaces.list` Query cache (first-run, or IDB) plus
+ * onboarding bouncing back to this slug is a TanStack "Too many redirects".
+ */
+export async function resolveWorkspaceForRoute(opts: {
+  slug: string;
+  listed?: WorkspaceRef[];
+  hinted?: WorkspaceRef | null;
+  fetchList: () => Promise<WorkspaceRef[]>;
+}): Promise<ResolvedWorkspace | undefined> {
+  const cached = opts.listed
+    ? workspaceFromList(opts.listed, opts.slug)
+    : undefined;
+  if (cached) return { workspace: cached, needsListRefresh: false };
+  if (opts.hinted) return { workspace: opts.hinted, needsListRefresh: true };
+  const workspace = workspaceFromList(await opts.fetchList(), opts.slug);
+  return workspace ? { workspace, needsListRefresh: false } : undefined;
+}
+
 /** URL slug matches the last office in localStorage — enough to stamp RPC early. */
 export function workspaceFromCache(
   cached: CachedWorkspace | null,

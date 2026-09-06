@@ -30,6 +30,7 @@ import {
 } from "../lib/prefs";
 import { client } from "../lib/rpc";
 import type { Theme } from "../lib/theme";
+import { rememberListedWorkspace } from "../lib/workspace-catalog";
 import {
   canSaveWorkspaceName,
   writeCachedWorkspace,
@@ -380,6 +381,11 @@ function WorkspaceSettings(props: {
     try {
       await client.workspaces.update({ name: trimmed });
       writeCachedWorkspace({
+        id: props.me?.workspaceId,
+        name: trimmed,
+        slug: props.me?.workspaceSlug,
+      });
+      rememberListedWorkspace({
         id: props.me?.workspaceId,
         name: trimmed,
         slug: props.me?.workspaceSlug,

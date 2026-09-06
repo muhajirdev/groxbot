@@ -46,6 +46,7 @@ import { composioLogoUrl } from "../lib/plugins";
 import { client } from "../lib/rpc";
 import { setRpcWorkspaceId } from "../lib/rpc-workspace";
 import { cacheCreatedBot, firstLiveBot } from "../lib/session";
+import { rememberListedWorkspace } from "../lib/workspace-catalog";
 import { writeCachedWorkspace } from "../lib/workspace-switcher";
 import { Button, Chip, Field, Input, Select } from "../ui";
 
@@ -227,15 +228,12 @@ export function Onboarding(props: { invite?: string }) {
     setBusy(true);
     setError("");
     try {
-      await client.workspaces.create({ name });
+      const created = await client.workspaces.create({ name });
       clearRememberedInvite();
-      const me = await queryClient.fetchQuery(orpc.me.queryOptions());
-      writeCachedWorkspace({
-        id: me.workspaceId,
-        name: me.workspaceName ?? name,
-        slug: me.workspaceSlug,
-      });
-      if (me.workspaceId) setRpcWorkspaceId(me.workspaceId);
+      rememberListedWorkspace(created);
+      writeCachedWorkspace(created);
+      setRpcWorkspaceId(created.id);
+      await queryClient.fetchQuery(orpc.me.queryOptions());
       setBusy(false);
       runGateTransition(() => {
         setPhase("tour");
@@ -256,15 +254,12 @@ export function Onboarding(props: { invite?: string }) {
     setBusy(true);
     setError("");
     try {
-      await client.workspaces.join({ invitationId: raw });
+      const joined = await client.workspaces.join({ invitationId: raw });
       clearRememberedInvite();
+      rememberListedWorkspace(joined);
+      writeCachedWorkspace(joined);
+      setRpcWorkspaceId(joined.id);
       const me = await queryClient.fetchQuery(orpc.me.queryOptions());
-      if (me.workspaceId) setRpcWorkspaceId(me.workspaceId);
-      writeCachedWorkspace({
-        id: me.workspaceId,
-        name: me.workspaceName,
-        slug: me.workspaceSlug,
-      });
       const bots = await client.bots.list();
       const first = firstLiveBot(bots);
       if (first) {
