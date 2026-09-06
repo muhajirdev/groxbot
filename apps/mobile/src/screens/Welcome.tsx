@@ -18,7 +18,7 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
         <Text style={styles.thesis}>
           Self-host it, or use groxbot.com. No workflow builder.
         </Text>
-        <Button label="Get started" onPress={onStart} />
+        <Button label="Sign in" onPress={onStart} />
       </View>
     </Screen>
   );

@@ -1,7 +1,7 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { IntegrationGrid } from "../../../components/IntegrationCard";
 import { Breadcrumbs, SiteChrome } from "../../../components/SiteChrome";
-import { appLoginUrl } from "../../../lib/app-url";
+import { appAccessUrl } from "../../../lib/app-url";
 import {
   getCategory,
   integrationCategories,
@@ -15,7 +15,7 @@ export const Route = createFileRoute("/integrations/category/$category")({
     const category = getCategory(params.category);
     if (!category) throw notFound();
     const items = integrationsInCategory(category.slug);
-    return { startUrl: appLoginUrl(), category, items };
+    return { startUrl: appAccessUrl(), category, items };
   },
   head: ({ loaderData }) => {
     if (!loaderData?.category) return {};
@@ -67,8 +67,8 @@ function CategoryPage() {
           <p className="kicker">{category.count} tools</p>
           <h1>{category.name} integrations</h1>
           <p className="lede">
-            Connect the tool when you can. Use the computer when you
-            can&apos;t. The Bot still asks before anything goes live.
+            Connect the tool when you can. Use the computer when you can&apos;t.
+            The Bot still asks before anything goes live.
           </p>
         </section>
         <section className="band">

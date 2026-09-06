@@ -123,6 +123,11 @@ export function pressFacts(origins: DiscoveryOrigins): Array<{
       href: `${office}/login`,
     },
     {
+      label: "Request access",
+      value: `${web.replace(/^https:\/\//, "")}/#access`,
+      href: `${web}/#access`,
+    },
+    {
       label: "Source",
       value: "github.com/muhajirdev/groxbot",
       href: GROXBOT_GITHUB,

@@ -1,4 +1,8 @@
-import { DURABLE_OBJECT_WAKEUP, HOSTED_AI_ENV, HOSTED_AI_FLAG } from "@groxbot/contracts";
+import {
+  DURABLE_OBJECT_WAKEUP,
+  HOSTED_AI_ENV,
+  HOSTED_AI_FLAG,
+} from "@groxbot/contracts";
 import { describe, expect, it } from "vitest";
 import { agentRuntimeSource, loadEnv, productEnv } from "./env.js";
 
@@ -96,5 +100,15 @@ describe("loadEnv", () => {
         LANDING_ORIGIN: "https://pages.example/",
       }).landingOrigin,
     ).toBe("https://pages.example");
+  });
+
+  it("reads the hosted access-request inbox", () => {
+    expect(loadEnv(base).accessRequestTo).toBeUndefined();
+    expect(
+      loadEnv({
+        ...base,
+        ACCESS_REQUEST_TO: " muhajir@expandra.ai ",
+      }).accessRequestTo,
+    ).toBe("muhajir@expandra.ai");
   });
 });

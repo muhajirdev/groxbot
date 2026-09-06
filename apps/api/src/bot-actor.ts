@@ -151,6 +151,7 @@ export interface WorkerEnv {
   CLOUDFLARE_AI_GATEWAY_TOKEN?: string;
   CLOUDFLARE_AI_GATEWAY_ID?: string;
   EMAIL_FROM?: string;
+  ACCESS_REQUEST_TO?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
   GITHUB_CLIENT_ID?: string;

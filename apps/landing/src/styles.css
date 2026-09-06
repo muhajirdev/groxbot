@@ -2693,3 +2693,65 @@ a.chip.on .chip-count,
   color: var(--ink);
 }
 
+.access-form {
+  display: grid;
+  gap: 10px;
+  max-width: 28rem;
+  margin-top: 8px;
+  scroll-margin-top: 88px;
+}
+
+.access-form .kicker {
+  margin: 0;
+}
+
+.access-fields {
+  display: grid;
+  gap: 8px;
+}
+
+@media (min-width: 560px) {
+  .access-fields {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.access-form input,
+.access-form textarea {
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 11px 14px;
+  color: var(--ink);
+  font: inherit;
+}
+
+.access-form textarea {
+  resize: vertical;
+  min-height: 4.5rem;
+}
+
+.access-form .row {
+  margin-top: 2px;
+}
+
+.access-error {
+  margin: 0;
+  color: #f07178;
+  font-size: 14px;
+}
+
+.access-sent .lede {
+  margin: 0;
+}
+
+.access-honey {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+

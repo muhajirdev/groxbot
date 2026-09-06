@@ -1,7 +1,14 @@
 import { MascotMark } from "@groxbot/mascot";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { FOOTER_BLURB, MAC_DOWNLOAD_URL, SOURCE_REPO, CONTACT_EMAIL, CONTACT_MAILTO } from "../lib/copy";
+import { appAccessUrl, appLoginUrl } from "../lib/app-url";
+import {
+  CONTACT_EMAIL,
+  CONTACT_MAILTO,
+  FOOTER_BLURB,
+  MAC_DOWNLOAD_URL,
+  SOURCE_REPO,
+} from "../lib/copy";
 
 export function SiteHeader(props: { startUrl: string }) {
   return (
@@ -24,8 +31,9 @@ export function SiteHeader(props: { startUrl: string }) {
           GitHub
         </a>
         <a href={CONTACT_MAILTO}>Email</a>
-        <a className="btn" href={props.startUrl}>
-          Get started
+        <a href={appLoginUrl()}>Sign in</a>
+        <a className="btn" href={props.startUrl || appAccessUrl()}>
+          Request access
         </a>
       </nav>
     </header>

@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { IntegrationGrid } from "../../components/IntegrationCard";
 import { Breadcrumbs, SiteChrome } from "../../components/SiteChrome";
-import { appLoginUrl } from "../../lib/app-url";
+import { appAccessUrl } from "../../lib/app-url";
 import {
   computerIntegrations,
   featuredIntegrations,
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/integrations/")({
     const q = deps.q.trim();
     const matches = q ? searchIntegrations(q).slice(0, 80) : [];
     return {
-      startUrl: appLoginUrl(),
+      startUrl: appAccessUrl(),
       q,
       matches,
       featured: featuredIntegrations(),
@@ -74,8 +74,8 @@ function IntegrationsIndex() {
           <h1>Gmail, Slack, GitHub — plus a computer for the rest.</h1>
           <p className="lede">
             Connect the tools you already use. DataFast, Postiz, Post Bridge,
-            and the rest of the indie stack run on the Bot&apos;s computer
-            until a connector exists.
+            and the rest of the indie stack run on the Bot&apos;s computer until
+            a connector exists.
           </p>
           <form className="search-form" method="get" action="/integrations">
             <label className="sr-only" htmlFor="q">
@@ -107,8 +107,7 @@ function IntegrationsIndex() {
               <h2>Indie tools on the computer</h2>
               <p className="lede tight">
                 Marc Lou, Jack Friks, Nevo David — products that live in a
-                dashboard. The Bot still works there, then stops before
-                publish.
+                dashboard. The Bot still works there, then stops before publish.
               </p>
               <IntegrationGrid items={indie} />
             </section>
@@ -143,7 +142,7 @@ function IntegrationsIndex() {
 
         <section className="cta">
           <a className="btn" href={startUrl}>
-            Get started
+            Request access
           </a>
         </section>
       </main>

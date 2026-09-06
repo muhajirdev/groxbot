@@ -1,6 +1,6 @@
-import { CLOUD_WEB_ORIGIN } from "@groxbot/contracts";
+import { CLOUD_API_ORIGIN, CLOUD_WEB_ORIGIN } from "@groxbot/contracts";
 import { describe, expect, it } from "vitest";
-import { resolveAppOrigin } from "./app-url.js";
+import { resolveApiOrigin, resolveAppOrigin } from "./app-url.js";
 
 describe("resolveAppOrigin", () => {
   it("prefers an explicit Vite app URL", () => {
@@ -18,5 +18,15 @@ describe("resolveAppOrigin", () => {
 
   it("uses local Vite in development", () => {
     expect(resolveAppOrigin({ prod: false })).toBe("http://127.0.0.1:5173");
+  });
+});
+
+describe("resolveApiOrigin", () => {
+  it("posts access requests at the Worker in production", () => {
+    expect(resolveApiOrigin({ prod: true })).toBe(CLOUD_API_ORIGIN);
+  });
+
+  it("posts access requests at local wrangler in development", () => {
+    expect(resolveApiOrigin({ prod: false })).toBe("http://127.0.0.1:3100");
   });
 });

@@ -114,7 +114,7 @@ export function LoginScreen({
     ? `Join ${peek.organizationName}.`
     : inviteId
       ? "Join a workspace."
-      : "Get started";
+      : "Sign in";
 
   return (
     <Screen scroll>

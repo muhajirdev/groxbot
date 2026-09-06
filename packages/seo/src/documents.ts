@@ -49,7 +49,8 @@ Product API is oRPC. One wakeup queue per bot. Each bot has a computer (@cloudfl
 - [Use cases](${abs(web, "/use-cases")}): Job-shaped first messages
 - [Compare](${abs(web, "/compare")}): Groxbot vs Hermes vs OpenClaw vs Paperclip — and each pairwise vs
 - [Press kit](${abs(web, "/press")}): Logos, naming, and boilerplate
-- [Get started](${office}/login): Sign in to the office
+- [Request access](${abs(web, "/")}#access): Hosted groxbot.com is invite-only for now
+- [Sign in](${office}/login): Office for people who already have a seat
 - [MCP](${abs(web, "/mcp")}): Public MCP discovery and Streamable HTTP
 - [Architecture](${GROXBOT_GITHUB}/blob/main/ARCHITECTURE.md): Locked stack and actor model
 - [UI copy-brief](${GROXBOT_GITHUB}/blob/main/docs/grok-bot-ui.md): How the office UI should feel
@@ -345,6 +346,12 @@ A: Yes — and that’s the point. A personal agent hides on a laptop. Who is pu
 
 ---
 
+Q: How do I get into groxbot.com?
+A: Hosted groxbot.com is request-access for now. Fill in the form on the homepage. We’ll email you. Self-host for your own team is still free. If you already have a seat, sign in.
+URL: [${GROXBOT_NAME}](${web}/#access)
+
+---
+
 Q: How do I talk to a person?
 A: Email ${GROXBOT_EMAIL}. GitHub issues for the source. The office is for the product — this mailbox is for you.
 
@@ -622,7 +629,7 @@ export function identityJson(
       {
         name: "Office",
         url: `${office}/login`,
-        description: "Sign in or create a workspace",
+        description: "Sign in if you already have a seat",
       },
       {
         name: "Integrations",
@@ -798,7 +805,8 @@ export function indexMarkdown(origins: DiscoveryOrigins): string {
 
 Create a Bot, message it, grant access as needed. No workflow builder.
 
-- [Get started](${office}/login)
+- [Request access](${abs(origins.web, "/")}#access)
+- [Sign in](${office}/login)
 - [Compare](${abs(origins.web, "/compare/grok-bot-vs-hermes-vs-openclaw-vs-paperclip")}): Groxbot vs Hermes vs OpenClaw vs Paperclip
 - [Press kit](${abs(origins.web, "/press")})
 - [llms.txt](${abs(origins.web, "/llms.txt")})

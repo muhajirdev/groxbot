@@ -12,7 +12,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { OfficePreview } from "../../components/OfficePreview";
 import { Breadcrumbs, SiteChrome } from "../../components/SiteChrome";
-import { appLoginUrl } from "../../lib/app-url";
+import { appAccessUrl } from "../../lib/app-url";
 import { cn } from "../../lib/cn";
 import { CONTACT_EMAIL, CONTACT_MAILTO, SOURCE_REPO } from "../../lib/copy";
 import { LANDING_ORIGINS } from "../../lib/discovery";
@@ -22,7 +22,7 @@ import { seoHead } from "../../lib/site";
 
 export const Route = createFileRoute("/press/")({
   loader: () => ({
-    startUrl: appLoginUrl(),
+    startUrl: appAccessUrl(),
     facts: pressFacts(LANDING_ORIGINS),
   }),
   head: () =>
@@ -58,7 +58,11 @@ function PressPage() {
             The name is one word, capital G.
           </p>
           <div className="row">
-            <a className="btn" href={pressAssetHref("groxbot-mark.svg")} download>
+            <a
+              className="btn"
+              href={pressAssetHref("groxbot-mark.svg")}
+              download
+            >
               Download mark
             </a>
             <a className="btn ghost" href="/press.md">
@@ -221,8 +225,8 @@ function PressPage() {
           <p className="kicker">Contact</p>
           <h2>Press: {CONTACT_EMAIL}</h2>
           <p className="lede tight">
-            That mailbox is for press and people. GitHub for the source.
-            Naming rules for machines: <a href="/brand.txt">/brand.txt</a>.
+            That mailbox is for press and people. GitHub for the source. Naming
+            rules for machines: <a href="/brand.txt">/brand.txt</a>.
           </p>
           <div className="row">
             <a className="btn" href={CONTACT_MAILTO}>
@@ -237,7 +241,7 @@ function PressPage() {
               GitHub
             </a>
             <a className="btn ghost" href={startUrl}>
-              Get started
+              Request access
             </a>
           </div>
         </section>
@@ -263,23 +267,13 @@ function LogoPreview(props: { file: string; label: string }) {
     >
       {lockup ? (
         <span className="inline-flex items-center gap-3.5">
-          <MascotMark
-            name="Groxbot"
-            color="#e45c9a"
-            shape="circle"
-            size="lg"
-          />
+          <MascotMark name="Groxbot" color="#e45c9a" shape="circle" size="lg" />
           <span className="text-[28px] font-semibold tracking-[-0.02em]">
             Groxbot
           </span>
         </span>
       ) : (
-        <MascotMark
-          name="Groxbot"
-          color="#e45c9a"
-          shape="circle"
-          size="lg"
-        />
+        <MascotMark name="Groxbot" color="#e45c9a" shape="circle" size="lg" />
       )}
     </div>
   );
