@@ -1,3 +1,4 @@
+import { OPEN_INVITE_EMAIL, isOpenInvitationEmail } from "@groxbot/contracts";
 import { describe, expect, it } from "vitest";
 import {
   invitationIdFromInput,
@@ -44,12 +45,18 @@ describe("invitationIdFromInput", () => {
       invitationIdFromInput("/onboarding?invite=inv_abc"),
     ).toBe("inv_abc");
   });
+
+  it("pulls invite from the home invite URL", () => {
+    expect(
+      invitationIdFromInput("https://app.groxbot.com/?invite=inv_abc"),
+    ).toBe("inv_abc");
+  });
 });
 
 describe("invitationUrl", () => {
-  it("builds an onboarding invite link", () => {
+  it("builds a home invite link", () => {
     expect(invitationUrl("https://app.groxbot.com/", "inv_abc")).toBe(
-      "https://app.groxbot.com/onboarding?invite=inv_abc",
+      "https://app.groxbot.com/?invite=inv_abc",
     );
   });
 });
@@ -87,5 +94,13 @@ describe("workspaceAuthMessage", () => {
         "Could not update workspace",
       ),
     ).toBe("You can't rename this workspace.");
+  });
+});
+
+describe("open invitation email", () => {
+  it("marks the shareable-link sentinel", () => {
+    expect(isOpenInvitationEmail(OPEN_INVITE_EMAIL)).toBe(true);
+    expect(isOpenInvitationEmail("  Open-Invite@groxbot.invalid ")).toBe(true);
+    expect(isOpenInvitationEmail("teammate@company.com")).toBe(false);
   });
 });

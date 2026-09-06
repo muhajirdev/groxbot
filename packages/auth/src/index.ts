@@ -16,10 +16,16 @@ import {
   magicLink,
   organization as organizationPlugin,
 } from "better-auth/plugins";
+import { organizationCreateFromClientId } from "./organization-id.js";
 import {
   SIGN_IN_EXPIRES_SEC,
   SIGN_IN_OTP_LENGTH,
 } from "./sign-in-mail.js";
+
+export {
+  ORGANIZATION_CLIENT_ID_KEY,
+  organizationCreateFromClientId,
+} from "./organization-id.js";
 
 export {
   digitsOfOtp,
@@ -117,11 +123,18 @@ export function createAuth(
     plugins: [
       expo(),
       organizationPlugin({
+        organizationHooks: {
+          beforeCreateOrganization: async ({ organization }) =>
+            organizationCreateFromClientId(organization),
+        },
         sendInvitationEmail: async (data) => {
+          if (data.email.toLowerCase() === "open-invite@groxbot.invalid") {
+            return;
+          }
           const origin = opts.webOrigin.replace(/\/$/, "");
           await opts.sendInvitationEmail({
             email: data.email,
-            url: `${origin}/onboarding?invite=${encodeURIComponent(data.id)}`,
+            url: `${origin}/?invite=${encodeURIComponent(data.id)}`,
             organizationName: data.organization.name,
             inviterName: data.inviter.user.name || "A teammate",
           });

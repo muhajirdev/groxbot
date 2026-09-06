@@ -53,17 +53,17 @@
 
 :root {
   color-scheme: dark;
-  --bg: #000000;
-  --bg-side: #161616;
-  --bg-thread: #161616;
-  --bg-pane: #1a1a1a;
-  --ink: #f4f4f4;
-  --muted: #8a8a8a;
-  --line: #333333;
-  --card: #1c1c1c;
-  --card-2: #2a2a2a;
-  --hover: #1a1a1a;
-  --selected: #1c1c1c;
+  --bg: #0b0a08;
+  --bg-side: #15130f;
+  --bg-thread: #15130f;
+  --bg-pane: #1b1914;
+  --ink: #f3efe6;
+  --muted: #9a9284;
+  --line: #3a3529;
+  --card: #1d1b16;
+  --card-2: #2c281f;
+  --hover: #1c1914;
+  --selected: #1d1b16;
   --accent: #e45c9a;
   --ok: #3ecf8e;
   --danger: #e25d4a;
@@ -85,17 +85,17 @@
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #f2f2f2;
-  --bg-side: #ffffff;
-  --bg-thread: #ffffff;
-  --bg-pane: #f0f0f0;
-  --ink: #111111;
-  --muted: #6b6b6b;
-  --line: #e4e4e4;
-  --card: #ffffff;
-  --card-2: #f3f3f3;
-  --hover: #ececec;
-  --selected: #e7e7e7;
+  --bg: #ebe6d8;
+  --bg-side: #f7f3ea;
+  --bg-thread: #f7f3ea;
+  --bg-pane: #efe9dc;
+  --ink: #1c1914;
+  --muted: #6e6758;
+  --line: #ddd4c4;
+  --card: #f7f3ea;
+  --card-2: #ece4d4;
+  --hover: #efe8d8;
+  --selected: #e8dfcc;
   --shadow: 0 16px 50px rgba(0, 0, 0, 0.08);
   --shadow-menu: 0 10px 28px rgba(0, 0, 0, 0.1);
 }
@@ -783,13 +783,395 @@ html.vt-ready .gate > .gate-steps {
 .gate-welcome-actions {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 12px;
+  width: min(360px, 100%);
 }
 
-.gate-welcome-actions > :first-child {
-  padding: 12px 22px;
+.auth-page {
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 32px 20px 48px;
+  background: var(--bg);
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.auth-card {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.95fr) minmax(280px, 1.15fr);
+  width: min(960px, 100%);
+  min-height: 540px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--card);
+}
+
+.auth-card-form {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  padding: 40px 36px;
+}
+
+.auth-card-form h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  line-height: 1.15;
+}
+
+.auth-card-form .lede {
+  margin: 0 0 18px;
+  max-width: none;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.auth-hint {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.auth-card-form .auth-email,
+.auth-card-form .error,
+.auth-card-form .auth-foot,
+.auth-card-form .or-line,
+.auth-card-form > .btn {
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.auth-card-form .btn {
+  border-radius: 12px;
+  padding: 12px 16px;
+}
+
+.auth-card-form .field input {
+  background: var(--bg);
+}
+
+.auth-card-form .error {
+  margin: 14px 0 0;
+}
+
+.auth-card-form .auth-foot {
+  margin-top: 12px;
+  justify-content: flex-start;
+}
+
+.auth-card-form .or-line {
+  margin: 18px 0 12px;
+}
+
+.auth-oauth {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.auth-card-video {
+  position: relative;
+  min-height: 280px;
+  background: var(--card);
+}
+
+.auth-video {
+  position: absolute;
+  inset: 16px;
+  display: block;
+  width: auto;
+  height: auto;
+  overflow: hidden;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #0a0a0a;
+}
+
+@media (max-width: 800px) {
+  .auth-card {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .auth-card-form {
+    padding: 28px 22px 32px;
+  }
+
+  .auth-card-video {
+    min-height: 200px;
+  }
+}
+
+.invite-page {
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 32px 20px 48px;
+  text-align: center;
+  background: var(--bg);
+}
+
+.invite-mark {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  margin-bottom: 8px;
+  border-radius: 18px;
+  color: #fff;
+  font-size: 32px;
+  font-weight: 650;
+  letter-spacing: -0.04em;
+}
+
+.invite-page h1 {
+  margin: 0;
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  font-size: clamp(36px, 7vw, 52px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.invite-kicker,
+.invite-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.invite-by,
+.invite-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.invite-by strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.invite-page .btn {
+  width: min(280px, 100%);
+  margin-top: 8px;
+}
+
+.invite-note {
+  font-size: 12px;
+}
+
+.onboard-dialog {
+  width: min(760px, calc(100% - 48px));
+}
+
+.onboard-welcome {
+  display: grid;
+}
+
+.onboard-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.onboard-head h2 {
+  margin: 0;
   font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.onboard-body {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+}
+
+.onboard-from {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.onboard-from-name {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.onboard-from-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.onboard-from p {
+  margin: 0;
+}
+
+.onboard-hello {
+  margin: 0 0 14px;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  line-height: 1.25;
+}
+
+.onboard-you {
+  background: color-mix(in srgb, #d4c08a 42%, transparent);
+  color: inherit;
+  font-style: normal;
+  font-weight: 700;
+  padding: 0 0.18em;
+  border-radius: 4px;
+  box-decoration-break: clone;
+}
+
+.onboard-from-photo {
+  width: 72px;
+  height: 72px;
+}
+
+.onboard-letter {
+  padding: 18px 20px 16px;
+  border: 1px solid color-mix(in srgb, #c4b89a 22%, var(--line));
+  border-radius: 10px;
+  background: color-mix(in srgb, #c4b89a 9%, var(--card));
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.62;
+}
+
+@media (min-width: 720px) {
+  .onboard-body {
+    grid-template-columns: 180px minmax(0, 1fr);
+    align-items: stretch;
+    gap: 18px;
+    padding: 18px;
+  }
+
+  .onboard-from {
+    padding: 8px 8px 8px 4px;
+  }
+
+  .onboard-from-photo {
+    width: 88px;
+    height: 88px;
+  }
+
+  .onboard-letter {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .onboard-go {
+    width: auto;
+    align-self: start;
+    min-width: 220px;
+  }
+}
+
+.onboard-letter p + p {
+  margin: 14px 0 0;
+}
+
+.onboard-letter .onboard-hello + p {
+  margin-top: 0;
+}
+
+.onboard-letter a {
+  color: inherit;
+  text-underline-offset: 2px;
+}
+
+.onboard-signoff {
+  margin-top: 18px;
+}
+
+.onboard-signature {
+  display: block;
+  width: min(248px, 88%);
+  height: auto;
+  margin: 4px 0 2px -6px;
+  color: var(--ink);
+  opacity: 0.92;
+}
+
+.onboard-signoff strong {
+  display: block;
+  font-weight: 600;
+}
+
+.onboard-ps {
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.onboard-go {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 18px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--bg);
+  padding: 11px 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.onboard-go::after {
+  content: "→";
+  font-weight: 500;
+}
+
+.onboard-go:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.onboard-go:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .office-proof {
@@ -1828,7 +2210,7 @@ html.electron .side-chrome {
 }
 
 html.electron .chat-shell {
-  padding: 10px;
+  padding: 14px;
 }
 
 html.electron .thread-head,
@@ -2942,7 +3324,7 @@ html.electron .pane-head {
   height: 100vh;
   height: 100dvh;
   max-height: 100dvh;
-  padding: 10px;
+  padding: 14px;
   overflow: hidden;
   overscroll-behavior: none;
 }

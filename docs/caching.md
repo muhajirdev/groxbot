@@ -29,6 +29,7 @@ Canonical feel: **Settings**. Cmd+, opens at once. General is `me` already on th
 | Plugins catalog | IndexedDB after first open | GitHub JSON on a cold miss; virtualized grid |
 | Workspace switcher label | `groxbot.workspace` localStorage hint | Live `me` (not persisted) |
 | Workspace switch | Per-workspace catalog snapshot in Query + IndexedDB; last desk in `groxbot.lastRooms` | Background refetch. `workspaces.activate` does not block paint |
+| Create workspace | Draft id + predicted slug; empty catalog; dialog closes immediately | `workspaces.create` in the background. Hire waits if the insert is still in flight |
 
 A loading spinner that replaces the dialog, a blank settings tab, or a 5s GitHub wait before Plugins “opens” is a bug against this rule.
 
@@ -167,7 +168,6 @@ Other keys (not Query):
 | `groxbot.localComputer` | ask / always / never |
 | `groxbot.autoReview` / `groxbot.autoReviewRules` | Post-turn review |
 | `groxbot.hwAccel` | Desktop |
-| `groxbot.onboarded` | First-run flag |
 | `sessionStorage` `groxbot.invite` | Invite id across the gate |
 
 Do not put email, tokens, or file bodies in localStorage. Do not put the roster or transcripts there — that is Query + IDB.

@@ -46,6 +46,7 @@ import {
   Visibility,
   WorkspaceAppSchema,
   WorkspaceInvitationSchema,
+  WorkspaceInviteLinkSchema,
   WorkspaceInvitePeekSchema,
   WorkspaceInviteSchema,
   WorkspaceMemberSchema,
@@ -61,6 +62,8 @@ import {
   WakeupKind,
 } from "./models.js";
 import {
+  AdminDeleteUserInput,
+  AdminDeleteWorkspaceInput,
   AdminListInput,
   AdminPurgeInput,
   AdminPurgeResultSchema,
@@ -98,6 +101,7 @@ export const appContract = oc.router({
     update: oc.input(UpdateWorkspaceInput).output(WorkspaceSchema),
     join: oc.input(JoinWorkspaceInput).output(WorkspaceSchema),
     invite: oc.input(InviteWorkspaceInput).output(WorkspaceInviteSchema),
+    inviteLink: oc.output(WorkspaceInviteLinkSchema),
     invitations: oc.output(z.array(WorkspaceInvitationSchema)),
     peek: oc.input(JoinWorkspaceInput).output(WorkspaceInvitePeekSchema),
     members: oc.output(z.array(WorkspaceMemberSchema)),
@@ -113,6 +117,10 @@ export const appContract = oc.router({
     stats: oc.output(AdminStatsSchema),
     users: oc.input(AdminListInput).output(AdminUsersPageSchema),
     workspaces: oc.input(AdminListInput).output(AdminWorkspacesPageSchema),
+    deleteUser: oc.input(AdminDeleteUserInput).output(AdminPurgeResultSchema),
+    deleteWorkspace: oc
+      .input(AdminDeleteWorkspaceInput)
+      .output(AdminPurgeResultSchema),
     purgeAll: oc.input(AdminPurgeInput).output(AdminPurgeResultSchema),
   },
   billing: {

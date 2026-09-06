@@ -12,6 +12,13 @@ describe("inviteFromHref", () => {
     expect(inviteFromHref("/onboarding?invite=inv_abc")).toBe("inv_abc");
   });
 
+  it("reads invite from the home invite URL", () => {
+    expect(inviteFromHref("http://127.0.0.1:5173/?invite=inv_abc")).toBe(
+      "inv_abc",
+    );
+    expect(inviteFromHref("/?invite=inv_abc")).toBe("inv_abc");
+  });
+
   it("returns nothing when the path has no invite", () => {
     expect(inviteFromHref("/onboarding")).toBeUndefined();
     expect(inviteFromHref("")).toBeUndefined();

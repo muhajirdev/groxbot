@@ -1,12 +1,12 @@
 import { MAIL_LOG } from "@groxbot/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
 import { type FormEvent, useEffect, useRef, useState } from "react";
-import { GateMark, GateShell } from "../components/Gate";
-import { GoogleIcon } from "../components/Icons";
+import { AvatarMark } from "../components/Avatar";
+import { GitHubIcon, GoogleIcon } from "../components/Icons";
+import { OnboardingVideo } from "../components/OnboardingDialog";
 import { authClient } from "../lib/auth";
 import { userFacingError } from "../lib/errors";
-import { apiOrigin, officeUrl } from "../lib/host";
+import { officeUrl } from "../lib/host";
 import { readRememberedInvite, rememberInvite } from "../lib/invite";
 import { orpc } from "../lib/orpc";
 import { Field, Input } from "../ui";
@@ -19,7 +19,9 @@ export function AuthScreen(props: { errorFromUrl?: string; invite?: string }) {
   const [otp, setOtp] = useState("");
   const [sentTo, setSentTo] = useState("");
   const emailSend = useRef(0);
-  const googleReady = health.data?.oauth?.includes("google") ?? false;
+  const providers = health.data?.oauth ?? [];
+  const googleReady = providers.includes("google");
+  const githubReady = providers.includes("github");
   const mailLogged = health.data?.mail === MAIL_LOG;
   const invite = props.invite?.trim() || readRememberedInvite();
   const peekQuery = useQuery({
@@ -33,8 +35,8 @@ export function AuthScreen(props: { errorFromUrl?: string; invite?: string }) {
     ? `/onboarding?invite=${encodeURIComponent(invite)}`
     : "/";
   const errorPath = invite
-    ? `/login?invite=${encodeURIComponent(invite)}`
-    : "/login";
+    ? `/?invite=${encodeURIComponent(invite)}`
+    : "/";
 
   useEffect(() => {
     if (props.errorFromUrl) setError(props.errorFromUrl);
@@ -44,17 +46,19 @@ export function AuthScreen(props: { errorFromUrl?: string; invite?: string }) {
     if (peek?.email) setEmail(peek.email);
   }, [peek?.email]);
 
-  async function continueWithGoogle() {
+  async function continueWithSocial(provider: "google" | "github") {
     setBusy(true);
     setError("");
-    if (!googleReady) {
+    if (!providers.includes(provider)) {
       setBusy(false);
-      setError("Google sign-in is not configured on this API.");
+      setError(
+        `${provider === "google" ? "Google" : "GitHub"} sign-in is not configured on this API.`,
+      );
       return;
     }
     rememberInvite(invite);
     const result = await authClient.signIn.social({
-      provider: "google",
+      provider,
       callbackURL: officeUrl(afterAuth),
       errorCallbackURL: officeUrl(errorPath),
     });
@@ -82,14 +86,14 @@ export function AuthScreen(props: { errorFromUrl?: string; invite?: string }) {
       if (sendId !== emailSend.current) return;
       if (result.error) {
         setSentTo("");
-        setError(result.error.message ?? "Could not send a sign-in link");
+        setError(result.error.message ?? "Could not send a code");
       } else {
         setOtp("");
       }
     } catch (caught) {
       if (sendId !== emailSend.current) return;
       setSentTo("");
-      setError(userFacingError(caught, "Could not send a sign-in link"));
+      setError(userFacingError(caught, "Could not send a code"));
     }
   }
 
@@ -119,166 +123,155 @@ export function AuthScreen(props: { errorFromUrl?: string; invite?: string }) {
     }
   }
 
-  async function joinInvite() {
-    if (!invite) return;
-    setBusy(true);
-    setError("");
-    rememberInvite(invite);
-    try {
-      const response = await fetch(`${apiOrigin()}/api/invites/accept`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ invitationId: invite }),
-      });
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as {
-          message?: string;
-        } | null;
-        setError(payload?.message?.trim() || "Could not join workspace");
-        setBusy(false);
-        return;
-      }
-      window.location.assign("/");
-    } catch (caught) {
-      setError(userFacingError(caught, "Could not join workspace"));
-      setBusy(false);
-    }
-  }
-
   const heading = peek
-    ? `Join ${peek.organizationName}.`
+    ? `Join ${peek.organizationName}`
     : invite
-      ? "Join a workspace."
-      : "Get started";
+      ? "Join a workspace"
+      : "Sign in";
   const lede = peek
-    ? `You've been invited as ${peek.email}.`
+    ? peek.email
+      ? `You've been invited as ${peek.email}.`
+      : `Sign in to join ${peek.organizationName}.`
     : invite
       ? peekQuery.isError || peekQuery.data === null
         ? "That invite is missing or expired. Sign in, then paste a new one."
         : "Sign in to join the workspace you were invited to."
-      : "Like Grok Bot, for the whole team.";
+      : "or create an account to get started";
 
   return (
-    <GateShell>
-      <div className="gate-auth">
-        <GateMark hero mood="happy" />
-        <div className="gate-stage">
+    <div className="auth-page">
+      <div className="auth-brand">
+        <AvatarMark
+          name="Groxbot"
+          color="#e45c9a"
+          shape="circle"
+          size="md"
+          mood="happy"
+          hero
+        />
+        Groxbot
+      </div>
+      <div className="auth-card">
+        <div className="auth-card-form">
           {sentTo ? (
             <>
               <h1>Check your email</h1>
-              <div className="auth-sent">
-                <p>
-                  Check <strong>{sentTo}</strong>. Tap Open Groxbot, or enter
-                  the 6-digit code. Expires in 15 minutes.
+              <p className="lede">
+                We sent a code to <strong>{sentTo}</strong>. Expires in 15
+                minutes.
+              </p>
+              {mailLogged ? (
+                <p className="lede">
+                  Locally, that link and code are printed in the API terminal
+                  instead of an inbox.
                 </p>
-                {mailLogged ? (
-                  <p>
-                    Locally, that link and code are printed in the API terminal
-                    instead of an inbox.
-                  </p>
-                ) : null}
-                <form className="auth-email" onSubmit={continueWithCode}>
-                  <Field label="Code" className="field">
-                    <Input
-                      name="otp"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      placeholder="123456"
-                      value={otp}
-                      maxLength={6}
-                      onChange={(event) =>
-                        setOtp(
-                          event.currentTarget.value.replace(/\D/g, "").slice(0, 6),
-                        )
-                      }
-                      disabled={busy}
-                      required
-                    />
-                  </Field>
-                  <button
-                    className="btn"
-                    type="submit"
-                    disabled={busy || otp.length !== 6}
-                  >
-                    {busy ? "Signing in…" : "Enter code"}
-                  </button>
-                </form>
+              ) : null}
+              <form className="auth-email" onSubmit={continueWithCode}>
+                <Field label="Code" className="field">
+                  <Input
+                    name="otp"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="123456"
+                    value={otp}
+                    maxLength={6}
+                    onChange={(event) =>
+                      setOtp(
+                        event.currentTarget.value.replace(/\D/g, "").slice(0, 6),
+                      )
+                    }
+                    disabled={busy}
+                    required
+                  />
+                </Field>
+                <button
+                  className="btn"
+                  type="submit"
+                  disabled={busy || otp.length !== 6}
+                >
+                  {busy ? "Signing in…" : "Enter code"}
+                </button>
+              </form>
+              <div className="auth-foot">
+                <button
+                  type="button"
+                  onClick={() => {
+                    emailSend.current += 1;
+                    setSentTo("");
+                    setOtp("");
+                    setError("");
+                  }}
+                >
+                  Use a different email
+                </button>
               </div>
             </>
           ) : (
             <>
               <h1>{heading}</h1>
               <p className="lede">{lede}</p>
-              {invite && peekQuery.data !== null ? (
+              <p className="auth-hint">
+                Enter your email — we'll send you a verification code.
+              </p>
+              <form className="auth-email" onSubmit={continueWithEmail}>
+                <Field label="Email" className="field">
+                  <Input
+                    type="email"
+                    name="email"
+                    autoComplete="email"
+                    inputMode="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(event) => setEmail(event.currentTarget.value)}
+                    disabled={busy || health.isLoading}
+                    required
+                  />
+                </Field>
                 <button
                   className="btn"
-                  type="button"
-                  disabled={busy || !peek}
-                  onClick={() => void joinInvite()}
-                >
-                  {busy ? "Joining…" : "Join"}
-                </button>
-              ) : (
-                <form className="auth-email" onSubmit={continueWithEmail}>
-                  <Field label="Email" className="field">
-                    <Input
-                      type="email"
-                      name="email"
-                      autoComplete="email"
-                      inputMode="email"
-                      placeholder="you@company.com"
-                      value={email}
-                      onChange={(event) => setEmail(event.currentTarget.value)}
-                      disabled={busy || health.isLoading}
-                      required
-                    />
-                  </Field>
-                  <button
-                    className="btn"
-                    type="submit"
-                    disabled={busy || health.isLoading}
-                  >
-                    Email me a sign-in link
-                  </button>
-                </form>
-              )}
-              <p className="or-line">or</p>
-              <div className="oauth">
-                <button
-                  className="btn ghost oauth-btn"
-                  type="button"
+                  type="submit"
                   disabled={busy || health.isLoading}
-                  onClick={() => void continueWithGoogle()}
                 >
-                  <GoogleIcon />
-                  Continue with Google
+                  {busy ? "Sending…" : "Send code"}
                 </button>
-              </div>
+              </form>
+              {googleReady || githubReady ? (
+                <>
+                  <p className="or-line">Or continue with</p>
+                  <div className="auth-oauth">
+                    {githubReady ? (
+                      <button
+                        className="btn ghost oauth-btn"
+                        type="button"
+                        disabled={busy || health.isLoading}
+                        onClick={() => void continueWithSocial("github")}
+                      >
+                        <GitHubIcon />
+                        GitHub
+                      </button>
+                    ) : null}
+                    {googleReady ? (
+                      <button
+                        className="btn ghost oauth-btn"
+                        type="button"
+                        disabled={busy || health.isLoading}
+                        onClick={() => void continueWithSocial("google")}
+                      >
+                        <GoogleIcon />
+                        Google
+                      </button>
+                    ) : null}
+                  </div>
+                </>
+              ) : null}
             </>
           )}
           {error ? <p className="error">{error}</p> : null}
-          <div className="auth-foot">
-            {sentTo ? (
-              <button
-                type="button"
-                onClick={() => {
-                  emailSend.current += 1;
-                  setSentTo("");
-                  setOtp("");
-                  setError("");
-                }}
-              >
-                Use a different email
-              </button>
-            ) : (
-              <Link to="/" viewTransition>
-                Back
-              </Link>
-            )}
-          </div>
         </div>
+        <aside className="auth-card-video" aria-label="Product walkthrough">
+          <OnboardingVideo className="auth-video" />
+        </aside>
       </div>
-    </GateShell>
+    </div>
   );
 }

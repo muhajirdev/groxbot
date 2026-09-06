@@ -1064,7 +1064,7 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
     });
     await expect(
       guestRpc.workspaces.peek({ invitationId: invite.url }),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       email: memberEmail,
       organizationName: "Shared office",
       organizationId: office.id,

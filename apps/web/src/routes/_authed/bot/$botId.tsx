@@ -8,7 +8,7 @@ export const Route = createFileRoute("/_authed/bot/$botId")({
       orpc.me.queryOptions(),
     );
     if (me.needsWorkspace || !me.workspaceSlug) {
-      throw redirect({ to: "/onboarding", search: {} });
+      throw redirect({ to: "/" });
     }
     throw redirect({
       to: "/$workspaceSlug/bot/$botId",

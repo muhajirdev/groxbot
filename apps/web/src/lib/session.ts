@@ -1,13 +1,11 @@
 import type { Bot, Room } from "@groxbot/contracts";
 import type { QueryClient } from "@tanstack/react-query";
-import { redirect } from "@tanstack/react-router";
 import {
   botsCollection,
   roomsCollection,
   upsertBot,
 } from "./collections";
-import { OFFICE_TO, officeParams } from "./office-route";
-import { orpc, queryClient } from "./orpc";
+import { OFFICE_TO, WORKSPACE_TO, officeParams } from "./office-route";
 import { sessionQueryKey, sessionQueryOptions } from "./session-query";
 import {
   listedBots,
@@ -95,7 +93,7 @@ export function unknownRoomRedirect(opts: {
   rooms: { id: string }[];
   bots: { id: string; homeRoomId?: string; archivedAt?: string | null }[];
 }):
-  | { to: "/onboarding"; search: Record<string, never> }
+  | { to: typeof WORKSPACE_TO; params: { workspaceSlug: string } }
   | {
       to: typeof OFFICE_TO;
       params: { workspaceSlug: string; roomId: string };
@@ -104,7 +102,12 @@ export function unknownRoomRedirect(opts: {
   if (catalogHasRoom(opts.roomId, opts.rooms, opts.bots)) return null;
   const first =
     opts.bots.find((bot) => !bot.archivedAt) ?? opts.bots[0];
-  if (!first) return { to: "/onboarding", search: {} };
+  if (!first) {
+    return {
+      to: WORKSPACE_TO,
+      params: { workspaceSlug: opts.workspaceSlug },
+    };
+  }
   const fallback = first.homeRoomId || first.id;
   if (fallback === opts.roomId) return null;
   return {
@@ -143,29 +146,18 @@ export async function loadBotsForRoute(requiredBotId?: string): Promise<Bot[]> {
   return bots;
 }
 
-/** Send the user to hire, join, or the office. */
-export async function redirectAuthedHome(): Promise<never> {
-  const me = await queryClient.ensureQueryData(orpc.me.queryOptions());
-  if (me.needsWorkspace) throw redirect({ to: "/onboarding", search: {} });
-  const bots = await loadBotsForRoute();
-  const first = firstLiveBot(bots);
-  if (!first) throw redirect({ to: "/onboarding", search: {} });
-  if (!me.workspaceSlug) throw redirect({ to: "/onboarding", search: {} });
-  throw redirect({
-    to: OFFICE_TO,
-    params: officeParams(me.workspaceSlug, first.homeRoomId || first.id),
-  });
-}
-
 /** Swap the live office slice and open it. Do not wipe persist — the other office stays cached. */
 export async function enterActiveWorkspace(opts: {
   workspace: { id: string; name: string; slug: string };
-  goOnboarding: () => Promise<unknown>;
+  goWorkspace: () => Promise<unknown>;
   goBot: (roomId: string) => Promise<unknown>;
+  refetch?: boolean;
 }): Promise<void> {
-  const dest = prepareWorkspaceSwitch(opts.workspace);
-  if (dest.to === "/onboarding") {
-    await opts.goOnboarding();
+  const dest = prepareWorkspaceSwitch(opts.workspace, {
+    refetch: opts.refetch,
+  });
+  if (dest.to === "workspace") {
+    await opts.goWorkspace();
     return;
   }
   await opts.goBot(dest.roomId);

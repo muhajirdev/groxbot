@@ -20,7 +20,7 @@ export type HireMarketplaceInput = {
   description?: string;
 };
 
-type View = "browse" | "custom";
+type View = "name" | "browse";
 
 const CATEGORIES = hireMarketplaceCategories(BOT_MARKETPLACE_CATALOG);
 
@@ -48,7 +48,7 @@ export function HireMarketplaceModal(props: {
   onClose: () => void;
   onHire: (input: HireMarketplaceInput) => void;
 }) {
-  const [view, setView] = useState<View>("browse");
+  const [view, setView] = useState<View>("name");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -56,7 +56,7 @@ export function HireMarketplaceModal(props: {
 
   useEffect(() => {
     if (!props.open) return;
-    setView("browse");
+    setView("name");
     setQuery("");
     setCategory(null);
     setName("");
@@ -88,26 +88,90 @@ export function HireMarketplaceModal(props: {
   return (
     <ModalShell
       open={props.open}
-      wide
-      className="h-[min(86vh,720px)]"
+      wide={view === "browse"}
+      className={
+        view === "browse"
+          ? "h-[min(86vh,720px)]"
+          : "w-[min(340px,calc(100%-48px))] p-0"
+      }
       onClose={props.onClose}
     >
-      <div className="flex items-center justify-between border-b border-line px-3.5 py-2">
-        <h2 className="m-0 text-[15px] font-semibold tracking-tight">
-          {view === "custom" ? "Create your own" : "New bot"}
-        </h2>
-        <button
-          className="icon-btn"
-          type="button"
-          aria-label="Close"
-          onClick={props.onClose}
+      {view === "name" ? (
+        <form
+          className="grid gap-3 p-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const next = name.trim();
+            if (!next) return;
+            props.onHire({
+              name: next,
+              visibility,
+            });
+          }}
         >
-          <CloseIcon />
-        </button>
-      </div>
-
-      {view === "browse" ? (
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="m-0 text-[15px] font-semibold tracking-tight">
+              New bot
+            </h2>
+            <button
+              className="icon-btn"
+              type="button"
+              aria-label="Close"
+              onClick={props.onClose}
+            >
+              <CloseIcon />
+            </button>
+          </div>
+          <p className="m-0 text-[13px] text-muted">
+            Name a teammate. Their role grows in the office thread.
+          </p>
+          <Field label="Name" className="mb-0">
+            <Input
+              autoFocus
+              value={name}
+              placeholder="Piper"
+              maxLength={80}
+              autoComplete="off"
+              onValueChange={setName}
+            />
+          </Field>
+          <PrivateHireToggle
+            checked={priv}
+            label="Private"
+            onChange={setPriv}
+          />
+          <div className="flex items-center justify-between gap-2">
+            <button
+              className="m-0 border-0 bg-transparent p-0 text-[12px] text-muted underline-offset-2 hover:text-ink hover:underline"
+              type="button"
+              onClick={() => setView("browse")}
+            >
+              Browse bot templates
+            </button>
+            <Button
+              className="px-3 py-1.5 text-[13px]"
+              type="submit"
+              disabled={!customReady}
+            >
+              Hire
+            </Button>
+          </div>
+        </form>
+      ) : (
         <>
+          <div className="flex items-center justify-between border-b border-line px-3.5 py-2">
+            <h2 className="m-0 text-[15px] font-semibold tracking-tight">
+              Bot templates
+            </h2>
+            <button
+              className="icon-btn"
+              type="button"
+              aria-label="Close"
+              onClick={props.onClose}
+            >
+              <CloseIcon />
+            </button>
+          </div>
           <div className="flex flex-wrap items-center gap-2 border-b border-line px-[18px] py-2">
             <label className="search-field compact min-w-[160px] flex-1">
               <SearchIcon />
@@ -122,9 +186,9 @@ export function HireMarketplaceModal(props: {
               className="px-3 py-1.5 text-[13px]"
               variant="ghost"
               type="button"
-              onClick={() => setView("custom")}
+              onClick={() => setView("name")}
             >
-              Create your own
+              Back
             </Button>
           </div>
           <div className="flex flex-wrap gap-1.5 border-b border-line px-[18px] py-2">
@@ -197,57 +261,6 @@ export function HireMarketplaceModal(props: {
             )}
           </div>
         </>
-      ) : (
-        <form
-          className="grid gap-3 p-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const next = name.trim();
-            if (!next) return;
-            props.onHire({
-              name: next,
-              visibility,
-            });
-          }}
-        >
-          <p className="m-0 text-[13px] text-muted">
-            Name a teammate. Their role grows in the office thread.
-          </p>
-          <Field label="Name" className="mb-0">
-            <Input
-              autoFocus
-              value={name}
-              placeholder="Piper"
-              maxLength={80}
-              autoComplete="off"
-              onValueChange={setName}
-            />
-          </Field>
-          <div className="flex items-center justify-between gap-2">
-            <PrivateHireToggle
-              checked={priv}
-              label="Private"
-              onChange={setPriv}
-            />
-            <div className="flex gap-2">
-              <Button
-                className="px-3 py-1.5 text-[13px]"
-                variant="ghost"
-                type="button"
-                onClick={() => setView("browse")}
-              >
-                Back
-              </Button>
-              <Button
-                className="px-3 py-1.5 text-[13px]"
-                type="submit"
-                disabled={!customReady}
-              >
-                Hire
-              </Button>
-            </div>
-          </div>
-        </form>
       )}
     </ModalShell>
   );

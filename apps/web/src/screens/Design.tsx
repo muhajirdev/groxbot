@@ -3,6 +3,8 @@ import {
   ArrowUpIcon,
   CheckIcon,
   ChevronDownIcon,
+  GitHubIcon,
+  GoogleIcon,
   SquareIcon,
   WarningCircleIcon,
   XCircleIcon,
@@ -24,10 +26,12 @@ import {
 import { TooltipIconButton } from "../components/assistant-ui/elements/tooltip-icon-button";
 import { ComputerFileOpenProvider } from "../components/ChatFileLink";
 import { ChatMarkdown } from "../components/ChatMarkdown";
-import { GateSplit, GateWelcome } from "../components/Gate";
 import { KnowledgeMarkdown } from "../components/KnowledgeFilePreview";
 import { KnowledgeGraphMap } from "../components/KnowledgeGraph";
-import { OfficeFeed } from "../components/OfficeFeed";
+import {
+  OnboardingVideo,
+  OnboardingWelcome,
+} from "../components/OnboardingDialog";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { PresentSurface } from "../components/PresentToolUI";
 import { OfficeToast } from "../components/ToastHost";
@@ -191,18 +195,60 @@ export function Design() {
           <Section
             id="onboarding"
             title="Onboarding"
-            lede="Split layout. Groxbot thread and jobs on the right — Sales Outbound, Talent Scout, Expense Manager, Bug Reproduction."
+            lede="Sign in on the left. Product video on the right. Founder letter on first office open."
           >
-            <div className="design-gate-frame">
-              <GateSplit proof={<OfficeFeed youName="Alex" />}>
-                <GateWelcome>
-                  <Button type="button">Create a workspace</Button>
-                  <Button variant="ghost" type="button">
-                    Join with an invite →
-                  </Button>
-                </GateWelcome>
-              </GateSplit>
+            <div className="auth-card" style={{ width: "100%", minHeight: 420 }}>
+              <div className="auth-card-form">
+                <h1>Sign in</h1>
+                <p className="lede">or create an account to get started</p>
+                <p className="auth-hint">
+                  Enter your email — we'll send you a verification code.
+                </p>
+                <div className="auth-email">
+                  <Field label="Email" className="field">
+                    <Input
+                      placeholder="you@example.com"
+                      readOnly
+                      tabIndex={-1}
+                    />
+                  </Field>
+                  <button className="btn" type="button" tabIndex={-1}>
+                    Send code
+                  </button>
+                </div>
+                <p className="or-line">Or continue with</p>
+                <div className="auth-oauth">
+                  <button
+                    className="btn ghost oauth-btn"
+                    type="button"
+                    tabIndex={-1}
+                  >
+                    <GitHubIcon />
+                    GitHub
+                  </button>
+                  <button
+                    className="btn ghost oauth-btn"
+                    type="button"
+                    tabIndex={-1}
+                  >
+                    <GoogleIcon />
+                    Google
+                  </button>
+                </div>
+              </div>
+              <aside className="auth-card-video">
+                <OnboardingVideo className="auth-video" />
+              </aside>
             </div>
+            <Specimen label="Office founder letter" hint="OnboardingWelcome">
+              <div className="overflow-hidden rounded-[12px] border border-line bg-card">
+                <OnboardingWelcome
+                  youName="Muhammad"
+                  youEmail="muhammad@example.com"
+                  onContinue={() => undefined}
+                />
+              </div>
+            </Specimen>
           </Section>
           <Section
             id="thinking"

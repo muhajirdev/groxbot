@@ -49,7 +49,7 @@ describe("createWorkspace", () => {
     const result = await createWorkspace(
       { auth: { api } } as never,
       user(),
-      "Studio",
+      { name: "Studio" },
     );
     expect(result).toEqual({
       id: "ws_2",
@@ -58,6 +58,34 @@ describe("createWorkspace", () => {
     });
     expect(api.setActiveOrganization).toHaveBeenCalledWith({
       body: { organizationId: "ws_2" },
+      headers: expect.any(Headers),
+    });
+  });
+
+  it("stashes a client id so the office can open before the insert returns", async () => {
+    const api = {
+      createOrganization: vi.fn(async () => ({
+        id: "ws_client",
+        name: "Studio",
+        slug: "studio-u1",
+      })),
+      setActiveOrganization: vi.fn(async () => ({
+        id: "ws_client",
+        name: "Studio",
+        slug: "studio-u1",
+      })),
+    };
+    await createWorkspace(
+      { auth: { api } } as never,
+      user(),
+      { name: "Studio", id: "ws_client" },
+    );
+    expect(api.createOrganization).toHaveBeenCalledWith({
+      body: {
+        name: "Studio",
+        slug: "studio-u1",
+        metadata: { groxbotClientId: "ws_client" },
+      },
       headers: expect.any(Headers),
     });
   });

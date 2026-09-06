@@ -52,6 +52,18 @@ export const AdminWorkspacesPageSchema = z.object({
 });
 export type AdminWorkspacesPage = z.infer<typeof AdminWorkspacesPageSchema>;
 
+export const AdminDeleteUserInput = z.object({
+  userId: Id,
+});
+export type AdminDeleteUserInput = z.infer<typeof AdminDeleteUserInput>;
+
+export const AdminDeleteWorkspaceInput = z.object({
+  workspaceId: Id,
+});
+export type AdminDeleteWorkspaceInput = z.infer<
+  typeof AdminDeleteWorkspaceInput
+>;
+
 export const ADMIN_PURGE_CONFIRM = "DELETE ALL";
 
 export const AdminPurgeInput = z.object({

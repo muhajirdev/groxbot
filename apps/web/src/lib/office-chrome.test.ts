@@ -34,17 +34,17 @@ describe("office chrome", () => {
   const dark = rootBlock(":root {\n  color-scheme: dark;");
   const light = rootBlock(':root[data-theme="light"] {');
 
-  it("keeps a black gutter around one office panel", () => {
-    expect(token(dark, "--bg")).toBe("#000000");
-    expect(token(dark, "--bg-side")).toBe("#161616");
+  it("keeps a dark gutter around one office panel", () => {
+    expect(token(dark, "--bg")).toBe("#0b0a08");
+    expect(token(dark, "--bg-side")).toBe("#15130f");
     expect(token(dark, "--bg-side")).toBe(token(dark, "--bg-thread"));
     expect(gray(token(dark, "--bg-side"))).toBeGreaterThan(gray(token(dark, "--bg")));
     expect(css).toMatch(/\.chat-side\s*\{[^}]*background:\s*var\(--bg-side\)/s);
   });
 
-  it("lifts the light panel off the gray gutter", () => {
-    expect(token(light, "--bg")).toBe("#f2f2f2");
-    expect(token(light, "--bg-thread")).toBe("#ffffff");
+  it("lifts the light panel off the paper gutter", () => {
+    expect(token(light, "--bg")).toBe("#ebe6d8");
+    expect(token(light, "--bg-thread")).toBe("#f7f3ea");
     expect(token(light, "--bg-side")).toBe(token(light, "--bg-thread"));
     expect(token(light, "--bg-thread")).not.toBe(token(light, "--bg"));
   });
@@ -63,7 +63,7 @@ describe("office chrome", () => {
 
   it("insets one rounded panel with a hairline on all four sides", () => {
     expect(token(dark, "--radius-shell")).toBe("12px");
-    expect(css).toMatch(/\.chat-shell\s*\{[^}]*padding:\s*10px;/s);
+    expect(css).toMatch(/\.chat-shell\s*\{[^}]*padding:\s*14px;/s);
     expect(css).toMatch(
       /\.chat-panel\s*\{[^}]*border:\s*1px solid var\(--line\);[^}]*border-radius:\s*var\(--radius-shell\)/s,
     );

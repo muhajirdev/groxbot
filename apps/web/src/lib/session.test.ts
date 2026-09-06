@@ -85,7 +85,7 @@ describe("unknownRoomRedirect", () => {
     ).toBeNull();
   });
 
-  it("sends an empty office to hire", () => {
+  it("opens the workspace when the office is empty", () => {
     expect(
       unknownRoomRedirect({
         roomId: "missing",
@@ -93,6 +93,9 @@ describe("unknownRoomRedirect", () => {
         rooms: [],
         bots: [],
       }),
-    ).toEqual({ to: "/onboarding", search: {} });
+    ).toEqual({
+      to: "/$workspaceSlug",
+      params: { workspaceSlug: "acme" },
+    });
   });
 });

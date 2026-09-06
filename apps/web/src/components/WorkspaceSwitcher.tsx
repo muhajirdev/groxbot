@@ -1,15 +1,22 @@
 import { Menu } from "@base-ui/react/menu";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useNavigate, useRouter } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
 import { userFacingError } from "../lib/errors";
-import { OFFICE_TO, officeParams } from "../lib/office-route";
+import { OFFICE_TO, WORKSPACE_TO, officeParams } from "../lib/office-route";
 import { workspaceListQueryOptions } from "../lib/office-persist";
+import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
 import { setRpcWorkspaceId } from "../lib/rpc-workspace";
 import { enterActiveWorkspace } from "../lib/session";
-import { rememberListedWorkspace } from "../lib/workspace-catalog";
 import {
+  commitCreatedWorkspace,
+  forgetListedWorkspace,
+  rememberListedWorkspace,
+  trackPendingWorkspaceCreate,
+} from "../lib/workspace-catalog";
+import {
+  draftCreatedWorkspace,
   readCachedWorkspace,
   resolveWorkspace,
   type WorkspaceMenuItem,
@@ -27,6 +34,9 @@ export function WorkspaceSwitcher(props: {
   workspaceSlug?: string | null;
 }) {
   const navigate = useNavigate();
+  const router = useRouter();
+  const meQuery = useQuery(orpc.me.queryOptions());
+  const creating = useRef(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -55,15 +65,23 @@ export function WorkspaceSwitcher(props: {
     setCached(slug ? { id, name, slug } : { id, name });
   }, [props.workspaceId, props.name, props.workspaceSlug]);
 
-  async function enterOffice(workspace: {
-    id: string;
-    name: string;
-    slug: string;
-  }) {
+  async function enterOffice(
+    workspace: {
+      id: string;
+      name: string;
+      slug: string;
+    },
+    opts?: { refetch?: boolean },
+  ) {
     await enterActiveWorkspace({
       workspace,
-      goOnboarding: () =>
-        navigate({ to: "/onboarding", search: {}, viewTransition: true }),
+      refetch: opts?.refetch,
+      goWorkspace: () =>
+        navigate({
+          to: WORKSPACE_TO,
+          params: { workspaceSlug: workspace.slug },
+          viewTransition: true,
+        }),
       goBot: (roomId) =>
         navigate({
           to: OFFICE_TO,
@@ -74,20 +92,82 @@ export function WorkspaceSwitcher(props: {
   }
 
   async function onCreate(name: string) {
-    setBusy(true);
+    if (creating.current) return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const previous =
+      props.workspaceId && props.name && props.workspaceSlug
+        ? {
+            id: props.workspaceId,
+            name: props.name,
+            slug: props.workspaceSlug,
+          }
+        : null;
+    const userId = meQuery.data?.userId?.trim();
+    creating.current = true;
     setCreateError(null);
+
+    if (!userId) {
+      setBusy(true);
+      try {
+        const created = await client.workspaces.create({ name: trimmed });
+        rememberListedWorkspace(created);
+        setRpcWorkspaceId(created.id);
+        writeCachedWorkspace(created);
+        setCached(created);
+        setCreateOpen(false);
+        await enterOffice(created);
+      } catch (caught) {
+        setCreateError(userFacingError(caught, "Could not create workspace"));
+      } finally {
+        creating.current = false;
+        setBusy(false);
+      }
+      return;
+    }
+
+    const draft = draftCreatedWorkspace({ name: trimmed, userId });
+    rememberListedWorkspace(draft);
+    setCached(draft);
+    setCreateOpen(false);
+
+    const work = (async () => {
+      const created = await client.workspaces.create({
+        name: trimmed,
+        id: draft.id,
+      });
+      commitCreatedWorkspace(draft, created);
+      if (created.slug !== draft.slug) {
+        await navigate({
+          to: WORKSPACE_TO,
+          params: { workspaceSlug: created.slug },
+          viewTransition: true,
+        });
+      } else if (created.id !== draft.id) {
+        await router.invalidate();
+      }
+    })();
+    trackPendingWorkspaceCreate(draft.id, work);
+    void work
+      .catch(async (caught) => {
+        forgetListedWorkspace(draft.id);
+        if (previous) {
+          try {
+            await enterOffice(previous);
+          } catch {
+            // Stay on the draft URL; the notice is the recovery.
+          }
+        }
+        setNotice(userFacingError(caught, "Could not create workspace"));
+      })
+      .finally(() => {
+        creating.current = false;
+      });
+
     try {
-      const created = await client.workspaces.create({ name });
-      rememberListedWorkspace(created);
-      setRpcWorkspaceId(created.id);
-      writeCachedWorkspace(created);
-      setCached(created);
-      setCreateOpen(false);
-      await enterOffice(created);
+      await enterOffice(draft, { refetch: false });
     } catch (caught) {
-      setCreateError(userFacingError(caught, "Could not create workspace"));
-    } finally {
-      setBusy(false);
+      setNotice(userFacingError(caught, "Could not create workspace"));
     }
   }
 

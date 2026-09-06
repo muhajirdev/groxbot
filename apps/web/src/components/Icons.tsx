@@ -1,4 +1,5 @@
 import {
+  AddTeamIcon,
   AlertCircleIcon,
   ArrowDown01Icon,
   ArrowLeftToLineIcon,
@@ -187,6 +188,10 @@ export function CopyIcon(props: IconProps) {
 
 export function ShareIcon(props: IconProps) {
   return <Glyph icon={Share08Icon} {...props} />;
+}
+
+export function PeoplePlusIcon(props: IconProps) {
+  return <Glyph icon={AddTeamIcon} {...props} />;
 }
 
 export function DownloadIcon(props: IconProps) {

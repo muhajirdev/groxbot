@@ -32,7 +32,7 @@ export const Route = createFileRoute("/_authed/$workspaceSlug")({
     });
     if (!resolved) {
       setRpcWorkspaceId(null);
-      throw redirect({ to: "/onboarding", search: {} });
+      throw redirect({ to: "/" });
     }
     if (resolved.needsListRefresh) {
       void context.queryClient.fetchQuery({

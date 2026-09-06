@@ -3,9 +3,14 @@ import { officeUrl } from "./host";
 
 export const OFFICE_TO = "/$workspaceSlug/room/$roomId" as const;
 export const ROOM_TO = OFFICE_TO;
+export const WORKSPACE_TO = "/$workspaceSlug" as const;
 
 export function officeParams(workspaceSlug: string, roomId: string) {
   return { workspaceSlug, roomId };
+}
+
+export function workspaceParams(workspaceSlug: string) {
+  return { workspaceSlug };
 }
 
 export function roomParams(workspaceSlug: string, roomId: string) {

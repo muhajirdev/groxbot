@@ -18,7 +18,7 @@ We could not screenshot the live desktop app (paywalled: SuperGrok Heavy / Curso
 | Appearance, attention states | [docs: settings](https://docs.x.ai/grok-bot/settings-and-notifications) |
 | Sidebar screenshot description (Inbox Manager, Talent Scout…) | [eesel review](https://www.eesel.ai/blog/grok-bot-review) |
 | Walkthrough video | [YouTube: Cursor Just Released Grok Bot](https://www.youtube.com/watch?v=QTcZPI-g7is) |
-| Post-login welcome split (layout only) | [docs/references/onboarding-multica.md](./references/onboarding-multica.md) |
+| Login card (form + video) | `AuthScreen`, video at `/onboarding.mp4` |
 
 ---
 
@@ -74,7 +74,7 @@ Composer:
 - `/` = saved skill.
 - Send while it is working = redirect. “Stop now” = halt (does not undo).
 
-Job-title chips and the office **New bot** surface share a curated hire catalog of full bot packages (soul, starter memory, skills) — including roles seeded from public Grok Bot marketplace listings. Browse/search in the marketplace modal, or pick chips on first-run onboarding — same templates, same `bots.create` path. This is **not** Plugins (Composio connectors), **not** Knowledge skills/playbooks, and **not** a user-published template store (static catalog for now).
+Job-title chips and the office **New bot** name dialog share a curated hire catalog of full bot packages (soul, starter memory, skills) — including roles seeded from public Grok Bot marketplace listings. **New bot** asks for a name first. **Browse bot templates** opens the marketplace — same templates, same `bots.create` path. This is **not** Plugins (Composio connectors), **not** Knowledge skills/playbooks, and **not** a user-published template store (static catalog for now).
 
 Skills (playbooks) have a separate **Skills store** in the Skills library: curated Agent Skills packages. Browse/search/install copies into office knowledge via `knowledge.importSkill`. Pi can `skills_store.search` / `skills_store.install` in Code Mode; installed skills show in `<available_skills>` on the next turn. Still not a UGC skills marketplace and not the bot hire catalog.
 
@@ -103,34 +103,21 @@ Copy voice: teammate, job, handoff, come back when you need approval. Not “age
 
 ## Onboarding (copy this sequence)
 
-Welcome **layout** (copy left, product proof right): [Multica reference](./references/onboarding-multica.md). Visual language stays Groxbot. Sequence stays Grok Bot’s.
-
-Desktop ([get started](https://docs.x.ai/grok-bot/get-started)):
+Login opens the office immediately. No tools or models gate. Workspace is created from the user’s name when they have none. Invite links (`/?invite=`) open a join page (workspace name, who invited you, Join). Sign in if needed, then land in the office.
 
 ```
-  Welcome
-    [ Get started ]     -->  browser Cursor/Grokbot login
+  Sign in (video on the right)
          |
          v
-  Create a new workspace  or  Join with an invite
+  Office paints. If this workspace has no live bots:
+    founder letter → [ OK, let's see my office ]
          |
          v
-  Short tour: Bots, shared computer
-  "Which tools do you use?"   (shapes suggestions; does NOT connect yet)
-         |
-         v
-  Models (BYOK or Groxbot hosted gateway): pick default model
-    Groxbot includes Workers AI (`env.AI`) through Cloudflare AI Gateway
-    Paste your own OpenRouter/Anthropic/OpenAI/Cloudflare key anytime
-         |
-         v
-  Meet a future teammate
-    suggested jobs     or    [ Create your own ]
-         |
-         v
-  Name them.
-  Open the thread. First message is a real task.
+  Empty office. New bot when they want a teammate.
+  Reload while empty shows the letter again. Hire, and it stops.
 ```
+
+Drop the video at `apps/web/public/onboarding.mp4`. Models stay in Settings. Composer already asks for a key when the host has no hosted gateway.
 
 Create-your-own fields (example from docs):
 
@@ -142,7 +129,7 @@ After that, **New** / `Cmd+N` → **Create new agent** → opens **New Agent** �
 
 iPhone: Login with Cursor → first-run tour → choose first Bot → wait for computer → same roster. `+` → New Agent | New Group Chat.
 
-**Our v1 trim:** same tour. Each Bot already has a computer (you can ignore it). Skip group chat, shared desk, and takeover. Plugins = Composio when we have it; first-run tool question can still be asked. **A model is required before hire** — Groxbot’s hosted Cloudflare AI Gateway, or a pasted key — so the first thread can talk.
+**Our v1 trim:** first-run is sign-in with the product video, then the office, then a short letter from the founder. Each Bot already has a computer (you can ignore it). Skip group chat, shared desk, and takeover. Plugins = Composio when we have it. Models live in Settings, not the first-run gate.
 
 ### First-task recipe (surface in empty composer)
 
@@ -206,7 +193,7 @@ Empty composer and New Agent must still work without those.
 
 ## Implementation checklist (web)
 
-1. Welcome → sign in → **create or join a workspace** → tour → tools → **models (BYOK)** → “meet a teammate” (name, color+shape).
+1. Sign in on `/` (video on the right) → office (workspace created if needed) → founder letter.
 2. Sidebar of Bots; click = that office thread.
 3. Chat transcript with inline “working,” files, approval.
 4. Computer pane: this bot’s Cloudflare Computer workspace (empty first). No takeover, no desk RPC. Wakeup is the bot’s actor, not a queue UI.

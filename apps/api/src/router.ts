@@ -40,6 +40,8 @@ import { guestConnectors, threads, userModelCredentials } from "@groxbot/db";
 import { implement, ORPCError } from "@orpc/server";
 import { and, eq } from "drizzle-orm";
 import {
+  deleteAdminUserAccount,
+  deleteAdminWorkspaceAccount,
   getAdminStats,
   getAdminUsers,
   getAdminWorkspaces,
@@ -102,6 +104,7 @@ import {
   activateWorkspace,
   createWorkspace,
   inviteToWorkspace,
+  inviteWorkspaceLink,
   joinWorkspace,
   listWorkspaces,
   peekWorkspaceInvite,
@@ -176,7 +179,7 @@ export const appRouter = os.router({
   workspaces: {
     create: os.workspaces.create.handler(async ({ context, input }) => {
       const user = await requireUser(context);
-      return createWorkspace(context, user, input.name);
+      return createWorkspace(context, user, input);
     }),
     list: os.workspaces.list.handler(async ({ context }) => {
       const user = await requireUser(context);
@@ -195,6 +198,9 @@ export const appRouter = os.router({
     }),
     invite: os.workspaces.invite.handler(async ({ context, input }) => {
       return inviteToWorkspace(context, input.email);
+    }),
+    inviteLink: os.workspaces.inviteLink.handler(async ({ context }) => {
+      return inviteWorkspaceLink(context);
     }),
     invitations: os.workspaces.invitations.handler(async ({ context }) => {
       const user = await requireUser(context);
@@ -281,6 +287,14 @@ export const appRouter = os.router({
     workspaces: os.admin.workspaces.handler(async ({ context, input }) => {
       return getAdminWorkspaces(context, input);
     }),
+    deleteUser: os.admin.deleteUser.handler(async ({ context, input }) => {
+      return deleteAdminUserAccount(context, input.userId);
+    }),
+    deleteWorkspace: os.admin.deleteWorkspace.handler(
+      async ({ context, input }) => {
+        return deleteAdminWorkspaceAccount(context, input.workspaceId);
+      },
+    ),
     purgeAll: os.admin.purgeAll.handler(async ({ context }) => {
       return purgeAdminData(context);
     }),

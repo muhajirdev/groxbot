@@ -1,13 +1,17 @@
+import { ORGANIZATION_CLIENT_ID_KEY } from "@groxbot/auth";
 import {
   invitationIdFromInput,
   invitationUrl,
   ensureWorkspaceBilling,
+  ensureOpenInvitation,
+  isWorkspaceMember,
   listPendingInvitations,
   peekInvitation,
   renameWorkspace,
   slugForWorkspace,
   workspaceAuthMessage,
 } from "@groxbot/core";
+import { member } from "@groxbot/db";
 import { ORPCError } from "@orpc/server";
 import { agentRuntimeSource } from "./env.js";
 import type { RpcContext } from "./context.js";
@@ -20,12 +24,13 @@ function toWorkspace(org: { id: string; name: string; slug?: string | null }) {
 export async function createWorkspace(
   context: RpcContext,
   user: SessionUser,
-  name: string,
+  input: { name: string; id?: string },
 ) {
   if (!context.auth) {
     throw new ORPCError("UNAUTHORIZED", { message: "Sign in" });
   }
-  const trimmed = name.trim();
+  const trimmed = input.name.trim();
+  const clientId = input.id?.trim() || "";
   const slug = slugForWorkspace(trimmed, user.userId);
   let created: { id: string; name: string; slug?: string | null } | null = null;
   for (let attempt = 0; attempt < 4; attempt += 1) {
@@ -34,6 +39,9 @@ export async function createWorkspace(
         body: {
           name: trimmed,
           slug: attempt === 0 ? slug : `${slug}-${attempt + 1}`,
+          ...(clientId
+            ? { metadata: { [ORGANIZATION_CLIENT_ID_KEY]: clientId } }
+            : {}),
         },
         headers: user.headers,
       });
@@ -130,7 +138,25 @@ export async function joinWorkspace(
   if (!invitationId) {
     throw new ORPCError("BAD_REQUEST", { message: "Paste an invite to join." });
   }
+  const peek = await peekInvitation(context.db, invitationId);
+  if (!peek) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: "That invite is missing or expired.",
+    });
+  }
+  if (!peek.email) {
+    return joinOpenInvite(context, user, peek.organizationId);
+  }
   return joinWithHeaders(context, user.headers, invitationId);
+}
+
+export async function inviteWorkspaceLink(context: RpcContext) {
+  const actor = await requireActor(context);
+  const invitationId = await ensureOpenInvitation(context.db, {
+    workspaceId: actor.workspaceId,
+    inviterId: actor.userId,
+  });
+  return { url: invitationUrl(context.env.webOrigin, invitationId) };
 }
 
 export async function inviteToWorkspace(context: RpcContext, email: string) {
@@ -193,6 +219,11 @@ export async function acceptInviteFromLink(
   if (!peek) {
     throw new ORPCError("BAD_REQUEST", {
       message: "That invite is missing or expired.",
+    });
+  }
+  if (!peek.email) {
+    throw new ORPCError("UNAUTHORIZED", {
+      message: "Sign in to join this workspace.",
     });
   }
 
@@ -266,6 +297,48 @@ function randomToken(): string {
   const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
   const bytes = crypto.getRandomValues(new Uint8Array(32));
   return Array.from(bytes, (byte) => chars[byte % chars.length]).join("");
+}
+
+async function joinOpenInvite(
+  context: RpcContext,
+  user: SessionUser,
+  organizationId: string,
+) {
+  const auth = context.auth;
+  if (!auth) {
+    throw new ORPCError("UNAUTHORIZED", { message: "Sign in" });
+  }
+  if (!(await isWorkspaceMember(context.db, user.userId, organizationId))) {
+    try {
+      await context.db.insert(member).values({
+        id: crypto.randomUUID(),
+        organizationId,
+        userId: user.userId,
+        role: "member",
+      });
+    } catch (caught) {
+      if (!(await isWorkspaceMember(context.db, user.userId, organizationId))) {
+        throwWorkspaceError(caught, "Could not join workspace");
+      }
+    }
+  }
+  try {
+    await auth.api.setActiveOrganization({
+      body: { organizationId },
+      headers: user.headers,
+    });
+    const org = await auth.api.getFullOrganization({
+      query: { organizationId },
+      headers: user.headers,
+    });
+    return {
+      id: organizationId,
+      name: org?.name ?? "Workspace",
+      slug: org?.slug ?? organizationId,
+    };
+  } catch (caught) {
+    throwWorkspaceError(caught, "Could not join workspace");
+  }
 }
 
 async function joinWithHeaders(

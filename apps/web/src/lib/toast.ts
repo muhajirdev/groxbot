@@ -1,4 +1,5 @@
 export const TOAST_LINK_COPIED = "Link copied";
+export const TOAST_INVITE_LINK_COPIED = "Invite link copied";
 export const TOAST_SHARED_LINK_COPIED = "Shared. Link copied";
 export const TOAST_SHARED = "Shared";
 

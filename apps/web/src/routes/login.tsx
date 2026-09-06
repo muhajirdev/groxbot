@@ -1,7 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { readRememberedInvite, rememberInvite } from "../lib/invite";
-import { redirectAuthedHome } from "../lib/session";
-import { AuthScreen } from "../screens/AuthScreen";
+import { redirectAuthedHome } from "../lib/enter-office";
+import { rememberInvite } from "../lib/invite";
 
 type LoginSearch = {
   error?: string;
@@ -18,20 +17,14 @@ export const Route = createFileRoute("/login")({
   },
   beforeLoad: async ({ context, search }) => {
     rememberInvite(search?.invite);
-    const invite = search?.invite?.trim() || readRememberedInvite();
-    if (!context.session) return;
-    if (invite) {
-      throw redirect({
-        to: "/onboarding",
-        search: { invite },
-      });
-    }
-    await redirectAuthedHome();
+    if (context.session) await redirectAuthedHome();
+    throw redirect({
+      to: "/",
+      search: {
+        ...(search?.error ? { error: search.error } : {}),
+        ...(search?.invite ? { invite: search.invite } : {}),
+      },
+    });
   },
-  component: LoginPage,
+  component: () => null,
 });
-
-function LoginPage() {
-  const { error, invite } = Route.useSearch();
-  return <AuthScreen errorFromUrl={error} invite={invite} />;
-}

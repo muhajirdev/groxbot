@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   canSaveWorkspaceName,
   destinationAfterWorkspaceChange,
+  draftCreatedWorkspace,
   parseCachedWorkspace,
   parseLastRooms,
   resolveWorkspace,
@@ -21,6 +22,22 @@ describe("workspaceDisplayName", () => {
   it("falls back when the name is missing", () => {
     expect(workspaceDisplayName(null)).toBe("Workspace");
     expect(workspaceDisplayName("")).toBe("Workspace");
+  });
+});
+
+describe("draftCreatedWorkspace", () => {
+  it("predicts the same slug the server will use", () => {
+    expect(
+      draftCreatedWorkspace({
+        name: "Acme Labs",
+        userId: "user-12ab-34cd",
+        id: "ws-draft",
+      }),
+    ).toEqual({
+      id: "ws-draft",
+      name: "Acme Labs",
+      slug: "acme-labs-user12ab",
+    });
   });
 });
 
@@ -241,8 +258,8 @@ describe("workspaceMenuItems", () => {
 });
 
 describe("destinationAfterWorkspaceChange", () => {
-  it("opens onboarding when the office has no teammates", () => {
-    expect(destinationAfterWorkspaceChange([])).toEqual({ to: "/onboarding" });
+  it("opens the workspace when the office has no teammates", () => {
+    expect(destinationAfterWorkspaceChange([])).toEqual({ to: "workspace" });
   });
 
   it("opens the last desk when it is still in this office", () => {

@@ -1,26 +1,12 @@
 import { type Database, invitation, member, organization, user } from "@groxbot/db";
-import { and, eq, gt, sql } from "drizzle-orm";
+import {
+  OPEN_INVITE_EMAIL,
+  isOpenInvitationEmail,
+  slugForWorkspace,
+} from "@groxbot/contracts";
+import { and, count, eq, gt, sql } from "drizzle-orm";
 
-const SLUG_NAME_MAX = 24;
-
-/** URL-safe workspace slug: `{name}-{salt}`. */
-export function slugForWorkspace(name: string, salt: string): string {
-  const base =
-    name
-      .normalize("NFKD")
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, "")
-      .replace(/[\s_]+/g, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-|-$/g, "")
-      .slice(0, SLUG_NAME_MAX) || "workspace";
-  const tail =
-    salt
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "")
-      .slice(0, 8) || "office";
-  return `${base}-${tail}`;
-}
+export { slugForWorkspace };
 
 /** Accept a raw invite id or an onboarding URL that carries `?invite=`. */
 export function invitationIdFromInput(raw: string): string {
@@ -46,7 +32,7 @@ export function invitationIdFromInput(raw: string): string {
 
 export function invitationUrl(webOrigin: string, invitationId: string): string {
   const origin = webOrigin.replace(/\/$/, "");
-  return `${origin}/onboarding?invite=${encodeURIComponent(invitationId)}`;
+  return `${origin}/?invite=${encodeURIComponent(invitationId)}`;
 }
 
 /** Desk on `/$workspaceSlug/room/$roomId`. */
@@ -182,20 +168,69 @@ export async function peekInvitation(db: Database, raw: string) {
       organizationName: organization.name,
       status: invitation.status,
       expiresAt: invitation.expiresAt,
+      inviterName: user.name,
+      inviterImage: user.image,
     })
     .from(invitation)
     .innerJoin(organization, eq(invitation.organizationId, organization.id))
+    .innerJoin(user, eq(invitation.inviterId, user.id))
     .where(eq(invitation.id, invitationId))
     .limit(1);
   const row = rows[0];
   if (!row?.status || row.status !== "pending" || row.expiresAt <= new Date()) {
     return null;
   }
+  const [tally] = await db
+    .select({ n: count() })
+    .from(member)
+    .where(eq(member.organizationId, row.organizationId));
   return {
-    email: row.email,
+    email: isOpenInvitationEmail(row.email) ? null : row.email,
     organizationName: row.organizationName,
     organizationId: row.organizationId,
+    inviterName: (row.inviterName ?? "").trim() || "A teammate",
+    inviterImage: row.inviterImage ?? null,
+    memberCount: Number(tally?.n ?? 0),
   };
+}
+
+const OPEN_INVITE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+export async function ensureOpenInvitation(
+  db: Database,
+  input: { workspaceId: string; inviterId: string },
+): Promise<string> {
+  const expiresAt = new Date(Date.now() + OPEN_INVITE_TTL_MS);
+  const [existing] = await db
+    .select({ id: invitation.id })
+    .from(invitation)
+    .where(
+      and(
+        eq(invitation.organizationId, input.workspaceId),
+        sql`lower(${invitation.email}) = ${OPEN_INVITE_EMAIL}`,
+        eq(invitation.status, "pending"),
+        gt(invitation.expiresAt, new Date()),
+      ),
+    )
+    .limit(1);
+  if (existing) {
+    await db
+      .update(invitation)
+      .set({ expiresAt })
+      .where(eq(invitation.id, existing.id));
+    return existing.id;
+  }
+  const id = crypto.randomUUID();
+  await db.insert(invitation).values({
+    id,
+    organizationId: input.workspaceId,
+    email: OPEN_INVITE_EMAIL,
+    role: "member",
+    status: "pending",
+    expiresAt,
+    inviterId: input.inviterId,
+  });
+  return id;
 }
 
 export async function listWorkspaceMembers(

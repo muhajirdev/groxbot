@@ -1,3 +1,5 @@
+import { slugForWorkspace } from "@groxbot/contracts";
+
 export const WORKSPACE_CACHE_KEY = "groxbot.workspace";
 
 export type WorkspaceOption = {
@@ -23,12 +25,26 @@ export type WorkspaceMenuItem =
   | { kind: "create" };
 
 export type WorkspaceDestination =
-  | { to: "/onboarding" }
+  | { to: "workspace" }
   | { to: "/room/$roomId"; roomId: string };
 
 export function workspaceDisplayName(name: string | null | undefined): string {
   const trimmed = name?.trim();
   return trimmed || "Workspace";
+}
+
+/** Local office row so Create workspace can paint before `workspaces.create` returns. */
+export function draftCreatedWorkspace(input: {
+  name: string;
+  userId: string;
+  id?: string;
+}): WorkspaceOption {
+  const name = input.name.trim();
+  return {
+    id: input.id?.trim() || crypto.randomUUID(),
+    name,
+    slug: slugForWorkspace(name, input.userId),
+  };
 }
 
 function workspaceStorage(): Storage | null {
@@ -93,7 +109,7 @@ export type ResolvedWorkspace = {
 /**
  * Open `/$workspaceSlug` from the list, then last office, then a forced
  * refetch. An empty `workspaces.list` Query cache (first-run, or IDB) plus
- * onboarding bouncing back to this slug is a TanStack "Too many redirects".
+ * bouncing back to this slug is a TanStack "Too many redirects".
  */
 export async function resolveWorkspaceForRoute(opts: {
   slug: string;
@@ -277,6 +293,6 @@ export function destinationAfterWorkspaceChange(
     }
   }
   const live = bots.find((bot) => !bot.archivedAt) ?? bots[0];
-  if (!live) return { to: "/onboarding" };
+  if (!live) return { to: "workspace" };
   return { to: "/room/$roomId", roomId: live.homeRoomId || live.id };
 }

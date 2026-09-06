@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { botsCollection, peekBots } from "../../../../lib/collections";
-import { OFFICE_TO, officeParams } from "../../../../lib/office-route";
+import { OFFICE_TO, WORKSPACE_TO, officeParams } from "../../../../lib/office-route";
 import { officeSearch } from "../../../../lib/office-search";
 import { firstLiveBot, loadBotsForRoute } from "../../../../lib/session";
 
@@ -16,7 +16,12 @@ export const Route = createFileRoute("/_authed/$workspaceSlug/bot/$botId")({
     const bot = bots.find((item) => item.id === params.botId);
     const first = firstLiveBot(bots);
     const roomId = bot?.homeRoomId || first?.homeRoomId || first?.id;
-    if (!roomId) throw redirect({ to: "/onboarding", search: {} });
+    if (!roomId) {
+      throw redirect({
+        to: WORKSPACE_TO,
+        params: { workspaceSlug: params.workspaceSlug },
+      });
+    }
     throw redirect({
       to: OFFICE_TO,
       params: officeParams(params.workspaceSlug, roomId),

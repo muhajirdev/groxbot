@@ -38,6 +38,7 @@ import { CommandPalette, SearchTrigger } from "../components/CommandPalette";
 import { ComputerPane } from "../components/ComputerPane";
 import { CreateRoomDialog } from "../components/CreateRoomDialog";
 import { HireMarketplaceModal } from "../components/HireMarketplaceModal";
+import { OnboardingDialog } from "../components/OnboardingDialog";
 import { SkillsStoreModal } from "../components/SkillsStoreModal";
 import {
   CaretSwapIcon,
@@ -68,6 +69,7 @@ import {
 import { KeptRoomThread } from "../components/RoomThread";
 import { ThreadList } from "../components/ThreadList";
 import { WorkspaceSwitcher } from "../components/WorkspaceSwitcher";
+import { InviteFriendButton } from "../components/InviteFriendButton";
 import { APP_KIND_COLOR, APP_KIND_LABEL } from "../lib/app-kind";
 import { authClient } from "../lib/auth";
 import {
@@ -107,7 +109,12 @@ import {
   setOfficeMessages,
 } from "../lib/office-messages";
 import { forgetRoomMessages } from "../lib/room-messages";
-import { OFFICE_TO, ROOM_TO, officeKnowledgeHref } from "../lib/office-route";
+import {
+  OFFICE_TO,
+  ROOM_TO,
+  WORKSPACE_TO,
+  officeKnowledgeHref,
+} from "../lib/office-route";
 import {
   closeLibrary,
   closePeek,
@@ -125,6 +132,7 @@ import {
   SKILLS_LIBRARY_PATH,
   toggleDesk,
 } from "../lib/office-search";
+import { workspaceNeedsOnboarding } from "../lib/onboarding";
 import { orpc } from "../lib/orpc";
 import { usePanePresence } from "../lib/presence";
 import {
@@ -148,8 +156,13 @@ import {
   firstLiveBot,
   isArchivedBot,
   officeProfileLabel,
+  readSession,
 } from "../lib/session";
-import { knowledgeListQueryOptions } from "../lib/workspace-catalog";
+import {
+  knowledgeListQueryOptions,
+  listedBots,
+  whenWorkspaceReady,
+} from "../lib/workspace-catalog";
 import { writeLastRoom } from "../lib/workspace-switcher";
 import {
   type BotMenuPhase,
@@ -474,6 +487,9 @@ export function Chat(props: {
       ? liveSectionRows
       : peekedSections;
   const me = meQuery.data;
+  const sessionUser = readSession(queryClient)?.user;
+  const youName = me?.name ?? sessionUser?.name;
+  const youEmail = me?.email ?? sessionUser?.email;
   const desk = officeSearch(props.desk);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const knowledgeListQuery = useQuery(knowledgeListQueryOptions());
@@ -483,6 +499,10 @@ export function Chat(props: {
   );
   const [pluginsOpen, setPluginsOpen] = useState(false);
   const [hireOpen, setHireOpen] = useState(false);
+  const onboardDismissed = useRef(false);
+  const [onboardOpen, setOnboardOpen] = useState(() =>
+    workspaceNeedsOnboarding(listedBots()),
+  );
   const [skillsStoreOpen, setSkillsStoreOpen] = useState(false);
   const [roomOpen, setRoomOpen] = useState(false);
   const [roomDelete, setRoomDelete] = useState<Room | null>(null);
@@ -590,6 +610,13 @@ export function Chat(props: {
   const liveBots = useMemo(() => {
     return bots.filter((item) => !isArchivedBot(item)).sort(compareSidebarBots);
   }, [bots]);
+  useEffect(() => {
+    if (!workspaceNeedsOnboarding(liveBots)) {
+      setOnboardOpen(false);
+      return;
+    }
+    if (!onboardDismissed.current) setOnboardOpen(true);
+  }, [liveBots]);
   const groupedBots = useMemo(
     () => groupSidebarBots(liveBots, sections),
     [liveBots, sections],
@@ -853,7 +880,10 @@ export function Chat(props: {
     const leave = !currentId
       ? undefined
       : !nextId
-        ? navigate({ to: "/onboarding", search: {} })
+        ? navigate({
+            to: WORKSPACE_TO,
+            params: { workspaceSlug: props.workspace.slug },
+          })
         : nextId !== currentId
           ? goToBot(nextId, deskClosed())
           : undefined;
@@ -930,7 +960,10 @@ export function Chat(props: {
         ? goToRoom(nextRoom.id, deskClosed())
         : nextBot
           ? goToBot(nextBot.id, deskClosed())
-          : navigate({ to: "/onboarding", search: {} });
+          : navigate({
+              to: WORKSPACE_TO,
+              params: { workspaceSlug: props.workspace.slug },
+            });
 
     try {
       await client.rooms.delete({ roomId: room.id });
@@ -1024,6 +1057,8 @@ export function Chat(props: {
       const trimmed = input.name.trim();
       if (!trimmed || hiring.current) return;
       hiring.current = true;
+      onboardDismissed.current = true;
+      setOnboardOpen(false);
       setHireOpen(false);
       const id = crypto.randomUUID();
       const homeRoomId = crypto.randomUUID();
@@ -1045,6 +1080,7 @@ export function Chat(props: {
         setOfficeMessages(homeRoomId, []);
         patchThreadMeta(id, { opening: true, working: OFFICE_WORKING });
         void goToBot(id, deskClosed());
+        await whenWorkspaceReady(props.workspace.id);
         const created = await client.bots.create({
           id,
           homeRoomId,
@@ -1245,6 +1281,7 @@ export function Chat(props: {
 
   const blocking =
     hireOpen ||
+    onboardOpen ||
     roomOpen ||
     sectionOpen ||
     Boolean(sectionRename) ||
@@ -1326,7 +1363,7 @@ export function Chat(props: {
         setSectionMenu(null);
       },
       options: {
-        enabled: (!hireOpen && !settingsOpen && !pluginsOpen) || paletteOpen,
+        enabled: (!hireOpen && !onboardOpen && !settingsOpen && !pluginsOpen) || paletteOpen,
       },
     },
     {
@@ -1335,7 +1372,7 @@ export function Chat(props: {
         setPaletteOpen(false);
         if (!hiring.current) setHireOpen(true);
       },
-      options: { enabled: !settingsOpen && !pluginsOpen },
+      options: { enabled: !settingsOpen && !pluginsOpen && !onboardOpen && !hireOpen },
     },
     {
       hotkey: "Mod+,",
@@ -1344,7 +1381,7 @@ export function Chat(props: {
         setSettingsTab("general");
         setSettingsOpen(true);
       },
-      options: { enabled: !hireOpen },
+      options: { enabled: !hireOpen && !onboardOpen },
     },
     {
       hotkey: "Escape",
@@ -1389,7 +1426,7 @@ export function Chat(props: {
       hotkey: "Escape",
       callback: () => setDesk(closeLibrary(desk)),
       options: {
-        enabled: Boolean(desk.library) && !paletteOpen && !hireOpen,
+        enabled: Boolean(desk.library) && !paletteOpen && !hireOpen && !onboardOpen,
       },
     },
   ]);
@@ -1581,6 +1618,7 @@ export function Chat(props: {
                   />
                 </div>
                 <div className="no-drag relative flex shrink-0 items-center gap-0.5">
+                  <InviteFriendButton />
                   {bot ? (
                     <Button
                       className="hidden max-[720px]:grid"
@@ -1594,7 +1632,7 @@ export function Chat(props: {
                   ) : null}
                   <SidebarCreateMenu
                     disabled={hiringThis}
-                    active={hireOpen || roomOpen || sectionOpen}
+                    active={hireOpen || onboardOpen || roomOpen || sectionOpen}
                     onNewBot={() => {
                       if (!hiring.current) setHireOpen(true);
                     }}
@@ -1870,7 +1908,7 @@ export function Chat(props: {
                         />
                       ) : null}
                       <strong className="truncate text-[13px] font-semibold tracking-tight">
-                        {isRoom ? (room?.name ?? "Room") : (bot?.name ?? "—")}
+                        {isRoom ? (room?.name ?? "Room") : (bot?.name ?? props.workspace.name)}
                       </strong>
                     </button>
                   </div>
@@ -2028,7 +2066,24 @@ export function Chat(props: {
                     );
                   })}
                 </div>
-              ) : null}
+              ) : (
+                <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6">
+                  <p className="m-0 text-[15px] font-semibold tracking-tight">
+                    No teammates yet
+                  </p>
+                  <p className="m-0 max-w-[32ch] text-center text-[13px] text-muted">
+                    Hire a bot to start a thread.
+                  </p>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      if (!hiring.current) setHireOpen(true);
+                    }}
+                  >
+                    New bot
+                  </Button>
+                </div>
+              )}
             </section>
             <div
               className={cn("chat-pane-slot", pane.leaving && "is-leaving")}
@@ -2179,6 +2234,15 @@ export function Chat(props: {
               setDesk(deskLibrary(desk, path));
             }}
             onAction={runPaletteAction}
+          />
+          <OnboardingDialog
+            open={onboardOpen}
+            youName={youName}
+            youEmail={youEmail}
+            onContinue={() => {
+              onboardDismissed.current = true;
+              setOnboardOpen(false);
+            }}
           />
           <HireMarketplaceModal
             open={hireOpen}

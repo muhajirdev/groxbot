@@ -44,7 +44,7 @@ pnpm dev
 
 - API: http://127.0.0.1:3100/health
 - oRPC: http://127.0.0.1:3100/rpc
-- Web: http://127.0.0.1:5173 — `/` welcome, `/login`, `/onboarding`, `/{botId}` office
+- Web: http://127.0.0.1:5173 — `/` sign in, `/{workspace}/room/{roomId}` office
 - Landing: http://127.0.0.1:5174 — marketing (`pnpm dev:landing`)
 
 Public LLM / agent discovery (also on https://groxbot.com):

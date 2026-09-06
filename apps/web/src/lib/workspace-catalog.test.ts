@@ -17,11 +17,15 @@ import { tenantBoundQueryFn } from "./tenant-query";
 import {
   adoptWorkspaceCatalog,
   botsListKey,
+  commitCreatedWorkspace,
+  forgetListedWorkspace,
   knowledgeListKey,
   peekWorkspaceCatalog,
   prepareWorkspaceSwitch,
   rememberListedWorkspace,
   snapshotWorkspaceCatalog,
+  trackPendingWorkspaceCreate,
+  whenWorkspaceReady,
   workspaceCatalogKey,
   workspaceSwitchDestination,
 } from "./workspace-catalog";
@@ -118,14 +122,25 @@ describe("prepareWorkspaceSwitch", () => {
     expect(dest).toEqual({ to: "/room/$roomId", roomId: "home-sam" });
     expect(queryClient.getQueryData(botsListKey)).toEqual(studio);
   });
+
+  it("opens a new office without waiting on catalogs", () => {
+    setLiveCatalogId("ws-1");
+    queryClient.setQueryData(botsListKey, [bot("ws-1", "ada")]);
+    const dest = prepareWorkspaceSwitch(
+      { id: "ws-new", name: "Studio", slug: "studio-u1" },
+      { refetch: false },
+    );
+    expect(dest).toEqual({ to: "workspace" });
+    expect(queryClient.getQueryData(botsListKey)).toEqual([]);
+  });
 });
 
 describe("workspaceSwitchDestination", () => {
-  it("opens onboarding when this office has no teammates yet", () => {
+  it("opens the workspace when this office has no teammates yet", () => {
     setRpcWorkspaceId("ws-empty");
     queryClient.setQueryData(botsListKey, []);
     expect(workspaceSwitchDestination("ws-empty")).toEqual({
-      to: "/onboarding",
+      to: "workspace",
     });
   });
 });
@@ -159,6 +174,73 @@ describe("rememberListedWorkspace", () => {
     ).toEqual([
       { id: "ws-m", name: "Muhajir", slug: "muhajir-5v6j44mv" },
     ]);
+  });
+
+  it("drops a draft office when create fails", () => {
+    queryClient.setQueryData(workspaceListQueryOptions().queryKey, [
+      { id: "ws-1", name: "Acme", slug: "acme" },
+      { id: "ws-draft", name: "Studio", slug: "studio-u1" },
+    ]);
+    forgetListedWorkspace("ws-draft");
+    expect(
+      queryClient.getQueryData(workspaceListQueryOptions().queryKey),
+    ).toEqual([{ id: "ws-1", name: "Acme", slug: "acme" }]);
+  });
+});
+
+describe("commitCreatedWorkspace", () => {
+  it("remaps a draft id onto the server row", () => {
+    queryClient.setQueryData(workspaceListQueryOptions().queryKey, [
+      { id: "ws-draft", name: "Studio", slug: "studio-u1" },
+    ]);
+    queryClient.setQueryData(orpc.me.key(), {
+      userId: "u1",
+      email: "a@b.co",
+      name: "A",
+      image: null,
+      workspaceId: "ws-draft",
+      workspaceName: "Studio",
+      workspaceSlug: "studio-u1",
+      needsWorkspace: false,
+      isDeploymentOwner: false,
+      needsModel: false,
+      defaultModel: "x",
+      defaultModelLabel: "X",
+      modelWarning: null,
+    });
+    commitCreatedWorkspace(
+      { id: "ws-draft", name: "Studio", slug: "studio-u1" },
+      { id: "ws-real", name: "Studio", slug: "studio-u1" },
+    );
+    expect(
+      queryClient.getQueryData(workspaceListQueryOptions().queryKey),
+    ).toEqual([{ id: "ws-real", name: "Studio", slug: "studio-u1" }]);
+    expect(queryClient.getQueryData(orpc.me.key())).toMatchObject({
+      workspaceId: "ws-real",
+      workspaceSlug: "studio-u1",
+    });
+  });
+});
+
+describe("whenWorkspaceReady", () => {
+  it("resolves immediately when nothing is in flight", async () => {
+    await expect(whenWorkspaceReady("ws-1")).resolves.toBeUndefined();
+  });
+
+  it("waits for the in-flight create", async () => {
+    let release: (value: unknown) => void = () => undefined;
+    const work = new Promise((resolve) => {
+      release = resolve;
+    });
+    trackPendingWorkspaceCreate("ws-draft", work);
+    let ready = false;
+    const wait = whenWorkspaceReady("ws-draft").then(() => {
+      ready = true;
+    });
+    expect(ready).toBe(false);
+    release(null);
+    await wait;
+    expect(ready).toBe(true);
   });
 });
 

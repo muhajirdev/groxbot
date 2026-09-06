@@ -398,6 +398,27 @@ export const GuestConnectSchema = GuestStatusSchema.extend({
 });
 export type GuestConnect = z.infer<typeof GuestConnectSchema>;
 
+const SLUG_NAME_MAX = 24;
+
+/** URL-safe workspace slug: `{name}-{salt}`. */
+export function slugForWorkspace(name: string, salt: string): string {
+  const base =
+    name
+      .normalize("NFKD")
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, "")
+      .replace(/[\s_]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, SLUG_NAME_MAX) || "workspace";
+  const tail =
+    salt
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "")
+      .slice(0, 8) || "office";
+  return `${base}-${tail}`;
+}
+
 export const WorkspaceSchema = z.object({
   id: Id,
   name: z.string(),
@@ -417,6 +438,8 @@ export type WorkspaceInvitation = z.infer<typeof WorkspaceInvitationSchema>;
 
 export const CreateWorkspaceInput = z.object({
   name: z.string().min(1).max(80),
+  /** Client-generated id so the new office can open before the insert returns. */
+  id: Id.max(64).optional(),
 });
 
 export const UpdateWorkspaceInput = z.object({
@@ -433,15 +456,29 @@ export const JoinWorkspaceInput = z.object({
 
 export const WorkspaceInvitePeekSchema = z
   .object({
-    email: z.string().email(),
+    email: z.string().email().nullable(),
     organizationName: z.string(),
     organizationId: Id,
+    inviterName: z.string(),
+    inviterImage: z.string().nullable(),
+    memberCount: z.number().int().nonnegative(),
   })
   .nullable();
 export type WorkspaceInvitePeek = z.infer<typeof WorkspaceInvitePeekSchema>;
 
+/** Better Auth stores an email on every invitation. This sentinel is a shareable link. */
+export const OPEN_INVITE_EMAIL = "open-invite@groxbot.invalid";
+
+export function isOpenInvitationEmail(email: string): boolean {
+  return email.trim().toLowerCase() === OPEN_INVITE_EMAIL;
+}
+
 export const InviteWorkspaceInput = z.object({
   email: z.string().email(),
+});
+
+export const WorkspaceInviteLinkSchema = z.object({
+  url: z.string(),
 });
 
 export const WorkspaceMemberSchema = z.object({

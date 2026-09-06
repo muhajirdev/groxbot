@@ -224,7 +224,7 @@ export function patchMeWorkspace(workspace: {
   );
 }
 
-/** Keep `workspaces.list` current so the office URL does not bounce to onboarding. */
+/** Keep `workspaces.list` current so the office URL does not bounce to `/`. */
 export function rememberListedWorkspace(workspace: {
   id?: string | null;
   name?: string | null;
@@ -241,6 +241,38 @@ export function rememberListedWorkspace(workspace: {
     ? current.map((item) => (item.id === id ? row : item))
     : [...current, row];
   queryClient.setQueryData(key, next);
+}
+
+export function forgetListedWorkspace(workspaceId: string): void {
+  const id = workspaceId.trim();
+  if (!id) return;
+  const key = workspaceListQueryOptions().queryKey;
+  const current = queryClient.getQueryData<Workspace[]>(key) ?? [];
+  queryClient.setQueryData(
+    key,
+    current.filter((item) => item.id !== id),
+  );
+}
+
+const pendingWorkspaceCreates = new Map<string, Promise<unknown>>();
+
+/** Hire / other writes wait if this office is still being inserted. */
+export function trackPendingWorkspaceCreate(
+  workspaceId: string,
+  work: Promise<unknown>,
+): void {
+  const id = workspaceId.trim();
+  if (!id) return;
+  pendingWorkspaceCreates.set(id, work);
+  void work.finally(() => {
+    if (pendingWorkspaceCreates.get(id) === work) {
+      pendingWorkspaceCreates.delete(id);
+    }
+  });
+}
+
+export function whenWorkspaceReady(workspaceId: string): Promise<unknown> {
+  return pendingWorkspaceCreates.get(workspaceId.trim()) ?? Promise.resolve();
 }
 
 export function workspaceSwitchDestination(
@@ -286,15 +318,40 @@ export function refetchWorkspaceCatalogs(): void {
 }
 
 /** Stamp RPC, swap the live slice, remember the name. Navigation is the caller's. */
-export function prepareWorkspaceSwitch(workspace: {
-  id: string;
-  name: string;
-  slug: string;
-}): WorkspaceDestination {
+export function prepareWorkspaceSwitch(
+  workspace: {
+    id: string;
+    name: string;
+    slug: string;
+  },
+  opts?: { refetch?: boolean },
+): WorkspaceDestination {
   setRpcWorkspaceId(workspace.id);
   adoptWorkspaceCatalog(workspace.id);
   writeCachedWorkspace(workspace);
   patchMeWorkspace(workspace);
-  refetchWorkspaceCatalogs();
+  if (opts?.refetch !== false) refetchWorkspaceCatalogs();
   return workspaceSwitchDestination(workspace.id);
+}
+
+/** Swap a just-created office from the draft row onto the server row. */
+export function commitCreatedWorkspace(
+  draft: { id: string; name: string; slug: string },
+  created: { id: string; name: string; slug: string },
+): void {
+  if (draft.id !== created.id) {
+    forgetListedWorkspace(draft.id);
+    const snapshot = peekWorkspaceCatalog(draft.id);
+    if (snapshot) {
+      queryClient.setQueryData(workspaceCatalogKey(created.id), snapshot);
+      queryClient.removeQueries({ queryKey: workspaceCatalogKey(draft.id) });
+    }
+    if (liveCatalogId() === draft.id) setLiveCatalogId(created.id);
+  }
+  rememberListedWorkspace(created);
+  writeCachedWorkspace(created);
+  patchMeWorkspace(created);
+  setRpcWorkspaceId(created.id);
+  if (!peekWorkspaceCatalog(created.id)) snapshotWorkspaceCatalog(created.id);
+  refetchWorkspaceCatalogs();
 }

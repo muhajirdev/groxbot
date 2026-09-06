@@ -7,7 +7,7 @@ export const Route = createFileRoute("/_authed")({
     rememberInvite(invite);
     if (context.session) return;
     throw redirect({
-      to: "/login",
+      to: "/",
       search: invite ? { invite } : {},
     });
   },
