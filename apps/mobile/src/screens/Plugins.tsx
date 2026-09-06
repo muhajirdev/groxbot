@@ -26,9 +26,24 @@ function mcpHostLabel(url: string): string {
   }
 }
 
+function pluginAccountCountLabel(count: number): string {
+  if (count <= 0) return "";
+  return count === 1 ? "1 account" : `${count} accounts`;
+}
+
+function pluginAccountDetail(row: PluginConnection): string {
+  const scope = row.visibility === "private" ? "Private" : "Shared";
+  if (row.status === "error" && row.lastError?.trim()) return row.lastError;
+  if (row.status === "connecting") return `${scope} · Connecting`;
+  if (row.status === "added") return `${scope} · Not authenticated`;
+  if (row.status === "connected") return `${scope} · Connected`;
+  return scope;
+}
+
 export function PluginsScreen({ navigation, route }: Props) {
   const botId = route.params?.botId;
   const queryClient = useQueryClient();
+  const meQuery = useQuery(orpc.me.queryOptions());
   const connectionsQuery = useQuery(orpc.plugins.list.queryOptions());
   const mcpQuery = useQuery(orpc.mcp.list.queryOptions());
   const [catalog, setCatalog] = useState<PluginCard[]>([]);
@@ -40,76 +55,114 @@ export function PluginsScreen({ navigation, route }: Props) {
   const [probes, setProbes] = useState<Record<string, McpProbeResult>>({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const meUserId = meQuery.data?.userId;
 
   useEffect(() => {
     void loadPluginCatalog().then(setCatalog);
   }, []);
 
-  const byToolkit = useMemo(() => {
-    const map = new Map<string, PluginConnection>();
-    for (const row of connectionsQuery.data ?? []) map.set(row.toolkit, row);
+  const catalogNames = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const item of catalog) map.set(item.id, item.name);
     return map;
-  }, [connectionsQuery.data]);
+  }, [catalog]);
+  const connections = connectionsQuery.data ?? [];
+  const accountCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const row of connections) {
+      map.set(row.toolkit, (map.get(row.toolkit) ?? 0) + 1);
+    }
+    return map;
+  }, [connections]);
 
+  const q = query.trim().toLowerCase();
   const visible = catalog.filter((item) => {
-    const q = query.trim().toLowerCase();
     if (q && !item.name.toLowerCase().includes(q) && !item.id.includes(q)) {
       return false;
     }
-    if (tab === "installed") return byToolkit.has(item.id);
     return true;
+  });
+  const pluginAccounts = connections.filter((row) => {
+    const name = catalogNames.get(row.toolkit) ?? row.toolkit;
+    if (!q) return true;
+    return name.toLowerCase().includes(q) || row.toolkit.includes(q);
   });
 
   const mcpRows = (mcpQuery.data ?? []).filter((row) => {
-    const q = query.trim().toLowerCase();
     if (!q) return true;
     return (
       row.name.toLowerCase().includes(q) || row.url.toLowerCase().includes(q)
     );
   });
 
-  async function addOrRemove(item: PluginCard) {
+  async function refreshPlugins() {
+    await queryClient.invalidateQueries({
+      queryKey: orpc.plugins.list.key(),
+    });
+  }
+
+  async function authenticate(id: string, busyKey = id) {
     setError("");
-    setBusy(item.id);
+    setBusy(busyKey);
     try {
-      if (byToolkit.has(item.id)) {
-        await client.plugins.remove({
-          toolkit: item.id as PluginConnection["toolkit"],
-        });
-      } else {
-        await client.plugins.add({
-          toolkit: item.id as PluginConnection["toolkit"],
-        });
+      const result = await client.plugins.connect({ id });
+      await refreshPlugins();
+      if (result.redirectUrl) {
+        await WebBrowser.openBrowserAsync(result.redirectUrl);
+        await client.plugins.refresh();
+        await refreshPlugins();
       }
-      await queryClient.invalidateQueries({
-        queryKey: orpc.plugins.list.key(),
-      });
     } catch (caught) {
-      setError(userFacingError(caught, "Could not update plugin"));
+      setError(userFacingError(caught, "Could not connect plugin"));
     } finally {
       setBusy(null);
     }
   }
 
-  async function authenticate(item: PluginCard) {
+  async function addAccount(item: PluginCard) {
     setError("");
     setBusy(item.id);
     try {
-      const result = await client.plugins.connect({
+      const row = await client.plugins.add({
         toolkit: item.id as PluginConnection["toolkit"],
       });
-      await queryClient.invalidateQueries({
-        queryKey: orpc.plugins.list.key(),
-      });
-      if (result.redirectUrl) {
-        await WebBrowser.openBrowserAsync(result.redirectUrl);
-        await client.plugins.refresh();
-        await queryClient.invalidateQueries({
-          queryKey: orpc.plugins.list.key(),
-        });
-      }
+      await refreshPlugins();
+      await authenticate(row.id, item.id);
     } catch (caught) {
-      setError(userFacingError(caught, "Could not connect plugin"));
+      setError(userFacingError(caught, "Could not add plugin"));
+      setBusy(null);
+    }
+  }
+
+  async function removePluginAccount(id: string) {
+    setError("");
+    setBusy(id);
+    try {
+      await client.plugins.remove({ id });
+      await refreshPlugins();
+    } catch (caught) {
+      setError(userFacingError(caught, "Could not remove plugin"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function sharePluginAccount(row: PluginConnection) {
+    const visibility = row.visibility === "shared" ? "private" : "shared";
+    setError("");
+    setBusy(row.id);
+    try {
+      await client.plugins.update({ id: row.id, visibility });
+      await refreshPlugins();
+    } catch (caught) {
+      setError(
+        userFacingError(
+          caught,
+          visibility === "shared"
+            ? "Could not share plugin"
+            : "Could not make private",
+        ),
+      );
     } finally {
       setBusy(null);
     }
@@ -156,49 +209,83 @@ export function PluginsScreen({ navigation, route }: Props) {
         </Pressable>
       </View>
       <Field placeholder="Search" value={query} onChangeText={setQuery} />
-      {visible.slice(0, 40).map((item) => {
-        const connected = byToolkit.get(item.id);
-        return (
-          <View key={item.id} style={styles.card}>
-            <Text style={styles.name}>{item.name}</Text>
-            {tab === "search" && item.blurb ? (
-              <Text style={styles.body} numberOfLines={2}>
-                {item.blurb}
-              </Text>
-            ) : null}
-            <View style={styles.row}>
-              <Button
-                label={connected ? "Remove" : "Add"}
-                tone="ghost"
-                busy={busy === item.id}
-                onPress={() => void addOrRemove(item)}
-              />
-              {connected ? (
-                <Button
-                  label="Connect"
-                  busy={busy === item.id}
-                  onPress={() => void authenticate(item)}
-                />
-              ) : null}
-            </View>
-          </View>
-        );
-      })}
+      {tab === "search"
+        ? visible.slice(0, 40).map((item) => {
+            const count = accountCounts.get(item.id) ?? 0;
+            const countLabel = pluginAccountCountLabel(count);
+            return (
+              <View key={item.id} style={styles.card}>
+                <Text style={styles.name}>{item.name}</Text>
+                {item.blurb ? (
+                  <Text style={styles.body} numberOfLines={2}>
+                    {item.blurb}
+                    {countLabel ? ` · ${countLabel}` : ""}
+                  </Text>
+                ) : null}
+                <View style={styles.row}>
+                  <Button
+                    label={count > 0 ? "Add another" : "Add"}
+                    tone="ghost"
+                    busy={busy === item.id}
+                    onPress={() => void addAccount(item)}
+                  />
+                </View>
+              </View>
+            );
+          })
+        : pluginAccounts.map((row) => {
+            const name = catalogNames.get(row.toolkit) ?? row.toolkit;
+            const mine = Boolean(meUserId && row.userId === meUserId);
+            const live = row.status === "connected";
+            return (
+              <View key={row.id} style={styles.card}>
+                <Text style={styles.name}>{name}</Text>
+                <Text style={styles.meta}>{pluginAccountDetail(row)}</Text>
+                <View style={styles.row}>
+                  {live ? (
+                    mine ? (
+                      <Button
+                        label={
+                          row.visibility === "shared" ? "Make private" : "Share"
+                        }
+                        tone="ghost"
+                        busy={busy === row.id}
+                        onPress={() => void sharePluginAccount(row)}
+                      />
+                    ) : null
+                  ) : (
+                    <Button
+                      label={
+                        row.status === "connecting" ? "Continue" : "Connect"
+                      }
+                      busy={busy === row.id}
+                      onPress={() => void authenticate(row.id)}
+                    />
+                  )}
+                  <Button
+                    label="Remove"
+                    tone="danger"
+                    busy={busy === row.id}
+                    onPress={() => void removePluginAccount(row.id)}
+                  />
+                </View>
+              </View>
+            );
+          })}
       {tab === "installed"
         ? mcpRows.map((row) => (
             <View key={row.id} style={styles.card}>
               <Text style={styles.name}>{row.name}</Text>
               <Text style={styles.meta}>
+                {row.visibility === "private" ? "Private" : "Shared"} ·{" "}
                 {mcpHostLabel(row.url)}
                 {row.status === "connected" ? " · Connected" : ""}
               </Text>
               {probes[row.id] ? (
-                <Text
-                  style={probes[row.id]?.ok ? styles.meta : styles.error}
-                >
+                <Text style={probes[row.id]?.ok ? styles.meta : styles.error}>
                   {probes[row.id]?.ok
-                    ? probes[row.id]!.tools.length
-                      ? `${probes[row.id]!.tools.length} tools`
+                    ? probes[row.id]?.tools.length
+                      ? `${probes[row.id]?.tools.length} tools`
                       : "Live, no tools yet"
                     : probes[row.id]?.error}
                 </Text>
@@ -218,7 +305,9 @@ export function PluginsScreen({ navigation, route }: Props) {
                           setProbes((prev) => ({ ...prev, [row.id]: result }));
                         })
                         .catch((caught) => {
-                          setError(userFacingError(caught, "Could not test MCP"));
+                          setError(
+                            userFacingError(caught, "Could not test MCP"),
+                          );
                         })
                         .finally(() => setBusy(null));
                     }}

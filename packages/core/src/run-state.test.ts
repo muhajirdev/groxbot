@@ -115,7 +115,7 @@ describe("withOfficeExecuteDescription", () => {
       plugins: true,
     });
     expect(next).toMatch(
-      /- `plugins` — connected Gmail\/Slack\/GitHub-style apps/,
+      /- `plugins` — connected Gmail\/Slack\/GitHub-style accounts/,
     );
     expect(next).toMatch(/plugins\.search\(\{ query \}\)/);
     expect(next).toMatch(/plugins\.execute\(\{ slug, arguments \}\)/);

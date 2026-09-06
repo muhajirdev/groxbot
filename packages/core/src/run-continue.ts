@@ -105,7 +105,7 @@ export const HISTORY_EXECUTE_HINT =
   "`history` — this office thread. `await history.search({ query })` for older turns the live window may have dropped. Not other teammates, not the knowledge library.";
 
 export const PLUGINS_EXECUTE_HINT =
-  "`plugins` — connected Gmail/Slack/GitHub-style apps. `await plugins.search({ query })` then `await plugins.execute({ slug, arguments })`. Only toolkits this workspace authenticated.";
+  "`plugins` — connected Gmail/Slack/GitHub-style accounts. `await plugins.search({ query })` then `await plugins.execute({ slug, arguments })`. Private accounts stay on the owner’s private teammate. If several accounts of the same app exist, pass `account` from search.";
 
 export function mcpExecuteHint(name: string): string {
   const safe = name.trim() || "mcp";
@@ -438,7 +438,11 @@ export async function continueRun(opts: {
   const bound = opts.bindRuntime ? opts.bindRuntime(overlay) : opts.runtime;
   const runner = guestEnabled && guests ? new GuestAgentRuntime(guests) : bound;
   const teammates = await listPokeTeammates(db, bot);
-  const pluginAccounts = await listConnectedPluginAccounts(db, run.workspaceId);
+  const pluginAccounts = await listConnectedPluginAccounts(
+    db,
+    run.workspaceId,
+    { visibility: bot.visibility, userId: bot.userId },
+  );
   const pluginToolkits = pluginAccounts.map((row) => row.toolkit);
   const plugins = opts.pluginTools?.({
     workspaceId: run.workspaceId,

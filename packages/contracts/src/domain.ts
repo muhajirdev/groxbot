@@ -539,6 +539,8 @@ export const PluginConnectionSchema = z.object({
   id: Id,
   toolkit: ToolkitSlug,
   status: PluginStatus,
+  visibility: Visibility,
+  userId: Id,
   connectedAccountId: z.string().nullable(),
   lastError: z.string().nullable(),
   createdAt: z.string(),

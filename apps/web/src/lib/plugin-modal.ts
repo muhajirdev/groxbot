@@ -1,4 +1,5 @@
-import { placeholderConnectorCard, type PluginCard } from "./plugins";
+import type { PluginConnection } from "@groxbot/contracts";
+import { type PluginCard, placeholderConnectorCard } from "./plugins";
 
 export type PluginTab = "search" | "installed";
 
@@ -90,6 +91,63 @@ export function mcpNeedsReconnect(
 ): boolean {
   if (row.status !== "connected") return false;
   return probe?.ok === false;
+}
+
+export function pluginAccountCountByToolkit(
+  rows: readonly { toolkit: string }[],
+): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const row of rows) {
+    map.set(row.toolkit, (map.get(row.toolkit) ?? 0) + 1);
+  }
+  return map;
+}
+
+export function pluginAccountCountLabel(count: number): string {
+  if (count <= 0) return "";
+  return count === 1 ? "1 account" : `${count} accounts`;
+}
+
+export function pluginScopeLabel(visibility: string): string {
+  return visibility === "private" ? "Private" : "Shared";
+}
+
+export function pluginAccountDetail(row: {
+  visibility: string;
+  status: string;
+  lastError: string | null;
+}): string {
+  const scope = pluginScopeLabel(row.visibility);
+  if (row.status === "error" && row.lastError?.trim()) return row.lastError;
+  if (row.status === "connecting") return `${scope} · Connecting`;
+  if (row.status === "added") return `${scope} · Not authenticated`;
+  return scope;
+}
+
+export function matchesPluginAccountQuery(
+  row: { toolkit: string },
+  name: string,
+  query: string,
+): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return (
+    name.toLowerCase().includes(q) || row.toolkit.toLowerCase().includes(q)
+  );
+}
+
+export function groupPluginAccounts(
+  rows: readonly PluginConnection[],
+  nameOf: (toolkit: string) => string,
+): Map<string, PluginConnection[]> {
+  const map = new Map<string, PluginConnection[]>();
+  for (const row of rows) {
+    const name = nameOf(row.toolkit);
+    const list = map.get(name) ?? [];
+    list.push(row);
+    map.set(name, list);
+  }
+  return map;
 }
 
 export function pluginGridColumns(

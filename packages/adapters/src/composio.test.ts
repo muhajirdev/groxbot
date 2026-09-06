@@ -92,6 +92,7 @@ describe("Composio adapter", () => {
 
   it("creates a connect link over HTTP", async () => {
     const calls: string[] = [];
+    let body = "";
     const gateway = new HttpComposioGateway("ak", async (input, init) => {
       const url = String(input);
       calls.push(`${init?.method ?? "GET"} ${url}`);
@@ -102,6 +103,7 @@ describe("Composio adapter", () => {
         return jsonResponse({ items: [] });
       }
       if (url.includes("/connected_accounts/link")) {
+        body = String(init?.body ?? "");
         return jsonResponse({
           redirect_url: "https://connect.composio.dev/x",
           id: "ca_new",
@@ -114,6 +116,7 @@ describe("Composio adapter", () => {
         userId: "groxbot:ws:1",
         toolkit: "gmail",
         callbackUrl: "http://127.0.0.1:3100/api/plugins/callback?id=1",
+        alias: "groxbot-plug1",
       }),
     ).resolves.toEqual({
       redirectUrl: "https://connect.composio.dev/x",
@@ -122,6 +125,11 @@ describe("Composio adapter", () => {
     expect(calls.some((item) => item.includes("connected_accounts/link"))).toBe(
       true,
     );
+    expect(JSON.parse(body)).toMatchObject({
+      allow_multiple: true,
+      alias: "groxbot-plug1",
+      user_id: "groxbot:ws:1",
+    });
   });
 
   it("reads a string toolkit field on connected accounts", async () => {

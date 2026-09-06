@@ -53,6 +53,10 @@ describe("Computer Worker shell wiring", () => {
     expect(readSrc("bot-plugins.ts")).toMatch(
       /class PluginsConnector extends CodemodeConnector/,
     );
+    expect(readSrc("bot-plugins.ts")).toMatch(
+      /Several accounts can run this tool/,
+    );
+    expect(readSrc("bot-plugins.ts")).toMatch(/pass account from search/);
     expect(home).toMatch(/mcpExecuteConnectors/);
     expect(home).toMatch(/pluginExecuteConnectors/);
     expect(home).toMatch(/executeConnectors/);

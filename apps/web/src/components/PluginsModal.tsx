@@ -1,4 +1,8 @@
-import type { McpConnection, McpProbeResult, PluginConnection } from "@groxbot/contracts";
+import type {
+  McpConnection,
+  McpProbeResult,
+  PluginConnection,
+} from "@groxbot/contracts";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -7,23 +11,28 @@ import { mcpCollection, pluginsCollection } from "../lib/collections";
 import { userFacingError } from "../lib/errors";
 import {
   catalogWithInstalledPlaceholders,
+  groupPluginAccounts,
   groupVisiblePlugins,
   matchesMcpQuery,
+  matchesPluginAccountQuery,
   mcpHostLabel,
   mcpProbeSummary,
+  type PluginTab,
+  pluginAccountCountByToolkit,
+  pluginAccountCountLabel,
+  pluginAccountDetail,
   pluginGridColumns,
   pluginListRows,
-  type PluginTab,
   visiblePluginCards,
 } from "../lib/plugin-modal";
 import {
   composioLogoUrl,
-  pluginCatalogQueryOptions,
   type PluginCard,
+  pluginCatalogQueryOptions,
 } from "../lib/plugins";
 import { client } from "../lib/rpc";
 import { cn, Field, Input, ModalShell } from "../ui";
-import { CheckIcon, CloseIcon, PlugIcon, SearchIcon, TrashIcon } from "./Icons";
+import { CloseIcon, PlugIcon, SearchIcon, TrashIcon } from "./Icons";
 
 const PLUGIN_MESSAGE = "groxbot:plugin";
 const MCP_MESSAGE = "groxbot:mcp";
@@ -55,15 +64,19 @@ export function PluginsModal(props: {
   const mcpQuery = useLiveQuery((q) => q.from({ mcp: mcpCollection }));
   const connections = connectionsQuery.data ?? [];
   const mcpServers = mcpQuery.data ?? [];
-  const byToolkit = useMemo(() => {
-    const map = new Map<string, PluginConnection>();
-    for (const row of connections) map.set(row.toolkit, row);
-    return map;
-  }, [connections]);
   const installedIds = useMemo(
-    () => new Set(byToolkit.keys()),
-    [byToolkit],
+    () => new Set(connections.map((row) => row.toolkit)),
+    [connections],
   );
+  const accountCounts = useMemo(
+    () => pluginAccountCountByToolkit(connections),
+    [connections],
+  );
+  const catalogNames = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const item of catalogQuery.data ?? []) map.set(item.id, item.name);
+    return map;
+  }, [catalogQuery.data]);
 
   useEffect(() => {
     function onMessage(event: MessageEvent) {
@@ -98,21 +111,16 @@ export function PluginsModal(props: {
     const observer = new ResizeObserver(sync);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [props.open, tab]);
+  }, [props.open]);
 
   const catalog = useMemo(
     () =>
-      catalogWithInstalledPlaceholders(
-        catalogQuery.data ?? [],
-        installedIds,
-      ),
+      catalogWithInstalledPlaceholders(catalogQuery.data ?? [], installedIds),
     [catalogQuery.data, installedIds],
   );
   const visible = useMemo(
     () =>
-      props.open
-        ? visiblePluginCards(catalog, query, tab, installedIds)
-        : [],
+      props.open ? visiblePluginCards(catalog, query, tab, installedIds) : [],
     [catalog, installedIds, props.open, query, tab],
   );
   const mcpVisible = useMemo(
@@ -127,32 +135,31 @@ export function PluginsModal(props: {
     () => (tab === "search" ? pluginListRows(groups, columns) : []),
     [columns, groups, tab],
   );
+  const pluginAccounts = useMemo(
+    () =>
+      connections.filter((row) =>
+        matchesPluginAccountQuery(
+          row,
+          catalogNames.get(row.toolkit) ?? row.toolkit,
+          query,
+        ),
+      ),
+    [catalogNames, connections, query],
+  );
+  const pluginAccountGroups = useMemo(
+    () =>
+      groupPluginAccounts(
+        pluginAccounts,
+        (toolkit) => catalogNames.get(toolkit) ?? toolkit,
+      ),
+    [catalogNames, pluginAccounts],
+  );
 
-  async function addOrRemove(item: PluginCard) {
-    if (item.kind !== "connector") return;
+  async function authenticate(id: string, busyKey = id) {
     setError("");
-    setBusy(item.id);
+    setBusy(busyKey);
     try {
-      if (byToolkit.has(item.id)) {
-        await client.plugins.remove({ toolkit: item.id });
-        const row = byToolkit.get(item.id);
-        if (row) pluginsCollection.utils.writeDelete([row.id]);
-      } else {
-        const row = await client.plugins.add({ toolkit: item.id });
-        pluginsCollection.utils.writeUpsert(row);
-      }
-    } catch (caught) {
-      setError(userFacingError(caught, "Could not update plugin"));
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function authenticate(item: PluginCard) {
-    setError("");
-    setBusy(item.id);
-    try {
-      const result = await client.plugins.connect({ toolkit: item.id });
+      const result = await client.plugins.connect({ id });
       pluginsCollection.utils.writeUpsert(result.connection);
       if (result.redirectUrl) {
         window.open(
@@ -163,6 +170,54 @@ export function PluginsModal(props: {
       }
     } catch (caught) {
       setError(userFacingError(caught, "Could not connect plugin"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function addAccount(item: PluginCard) {
+    if (item.kind !== "connector") return;
+    setError("");
+    setBusy(item.id);
+    try {
+      const row = await client.plugins.add({ toolkit: item.id });
+      pluginsCollection.utils.writeUpsert(row);
+      await authenticate(row.id, item.id);
+    } catch (caught) {
+      setError(userFacingError(caught, "Could not add plugin"));
+      setBusy(null);
+    }
+  }
+
+  async function removePluginAccount(id: string) {
+    setError("");
+    setBusy(id);
+    try {
+      await client.plugins.remove({ id });
+      pluginsCollection.utils.writeDelete([id]);
+    } catch (caught) {
+      setError(userFacingError(caught, "Could not remove plugin"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function sharePluginAccount(row: PluginConnection) {
+    const visibility = row.visibility === "shared" ? "private" : "shared";
+    setError("");
+    setBusy(row.id);
+    try {
+      const next = await client.plugins.update({ id: row.id, visibility });
+      pluginsCollection.utils.writeUpsert(next);
+    } catch (caught) {
+      setError(
+        userFacingError(
+          caught,
+          visibility === "shared"
+            ? "Could not share plugin"
+            : "Could not make private",
+        ),
+      );
     } finally {
       setBusy(null);
     }
@@ -252,7 +307,9 @@ export function PluginsModal(props: {
       setError(
         userFacingError(
           caught,
-          visibility === "shared" ? "Could not share MCP" : "Could not make private",
+          visibility === "shared"
+            ? "Could not share MCP"
+            : "Could not make private",
         ),
       );
     } finally {
@@ -278,10 +335,9 @@ export function PluginsModal(props: {
   const catalogPending = catalogQuery.isPending && !catalogQuery.data;
   const emptySearch =
     q.length > 0 &&
-    visible.length === 0 &&
     (tab === "search"
-      ? (catalogQuery.data?.length ?? 0) > 0
-      : mcpVisible.length === 0);
+      ? visible.length === 0 && (catalogQuery.data?.length ?? 0) > 0
+      : pluginAccounts.length === 0 && mcpVisible.length === 0);
 
   return (
     <ModalShell
@@ -291,7 +347,9 @@ export function PluginsModal(props: {
       onClose={props.onClose}
     >
       <div className="flex items-center justify-between border-b border-line px-3.5 py-2">
-        <h2 className="m-0 text-[15px] font-semibold tracking-tight">Plugins</h2>
+        <h2 className="m-0 text-[15px] font-semibold tracking-tight">
+          Plugins
+        </h2>
         <button
           className="icon-btn"
           type="button"
@@ -366,11 +424,9 @@ export function PluginsModal(props: {
                     <PluginToolkitCard
                       key={item.id}
                       item={item}
-                      tab="search"
-                      row={byToolkit.get(item.id)}
+                      accountCount={accountCounts.get(item.id) ?? 0}
                       busy={busy === item.id}
-                      onAddOrRemove={() => void addOrRemove(item)}
-                      onAuthenticate={() => void authenticate(item)}
+                      onAdd={() => void addAccount(item)}
                     />
                   ))}
                 </div>
@@ -379,24 +435,27 @@ export function PluginsModal(props: {
           />
         ) : (
           <div className="h-full overflow-auto px-[18px] py-4">
-            {groups.size === 0 && mcpVisible.length === 0 ? (
+            {pluginAccountGroups.size === 0 && mcpVisible.length === 0 ? (
               <p className="muted mb-[18px]">
                 Nothing here yet. Add a plugin from Search, then authenticate.
               </p>
             ) : null}
-            {[...groups.entries()].map(([category, items]) => (
-              <section key={category} className="mb-[18px]">
-                <p className="group-label">{category}</p>
-                <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-2.5">
-                  {items.map((item) => (
-                    <PluginToolkitCard
-                      key={item.id}
-                      item={item}
-                      tab="installed"
-                      row={byToolkit.get(item.id)}
-                      busy={busy === item.id}
-                      onAddOrRemove={() => void addOrRemove(item)}
-                      onAuthenticate={() => void authenticate(item)}
+            {[...pluginAccountGroups.entries()].map(([name, rows]) => (
+              <section key={name} className="mb-[18px]">
+                <p className="group-label">{name}</p>
+                <div className="grid grid-cols-1 gap-2.5">
+                  {rows.map((row) => (
+                    <PluginAccountCard
+                      key={row.id}
+                      row={row}
+                      name={name}
+                      busy={busy === row.id}
+                      mine={Boolean(
+                        props.meUserId && row.userId === props.meUserId,
+                      )}
+                      onAuthenticate={() => void authenticate(row.id)}
+                      onShare={() => void sharePluginAccount(row)}
+                      onRemove={() => void removePluginAccount(row.id)}
                     />
                   ))}
                 </div>
@@ -413,7 +472,9 @@ export function PluginsModal(props: {
                       probe={probes[row.id]}
                       busy={busy === row.id}
                       probing={busy === `probe:${row.id}`}
-                      mine={Boolean(props.meUserId && row.userId === props.meUserId)}
+                      mine={Boolean(
+                        props.meUserId && row.userId === props.meUserId,
+                      )}
                       onConnect={() => void connectRemoteMcp(row.id)}
                       onProbe={() => void probeRemoteMcp(row.id)}
                       onShare={() => void shareRemoteMcp(row)}
@@ -446,14 +507,11 @@ export function PluginsModal(props: {
 
 function PluginToolkitCard(props: {
   item: PluginCard;
-  tab: PluginTab;
-  row?: PluginConnection;
+  accountCount: number;
   busy: boolean;
-  onAddOrRemove: () => void;
-  onAuthenticate: () => void;
+  onAdd: () => void;
 }) {
-  const on = Boolean(props.row);
-  const live = props.row?.status === "connected";
+  const countLabel = pluginAccountCountLabel(props.accountCount);
   return (
     <article className="flex items-start justify-between gap-2.5 rounded-[14px] bg-card-2 p-3">
       <div className="flex min-w-0 gap-2.5">
@@ -462,51 +520,90 @@ function PluginToolkitCard(props: {
         ) : null}
         <div className="min-w-0">
           <strong className="mb-1 block">{props.item.name}</strong>
-          {props.tab === "installed" ? (
-            <p className="muted m-0 text-xs">
-              1 {props.item.kind === "skill" ? "skill" : "connector"}
-              {props.row?.status === "error" && props.row.lastError
-                ? ` · ${props.row.lastError}`
-                : ""}
-            </p>
-          ) : (
-            <p className="muted m-0 text-xs">{props.item.blurb}</p>
-          )}
+          <p className="muted m-0 text-xs">
+            {props.item.blurb}
+            {countLabel ? ` · ${countLabel}` : ""}
+          </p>
         </div>
       </div>
-      {props.tab === "search" ? (
-        <button
-          className={cn("mini", on && "on")}
-          type="button"
-          disabled={props.busy || props.item.kind !== "connector"}
-          onClick={props.onAddOrRemove}
-        >
-          {on ? (
-            <>
-              <CheckIcon /> Added
-            </>
-          ) : props.item.kind === "skill" ? (
-            "Soon"
-          ) : (
-            "Add"
-          )}
-        </button>
-      ) : props.item.kind === "connector" ? (
-        live ? (
-          <span className="ok">Connected</span>
-        ) : (
-          <button
-            className="mini"
-            type="button"
-            disabled={props.busy}
-            onClick={props.onAuthenticate}
+      <button
+        className="mini"
+        type="button"
+        disabled={props.busy || props.item.kind !== "connector"}
+        onClick={props.onAdd}
+      >
+        {props.item.kind === "skill"
+          ? "Soon"
+          : props.accountCount > 0
+            ? "Add another"
+            : "Add"}
+      </button>
+    </article>
+  );
+}
+
+function PluginAccountCard(props: {
+  row: PluginConnection;
+  name: string;
+  busy: boolean;
+  mine: boolean;
+  onAuthenticate: () => void;
+  onShare: () => void;
+  onRemove: () => void;
+}) {
+  const live = props.row.status === "connected";
+  const detail = pluginAccountDetail(props.row);
+  return (
+    <article className="flex items-start gap-3 rounded-[14px] bg-card-2 p-3">
+      <PluginLogo slug={props.row.toolkit} name={props.name} />
+      <div className="flex min-w-0 flex-1 flex-wrap items-start justify-between gap-x-3 gap-y-2">
+        <div className="min-w-0 flex-1 basis-[12rem]">
+          <strong className="mb-0.5 block truncate">{props.name}</strong>
+          <p
+            className={cn(
+              "m-0 truncate text-xs",
+              props.row.status === "error" ? "text-danger" : "muted",
+            )}
           >
-            {props.row?.status === "connecting" ? "Continue" : "Authenticate"}
+            {detail}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-1">
+          {live ? (
+            <>
+              <span className="ok">Connected</span>
+              {props.mine ? (
+                <button
+                  className="mini"
+                  type="button"
+                  disabled={props.busy}
+                  onClick={props.onShare}
+                >
+                  {props.row.visibility === "shared" ? "Make private" : "Share"}
+                </button>
+              ) : null}
+            </>
+          ) : (
+            <button
+              className="mini"
+              type="button"
+              disabled={props.busy}
+              onClick={props.onAuthenticate}
+            >
+              {props.row.status === "connecting" ? "Continue" : "Authenticate"}
+            </button>
+          )}
+          <button
+            className="icon-btn"
+            type="button"
+            aria-label={`Remove ${props.name}`}
+            disabled={props.busy}
+            onClick={props.onRemove}
+          >
+            <TrashIcon />
           </button>
-        )
-      ) : (
-        <span className="muted">1 skill</span>
-      )}
+        </div>
+      </div>
     </article>
   );
 }
@@ -567,9 +664,7 @@ function McpServerCard(props: {
                   disabled={props.busy || props.probing}
                   onClick={props.onShare}
                 >
-                  {props.row.visibility === "shared"
-                    ? "Make private"
-                    : "Share"}
+                  {props.row.visibility === "shared" ? "Make private" : "Share"}
                 </button>
               ) : null}
             </>

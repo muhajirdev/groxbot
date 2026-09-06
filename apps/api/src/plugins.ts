@@ -3,7 +3,7 @@ import {
   composioConfigured,
   createComposioGateway,
 } from "@groxbot/adapters/edge";
-import type { PluginConnection } from "@groxbot/contracts";
+import type { PluginConnection, Visibility } from "@groxbot/contracts";
 import {
   addPluginConnection,
   composioUserId,
@@ -11,8 +11,10 @@ import {
   getPluginConnectionById,
   listPluginConnections,
   PluginError,
+  pluginVisibleToViewer,
   removePluginConnection,
   savePluginConnection,
+  setPluginVisibility,
   toPluginDto,
 } from "@groxbot/core";
 import { ORPCError } from "@orpc/server";
@@ -32,13 +34,14 @@ function callbackUrl(env: Env, rowId: string): string {
   return `${base}/api/plugins/callback?id=${encodeURIComponent(rowId)}`;
 }
 
-async function requireRow(
+async function requireVisibleRow(
   context: RpcContext,
   workspaceId: string,
-  toolkit: string,
+  userId: string,
+  id: string,
 ) {
-  const row = await getPluginConnection(context.db, workspaceId, toolkit);
-  if (!row) {
+  const row = await getPluginConnection(context.db, workspaceId, id);
+  if (!row || !pluginVisibleToViewer(row, userId)) {
     throw new ORPCError("NOT_FOUND", {
       message: "Add the plugin before authenticating.",
     });
@@ -59,35 +62,35 @@ export async function listPlugins(
   context: RpcContext,
 ): Promise<PluginConnection[]> {
   const actor = await requireActor(context);
-  return listPluginConnections(context.db, actor.workspaceId);
+  return listPluginConnections(context.db, actor.workspaceId, actor.userId);
 }
 
-export async function addPlugin(context: RpcContext, toolkit: string) {
+export async function addPlugin(
+  context: RpcContext,
+  input: { toolkit: string; visibility?: Visibility },
+) {
   const actor = await requireActor(context);
   try {
-    return await addPluginConnection(context.db, actor, toolkit);
+    return await addPluginConnection(
+      context.db,
+      actor,
+      input.toolkit,
+      input.visibility,
+    );
   } catch (error) {
     mapPluginError(error);
   }
 }
 
-export async function connectPlugin(context: RpcContext, toolkit: string) {
+export async function connectPlugin(context: RpcContext, id: string) {
   const actor = await requireActor(context);
   try {
-    let existing = await getPluginConnection(
-      context.db,
+    const existing = await requireVisibleRow(
+      context,
       actor.workspaceId,
-      toolkit,
+      actor.userId,
+      id,
     );
-    if (!existing) {
-      await addPluginConnection(context.db, actor, toolkit);
-      existing = await getPluginConnection(
-        context.db,
-        actor.workspaceId,
-        toolkit,
-      );
-    }
-    if (!existing) throw new PluginError("Could not add plugin.");
     if (existing.status === "connected" && existing.connectedAccountId) {
       return { connection: toPluginDto(existing), redirectUrl: null };
     }
@@ -98,22 +101,18 @@ export async function connectPlugin(context: RpcContext, toolkit: string) {
       userId: composioUserId(actor.workspaceId),
       toolkit: existing.toolkit,
       callbackUrl: callbackUrl(context.env, existing.id),
+      alias: `groxbot-${existing.id.slice(0, 8)}`,
     });
     const connection = await savePluginConnection(context.db, existing.id, {
       status: link.redirectUrl ? "connecting" : "connected",
       connectedAccountId:
         link.connectedAccountId ?? existing.connectedAccountId,
       lastError: null,
-      userId: actor.userId,
     });
     return { connection, redirectUrl: link.redirectUrl };
   } catch (error) {
     try {
-      const row = await getPluginConnection(
-        context.db,
-        actor.workspaceId,
-        toolkit,
-      );
+      const row = await getPluginConnection(context.db, actor.workspaceId, id);
       if (row) {
         await savePluginConnection(context.db, row.id, {
           status: "error",
@@ -127,10 +126,15 @@ export async function connectPlugin(context: RpcContext, toolkit: string) {
   }
 }
 
-export async function disconnectPlugin(context: RpcContext, toolkit: string) {
+export async function disconnectPlugin(context: RpcContext, id: string) {
   const actor = await requireActor(context);
   try {
-    const row = await requireRow(context, actor.workspaceId, toolkit);
+    const row = await requireVisibleRow(
+      context,
+      actor.workspaceId,
+      actor.userId,
+      id,
+    );
     if (
       row.connectedAccountId &&
       composioConfigured({ COMPOSIO_API_KEY: context.env.composioApiKey })
@@ -153,16 +157,15 @@ export async function disconnectPlugin(context: RpcContext, toolkit: string) {
   }
 }
 
-export async function removePlugin(context: RpcContext, toolkit: string) {
+export async function removePlugin(context: RpcContext, id: string) {
   const actor = await requireActor(context);
   try {
-    const row = await getPluginConnection(
-      context.db,
-      actor.workspaceId,
-      toolkit,
-    );
+    const row = await getPluginConnection(context.db, actor.workspaceId, id);
+    if (!row || !pluginVisibleToViewer(row, actor.userId)) {
+      return { ok: true as const };
+    }
     if (
-      row?.connectedAccountId &&
+      row.connectedAccountId &&
       composioConfigured({ COMPOSIO_API_KEY: context.env.composioApiKey })
     ) {
       try {
@@ -173,8 +176,21 @@ export async function removePlugin(context: RpcContext, toolkit: string) {
         // Row still goes away.
       }
     }
-    await removePluginConnection(context.db, actor.workspaceId, toolkit);
+    await removePluginConnection(context.db, actor.workspaceId, id);
     return { ok: true as const };
+  } catch (error) {
+    mapPluginError(error);
+  }
+}
+
+export async function updatePlugin(
+  context: RpcContext,
+  id: string,
+  visibility: Visibility,
+) {
+  const actor = await requireActor(context);
+  try {
+    return await setPluginVisibility(context.db, actor, id, visibility);
   } catch (error) {
     mapPluginError(error);
   }
@@ -184,7 +200,11 @@ export async function refreshPlugins(
   context: RpcContext,
 ): Promise<PluginConnection[]> {
   const actor = await requireActor(context);
-  const rows = await listPluginConnections(context.db, actor.workspaceId);
+  const rows = await listPluginConnections(
+    context.db,
+    actor.workspaceId,
+    actor.userId,
+  );
   if (
     rows.length === 0 ||
     !composioConfigured({ COMPOSIO_API_KEY: context.env.composioApiKey })
@@ -195,22 +215,32 @@ export async function refreshPlugins(
     const accounts = await createComposioGateway({
       COMPOSIO_API_KEY: context.env.composioApiKey,
     }).listAccounts(composioUserId(actor.workspaceId));
-    const active = new Map(
-      accounts
-        .filter((item) => item.status === "ACTIVE")
-        .map((item) => [item.toolkit, item]),
+    const active = accounts.filter((item) => item.status === "ACTIVE");
+    const used = new Set(
+      rows
+        .map((row) => row.connectedAccountId?.trim())
+        .filter((id): id is string => Boolean(id)),
     );
     for (const row of rows) {
-      const match = active.get(row.toolkit);
-      if (match && row.status !== "connected") {
-        await savePluginConnection(context.db, row.id, {
-          status: "connected",
-          connectedAccountId: match.id,
-          lastError: null,
-        });
-      }
+      if (row.status === "connected" && row.connectedAccountId) continue;
+      const claimed = row.connectedAccountId
+        ? active.find((item) => item.id === row.connectedAccountId)
+        : undefined;
+      const unused = claimed
+        ? undefined
+        : active.find(
+            (item) => item.toolkit === row.toolkit && !used.has(item.id),
+          );
+      const match = claimed ?? unused;
+      if (!match) continue;
+      used.add(match.id);
+      await savePluginConnection(context.db, row.id, {
+        status: "connected",
+        connectedAccountId: match.id,
+        lastError: null,
+      });
     }
-    return listPluginConnections(context.db, actor.workspaceId);
+    return listPluginConnections(context.db, actor.workspaceId, actor.userId);
   } catch (error) {
     mapPluginError(error);
   }

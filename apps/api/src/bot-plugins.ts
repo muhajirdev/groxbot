@@ -11,6 +11,7 @@ import {
   connectorRecord,
   connectorString,
   PluginError,
+  pluginAccountsForTool,
 } from "@groxbot/core";
 
 export type PluginsHost = {
@@ -33,14 +34,17 @@ export class PluginsConnector extends CodemodeConnector {
   }
 
   protected override instructions() {
-    const toolkits = this.host()
-      .accounts.map((row) => row.toolkit)
+    const listed = this.host()
+      .accounts.map((row) =>
+        row.visibility === "private" ? `${row.toolkit} (private)` : row.toolkit,
+      )
       .filter(Boolean);
-    const listed = toolkits.length ? toolkits.join(", ") : "none yet";
     return [
-      "Connected workspace plugins (Gmail, Slack, GitHub, and the rest of the Composio catalog).",
-      `Authenticated toolkits: ${listed}.`,
-      "Search for a tool slug first, then execute. Do not guess slugs.",
+      "Connected workspace plugin accounts (Gmail, Slack, GitHub, Instagram, …).",
+      listed.length
+        ? `Accounts this teammate can use: ${listed.join(", ")}.`
+        : "No accounts yet.",
+      "Search for a tool slug first. If several accounts of the same app exist, pass account from search into execute.",
     ].join(" ");
   }
 
@@ -48,7 +52,7 @@ export class PluginsConnector extends CodemodeConnector {
     return {
       search: {
         description:
-          'Search tools on connected plugins. Call plugins.search({ query: "send email" }). A query string is also accepted. Returns slugs for plugins.execute.',
+          'Search tools on connected plugin accounts. Call plugins.search({ query: "send email" }). A query string is also accepted. Returns slugs and account ids for plugins.execute.',
         inputSchema: {
           type: "object",
           properties: {
@@ -60,32 +64,61 @@ export class PluginsConnector extends CodemodeConnector {
         execute: async (args) => {
           const query = stringArg(args, "query", true);
           const host = this.host();
-          return this.gateway(host).search({
+          const toolkits = [
+            ...new Set(host.accounts.map((row) => row.toolkit)),
+          ];
+          const hits = await this.gateway(host).search({
             userId: composioUserId(host.workspaceId),
             query,
-            toolkits: host.accounts.map((row) => row.toolkit),
+            toolkits,
+          });
+          return hits.map((hit) => {
+            const accounts = pluginAccountsForTool(hit.slug, host.accounts).map(
+              (row) => ({
+                id: row.id,
+                toolkit: row.toolkit,
+                visibility: row.visibility,
+              }),
+            );
+            return { ...hit, accounts };
           });
         },
       },
       execute: {
         description:
-          'Run a connected plugin tool. Call plugins.execute({ slug: "GMAIL_SEND_EMAIL", arguments: { ... } }). Use a slug from plugins.search.',
+          'Run a connected plugin tool. Call plugins.execute({ slug: "GMAIL_SEND_EMAIL", arguments: { ... } }). If search listed several accounts, pass account (the id).',
         inputSchema: {
           type: "object",
           properties: {
             slug: { type: "string", minLength: 1, maxLength: 120 },
             arguments: { type: "object", additionalProperties: true },
+            account: { type: "string", minLength: 1, maxLength: 80 },
           },
           required: ["slug"],
         },
         execute: async (args) => {
           const slug = stringArg(args, "slug", true);
+          const account = connectorString(args, "account");
           const host = this.host();
+          const connectedAccountId = connectedAccountForTool(
+            slug,
+            host.accounts,
+            account,
+          );
+          if (!connectedAccountId) {
+            const matches = pluginAccountsForTool(slug, host.accounts);
+            if (matches.length > 1) {
+              throw new PluginError(
+                "Several accounts can run this tool. Pass account from plugins.search.",
+              );
+            }
+            throw new PluginError("No connected account for that plugin tool.");
+          }
           return this.gateway(host).execute({
             userId: composioUserId(host.workspaceId),
             slug,
             arguments: objectArg(args, "arguments"),
-            connectedAccountId: connectedAccountForTool(slug, host.accounts),
+            connectedAccountId,
           });
         },
       },

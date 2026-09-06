@@ -123,7 +123,7 @@ export function officePluginsGuideline(
   ];
   if (listed.length === 0) return null;
   const ticks = listed.map((name) => `\`${name}\``).join(", ");
-  return `Connected plugins inside code: ${ticks}. Search with \`await plugins.search({ query })\`, then \`await plugins.execute({ slug, arguments })\`. Not a top-level tool.`;
+  return `Connected plugin accounts inside code: ${ticks}. Search with \`await plugins.search({ query })\`, then \`await plugins.execute({ slug, arguments })\`. If several accounts of the same app exist, pass \`account\` from search. Not a top-level tool.`;
 }
 
 function officeCodeSandboxPhrase(opts: {

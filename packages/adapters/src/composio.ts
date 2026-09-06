@@ -2,6 +2,7 @@ import { composioUserId } from "@groxbot/adapter-kit";
 import {
   type ConnectedPluginAccount,
   connectedAccountForTool,
+  pluginAccountsForTool,
 } from "@groxbot/core";
 
 export { composioUserId };
@@ -58,6 +59,7 @@ export interface ComposioGateway {
     userId: string;
     toolkit: string;
     callbackUrl: string;
+    alias?: string;
   }): Promise<{ redirectUrl: string | null; connectedAccountId?: string }>;
   listAccounts(userId: string): Promise<ComposioAccount[]>;
   getAccount(id: string): Promise<ComposioAccount | undefined>;
@@ -87,16 +89,16 @@ type Sdk = {
     list?: (query?: { toolkit?: string }) => Promise<unknown>;
     create?: (toolkit: string, body?: unknown) => Promise<unknown>;
   };
-  connectedAccounts?: {
+    connectedAccounts?: {
     link?: (
       userId: string,
       authConfigId: string,
-      options?: { callbackUrl?: string },
+      options?: { callbackUrl?: string; allowMultiple?: boolean },
     ) => Promise<unknown>;
     initiate?: (
       userId: string,
       authConfigId: string,
-      options?: { callbackUrl?: string },
+      options?: { callbackUrl?: string; allowMultiple?: boolean },
     ) => Promise<unknown>;
     list?: (query: { userIds: string[] }) => Promise<unknown>;
     get?: (id: string) => Promise<unknown>;
@@ -204,8 +206,12 @@ export class SdkComposioGateway implements ComposioGateway {
     userId: string;
     toolkit: string;
     callbackUrl: string;
+    alias?: string;
   }): Promise<{ redirectUrl: string | null; connectedAccountId?: string }> {
-    const callback = { callbackUrl: input.callbackUrl };
+    const callback = {
+      callbackUrl: input.callbackUrl,
+      allowMultiple: true,
+    };
     try {
       const authConfigId = await this.authConfigId(input.toolkit);
       if (this.sdk.connectedAccounts?.link) {
@@ -341,6 +347,7 @@ export class HttpComposioGateway implements ComposioGateway {
     userId: string;
     toolkit: string;
     callbackUrl: string;
+    alias?: string;
   }): Promise<{ redirectUrl: string | null; connectedAccountId?: string }> {
     const authConfigId = await this.authConfigId(input.toolkit);
     return redirectOf(
@@ -350,6 +357,8 @@ export class HttpComposioGateway implements ComposioGateway {
           auth_config_id: authConfigId,
           user_id: input.userId,
           callback_url: input.callbackUrl,
+          allow_multiple: true,
+          alias: input.alias,
         }),
       }),
     );
@@ -496,7 +505,13 @@ export function createComposioGateway(
 export function createPluginTools(input: {
   workspaceId: string;
   toolkits: string[];
-  accounts?: readonly ConnectedPluginAccount[];
+  accounts?: readonly {
+    id?: string;
+    toolkit: string;
+    connectedAccountId?: string;
+    visibility?: ConnectedPluginAccount["visibility"];
+    userId?: string;
+  }[];
   env?: NodeJS.ProcessEnv;
 }):
   | {
@@ -505,23 +520,40 @@ export function createPluginTools(input: {
     }
   | undefined {
   const env = input.env ?? process.env;
-  const toolkits =
-    input.accounts?.map((row) => row.toolkit).filter(Boolean) ?? input.toolkits;
+  const accounts: ConnectedPluginAccount[] = (input.accounts ?? []).map(
+    (row, index) => ({
+      id: row.id ?? row.connectedAccountId ?? `${row.toolkit}:${index}`,
+      toolkit: row.toolkit,
+      connectedAccountId: row.connectedAccountId,
+      visibility: row.visibility ?? "shared",
+      userId: row.userId ?? "",
+    }),
+  );
+  const toolkits = accounts.length
+    ? [...new Set(accounts.map((row) => row.toolkit))]
+    : input.toolkits;
   if (!composioConfigured(env) || toolkits.length === 0) return undefined;
   const gateway = createComposioGateway(env);
   const userId = composioUserId(input.workspaceId);
-  const accounts = input.accounts ?? [];
   return {
     search: async (query) =>
       formatComposioResult(await gateway.search({ userId, query, toolkits })),
-    execute: async (slug, args) =>
-      formatComposioResult(
+    execute: async (slug, args) => {
+      const connectedAccountId = connectedAccountForTool(slug, accounts);
+      const matches = pluginAccountsForTool(slug, accounts);
+      if (!connectedAccountId && matches.length > 1) {
+        throw new ComposioError(
+          "Several accounts can run this tool. Pass account from plugins.search.",
+        );
+      }
+      return formatComposioResult(
         await gateway.execute({
           userId,
           slug,
           arguments: args,
-          connectedAccountId: connectedAccountForTool(slug, accounts),
+          connectedAccountId,
         }),
-      ),
+      );
+    },
   };
 }

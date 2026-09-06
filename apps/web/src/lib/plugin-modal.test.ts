@@ -1,13 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
   catalogWithInstalledPlaceholders,
+  groupPluginAccounts,
   groupVisiblePlugins,
   matchesMcpQuery,
+  matchesPluginAccountQuery,
   mcpHostLabel,
   mcpNeedsReconnect,
   mcpProbeSummary,
+  pluginAccountCountByToolkit,
+  pluginAccountCountLabel,
+  pluginAccountDetail,
   pluginGridColumns,
   pluginListRows,
+  pluginScopeLabel,
   visiblePluginCards,
 } from "./plugin-modal";
 import type { PluginCard } from "./plugins";
@@ -82,10 +88,7 @@ describe("catalogWithInstalledPlaceholders", () => {
   });
 
   it("does not duplicate a toolkit that is already in the catalog", () => {
-    const next = catalogWithInstalledPlaceholders(
-      [gmail],
-      new Set(["gmail"]),
-    );
+    const next = catalogWithInstalledPlaceholders([gmail], new Set(["gmail"]));
     expect(next).toEqual([gmail]);
   });
 });
@@ -94,11 +97,9 @@ describe("pluginListRows", () => {
   it("chunks a category into grid rows", () => {
     const groups = groupVisiblePlugins("search", [gmail, github, canvas]);
     const rows = pluginListRows(groups, 2);
-    expect(rows.filter((row) => row.type === "label").map((row) => row.category)).toEqual([
-      "Email",
-      "Developer Tools",
-      "Canvas",
-    ]);
+    expect(
+      rows.filter((row) => row.type === "label").map((row) => row.category),
+    ).toEqual(["Email", "Developer Tools", "Canvas"]);
     const cards = rows.flatMap((row) => (row.type === "row" ? row.items : []));
     expect(cards.map((item) => item.id)).toEqual([
       "gmail",
@@ -114,6 +115,87 @@ describe("pluginGridColumns", () => {
     expect(pluginGridColumns(200)).toBe(1);
     expect(pluginGridColumns(410)).toBe(2);
     expect(pluginGridColumns(630)).toBe(3);
+  });
+});
+
+describe("plugin accounts", () => {
+  it("counts several Gmail rows as separate accounts", () => {
+    const counts = pluginAccountCountByToolkit([
+      { toolkit: "gmail" },
+      { toolkit: "gmail" },
+      { toolkit: "github" },
+    ]);
+    expect(counts.get("gmail")).toBe(2);
+    expect(pluginAccountCountLabel(0)).toBe("");
+    expect(pluginAccountCountLabel(1)).toBe("1 account");
+    expect(pluginAccountCountLabel(2)).toBe("2 accounts");
+  });
+
+  it("labels shared vs private the same way MCP cards do", () => {
+    expect(pluginScopeLabel("shared")).toBe("Shared");
+    expect(pluginScopeLabel("private")).toBe("Private");
+    expect(
+      pluginAccountDetail({
+        visibility: "private",
+        status: "connected",
+        lastError: null,
+      }),
+    ).toBe("Private");
+    expect(
+      pluginAccountDetail({
+        visibility: "shared",
+        status: "added",
+        lastError: null,
+      }),
+    ).toBe("Shared · Not authenticated");
+    expect(
+      pluginAccountDetail({
+        visibility: "shared",
+        status: "error",
+        lastError: "expired",
+      }),
+    ).toBe("expired");
+  });
+
+  it("groups installed accounts by catalog name", () => {
+    const groups = groupPluginAccounts(
+      [
+        {
+          id: "a",
+          toolkit: "gmail",
+          status: "connected",
+          visibility: "shared",
+          userId: "u1",
+          connectedAccountId: "ca_1",
+          lastError: null,
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+        {
+          id: "b",
+          toolkit: "gmail",
+          status: "added",
+          visibility: "private",
+          userId: "u1",
+          connectedAccountId: null,
+          lastError: null,
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+      (toolkit) => (toolkit === "gmail" ? "Gmail" : toolkit),
+    );
+    expect([...groups.keys()]).toEqual(["Gmail"]);
+    expect(groups.get("Gmail")?.map((row) => row.id)).toEqual(["a", "b"]);
+  });
+
+  it("matches plugin search against catalog name or toolkit slug", () => {
+    expect(
+      matchesPluginAccountQuery({ toolkit: "gmail" }, "Gmail", "mail"),
+    ).toBe(true);
+    expect(
+      matchesPluginAccountQuery({ toolkit: "github" }, "GitHub", "mail"),
+    ).toBe(false);
   });
 });
 
@@ -150,7 +232,8 @@ describe("mcp display", () => {
         {
           ok: false,
           tools: [],
-          error: "Catalog says connected, but the live client is not answering.",
+          error:
+            "Catalog says connected, but the live client is not answering.",
         },
         "mimpi.mu",
       ),

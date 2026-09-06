@@ -81,6 +81,7 @@ import {
   pluginStatus,
   refreshPlugins,
   removePlugin,
+  updatePlugin,
 } from "./plugins.js";
 import {
   createWorkspaceRoom,
@@ -600,19 +601,22 @@ export const appRouter = os.router({
     ),
     list: os.plugins.list.handler(async ({ context }) => listPlugins(context)),
     add: os.plugins.add.handler(async ({ context, input }) =>
-      addPlugin(context, input.toolkit),
+      addPlugin(context, input),
     ),
     connect: os.plugins.connect.handler(async ({ context, input }) =>
-      connectPlugin(context, input.toolkit),
+      connectPlugin(context, input.id),
     ),
     disconnect: os.plugins.disconnect.handler(async ({ context, input }) =>
-      disconnectPlugin(context, input.toolkit),
+      disconnectPlugin(context, input.id),
     ),
     remove: os.plugins.remove.handler(async ({ context, input }) =>
-      removePlugin(context, input.toolkit),
+      removePlugin(context, input.id),
     ),
     refresh: os.plugins.refresh.handler(async ({ context }) =>
       refreshPlugins(context),
+    ),
+    update: os.plugins.update.handler(async ({ context, input }) =>
+      updatePlugin(context, input.id, input.visibility),
     ),
   },
   mcp: {

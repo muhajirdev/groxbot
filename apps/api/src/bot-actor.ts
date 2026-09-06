@@ -36,6 +36,7 @@ import {
   ComputerFileError,
   ComputerPathError,
   ComputerWriteError,
+  type ConnectedPluginAccount,
   composeSoul,
   computerWorkerShell,
   countPiToolCallsSinceLastUser,
@@ -353,10 +354,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     name: string;
     url: string;
   }> = [];
-  private workspacePlugins: Array<{
-    toolkit: string;
-    connectedAccountId?: string;
-  }> = [];
+  private workspacePlugins: ConnectedPluginAccount[] = [];
 
   async onStart(): Promise<void> {
     const stored = await this.ctx.storage.get<string>("officeId");
@@ -405,7 +403,9 @@ export class RoomHome extends Agent<WorkerEnv> {
       connectors,
     });
     const mcp = this.workspaceMcp.map((row) => row.name);
-    const plugins = this.workspacePlugins.map((row) => row.toolkit);
+    const plugins = [
+      ...new Set(this.workspacePlugins.map((row) => row.toolkit)),
+    ];
     const knowledge = this.officeKnowledge();
     const skill =
       knowledge && this.officeId
@@ -992,7 +992,9 @@ export class RoomHome extends Agent<WorkerEnv> {
         identity,
         tools,
         mcp: this.workspaceMcp.map((row) => row.name),
-        plugins: this.workspacePlugins.map((row) => row.toolkit),
+        plugins: [
+          ...new Set(this.workspacePlugins.map((row) => row.toolkit)),
+        ],
       }),
       messages.map((row) => row.message),
       { canReadSkills: officeCanReadSkills(tools) },
@@ -2074,6 +2076,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     this.workspacePlugins = await listConnectedPluginAccounts(
       db,
       this.officeId,
+      this.catalogMcpBot(),
     );
   }
 
