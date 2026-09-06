@@ -12,7 +12,7 @@ import {
 import { Link } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 import { AppCard } from "../components/AppCard";
-import { AvatarMark } from "../components/Avatar";
+import { AvatarMark, PresenceDot } from "../components/Avatar";
 import {
   ReasoningContent,
   ReasoningRoot,
@@ -459,7 +459,7 @@ export function Design() {
           <Section
             id="mascot"
             title="Mascot"
-            lede="Shape and mood morph. Sidebar uses working while the bot is busy."
+            lede="Shape and mood morph. Sidebar uses a green pip while the bot is busy."
           >
             <Specimen label="Moods" hint="idle · thinking · working · happy">
               <div className="design-mascot-grid">
@@ -855,13 +855,16 @@ function BotRow(props: {
         props.selected && "bg-selected",
       )}
     >
-      <AvatarMark
-        name={props.name}
-        color={props.color}
-        shape="circle"
-        mood={props.mood}
-        size="sm"
-      />
+      <span className="relative inline-grid shrink-0">
+        <AvatarMark
+          name={props.name}
+          color={props.color}
+          shape="circle"
+          mood={props.mood}
+          size="sm"
+        />
+        <PresenceDot on={props.mood === "working"} selected={props.selected} />
+      </span>
       <span className="min-w-0">
         <span className="flex items-center justify-between gap-2">
           <span className="truncate text-[13px] font-semibold">{props.name}</span>

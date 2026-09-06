@@ -519,11 +519,12 @@ export const WorkspaceInviteSchema = z.object({
   url: z.string(),
 });
 
+/** Composio toolkit slugs: `gmail`, `microsoft_teams`, `_1password`. Hyphens stay valid. */
 export const ToolkitSlug = z
   .string()
   .min(1)
   .max(64)
-  .regex(/^[a-z][a-z0-9-]*$/);
+  .regex(/^[a-z0-9_][a-z0-9_-]*$/);
 export type ToolkitSlug = z.infer<typeof ToolkitSlug>;
 
 export const PluginStatus = z.enum([
@@ -538,6 +539,8 @@ export const PluginConnectionSchema = z.object({
   id: Id,
   toolkit: ToolkitSlug,
   status: PluginStatus,
+  visibility: Visibility,
+  userId: Id,
   connectedAccountId: z.string().nullable(),
   lastError: z.string().nullable(),
   createdAt: z.string(),

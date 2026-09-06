@@ -1,6 +1,7 @@
-import { placeholderConnectorCard, type PluginCard } from "./plugins";
+import type { PluginConnection } from "@groxbot/contracts";
+import { type PluginCard, placeholderConnectorCard } from "./plugins";
 
-export type PluginTab = "search" | "installed";
+export type PluginTab = "browse" | "installed";
 
 /** Installed connections still have a card before the GitHub catalog arrives. */
 export function catalogWithInstalledPlaceholders(
@@ -17,6 +18,11 @@ export function catalogWithInstalledPlaceholders(
   return extra.length ? [...catalog, ...extra] : catalog;
 }
 
+/** Marketplace Plugins tab lists connectors; Skills live on their own tab. */
+export function connectorPluginCards(catalog: readonly PluginCard[]): PluginCard[] {
+  return catalog.filter((item) => item.kind === "connector");
+}
+
 export function visiblePluginCards(
   catalog: PluginCard[],
   query: string,
@@ -25,7 +31,13 @@ export function visiblePluginCards(
 ): PluginCard[] {
   const q = query.trim().toLowerCase();
   return catalog.filter((item) => {
-    if (q && !item.name.toLowerCase().includes(q) && !item.id.includes(q)) {
+    if (
+      q &&
+      !item.name.toLowerCase().includes(q) &&
+      !item.id.includes(q) &&
+      !item.blurb.toLowerCase().includes(q) &&
+      !item.category.toLowerCase().includes(q)
+    ) {
       return false;
     }
     if (tab === "installed") return installedToolkits.has(item.id);
@@ -39,10 +51,8 @@ export function groupVisiblePlugins(
 ): Map<string, PluginCard[]> {
   if (tab === "installed") {
     const installed = visible.filter((item) => item.kind === "connector");
-    const skills = visible.filter((item) => item.kind === "skill");
     const next = new Map<string, PluginCard[]>();
     if (installed.length) next.set("Installed", installed);
-    if (skills.length) next.set("Skills", skills);
     return next;
   }
   const map = new Map<string, PluginCard[]>();
@@ -52,6 +62,16 @@ export function groupVisiblePlugins(
     map.set(item.category, list);
   }
   return map;
+}
+
+export function pluginCategoryLabels(catalog: readonly PluginCard[]): string[] {
+  return [
+    "All",
+    "Featured",
+    ...new Set(
+      catalog.filter((item) => item.kind === "connector").map((item) => item.category),
+    ),
+  ];
 }
 
 export function matchesMcpQuery(
@@ -90,6 +110,89 @@ export function mcpNeedsReconnect(
 ): boolean {
   if (row.status !== "connected") return false;
   return probe?.ok === false;
+}
+
+export function pluginAccountCountByToolkit(
+  rows: readonly { toolkit: string }[],
+): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const row of rows) {
+    map.set(row.toolkit, (map.get(row.toolkit) ?? 0) + 1);
+  }
+  return map;
+}
+
+export function pluginAccountCountLabel(count: number): string {
+  if (count <= 0) return "";
+  return count === 1 ? "1 account" : `${count} accounts`;
+}
+
+export function pluginScopeLabel(visibility: string): string {
+  return visibility === "private" ? "Private" : "Shared";
+}
+
+export function pluginAccountDetail(row: {
+  visibility: string;
+  status: string;
+  lastError: string | null;
+}): string {
+  const scope = pluginScopeLabel(row.visibility);
+  if (row.status === "error" && row.lastError?.trim()) return row.lastError;
+  if (row.status === "connecting") return `${scope} · Connecting`;
+  if (row.status === "added") return `${scope} · Not authenticated`;
+  return scope;
+}
+
+export function matchesPluginAccountQuery(
+  row: { toolkit: string },
+  name: string,
+  query: string,
+): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return (
+    name.toLowerCase().includes(q) || row.toolkit.toLowerCase().includes(q)
+  );
+}
+
+export function groupPluginAccounts(
+  rows: readonly PluginConnection[],
+  nameOf: (toolkit: string) => string,
+): Map<string, PluginConnection[]> {
+  const map = new Map<string, PluginConnection[]>();
+  for (const row of rows) {
+    const name = nameOf(row.toolkit);
+    const list = map.get(name) ?? [];
+    list.push(row);
+    map.set(name, list);
+  }
+  return map;
+}
+
+export function pluginAuthOpeningCopy(name: string): string {
+  const label = name.trim() || "this plugin";
+  return `Opening ${label} to sign in…`;
+}
+
+export function pluginAuthBusyLabel(): string {
+  return "Opening…";
+}
+
+/** Custom MCP only when someone is looking for it — not on every browse. */
+export function showsCustomMcpSearchCard(query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return false;
+  return q.includes("mcp") || q.includes("custom");
+}
+
+/** Empty Installed shows the form; with servers, only after Add server. */
+export function showsMcpAddForm(
+  query: string,
+  formOpen: boolean,
+  serverCount: number,
+): boolean {
+  if (query.trim()) return false;
+  return formOpen || serverCount === 0;
 }
 
 export function pluginGridColumns(

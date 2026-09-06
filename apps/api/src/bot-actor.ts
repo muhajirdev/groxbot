@@ -5,6 +5,7 @@ import type { WorkersAiBinding } from "@groxbot/adapters/edge";
 import {
   appendOfficeAssistantText,
   appendOfficeUserText,
+  compactOfficeSession,
   DurableSessionStorage,
   gatewayConfigured,
   gatewayRequestModel,
@@ -30,12 +31,13 @@ import {
 } from "@groxbot/contracts";
 import {
   applyOfficeReviewTurn,
-  awayOfficeExcerpt,
   applyOfficeSkillsToSystem,
+  awayOfficeExcerpt,
   buildOfficeSystemPrompt,
   ComputerFileError,
   ComputerPathError,
   ComputerWriteError,
+  type ConnectedPluginAccount,
   composeSoul,
   computerWorkerShell,
   countPiToolCallsSinceLastUser,
@@ -48,14 +50,15 @@ import {
   ensureComputerHome,
   formatRoutinePrompt,
   isoUnixSeconds,
+  isContextOverflowError,
   jsonClone,
   lastOfficeHumanUserId,
   lastOfficeUserIsIntro,
   lastPiAssistantText,
   listComputerEntries,
+  listConnectedPluginAccounts,
   loadOfficeSkillCatalog,
   mcpCatalogForExecute,
-  parseVisibility,
   newId,
   OFFICE_AWAY_CALLBACK,
   OFFICE_AWAY_SETTLE_MS,
@@ -69,26 +72,27 @@ import {
   officeCanReadSkills,
   officeIntroTurnTools,
   officeIntroUserText,
+  officeModelContextWindow,
   officeReviewAnnounce,
   officeReviewDue,
   officeReviewNoteMetadata,
   officeReviewUserText,
   officeRoomUrl,
+  type PiBoundMessage,
+  type PiClientEvent,
+  type PiOfficeSnapshot,
+  type PiSendMessageInput,
+  PiSteerQueue,
   parseOfficeAwayPayload,
   parseOfficeAwayStored,
   parseOfficeChatMessages,
   parseOfficeReviewCounters,
   parseTinyfishKeys,
+  parseVisibility,
   patchComputerWorkspace,
   piAssistantTurnSettled,
-  type PiBoundMessage,
-  type PiClientEvent,
-  type PiOfficeSnapshot,
-  type PiSendMessageInput,
   piLogShouldRun,
-  PiSteerQueue,
   piQueuedUserBound,
-  takePiAssistantDraft,
   prepareRoutineCreate,
   RoutineError,
   RoutineNotFoundError,
@@ -105,8 +109,9 @@ import {
   shouldRunOfficeIntro,
   shouldSendAwayOfficePing,
   soulOverlayFromWrite,
-  teammatePrompt,
   TinyfishKeyPool,
+  takePiAssistantDraft,
+  teammatePrompt,
   tinyfishPoolStart,
   toRoutineDto,
   withComputerOfficeTools,
@@ -131,19 +136,20 @@ import { KnowledgeConnector } from "./bot-knowledge.js";
 import { SkillsStoreConnector } from "./bot-skills-store.js";
 import { bindToMarkdown, createPageAgentTools } from "./bot-markdown.js";
 import { WorkspaceMcpConnector } from "./bot-mcp-connector.js";
-import { httpMcpConnectionLike } from "./mcp-http.js";
 import {
   type OfficeChatSubscriber,
   officeRpcResponse,
 } from "./bot-office-rpc.js";
 import { aiToolsToPi, officeAgentTool, wrapAgentToolsForComputerUsage } from "./bot-office-tools.js";
+import { PluginsConnector } from "./bot-plugins.js";
 import { createPresentTool } from "./bot-present.js";
-import { createSkillTool } from "./bot-skill.js";
 import { RoutinesConnector } from "./bot-routines-connector.js";
+import { createSkillTool } from "./bot-skill.js";
 import { agentRuntimeSource, productEnv, type RuntimeSource } from "./env.js";
 import { r2KnowledgeDisk } from "./knowledge-r2.js";
 import type { SendEmailBinding } from "./mail.js";
 import { sendAwayOfficeMail } from "./mail.js";
+import { httpMcpConnectionLike } from "./mcp-http.js";
 export interface WorkerEnv {
   DATABASE_URL: string;
   BETTER_AUTH_SECRET: string;
@@ -351,6 +357,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     name: string;
     url: string;
   }> = [];
+  private workspacePlugins: ConnectedPluginAccount[] = [];
 
   async onStart(): Promise<void> {
     const stored = await this.ctx.storage.get<string>("officeId");
@@ -399,6 +406,9 @@ export class RoomHome extends Agent<WorkerEnv> {
       connectors,
     });
     const mcp = this.workspaceMcp.map((row) => row.name);
+    const plugins = [
+      ...new Set(this.workspacePlugins.map((row) => row.toolkit)),
+    ];
     const knowledge = this.officeKnowledge();
     const skill =
       knowledge && this.officeId
@@ -425,7 +435,12 @@ export class RoomHome extends Agent<WorkerEnv> {
         description: withOfficeExecuteDescription(
           typeof execute.description === "string" ? execute.description : "",
           Boolean(this.env.KNOWLEDGE),
-          { history: true, routines: true, mcp },
+          {
+            history: true,
+            routines: true,
+            mcp,
+            plugins: plugins.length > 0,
+          },
         ),
       },
     ];
@@ -433,6 +448,7 @@ export class RoomHome extends Agent<WorkerEnv> {
 
   private async officeAgentTools(): Promise<AgentTool[]> {
     await this.ensureWorkspaceMcp();
+    await this.ensureWorkspacePlugins();
     return this.getAgentTools();
   }
 
@@ -496,11 +512,17 @@ export class RoomHome extends Agent<WorkerEnv> {
     if (request.method === "POST" && url.pathname === "/routines/create") {
       return this.handleRoutinesCreate(request);
     }
+    if (request.method === "POST" && url.pathname === "/routines/update") {
+      return this.handleRoutinesUpdate(request);
+    }
     if (request.method === "POST" && url.pathname === "/routines/pause") {
       return this.handleRoutinesSetActive(request, false);
     }
     if (request.method === "POST" && url.pathname === "/routines/resume") {
       return this.handleRoutinesSetActive(request, true);
+    }
+    if (request.method === "POST" && url.pathname === "/routines/run") {
+      return this.handleRoutinesRun(request);
     }
     if (request.method === "POST" && url.pathname === "/routines/remove") {
       return this.handleRoutinesRemove(request);
@@ -736,88 +758,109 @@ export class RoomHome extends Agent<WorkerEnv> {
     });
     const system = await this.officeSystemPrompt(bound, tools);
     try {
-      const context = await session.buildContext();
-      const result = await runPiTurn({
-        systemPrompt: system,
-        messages: context.messages,
-        model,
-        streamFn,
-        tools,
-        signal: abort.signal,
-        getSteeringMessages: () =>
-          intro ? [] : this.officeSteer.drainMessages(),
-        getFollowUpMessages: () =>
-          intro ? [] : this.officeSteer.drainMessages(),
-        onEvent: async (event) => {
-          if (
-            hostedBillingKind &&
-            event.type === "turn_end" &&
-            event.message.role === "assistant"
-          ) {
-            const usage = event.message.usage;
-            const promptTokens = usage?.input ?? 0;
-            const completionTokens = usage?.output ?? 0;
-            const totalTokens = usage?.totalTokens ?? promptTokens + completionTokens;
-            if (promptTokens > 0 || completionTokens > 0 || totalTokens > 0) {
-              const userId =
-                lastOfficeHumanUserId(await this.officeBound(session)) ||
-                this.ownerUserId ||
-                "";
-              if (userId && this.officeId && this.personId) {
-                this.ctx.waitUntil(
-                  this.persistModelUsage({
-                    workspaceId: this.officeId,
-                    userId,
-                    botId: this.personId,
-                    model: this.turnModel,
-                    billingKind: hostedBillingKind,
-                    promptTokens,
-                    completionTokens,
-                    totalTokens,
-                    piCost: usage?.cost,
-                  }),
-                );
+      const runTurn = async () => {
+        const context = await session.buildContext();
+        return runPiTurn({
+          systemPrompt: system,
+          messages: context.messages,
+          model,
+          streamFn,
+          tools,
+          signal: abort.signal,
+          getSteeringMessages: () =>
+            intro ? [] : this.officeSteer.drainMessages(),
+          getFollowUpMessages: () =>
+            intro ? [] : this.officeSteer.drainMessages(),
+          onEvent: async (event) => {
+            if (
+              hostedBillingKind &&
+              event.type === "turn_end" &&
+              event.message.role === "assistant"
+            ) {
+              const usage = event.message.usage;
+              const promptTokens = usage?.input ?? 0;
+              const completionTokens = usage?.output ?? 0;
+              const totalTokens =
+                usage?.totalTokens ?? promptTokens + completionTokens;
+              if (promptTokens > 0 || completionTokens > 0 || totalTokens > 0) {
+                const userId =
+                  lastOfficeHumanUserId(await this.officeBound(session)) ||
+                  this.ownerUserId ||
+                  "";
+                if (userId && this.officeId && this.personId) {
+                  this.ctx.waitUntil(
+                    this.persistModelUsage({
+                      workspaceId: this.officeId,
+                      userId,
+                      botId: this.personId,
+                      model: this.turnModel,
+                      billingKind: hostedBillingKind,
+                      promptTokens,
+                      completionTokens,
+                      totalTokens,
+                      piCost: usage?.cost,
+                    }),
+                  );
+                }
               }
             }
-          }
-          const incoming =
-            "message" in event && event.message ? event.message : null;
-          if (
-            incoming?.role === "user" &&
-            (event.type === "message_start" || event.type === "message_end")
-          ) {
-            const queued =
-              event.type === "message_end"
-                ? this.officeSteer.takeEmitted()
-                : this.officeSteer.peekEmitted();
-            if (event.type === "message_end" && queued) {
-              await appendOfficeUserText(session, queued);
+            const incoming =
+              "message" in event && event.message ? event.message : null;
+            if (
+              incoming?.role === "user" &&
+              (event.type === "message_start" || event.type === "message_end")
+            ) {
+              const queued =
+                event.type === "message_end"
+                  ? this.officeSteer.takeEmitted()
+                  : this.officeSteer.peekEmitted();
+              if (event.type === "message_end" && queued) {
+                await appendOfficeUserText(session, queued);
+              }
+              const cloned = jsonClone(event);
+              if (!cloned) return;
+              await this.broadcastOfficeEvent({
+                ...cloned,
+                ...(queued
+                  ? { id: queued.id, metadata: queued.metadata }
+                  : {}),
+              });
+              return;
             }
+            const draftId = takePiAssistantDraft(assistantDraft, event);
+            await persistOfficeSessionEvent(session, event, draftId);
             const cloned = jsonClone(event);
             if (!cloned) return;
             await this.broadcastOfficeEvent({
               ...cloned,
-              ...(queued
-                ? { id: queued.id, metadata: queued.metadata }
+              ...(draftId &&
+              (event.type === "message_update" ||
+                event.type === "message_end" ||
+                event.type === "message_start")
+                ? { id: draftId }
                 : {}),
             });
-            return;
-          }
-          const draftId = takePiAssistantDraft(assistantDraft, event);
-          await persistOfficeSessionEvent(session, event, draftId);
-          const cloned = jsonClone(event);
-          if (!cloned) return;
-          await this.broadcastOfficeEvent({
-            ...cloned,
-            ...(draftId &&
-            (event.type === "message_update" ||
-              event.type === "message_end" ||
-              event.type === "message_start")
-              ? { id: draftId }
-              : {}),
-          });
-        },
+          },
+        });
+      };
+      await this.compactOfficeContext(session, {
+        model,
+        streamFn,
+        signal: abort.signal,
       });
+      let result = await runTurn();
+      if (
+        result.stopReason === "error" &&
+        isContextOverflowError(result.errorMessage)
+      ) {
+        const compacted = await this.compactOfficeContext(session, {
+          model,
+          streamFn,
+          signal: abort.signal,
+          force: true,
+        });
+        if (compacted) result = await runTurn();
+      }
       if (result.stopReason === "aborted" || abort.signal.aborted) {
         this.officeStatus = "ready";
         await this.broadcastOfficeStatus();
@@ -979,6 +1022,9 @@ export class RoomHome extends Agent<WorkerEnv> {
         identity,
         tools,
         mcp: this.workspaceMcp.map((row) => row.name),
+        plugins: [
+          ...new Set(this.workspacePlugins.map((row) => row.toolkit)),
+        ],
       }),
       messages.map((row) => row.message),
       { canReadSkills: officeCanReadSkills(tools) },
@@ -1331,6 +1377,29 @@ export class RoomHome extends Agent<WorkerEnv> {
     return piCompletionsModel(gatewayRequestModel(this.turnModel));
   }
 
+  private async compactOfficeContext(
+    session: Session,
+    opts: {
+      model: ReturnType<RoomHome["turnPiModel"]>;
+      streamFn: NonNullable<ReturnType<RoomHome["turnStreamFn"]>>;
+      signal?: AbortSignal;
+      force?: boolean;
+    },
+  ): Promise<boolean> {
+    try {
+      return await compactOfficeSession(session, {
+        model: opts.model,
+        streamFn: opts.streamFn,
+        signal: opts.signal,
+        contextWindow: officeModelContextWindow(opts.model),
+        force: opts.force,
+      });
+    } catch (error) {
+      console.error("bot actor compact", this.name, error);
+      return false;
+    }
+  }
+
   private async loadBot(): Promise<void> {
     const env = productEnv(this.env);
     const source = agentRuntimeSource(env);
@@ -1637,6 +1706,12 @@ export class RoomHome extends Agent<WorkerEnv> {
       const tools = await this.officeAgentTools();
       const bound = await this.officeBound(session);
       const system = await this.officeSystemPrompt(bound, tools);
+      const model = this.turnPiModel();
+      await this.compactOfficeContext(session, {
+        model,
+        streamFn,
+        signal: abort.signal,
+      });
       const context = await session.buildContext();
       const result = await runPiTurn({
         systemPrompt: system,
@@ -1648,7 +1723,7 @@ export class RoomHome extends Agent<WorkerEnv> {
             timestamp: Date.now(),
           },
         ],
-        model: this.turnPiModel(),
+        model,
         streamFn,
         tools,
         signal: abort.signal,
@@ -1778,6 +1853,57 @@ export class RoomHome extends Agent<WorkerEnv> {
     );
   }
 
+  async updateRoutine(
+    id: string,
+    input: {
+      name: string;
+      prompt: string;
+      cron: string;
+      timezone?: string;
+    },
+  ): Promise<Routine> {
+    const live = await this.liveRoutineById(id);
+    const parked = (await this.parkedRoutines())[id];
+    if (!live && !parked) throw new RoutineNotFoundError();
+    const payload = routinePayloadFromCreate({
+      ...input,
+      timezone: await this.resolveOfficeTimezone(
+        input.timezone ?? live?.payload.timezone ?? parked?.timezone,
+      ),
+    });
+    payload.createdAt =
+      live?.payload.createdAt ?? parked?.createdAt ?? payload.createdAt;
+    if (live) {
+      const previous = live.payload;
+      await this.cancelSchedule(id);
+      try {
+        const row = await this.armRoutine(payload);
+        return toRoutineDto(
+          this.botKey(),
+          storedRoutine(row.id, payload, true),
+          isoUnixSeconds(row.time),
+        );
+      } catch (error) {
+        try {
+          await this.armRoutine(previous);
+        } catch {
+          /* keep the original error */
+        }
+        throw error;
+      }
+    }
+    if (!parked) throw new RoutineNotFoundError();
+    await this.putParkedRoutine(id, {
+      ...payload,
+      fireOnUnarchive: parked.fireOnUnarchive,
+    });
+    return toRoutineDto(
+      this.botKey(),
+      storedRoutine(id, payload, false),
+      null,
+    );
+  }
+
   async pauseRoutine(id: string): Promise<Routine> {
     const live = await this.liveRoutineById(id);
     if (live) {
@@ -1828,6 +1954,21 @@ export class RoomHome extends Agent<WorkerEnv> {
     const parked = (await this.parkedRoutines())[id];
     if (parked) await this.deleteParkedRoutine(id);
     if (!cancelled && !parked) throw new RoutineNotFoundError();
+  }
+
+  async runRoutine(id: string): Promise<void> {
+    if (await this.routinesSuspended()) {
+      throw new RoutineError("This teammate is archived.");
+    }
+    const live = await this.liveRoutineById(id);
+    const parked = (await this.parkedRoutines())[id];
+    const payload = live?.payload ?? parked ?? null;
+    if (!payload) throw new RoutineNotFoundError();
+    await this.appendOfficeUserAndRun({
+      id: crypto.randomUUID(),
+      content: formatRoutinePrompt(payload.name, payload.prompt),
+      metadata: { source: "routine", custom: { source: "routine" } },
+    });
   }
 
   async setRoutinesSuspended(suspended: boolean): Promise<void> {
@@ -1940,6 +2081,30 @@ export class RoomHome extends Agent<WorkerEnv> {
     }
   }
 
+  private async handleRoutinesUpdate(request: Request): Promise<Response> {
+    const body = (await request.json().catch(() => ({}))) as {
+      id?: unknown;
+      name?: unknown;
+      prompt?: unknown;
+      cron?: unknown;
+      timezone?: unknown;
+    };
+    const id = typeof body.id === "string" ? body.id : "";
+    try {
+      return Response.json(
+        await this.updateRoutine(id, {
+          name: typeof body.name === "string" ? body.name : "",
+          prompt: typeof body.prompt === "string" ? body.prompt : "",
+          cron: typeof body.cron === "string" ? body.cron : "",
+          timezone:
+            typeof body.timezone === "string" ? body.timezone : undefined,
+        }),
+      );
+    } catch (error) {
+      return routineHttpError(error);
+    }
+  }
+
   private async handleRoutinesSetActive(
     request: Request,
     active: boolean,
@@ -1950,6 +2115,17 @@ export class RoomHome extends Agent<WorkerEnv> {
       return Response.json(
         active ? await this.resumeRoutine(id) : await this.pauseRoutine(id),
       );
+    } catch (error) {
+      return routineHttpError(error);
+    }
+  }
+
+  private async handleRoutinesRun(request: Request): Promise<Response> {
+    const body = (await request.json().catch(() => ({}))) as { id?: unknown };
+    const id = typeof body.id === "string" ? body.id : "";
+    try {
+      await this.runRoutine(id);
+      return Response.json({ ok: true });
     } catch (error) {
       return routineHttpError(error);
     }
@@ -2000,6 +2176,7 @@ export class RoomHome extends Agent<WorkerEnv> {
       | SkillsStoreConnector
       | WorkspaceMcpConnector
       | RoutinesConnector
+      | PluginsConnector
     > = [
       new HistoryConnector(this.ctx, this.env, () => this),
       new RoutinesConnector(this.ctx, this.env, () => this),
@@ -2012,6 +2189,7 @@ export class RoomHome extends Agent<WorkerEnv> {
       );
     }
     connectors.push(...this.mcpExecuteConnectors());
+    connectors.push(...this.pluginExecuteConnectors());
     return connectors;
   }
 
@@ -2045,6 +2223,37 @@ export class RoomHome extends Agent<WorkerEnv> {
       name: row.name,
       url: row.url,
     }));
+  }
+
+  private async ensureWorkspacePlugins(): Promise<void> {
+    await this.ensureBotLoaded();
+    if (!this.officeId || !this.env.COMPOSIO_API_KEY?.trim()) {
+      this.workspacePlugins = [];
+      return;
+    }
+    const env = productEnv(this.env);
+    const { db } = createNeonHttpDb(env.databaseUrl);
+    this.workspacePlugins = await listConnectedPluginAccounts(
+      db,
+      this.officeId,
+      this.catalogMcpBot(),
+    );
+  }
+
+  private pluginExecuteConnectors(): PluginsConnector[] {
+    const apiKey = this.env.COMPOSIO_API_KEY?.trim();
+    if (!this.officeId || !apiKey || this.workspacePlugins.length === 0) {
+      return [];
+    }
+    const workspaceId = this.officeId;
+    const accounts = this.workspacePlugins;
+    return [
+      new PluginsConnector(this.ctx, this.env, () => ({
+        workspaceId,
+        accounts,
+        apiKey,
+      })),
+    ];
   }
 
   private mcpExecuteConnectors(): WorkspaceMcpConnector[] {

@@ -71,9 +71,9 @@ export const PALETTE_ACTIONS = [
   },
   {
     id: "plugins",
-    label: "Plugins",
+    label: "Marketplace",
     shortcut: "",
-    keywords: ["plugins", "integrations", "connect"],
+    keywords: ["plugins", "integrations", "connect", "marketplace", "bots", "skills"],
   },
   {
     id: "knowledge",
@@ -89,7 +89,7 @@ export const PALETTE_ACTIONS = [
   },
   {
     id: "skills-store",
-    label: "Skills store",
+    label: "Skills marketplace",
     shortcut: "",
     keywords: ["skills", "store", "marketplace", "playbook", "install", "import"],
   },

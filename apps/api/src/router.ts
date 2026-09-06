@@ -81,6 +81,7 @@ import {
   pluginStatus,
   refreshPlugins,
   removePlugin,
+  updatePlugin,
 } from "./plugins.js";
 import {
   createWorkspaceRoom,
@@ -600,19 +601,22 @@ export const appRouter = os.router({
     ),
     list: os.plugins.list.handler(async ({ context }) => listPlugins(context)),
     add: os.plugins.add.handler(async ({ context, input }) =>
-      addPlugin(context, input.toolkit),
+      addPlugin(context, input),
     ),
     connect: os.plugins.connect.handler(async ({ context, input }) =>
-      connectPlugin(context, input.toolkit),
+      connectPlugin(context, input.id),
     ),
     disconnect: os.plugins.disconnect.handler(async ({ context, input }) =>
-      disconnectPlugin(context, input.toolkit),
+      disconnectPlugin(context, input.id),
     ),
     remove: os.plugins.remove.handler(async ({ context, input }) =>
-      removePlugin(context, input.toolkit),
+      removePlugin(context, input.id),
     ),
     refresh: os.plugins.refresh.handler(async ({ context }) =>
       refreshPlugins(context),
+    ),
+    update: os.plugins.update.handler(async ({ context, input }) =>
+      updatePlugin(context, input.id, input.visibility),
     ),
   },
   mcp: {
@@ -664,6 +668,21 @@ export const appRouter = os.router({
         throwRoutineError(error);
       }
     }),
+    update: os.routines.update.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      await getBotThread(context, actor, input.botId);
+      try {
+        if (!context.routines) throw new RoutineError();
+        return await context.routines.update(input.botId, input.id, {
+          name: input.name,
+          prompt: input.prompt,
+          cron: input.cron,
+          timezone: input.timezone,
+        });
+      } catch (error) {
+        throwRoutineError(error);
+      }
+    }),
     pause: os.routines.pause.handler(async ({ context, input }) => {
       const actor = await requireActor(context);
       await getBotThread(context, actor, input.botId);
@@ -685,6 +704,22 @@ export const appRouter = os.router({
       try {
         if (!context.routines) throw new RoutineError();
         return await context.routines.resume(input.botId, input.id);
+      } catch (error) {
+        throwRoutineError(error);
+      }
+    }),
+    run: os.routines.run.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      const { bot } = await getBotThread(context, actor, input.botId);
+      if (bot.archivedAt) {
+        throw new ORPCError("PRECONDITION_FAILED", {
+          message: "This teammate is archived.",
+        });
+      }
+      try {
+        if (!context.routines) throw new RoutineError();
+        await context.routines.run(input.botId, input.id);
+        return { ok: true as const };
       } catch (error) {
         throwRoutineError(error);
       }

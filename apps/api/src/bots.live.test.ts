@@ -190,10 +190,15 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
           routineStore.list(botId).map((row) => toRoutineDto(botId, row)),
         create: async (botId, input) =>
           toRoutineDto(botId, routineStore.create(botId, input)),
+        update: async (botId, id, input) =>
+          toRoutineDto(botId, routineStore.update(botId, id, input)),
         pause: async (botId, id) =>
           toRoutineDto(botId, routineStore.setActive(botId, id, false)),
         resume: async (botId, id) =>
           toRoutineDto(botId, routineStore.setActive(botId, id, true)),
+        run: async (botId, id) => {
+          routineStore.get(botId, id);
+        },
         remove: async (botId, id) => {
           routineStore.remove(botId, id);
         },
@@ -560,6 +565,19 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
 
     const listed = await rpc.routines.list({ botId: piper.id });
     expect(listed.map((row) => row.name)).toEqual(["Nightly Gmail"]);
+
+    const updated = await rpc.routines.update({
+      botId: piper.id,
+      id: created.id,
+      name: "Morning Gmail",
+      prompt: "Check overnight mail. Do not send.",
+      cron: "0 8 * * *",
+    });
+    expect(updated.name).toBe("Morning Gmail");
+    expect(updated.cron).toBe("every day at 08:00");
+    expect(await rpc.routines.run({ botId: piper.id, id: created.id })).toEqual({
+      ok: true,
+    });
 
     const paused = await rpc.routines.pause({
       botId: piper.id,

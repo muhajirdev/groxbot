@@ -109,7 +109,7 @@ export async function loadPluginCatalog(): Promise<PluginCard[]> {
   return [...cards, ...PLUGIN_SKILLS];
 }
 
-/** First open hits GitHub; Query persist then keeps the slim cards in IndexedDB. */
+/** Chat keeps this query live so Plugins opens from cache; GitHub fills a cold miss. */
 export function pluginCatalogQueryOptions() {
   return {
     queryKey: PLUGIN_CATALOG_KEY,

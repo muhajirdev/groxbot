@@ -1,5 +1,6 @@
 import type { AvatarShape } from "@groxbot/contracts";
 import { MascotMark, type MascotMood } from "@groxbot/mascot";
+import { cn } from "../ui";
 
 export function MemberStack(props: {
   faces: readonly {
@@ -35,6 +36,20 @@ export function MemberStack(props: {
         </span>
       ))}
     </span>
+  );
+}
+
+/** Bottom-right presence pip. Ring matches the surface behind the avatar. */
+export function PresenceDot(props: { on: boolean; selected?: boolean }) {
+  if (!props.on) return null;
+  return (
+    <span
+      className={cn(
+        "pointer-events-none absolute right-0 bottom-0 size-2 rounded-full bg-ok ring-2",
+        props.selected ? "ring-selected" : "ring-bg-side",
+      )}
+      aria-hidden
+    />
   );
 }
 

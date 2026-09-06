@@ -87,4 +87,21 @@ describe("bindOfficeExecuteTool", () => {
       error: expect.stringMatching(/code/),
     });
   });
+
+  it("caps a huge code result before it is stored", async () => {
+    const tool = bindOfficeExecuteTool({
+      execute: async () => ({ body: "x".repeat(40_000) }),
+    });
+    const result = await tool.execute("call_1", { code: "return 1" });
+    const text = result.content[0];
+    expect(text?.type).toBe("text");
+    if (text?.type === "text") {
+      expect(text.text.length).toBeLessThan(40_000);
+      expect(text.text).toMatch(/truncated/);
+    }
+    expect(result.details).toEqual({
+      truncated: true,
+      bytes: expect.any(Number),
+    });
+  });
 });

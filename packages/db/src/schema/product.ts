@@ -440,7 +440,11 @@ export const workspaceModels = pgTable("workspace_models", {
     .defaultNow(),
 });
 
-/** Composio toolkit connection for a workspace. Tokens stay at Composio. */
+/**
+ * One Composio connected account. Tokens stay at Composio.
+ * Multiple Gmail/Instagram rows are allowed. private = owner only;
+ * shared = office phone. Same bind rules as MCP.
+ */
 export const pluginConnections = pgTable(
   "plugin_connections",
   {
@@ -453,6 +457,11 @@ export const pluginConnections = pgTable(
       .references(() => user.id),
     toolkit: text("toolkit").notNull(),
     status: text("status").notNull(),
+    /**
+     * private = owner’s account. shared = office phone.
+     * New connections insert shared unless the form opts into private.
+     */
+    visibility: text("visibility").notNull().default("shared"),
     connectedAccountId: text("connected_account_id"),
     lastError: text("last_error"),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -463,10 +472,10 @@ export const pluginConnections = pgTable(
       .defaultNow(),
   },
   (t) => [
-    uniqueIndex("plugin_connections_workspace_toolkit").on(
-      t.workspaceId,
-      t.toolkit,
-    ),
+    index("plugin_connections_workspace_id").on(t.workspaceId),
+    uniqueIndex("plugin_connections_connected_account")
+      .on(t.connectedAccountId)
+      .where(sql`${t.connectedAccountId} is not null`),
   ],
 );
 

@@ -175,4 +175,75 @@ describe("runOwnedPiTurn", () => {
     expect(lastUser).toEqual(["list files", "stop, summarize instead"]);
     expect(result.text).toBe("Okay, summary.");
   });
+
+  it("omits old fat tool dumps from the model context", async () => {
+    const seen: string[] = [];
+    const fat = "g".repeat(20_000);
+    const result = await runPiTurn({
+      systemPrompt: "You are Piper.",
+      messages: [
+        { role: "user", content: "check gmail", timestamp: 1 },
+        {
+          role: "toolResult",
+          toolCallId: "call_old",
+          toolName: "code",
+          content: [{ type: "text", text: fat }],
+          details: { raw: fat },
+          isError: false,
+          timestamp: 2,
+        },
+        { role: "user", content: "again", timestamp: 3 },
+      ],
+      model,
+      streamFn: (called, context) => {
+        const tool = context.messages.find((row) => row.role === "toolResult");
+        const text =
+          tool && tool.role === "toolResult"
+            ? tool.content
+                .map((part) =>
+                  part.type === "text" ? part.text : "",
+                )
+                .join("")
+            : "";
+        seen.push(text);
+        expect(text.length).toBeLessThan(fat.length);
+        expect(text).toMatch(/Omitted from the live window/);
+        expect(text).not.toContain("gggg");
+        return scriptedPiStreamFn("ok")(called, context);
+      },
+    });
+    expect(result.text).toBe("ok");
+    expect(seen).toHaveLength(1);
+  });
+
+  it("sends a compaction summary into the model as a user message", async () => {
+    const seen: string[] = [];
+    const result = await runPiTurn({
+      systemPrompt: "You are Piper.",
+      messages: [
+        {
+          role: "compactionSummary",
+          summary: "## Goal\nKeep the inbox current.",
+          tokensBefore: 90_000,
+          timestamp: 1,
+        },
+        { role: "user", content: "again", timestamp: 2 },
+      ],
+      model,
+      streamFn: (called, context) => {
+        const first = context.messages[0];
+        seen.push(
+          first?.role === "user"
+            ? typeof first.content === "string"
+              ? first.content
+              : JSON.stringify(first.content)
+            : String(first?.role ?? ""),
+        );
+        return scriptedPiStreamFn("ok")(called, context);
+      },
+    });
+    expect(result.text).toBe("ok");
+    expect(seen[0]).toMatch(/compacted into the following summary/);
+    expect(seen[0]).toMatch(/Keep the inbox current/);
+  });
 });

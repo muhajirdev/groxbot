@@ -55,8 +55,19 @@ export interface RpcContext {
         timezone?: string;
       },
     ): Promise<Routine>;
+    update(
+      botId: string,
+      id: string,
+      input: {
+        name: string;
+        prompt: string;
+        cron: string;
+        timezone?: string;
+      },
+    ): Promise<Routine>;
     pause(botId: string, id: string): Promise<Routine>;
     resume(botId: string, id: string): Promise<Routine>;
+    run(botId: string, id: string): Promise<void>;
     remove(botId: string, id: string): Promise<void>;
     /** Archive side-effect: the actor stops firing without wiping the catalog. */
     suspend?(botId: string, suspended: boolean): Promise<void>;

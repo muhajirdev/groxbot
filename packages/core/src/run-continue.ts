@@ -21,14 +21,17 @@ import type { GuestHub } from "./guest-hub.js";
 import { GuestAgentRuntime } from "./guest-runtime.js";
 import { newId } from "./ids.js";
 import { KNOWLEDGE_MARKDOWN_LINK_HINT } from "./knowledge-links.js";
-import { officeIntroWho } from "./office-intro.js";
 import {
   encryptionSecret,
   type ModelOverlay,
   missingModelMessage,
   resolveRunModel,
 } from "./models.js";
-import { composioUserId, listConnectedToolkits } from "./plugin-connections.js";
+import { officeIntroWho } from "./office-intro.js";
+import {
+  composioUserId,
+  listConnectedPluginAccounts,
+} from "./plugin-connections.js";
 import { listPokeTeammates, pokeBot } from "./poke.js";
 import { assertTransition } from "./run-state.js";
 import { redactSecrets } from "./secret-box.js";
@@ -96,20 +99,28 @@ export const KNOWLEDGE_EXECUTE_HINT =
   KNOWLEDGE_MARKDOWN_LINK_HINT;
 
 export const ROUTINES_EXECUTE_HINT =
-  "`routines` — this bot’s recurring jobs. `await routines.list()` / `create({ name, prompt, schedule })`. Schedules like `every weekday at 09:00`. Timezone comes from Settings.";
+  "`routines` — this bot’s recurring jobs. `await routines.list()` / `create({ name, prompt, schedule })` / `update({ id, name, prompt, schedule })` / `run({ id })`. Schedules like `every weekday at 09:00`. Timezone comes from Settings.";
 
 export const HISTORY_EXECUTE_HINT =
   "`history` — this office thread. `await history.search({ query })` for older turns the live window may have dropped. Not other teammates, not the knowledge library.";
 
+export const PLUGINS_EXECUTE_HINT =
+  "`plugins` — connected accounts on this workspace. One `await plugins.search({ query })` (short toolkit or verb, not a sentence), then `await plugins.execute({ slug, arguments })`. Return a compact projection. Private accounts stay on the owner’s private teammate. If several accounts of the same app exist, pass `account` from search.";
+
 export function mcpExecuteHint(name: string): string {
   const safe = name.trim() || "mcp";
-  return `\`${safe}\` — connected workspace MCP. \`await ${safe}.<method>(args)\`. Search for methods, then \`await codemode.describe("${safe}.<method>")\`. Do not describe the whole connector.`;
+  return `\`${safe}\` — connected workspace MCP. \`await ${safe}.<method>(args)\`. If this connector is already listed, call it — do not \`codemode.search\` for it. Search for methods, then \`await codemode.describe("${safe}.<method>")\`. Do not describe the whole connector. Return a compact projection from code, never the raw payload.`;
 }
 
 export function withOfficeExecuteDescription(
   description: string,
   hasKnowledge: boolean,
-  extras?: { routines?: boolean; history?: boolean; mcp?: string[] },
+  extras?: {
+    routines?: boolean;
+    history?: boolean;
+    mcp?: string[];
+    plugins?: boolean;
+  },
 ): string {
   let next = withOfficeCodePreamble(description);
   if (hasKnowledge)
@@ -118,6 +129,8 @@ export function withOfficeExecuteDescription(
     next = hintExecuteConnector(next, "history", HISTORY_EXECUTE_HINT);
   if (extras?.routines)
     next = hintExecuteConnector(next, "routines", ROUTINES_EXECUTE_HINT);
+  if (extras?.plugins)
+    next = hintExecuteConnector(next, "plugins", PLUGINS_EXECUTE_HINT);
   for (const name of extras?.mcp ?? []) {
     const slug = name.trim();
     if (!slug) continue;
@@ -382,7 +395,11 @@ export async function continueRun(opts: {
     model: string;
     hosted?: boolean;
   }) => AgentRuntime;
-  pluginTools?: (input: { workspaceId: string; toolkits: string[] }) =>
+  pluginTools?: (input: {
+    workspaceId: string;
+    toolkits: string[];
+    accounts?: Array<{ toolkit: string; connectedAccountId?: string }>;
+  }) =>
     | {
         search: (query: string) => Promise<string>;
         execute: (
@@ -421,10 +438,16 @@ export async function continueRun(opts: {
   const bound = opts.bindRuntime ? opts.bindRuntime(overlay) : opts.runtime;
   const runner = guestEnabled && guests ? new GuestAgentRuntime(guests) : bound;
   const teammates = await listPokeTeammates(db, bot);
-  const pluginToolkits = await listConnectedToolkits(db, run.workspaceId);
+  const pluginAccounts = await listConnectedPluginAccounts(
+    db,
+    run.workspaceId,
+    { visibility: bot.visibility, userId: bot.userId },
+  );
+  const pluginToolkits = pluginAccounts.map((row) => row.toolkit);
   const plugins = opts.pluginTools?.({
     workspaceId: run.workspaceId,
     toolkits: pluginToolkits,
+    accounts: pluginAccounts,
   });
   const pokeStack = opts.pokeStack ?? [];
   const pokeTeammate =

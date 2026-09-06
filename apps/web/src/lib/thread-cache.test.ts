@@ -6,6 +6,7 @@ import {
   ensureThreadMeta,
   patchThreadMeta,
   readThreadMeta,
+  threadIsWorking,
 } from "./thread-cache";
 
 afterEach(() => {
@@ -30,6 +31,15 @@ describe("threadMeta", () => {
       opening: false,
       working: "",
     });
+  });
+
+  it("treats opening or working as busy", () => {
+    expect(threadIsWorking(undefined)).toBe(false);
+    expect(threadIsWorking({ opening: false, working: "" })).toBe(false);
+    expect(threadIsWorking({ opening: true, working: "" })).toBe(true);
+    expect(
+      threadIsWorking({ opening: false, working: OFFICE_WORKING }),
+    ).toBe(true);
   });
 
   it("drops a row", () => {

@@ -4,6 +4,8 @@ import {
   mcpBindableForBot,
   mcpVisibleToViewer,
   parseVisibility,
+  pluginBindableForBot,
+  pluginVisibleToViewer,
 } from "./visibility.js";
 
 const alice = "user-alice";
@@ -45,13 +47,32 @@ describe("visibility", () => {
     ).toBe(false);
   });
 
-  it("lets a shared bot use office MCP only", () => {
-    const tutor = { visibility: "shared", userId: alice };
+  it("shows a private plugin account only to the owner", () => {
+    const gmail = { visibility: "private", userId: alice };
+    expect(pluginVisibleToViewer(gmail, alice)).toBe(true);
+    expect(pluginVisibleToViewer(gmail, bob)).toBe(false);
+  });
+
+  it("lets a private bot use the owner’s private plugin and office plugins", () => {
+    const inbox = { visibility: "private", userId: alice };
     expect(
-      mcpBindableForBot({ visibility: "shared", userId: alice }, tutor),
+      pluginBindableForBot({ visibility: "private", userId: alice }, inbox),
     ).toBe(true);
     expect(
-      mcpBindableForBot({ visibility: "private", userId: alice }, tutor),
+      pluginBindableForBot({ visibility: "shared", userId: bob }, inbox),
+    ).toBe(true);
+    expect(
+      pluginBindableForBot({ visibility: "private", userId: bob }, inbox),
+    ).toBe(false);
+  });
+
+  it("lets a shared bot use office plugins only", () => {
+    const tutor = { visibility: "shared", userId: alice };
+    expect(
+      pluginBindableForBot({ visibility: "shared", userId: alice }, tutor),
+    ).toBe(true);
+    expect(
+      pluginBindableForBot({ visibility: "private", userId: alice }, tutor),
     ).toBe(false);
   });
 });

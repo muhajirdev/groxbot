@@ -27,6 +27,8 @@ import { parseRoomSpeaker } from "@groxbot/core/browser";
 import { isOfficeLearnedMessage } from "@groxbot/contracts";
 import { isVisibleChatMessage } from "@/lib/chat-messages";
 import { isWaitingForAssistantTurn } from "@/lib/thread-waiting";
+import { messageDaySep } from "@/lib/time";
+import { useShowToolCalls } from "@/lib/show-tool-calls";
 import { cn } from "@/lib/utils";
 import {
   ActionBarMorePrimitive,
@@ -260,9 +262,44 @@ const ThreadMessage: FC = () => {
   const isEditing = useAuiState((s) => s.message.composer.isEditing);
 
   if (hidden) return null;
-  if (isEditing) return <EditComposer />;
-  if (role === "user") return <UserMessage />;
-  return <AssistantMessageComponent />;
+  return (
+    <>
+      <MessageDaySep />
+      {isEditing ? (
+        <EditComposer />
+      ) : role === "user" ? (
+        <UserMessage />
+      ) : (
+        <AssistantMessageComponent />
+      )}
+    </>
+  );
+};
+
+const MessageDaySep: FC = () => {
+  const label = useAuiState((s) => {
+    const createdAt = s.message.createdAt;
+    const id = s.message.id;
+    const messages = s.thread.messages;
+    const index = messages.findIndex((row) => row.id === id);
+    let previous: Date | undefined;
+    for (let i = index - 1; i >= 0; i--) {
+      const row = messages[i];
+      if (!row || !isVisibleChatMessage(row)) continue;
+      previous = row.createdAt;
+      break;
+    }
+    return messageDaySep(createdAt, previous);
+  });
+  if (!label) return null;
+  return (
+    <div
+      data-slot="aui_message-day"
+      className="my-2.5 mb-1 text-center text-xs text-muted-foreground"
+    >
+      {label}
+    </div>
+  );
 };
 
 const ThreadScrollToBottom: FC = () => {
@@ -327,8 +364,8 @@ const ComposerAction: FC = () => {
 const MessageError: FC = () => {
   return (
     <MessagePrimitive.Error>
-      <ErrorPrimitive.Root className="aui-message-error-root border-destructive bg-destructive/10 text-destructive dark:bg-destructive/5 mt-2 rounded-md border p-3 text-sm dark:text-red-200">
-        <ErrorPrimitive.Message className="aui-message-error-message line-clamp-2" />
+      <ErrorPrimitive.Root className="aui-message-error-root">
+        <ErrorPrimitive.Message className="aui-message-error-message" />
       </ErrorPrimitive.Root>
     </MessagePrimitive.Error>
   );
@@ -363,6 +400,7 @@ const AssistantMessage: FC = () => {
     ToolFallback: ToolFallbackComponent = ToolFallback,
     ToolGroup,
   } = useContext(ThreadComponentsContext);
+  const showToolCalls = useShowToolCalls();
   const speakerName = useAuiState(
     (s) => parseRoomSpeaker(s.message.metadata)?.name ?? "",
   );
@@ -428,6 +466,7 @@ const AssistantMessage: FC = () => {
               case "group-chainOfThought":
                 return <div data-slot="aui_chain-of-thought">{children}</div>;
               case "group-tool":
+                if (!showToolCalls) return children;
                 if (ToolGroup) {
                   return <ToolGroup group={part}>{children}</ToolGroup>;
                 }
@@ -453,7 +492,9 @@ const AssistantMessage: FC = () => {
                   </div>
                 );
               case "tool-call":
-                return part.toolUI ?? <ToolFallbackComponent {...part} />;
+                if (part.toolUI) return part.toolUI;
+                if (!showToolCalls) return null;
+                return <ToolFallbackComponent {...part} />;
               case "data":
                 return part.dataRendererUI;
               case "file":

@@ -201,18 +201,22 @@ export const appContract = oc.router({
     status: oc.output(PluginStatusSchema),
     list: oc.output(z.array(PluginConnectionSchema)),
     add: oc
-      .input(z.object({ toolkit: ToolkitSlug }))
+      .input(
+        z.object({
+          toolkit: ToolkitSlug,
+          visibility: Visibility.optional(),
+        }),
+      )
       .output(PluginConnectionSchema),
-    connect: oc
-      .input(z.object({ toolkit: ToolkitSlug }))
-      .output(PluginConnectResultSchema),
-    disconnect: oc
-      .input(z.object({ toolkit: ToolkitSlug }))
-      .output(PluginConnectionSchema),
+    connect: oc.input(z.object({ id: Id })).output(PluginConnectResultSchema),
+    disconnect: oc.input(z.object({ id: Id })).output(PluginConnectionSchema),
     remove: oc
-      .input(z.object({ toolkit: ToolkitSlug }))
+      .input(z.object({ id: Id }))
       .output(z.object({ ok: z.literal(true) })),
     refresh: oc.output(z.array(PluginConnectionSchema)),
+    update: oc
+      .input(z.object({ id: Id, visibility: Visibility }))
+      .output(PluginConnectionSchema),
   },
   mcp: {
     list: oc.output(z.array(McpConnectionSchema)),
@@ -250,8 +254,23 @@ export const appContract = oc.router({
         }),
       )
       .output(RoutineSchema),
+    update: oc
+      .input(
+        z.object({
+          botId: Id,
+          id: Id,
+          name: z.string().min(1).max(80),
+          prompt: z.string().min(1).max(8000),
+          cron: z.string().min(1).max(80),
+          timezone: z.string().max(80).optional(),
+        }),
+      )
+      .output(RoutineSchema),
     pause: oc.input(z.object({ botId: Id, id: Id })).output(RoutineSchema),
     resume: oc.input(z.object({ botId: Id, id: Id })).output(RoutineSchema),
+    run: oc
+      .input(z.object({ botId: Id, id: Id }))
+      .output(z.object({ ok: z.literal(true) })),
     remove: oc
       .input(z.object({ botId: Id, id: Id }))
       .output(z.object({ ok: z.literal(true) })),

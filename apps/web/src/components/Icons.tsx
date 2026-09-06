@@ -8,6 +8,7 @@ import {
   ArrowUp01Icon,
   ArrowUpDownIcon,
   Bookmark01Icon,
+  BotIcon as BotGlyph,
   Cancel01Icon,
   CancelCircleIcon,
   ChevronDownIcon as ChevronDownGlyph,
@@ -35,6 +36,7 @@ import {
   MoreHorizontalIcon,
   Note01Icon,
   PencilEdit01Icon,
+  PlayIcon as PlayGlyph,
   PinIcon as PinGlyph,
   Plug01Icon,
   PlusSignIcon,
@@ -81,6 +83,30 @@ function Glyph(
   );
 }
 
+/** Two strokes, same weight as Plus — not Hugeicons’ fat rounded pause bars. */
+const PauseBars: IconSvgElement = [
+  [
+    "path",
+    {
+      d: "M9 6v12",
+      stroke: "currentColor",
+      strokeLinecap: "round",
+      strokeWidth: "1.5",
+      key: "0",
+    },
+  ],
+  [
+    "path",
+    {
+      d: "M15 6v12",
+      stroke: "currentColor",
+      strokeLinecap: "round",
+      strokeWidth: "1.5",
+      key: "1",
+    },
+  ],
+];
+
 export function SearchIcon(props: IconProps) {
   return <Glyph icon={SearchGlyph} {...props} />;
 }
@@ -89,8 +115,20 @@ export function PlusIcon(props: IconProps) {
   return <Glyph icon={PlusSignIcon} {...props} />;
 }
 
+export function PauseIcon(props: IconProps) {
+  return <Glyph icon={PauseBars} {...props} />;
+}
+
+export function PlayIcon(props: IconProps) {
+  return <Glyph icon={PlayGlyph} {...props} />;
+}
+
 export function PlugIcon(props: IconProps) {
   return <Glyph icon={Plug01Icon} {...props} />;
+}
+
+export function BotIcon(props: IconProps) {
+  return <Glyph icon={BotGlyph} {...props} />;
 }
 
 export function KnowledgeIcon(props: IconProps) {

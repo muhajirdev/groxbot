@@ -11,8 +11,18 @@ export type RoutineHost = {
     cron: string;
     timezone?: string;
   }): Promise<Routine>;
+  updateRoutine(
+    id: string,
+    input: {
+      name: string;
+      prompt: string;
+      cron: string;
+      timezone?: string;
+    },
+  ): Promise<Routine>;
   pauseRoutine(id: string): Promise<Routine>;
   resumeRoutine(id: string): Promise<Routine>;
+  runRoutine(id: string): Promise<void>;
   removeRoutine(id: string): Promise<void>;
 };
 
@@ -67,6 +77,27 @@ export class RoutinesConnector extends CodemodeConnector {
           });
         },
       },
+      update: {
+        description: "Change a routine’s name, prompt, or schedule.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            id: { type: "string", minLength: 1 },
+            name: { type: "string", minLength: 1, maxLength: 80 },
+            prompt: { type: "string", minLength: 1, maxLength: 8000 },
+            schedule: { type: "string", minLength: 1, maxLength: 80 },
+            timezone: { type: "string", maxLength: 80 },
+          },
+          required: ["id", "name", "prompt", "schedule"],
+        },
+        execute: async (args) =>
+          this.host().updateRoutine(stringArg(args, "id", true), {
+            name: stringArg(args, "name"),
+            prompt: stringArg(args, "prompt"),
+            cron: stringArg(args, "schedule"),
+            timezone: optionalStringArg(args, "timezone"),
+          }),
+      },
       pause: {
         description: "Pause a routine so it stops firing until resumed.",
         inputSchema: {
@@ -86,6 +117,19 @@ export class RoutinesConnector extends CodemodeConnector {
         },
         execute: async (args) =>
           this.host().resumeRoutine(stringArg(args, "id", true)),
+      },
+      run: {
+        description:
+          "Run this routine now, without waiting for the next scheduled time.",
+        inputSchema: {
+          type: "object",
+          properties: { id: { type: "string", minLength: 1 } },
+          required: ["id"],
+        },
+        execute: async (args) => {
+          await this.host().runRoutine(stringArg(args, "id", true));
+          return { ok: true };
+        },
       },
       remove: {
         description: "Delete a routine. Needs approval.",

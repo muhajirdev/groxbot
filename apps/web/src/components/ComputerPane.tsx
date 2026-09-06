@@ -1,5 +1,5 @@
 import type { Bot, Routine } from "@groxbot/contracts";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { saveComputerDownload } from "../lib/computer-download";
 import {
@@ -12,9 +12,19 @@ import { OFFICE_MESSAGES_GC_TIME } from "../lib/office-messages";
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
 import {
-  formatRoutineWhen,
+  formatRoutineRow,
   officeTimezone,
 } from "../lib/routine-schedule";
+import {
+  optimisticRoutine,
+  readRoutines,
+  replaceRoutine,
+  routinesListQueryOptions,
+  withRoutineActive,
+  withRoutineFields,
+  withoutRoutine,
+  writeRoutines,
+} from "../lib/routines-cache";
 import { Button, Field, Input, ModalShell, Textarea } from "../ui";
 import { ComputerFilePreview } from "./ComputerFilePreview";
 import { RoutineScheduleField } from "./RoutineScheduleField";
@@ -25,6 +35,9 @@ import {
   FolderIcon,
   FolderOpenIcon,
   GearIcon,
+  PauseIcon,
+  PlayIcon,
+  PlusIcon,
   SearchIcon,
 } from "./Icons";
 
@@ -38,13 +51,11 @@ export function ComputerPane(props: {
   openPath?: string | null;
   onPreviewClose?: () => void;
 }) {
-  const queryClient = useQueryClient();
-  const [creating, setCreating] = useState(false);
+  const [sheet, setSheet] = useState<"create" | Routine | null>(null);
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
   const [cron, setCron] = useState(DEFAULT_CRON);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [creatingBusy, setCreatingBusy] = useState(false);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string | null>(
@@ -70,11 +81,7 @@ export function ComputerPane(props: {
     gcTime: OFFICE_MESSAGES_GC_TIME,
     refetchInterval: (queryState) => (queryState.state.data ? 15_000 : false),
   });
-  const routinesQuery = useQuery({
-    queryKey: ["routines", botId],
-    queryFn: () => client.routines.list({ botId }),
-    staleTime: 30_000,
-  });
+  const routinesQuery = useQuery(routinesListQueryOptions(botId));
   const routines: Routine[] = routinesQuery.data ?? [];
   const tree = useMemo(() => {
     const nested = nestComputerEntries(filesQuery.data?.entries ?? []);
@@ -96,6 +103,148 @@ export function ComputerPane(props: {
         );
       })
       .finally(() => setDownloading(null));
+  };
+  const closeSheet = () => setSheet(null);
+  const openCreate = () => {
+    setName("");
+    setPrompt("");
+    setCron(DEFAULT_CRON);
+    setError("");
+    setSheet("create");
+  };
+  const openEdit = (item: Routine) => {
+    setName(item.name);
+    setPrompt(item.prompt);
+    setCron(item.cron);
+    setError("");
+    setSheet(item);
+  };
+  const formReady = Boolean(name.trim() && prompt.trim() && cron.trim());
+  const editing = sheet && sheet !== "create" ? sheet : null;
+  const toggleRoutine = (item: Routine) => {
+    if (busyId || (!item.active && archived)) return;
+    const snapshot = readRoutines(botId);
+    writeRoutines(botId, withRoutineActive(snapshot, item.id, !item.active));
+    setBusyId(item.id);
+    setError("");
+    void (
+      item.active
+        ? client.routines.pause({ botId, id: item.id })
+        : client.routines.resume({ botId, id: item.id })
+    )
+      .then((next) => {
+        writeRoutines(botId, replaceRoutine(readRoutines(botId), item.id, next));
+      })
+      .catch((caught: unknown) => {
+        writeRoutines(botId, snapshot);
+        setError(userFacingError(caught, "Could not update that routine."));
+      })
+      .finally(() => setBusyId(null));
+  };
+  const removeRoutine = (id: string) => {
+    if (busyId) return;
+    const snapshot = readRoutines(botId);
+    writeRoutines(botId, withoutRoutine(snapshot, id));
+    closeSheet();
+    setBusyId(id);
+    setError("");
+    void client.routines
+      .remove({ botId, id })
+      .catch((caught: unknown) => {
+        writeRoutines(botId, snapshot);
+        setError(userFacingError(caught, "Could not remove that routine."));
+      })
+      .finally(() => setBusyId(null));
+  };
+  const saveRoutine = (item: Routine) => {
+    const patch = {
+      name: name.trim(),
+      prompt: prompt.trim(),
+      cron: cron.trim(),
+      timezone: officeTimezone(),
+    };
+    if (!patch.name || !patch.prompt || !patch.cron) return;
+    const snapshot = readRoutines(botId);
+    writeRoutines(botId, withRoutineFields(snapshot, item.id, patch));
+    closeSheet();
+    setError("");
+    void client.routines
+      .update({ botId, id: item.id, ...patch })
+      .then((next) => {
+        writeRoutines(botId, replaceRoutine(readRoutines(botId), item.id, next));
+      })
+      .catch((caught: unknown) => {
+        writeRoutines(botId, snapshot);
+        setError(userFacingError(caught, "Could not save that routine."));
+      });
+  };
+  const testRun = (item: Routine) => {
+    if (archived) return;
+    const patch = {
+      name: name.trim(),
+      prompt: prompt.trim(),
+      cron: cron.trim(),
+      timezone: officeTimezone(),
+    };
+    if (!patch.name || !patch.prompt || !patch.cron) return;
+    const snapshot = readRoutines(botId);
+    const dirty =
+      patch.name !== item.name ||
+      patch.prompt !== item.prompt ||
+      patch.cron !== item.cron;
+    if (dirty) {
+      writeRoutines(botId, withRoutineFields(snapshot, item.id, patch));
+    }
+    closeSheet();
+    setError("");
+    let saved = false;
+    const persist = dirty
+      ? client.routines
+          .update({ botId, id: item.id, ...patch })
+          .then((next) => {
+            saved = true;
+            writeRoutines(
+              botId,
+              replaceRoutine(readRoutines(botId), item.id, next),
+            );
+            return next.id;
+          })
+      : Promise.resolve(item.id);
+    void persist
+      .then((id) => client.routines.run({ botId, id }))
+      .catch((caught: unknown) => {
+        if (dirty && !saved) writeRoutines(botId, snapshot);
+        setError(userFacingError(caught, "Could not run that routine."));
+      });
+  };
+  const createRoutine = () => {
+    const draft = optimisticRoutine({
+      botId,
+      name,
+      prompt,
+      cron,
+      timezone: officeTimezone(),
+    });
+    if (!draft.name || !draft.prompt || !draft.cron) return;
+    const snapshot = readRoutines(botId);
+    writeRoutines(botId, [...snapshot, draft]);
+    closeSheet();
+    setError("");
+    void client.routines
+      .create({
+        botId,
+        name: draft.name,
+        prompt: draft.prompt,
+        cron: draft.cron,
+        timezone: draft.timezone,
+      })
+      .then((next) => {
+        writeRoutines(botId, replaceRoutine(readRoutines(botId), draft.id, next));
+      })
+      .catch((caught: unknown) => {
+        writeRoutines(botId, snapshot);
+        setError(userFacingError(caught, "Could not create that routine."));
+      });
   };
 
   return (
@@ -179,119 +328,53 @@ export function ComputerPane(props: {
           ) : null}
         </div>
         <section className="routines">
-          <p className="muted">
-            Recurring jobs this teammate runs on a schedule, even when you are
-            away.
-          </p>
+          <div className="routines-head">
+            <span>Routines</span>
+            {archived ? null : (
+              <button
+                className="icon-btn"
+                type="button"
+                aria-label="Create routine"
+                onClick={openCreate}
+              >
+                <PlusIcon />
+              </button>
+            )}
+          </div>
           {routinesQuery.isError ? (
             <p className="error">
               {userFacingError(routinesQuery.error, "Could not load routines.")}
             </p>
           ) : null}
-          {error && !creating ? <p className="error">{error}</p> : null}
+          {error && !sheet ? <p className="error">{error}</p> : null}
           {routines.length > 0 ? (
             <ul className="routine-list">
               {routines.map((item) => (
                 <li key={item.id}>
-                  <div>
+                  <button
+                    className="icon-btn routine-toggle"
+                    type="button"
+                    aria-label={item.active ? "Pause" : "Resume"}
+                    disabled={busyId === item.id || (!item.active && archived)}
+                    onClick={() => toggleRoutine(item)}
+                  >
+                    {item.active ? <PauseIcon /> : <PlayIcon />}
+                  </button>
+                  <button
+                    className="routine-copy"
+                    type="button"
+                    aria-label={`Edit ${item.name}`}
+                    onClick={() => openEdit(item)}
+                  >
                     <strong>{item.name}</strong>
-                    <span className="muted">
-                      {formatRoutineWhen(item.cron, item.timezone)}
-                      {item.active
-                        ? item.nextRunAt
-                          ? ` · next ${formatNextRun(item.nextRunAt)}`
-                          : ""
-                        : " · paused"}
-                    </span>
-                  </div>
-                  <div className="routine-actions">
-                    <button
-                      className="text-btn"
-                      type="button"
-                      disabled={
-                        busyId === item.id || (!item.active && archived)
-                      }
-                      onClick={() => {
-                        setBusyId(item.id);
-                        setError("");
-                        void (
-                          item.active
-                            ? client.routines.pause({
-                                botId,
-                                id: item.id,
-                              })
-                            : client.routines.resume({
-                                botId,
-                                id: item.id,
-                              })
-                        )
-                          .then(async () => {
-                            await queryClient.invalidateQueries({
-                              queryKey: ["routines", botId],
-                            });
-                          })
-                          .catch((caught: unknown) =>
-                            setError(
-                              userFacingError(
-                                caught,
-                                "Could not update that routine.",
-                              ),
-                            ),
-                          )
-                          .finally(() => setBusyId(null));
-                      }}
-                    >
-                      {item.active ? "Pause" : "Resume"}
-                    </button>
-                    <button
-                      className="text-btn danger"
-                      type="button"
-                      disabled={busyId === item.id}
-                      onClick={() => {
-                        setBusyId(item.id);
-                        setError("");
-                        void client.routines
-                          .remove({ botId, id: item.id })
-                          .then(async () => {
-                            await queryClient.invalidateQueries({
-                              queryKey: ["routines", botId],
-                            });
-                          })
-                          .catch((caught: unknown) =>
-                            setError(
-                              userFacingError(
-                                caught,
-                                "Could not remove that routine.",
-                              ),
-                            ),
-                          )
-                          .finally(() => setBusyId(null));
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </div>
+                    <span>{formatRoutineRow(item)}</span>
+                  </button>
                 </li>
               ))}
             </ul>
-          ) : null}
-          {archived ? (
+          ) : archived ? (
             <p className="muted">Archived teammates do not run routines.</p>
-          ) : (
-            <button
-              className="create-routine"
-              type="button"
-              onClick={() => {
-                setName("");
-                setPrompt("");
-                setCron(DEFAULT_CRON);
-                setError("");
-                setCreating(true);
-              }}
-            >
-              Create Routine
-            </button>
-          )}
+          ) : null}
         </section>
       </div>
       <ComputerFilePreview
@@ -305,13 +388,13 @@ export function ComputerPane(props: {
         onDownload={downloadFile}
       />
       <ModalShell
-        open={creating}
+        open={Boolean(sheet)}
         className="w-[min(360px,calc(100%-48px))] p-4"
-        onClose={() => setCreating(false)}
+        onClose={closeSheet}
       >
         <div className="grid gap-3">
           <h2 className="m-0 text-[15px] font-semibold tracking-tight">
-            Create Routine
+            {editing ? "Edit Routine" : "Create Routine"}
           </h2>
           <Field label="Name" className="mb-0">
             <Input
@@ -334,64 +417,60 @@ export function ComputerPane(props: {
             />
           </Field>
           {error ? <p className="error m-0">{error}</p> : null}
-          <div className="flex justify-end gap-2">
-            <Button
-              className="px-3 py-1.5 text-[13px]"
-              variant="ghost"
-              type="button"
-              onClick={() => setCreating(false)}
-            >
-              Close
-            </Button>
-            <Button
-              className="px-3 py-1.5 text-[13px]"
-              type="button"
-              disabled={
-                creatingBusy || !name.trim() || !prompt.trim() || !cron.trim()
-              }
-              onClick={() => {
-                setCreatingBusy(true);
-                setError("");
-                void client.routines
-                  .create({
-                    botId: props.bot.id,
-                    name,
-                    prompt,
-                    cron,
-                    timezone: officeTimezone(),
-                  })
-                  .then(async () => {
-                    await queryClient.invalidateQueries({
-                      queryKey: ["routines", props.bot.id],
-                    });
-                    setCreating(false);
-                  })
-                  .catch((caught: unknown) =>
-                    setError(
-                      userFacingError(caught, "Could not create that routine."),
-                    ),
-                  )
-                  .finally(() => setCreatingBusy(false));
-              }}
-            >
-              Create
-            </Button>
-          </div>
+          {editing ? (
+            <div className="flex items-center justify-between gap-2">
+              <Button
+                className="text-danger hover:text-danger"
+                variant="text"
+                type="button"
+                onClick={() => removeRoutine(editing.id)}
+              >
+                Delete
+              </Button>
+              <div className="flex gap-2">
+                <Button
+                  className="px-3 py-1.5 text-[13px]"
+                  variant="ghost"
+                  type="button"
+                  disabled={!formReady || archived}
+                  onClick={() => testRun(editing)}
+                >
+                  Test run
+                </Button>
+                <Button
+                  className="px-3 py-1.5 text-[13px]"
+                  type="button"
+                  disabled={!formReady}
+                  onClick={() => saveRoutine(editing)}
+                >
+                  Save
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex justify-end gap-2">
+              <Button
+                className="px-3 py-1.5 text-[13px]"
+                variant="ghost"
+                type="button"
+                onClick={closeSheet}
+              >
+                Close
+              </Button>
+              <Button
+                className="px-3 py-1.5 text-[13px]"
+                type="button"
+                disabled={!formReady}
+                onClick={createRoutine}
+              >
+                Create
+              </Button>
+            </div>
+          )}
         </div>
       </ModalShell>
     </aside>
   );
-}
-
-function formatNextRun(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
 }
 
 function TreeRows(props: {

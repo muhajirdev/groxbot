@@ -624,6 +624,21 @@ export class MemoryRoutineStore {
     return row;
   }
 
+  update(botId: string, id: string, input: RoutineCreateInput): StoredRoutine {
+    const row = this.require(botId, id);
+    const prepared = prepareRoutineCreate(input);
+    row.name = prepared.name;
+    row.prompt = prepared.prompt;
+    row.schedule = prepared.parsed.schedule;
+    row.timezone = prepared.parsed.timezone;
+    row.updatedAt = Date.now();
+    return row;
+  }
+
+  get(botId: string, id: string): StoredRoutine {
+    return this.require(botId, id);
+  }
+
   remove(botId: string, id: string): void {
     this.require(botId, id);
     const rows = this.bots.get(botId) ?? [];

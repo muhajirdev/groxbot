@@ -71,6 +71,33 @@ describe("PresentSurface", () => {
     expect(html).not.toContain('[{"$type"');
   });
 
+  it("paints a card stuffed in raw", () => {
+    const html = renderToStaticMarkup(
+      createElement(PresentSurface, {
+        tree: {
+          raw: JSON.stringify({ $type: "Card", title: "Inbox" }),
+        },
+      }),
+    );
+    expect(html).toContain("Inbox");
+    expect(html).toContain('data-aui="card"');
+  });
+
+  it("shows a status when the tree cannot paint", () => {
+    const html = renderToStaticMarkup(
+      createElement(PresentSurface, {
+        tree: { raw: "not a card" },
+        empty: createElement(
+          "p",
+          { "data-slot": "office-present-status" },
+          "Couldn’t compose that card",
+        ),
+      }),
+    );
+    expect(html).toContain("office-present-status");
+    expect(html).toContain("Couldn’t compose that card");
+  });
+
   it("drops unknown $type nodes", () => {
     const html = renderToStaticMarkup(
       createElement(PresentSurface, {

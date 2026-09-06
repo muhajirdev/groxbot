@@ -22,13 +22,15 @@ export function botVisibleToViewer(
   return isSharedVisibility(bot.visibility) || bot.userId === viewerUserId;
 }
 
-/** Shared MCP, or this viewer’s own private MCP. */
+/** Shared MCP/plugin, or this viewer’s own private row. */
 export function mcpVisibleToViewer(
   row: { visibility: string; userId: string },
   viewerUserId: string,
 ): boolean {
   return isSharedVisibility(row.visibility) || row.userId === viewerUserId;
 }
+
+export const pluginVisibleToViewer = mcpVisibleToViewer;
 
 /**
  * Private bot → owner’s private MCP + office shared MCP.
@@ -41,3 +43,5 @@ export function mcpBindableForBot(
   if (isSharedVisibility(mcp.visibility)) return true;
   return isPrivateVisibility(bot.visibility) && bot.userId === mcp.userId;
 }
+
+export const pluginBindableForBot = mcpBindableForBot;

@@ -16,6 +16,7 @@ import { CloseIcon, SearchIcon } from "./Icons";
 
 const CATEGORIES = skillsStoreCategories(SKILLS_STORE_CATALOG);
 
+/** Standalone skills store — office Marketplace Skills tab is the primary surface. */
 export function SkillsStoreModal(props: {
   open: boolean;
   onClose: () => void;

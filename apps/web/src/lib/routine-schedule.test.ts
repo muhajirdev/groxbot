@@ -3,6 +3,8 @@ import {
   composeRoutineSchedule,
   formatRoutineClock,
   formatRoutineScheduleLabel,
+  formatRoutineNext,
+  formatRoutineRow,
   formatRoutineWhen,
   kindFromRoutineSchedule,
   resolveRoutineTimezone,
@@ -65,6 +67,33 @@ describe("formatRoutineWhen", () => {
     expect(formatRoutineWhen("every 30 minutes", "Asia/Jakarta")).toBe(
       "Every 30 minutes",
     );
+  });
+
+  it("keeps the next fire short on the same day", () => {
+    const now = new Date(2026, 8, 6, 20, 0);
+    const later = new Date(2026, 8, 6, 20, 30).toISOString();
+    const tomorrow = new Date(2026, 8, 7, 9, 0).toISOString();
+    expect(formatRoutineNext(later, now)).toBe(
+      new Date(later).toLocaleTimeString(undefined, {
+        hour: "numeric",
+        minute: "2-digit",
+      }),
+    );
+    expect(formatRoutineNext(tomorrow, now)).toContain("Sep");
+    expect(
+      formatRoutineRow({
+        cron: "every 5 minutes",
+        active: true,
+        nextRunAt: later,
+      }),
+    ).toMatch(/^Every 5 minutes · /);
+    expect(
+      formatRoutineRow({
+        cron: "every 5 minutes",
+        active: false,
+        nextRunAt: later,
+      }),
+    ).toBe("Paused");
   });
 
   it("resolves auto-detect vs an explicit zone", () => {

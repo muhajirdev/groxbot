@@ -109,4 +109,18 @@ describe("withOfficeExecuteDescription", () => {
     expect(next).not.toMatch(/codemode\.describe\("mimpimu"\)/);
     expect(next).not.toMatch(/^- `mimpimu`$/m);
   });
+
+  it("hints plugins so the bot can search and execute connected apps", () => {
+    const next = withOfficeExecuteDescription(generated, false, {
+      plugins: true,
+    });
+    expect(next).toMatch(
+      /- `plugins` — connected accounts on this workspace/,
+    );
+    expect(next).toMatch(/plugins\.search\(\{ query \}\)/);
+    expect(next).not.toMatch(/GMAIL_FETCH_EMAILS/);
+    expect(next).toMatch(/plugins\.execute\(\{ slug, arguments \}\)/);
+    expect(next).toMatch(/not a sentence/);
+    expect(next).not.toMatch(/^- `plugins`$/m);
+  });
 });
