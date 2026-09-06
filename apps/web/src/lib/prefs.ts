@@ -1,5 +1,3 @@
-export type LocalComputerPref = "ask" | "always" | "never";
-
 const notifyKey = (botId: string) => `groxbot.notify.${botId}`;
 
 export function readNotify(botId: string): boolean {
@@ -8,40 +6,6 @@ export function readNotify(botId: string): boolean {
 
 export function writeNotify(botId: string, value: boolean): void {
   localStorage.setItem(notifyKey(botId), value ? "1" : "0");
-}
-
-export function readLocalComputer(): LocalComputerPref {
-  const value = localStorage.getItem("groxbot.localComputer");
-  if (value === "ask" || value === "always" || value === "never") return value;
-  return "ask";
-}
-
-export function writeLocalComputer(value: LocalComputerPref): void {
-  localStorage.setItem("groxbot.localComputer", value);
-}
-
-export function readAutoReview(): boolean {
-  return localStorage.getItem("groxbot.autoReview") === "1";
-}
-
-export function writeAutoReview(value: boolean): void {
-  localStorage.setItem("groxbot.autoReview", value ? "1" : "0");
-}
-
-export function readHardwareAccel(): boolean {
-  return localStorage.getItem("groxbot.hwAccel") !== "0";
-}
-
-export function writeHardwareAccel(value: boolean): void {
-  localStorage.setItem("groxbot.hwAccel", value ? "1" : "0");
-}
-
-export function readAutoReviewRules(): string {
-  return localStorage.getItem("groxbot.autoReviewRules") ?? "";
-}
-
-export function writeAutoReviewRules(value: string): void {
-  localStorage.setItem("groxbot.autoReviewRules", value);
 }
 
 export const AUTO_TIMEZONE = "auto";

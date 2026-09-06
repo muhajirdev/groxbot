@@ -1,4 +1,4 @@
-import type { Me, ModelCatalogItem, ModelProvider } from "@groxbot/contracts";
+import type { Me, ModelCatalogItem, ModelProvider, WorkspaceMember } from "@groxbot/contracts";
 import {
   CLOUDFLARE_PROVIDER,
   CUSTOM_MODEL_SENTINEL,
@@ -15,19 +15,7 @@ import { userFacingError } from "../lib/errors";
 import { BUILD_REVISION, shortRevision } from "../lib/build";
 import { orpc } from "../lib/orpc";
 import { encodeProfileImage } from "../lib/profile-image";
-import {
-  type LocalComputerPref,
-  readAutoReview,
-  readAutoReviewRules,
-  readHardwareAccel,
-  readLocalComputer,
-  readTimezonePref,
-  writeAutoReview,
-  writeAutoReviewRules,
-  writeHardwareAccel,
-  writeLocalComputer,
-  writeTimezonePref,
-} from "../lib/prefs";
+import { readTimezonePref, writeTimezonePref } from "../lib/prefs";
 import { client } from "../lib/rpc";
 import { OfficeColorPicker } from "./OfficeColorPicker";
 import type { OfficeColorId } from "../lib/office-color";
@@ -53,15 +41,21 @@ export function AppSettings(props: {
   initialTab?: Tab;
 }) {
   const [tab, setTab] = useState<Tab>(props.initialTab ?? "general");
-  const [hw, setHw] = useState(readHardwareAccel);
-  const [local, setLocal] = useState(readLocalComputer);
-  const [review, setReview] = useState(readAutoReview);
-  const [rules, setRules] = useState(readAutoReviewRules);
+  const [seen, setSeen] = useState<Partial<Record<Tab, boolean>>>({
+    general: true,
+  });
   const [timezone, setTimezone] = useState(readTimezonePref);
+
+  function showTab(id: Tab) {
+    setTab(id);
+    setSeen((prev) => (prev[id] ? prev : { ...prev, [id]: true }));
+  }
 
   useEffect(() => {
     if (props.open) {
-      setTab(props.initialTab ?? "general");
+      const next = props.initialTab ?? "general";
+      setTab(next);
+      setSeen((prev) => (prev[next] ? prev : { ...prev, [next]: true }));
       setTimezone(readTimezonePref());
     }
   }, [props.open, props.initialTab]);
@@ -87,7 +81,7 @@ export function AppSettings(props: {
               key={id}
               className={`nav-item${tab === id ? " on" : ""}`}
               type="button"
-              onClick={() => setTab(id)}
+              onClick={() => showTab(id)}
             >
               {label}
             </button>
@@ -114,8 +108,7 @@ export function AppSettings(props: {
             </button>
           </div>
           <div className="settings-body">
-            {tab === "general" ? (
-              <>
+            <div className="settings-pane" hidden={tab !== "general"}>
                 <section className="set-block">
                   <p className="group-label">Account</p>
                   <div className="account-row">
@@ -157,22 +150,6 @@ export function AppSettings(props: {
                   </div>
                 </section>
                 <section className="set-block">
-                  <p className="group-label">System</p>
-                  <label className="toggle-row">
-                    <span>
-                      <strong>Use hardware acceleration</strong>
-                    </span>
-                    <input
-                      type="checkbox"
-                      checked={hw}
-                      onChange={(e) => {
-                        setHw(e.target.checked);
-                        writeHardwareAccel(e.target.checked);
-                      }}
-                    />
-                  </label>
-                </section>
-                <section className="set-block">
                   <p className="group-label">Bot</p>
                   <label className="field">
                     <span>Timezone</span>
@@ -187,69 +164,29 @@ export function AppSettings(props: {
                       Wall-clock routines run in this zone.
                     </p>
                   </label>
-                  <label className="field">
-                    <span>Execution on Local Computer</span>
-                    <select
-                      value={local}
-                      onChange={(e) => {
-                        const value = e.target.value as LocalComputerPref;
-                        setLocal(value);
-                        writeLocalComputer(value);
-                      }}
-                    >
-                      <option value="ask">Ask every time</option>
-                      <option value="always">Always allow</option>
-                      <option value="never">Never</option>
-                    </select>
-                    <p className="hint">
-                      Let the assistant open files and run tasks on this
-                      machine. Auto-review still checks everything first. Never
-                      enable this for a hosted teammate.
-                    </p>
-                  </label>
-                  <label className="toggle-row">
-                    <span>
-                      <strong>Auto-review</strong>
-                    </span>
-                    <input
-                      type="checkbox"
-                      checked={review}
-                      onChange={(e) => {
-                        setReview(e.target.checked);
-                        writeAutoReview(e.target.checked);
-                      }}
-                    />
-                  </label>
-                  <p className="hint">
-                    Checks each action before it runs and asks you first when
-                    needed. Add rules to customize what it can do automatically.
-                  </p>
-                  <label className="field">
-                    <span>Auto-review Rules</span>
-                    <textarea
-                      rows={3}
-                      value={rules}
-                      placeholder="Write one short, natural-language rule for each action. 'Ask first' takes priority if rules conflict."
-                      onChange={(e) => {
-                        setRules(e.target.value);
-                        writeAutoReviewRules(e.target.value);
-                      }}
-                    />
-                  </label>
                 </section>
                 <section className="set-block">
                   <p className="group-label">Build</p>
                   <BuildStamp />
                 </section>
-              </>
+            </div>
+            {seen.models ? (
+              <div className="settings-pane" hidden={tab !== "models"}>
+                <ModelsTab />
+              </div>
             ) : null}
-            {tab === "models" ? <ModelsTab /> : null}
-            {tab === "billing" ? <BillingTab /> : null}
-            {tab === "updates" ? (
+            {seen.billing ? (
+              <div className="settings-pane" hidden={tab !== "billing"}>
+                <BillingTab />
+              </div>
+            ) : null}
+            {seen.updates ? (
+              <div className="settings-pane" hidden={tab !== "updates"}>
               <section className="set-block">
                 <p className="muted">Git revision of this office.</p>
                 <BuildStamp />
               </section>
+              </div>
             ) : null}
           </div>
         </div>
@@ -363,6 +300,20 @@ function WorkspaceSettings(props: {
     ...orpc.workspaces.members.queryOptions(),
     enabled: props.enabled,
   });
+  const members =
+    membersQuery.data ??
+    (props.me
+      ? [
+          {
+            userId: props.me.userId,
+            name: props.me.name,
+            email: props.me.email,
+            image: props.me.image,
+            role: "owner",
+            mine: true,
+          } satisfies WorkspaceMember,
+        ]
+      : []);
   const [memberName, setMemberName] = useState(props.me?.name ?? "");
   const [savingMember, setSavingMember] = useState(false);
 
@@ -479,12 +430,10 @@ function WorkspaceSettings(props: {
       {props.enabled ? (
         <div className="member-list">
           <span className="field-label">Members</span>
-          {membersQuery.isPending ? (
-            <p className="muted">Loading…</p>
-          ) : membersQuery.error ? (
+          {membersQuery.error && !membersQuery.data ? (
             <p className="muted">Could not load members.</p>
           ) : (
-            (membersQuery.data ?? []).map((row) => (
+            members.map((row) => (
               <div key={row.userId} className="member-row">
                 {row.mine ? (
                   <ProfilePhotoButton name={row.name} image={row.image} />

@@ -1734,7 +1734,7 @@ export function Chat(props: {
               rooms.length === 0 &&
               archivedBots.length === 0 &&
               sections.length === 0 ? (
-                <p className="empty">No teammates yet.</p>
+                <p className="empty">Hire someone to sit here.</p>
               ) : null}
               {workspaceApps.length > 0 ? (
                 <div className="mt-2">
@@ -2073,10 +2073,11 @@ export function Chat(props: {
               ) : (
                 <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6">
                   <p className="m-0 text-[15px] font-semibold tracking-tight">
-                    No teammates yet
+                    This office is waiting for someone.
                   </p>
-                  <p className="m-0 max-w-[32ch] text-center text-[13px] text-muted">
-                    Hire a bot to start a thread.
+                  <p className="m-0 max-w-[38ch] text-center text-[13px] text-muted">
+                    Hire your first teammate. Give them a name and a job — they'll
+                    live here with you.
                   </p>
                   <Button
                     type="button"
@@ -2084,7 +2085,7 @@ export function Chat(props: {
                       if (!hiring.current) setHireOpen(true);
                     }}
                   >
-                    New bot
+                    Hire your first
                   </Button>
                 </div>
               )}

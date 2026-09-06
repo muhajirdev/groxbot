@@ -7,6 +7,7 @@ import {
   kindFromRoutineSchedule,
   resolveRoutineTimezone,
   routineClockOptions,
+  routineTimezoneChoices,
 } from "./routine-schedule";
 
 describe("routineClockOptions", () => {
@@ -71,5 +72,14 @@ describe("formatRoutineWhen", () => {
     expect(resolveRoutineTimezone("America/New_York", "Asia/Jakarta")).toBe(
       "America/New_York",
     );
+  });
+});
+
+describe("routineTimezoneChoices", () => {
+  it("stays a short picker, not the full IANA catalog", () => {
+    const zones = routineTimezoneChoices("Pacific/Honolulu");
+    expect(zones.length).toBeLessThan(40);
+    expect(zones).toContain("Pacific/Honolulu");
+    expect(zones).toContain("UTC");
   });
 });

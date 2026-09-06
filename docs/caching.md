@@ -165,9 +165,6 @@ Other keys (not Query):
 | `groxbot.sideWidth` | Roster column. Drag the list edge. |
 | `groxbot.paneWidth` | Computer / settings / knowledge peek column. Drag the pane edge. |
 | `groxbot.notify.{botId}` | Desktop notify |
-| `groxbot.localComputer` | ask / always / never |
-| `groxbot.autoReview` / `groxbot.autoReviewRules` | Post-turn review |
-| `groxbot.hwAccel` | Desktop |
 | `sessionStorage` `groxbot.invite` | Invite id across the gate |
 
 Do not put email, tokens, or file bodies in localStorage. Do not put the roster or transcripts there — that is Query + IDB.

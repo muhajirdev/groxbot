@@ -1,5 +1,5 @@
 import { isIntervalSchedule, parseRoutineClock } from "@groxbot/core/browser";
-import { readTimezonePref } from "./prefs";
+import { AUTO_TIMEZONE, readTimezonePref } from "./prefs";
 
 export const ROUTINE_WEEKDAYS = [
   "sunday",
@@ -169,6 +169,17 @@ export function listRoutineTimezones(): string[] {
     // Use the short list.
   }
   return FALLBACK_TIMEZONES;
+}
+
+export function routineTimezoneChoices(current?: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const tz of [defaultRoutineTimezone(), current, ...FALLBACK_TIMEZONES]) {
+    if (!tz || tz === AUTO_TIMEZONE || seen.has(tz)) continue;
+    seen.add(tz);
+    out.push(tz);
+  }
+  return out;
 }
 
 export function formatRoutineTimezone(tz: string, at = new Date()): string {

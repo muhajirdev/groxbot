@@ -73,7 +73,7 @@ export function RosterScreen({ navigation }: Props) {
             <Text style={styles.body}>
               {query.trim()
                 ? "No teammates match that."
-                : "No teammates yet. Hire one to start."}
+                : "Hire someone to sit here."}
             </Text>
           </View>
         ) : null}

@@ -4,7 +4,7 @@ import { AUTO_TIMEZONE } from "../lib/prefs";
 import {
   defaultRoutineTimezone,
   formatRoutineTimezone,
-  listRoutineTimezones,
+  routineTimezoneChoices,
 } from "../lib/routine-schedule";
 import { cn } from "../ui";
 import { CheckIcon } from "./Icons";
@@ -16,8 +16,8 @@ export function TimezoneField(props: {
 }) {
   const detected = useMemo(() => defaultRoutineTimezone(), []);
   const items = useMemo(
-    () => [AUTO_TIMEZONE, ...listRoutineTimezones()],
-    [],
+    () => [AUTO_TIMEZONE, ...routineTimezoneChoices(props.value)],
+    [props.value],
   );
   const labelFor = (tz: string) =>
     tz === AUTO_TIMEZONE
