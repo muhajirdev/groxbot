@@ -68,6 +68,7 @@ describe("rankPaletteItems", () => {
       "action:plugins",
       "action:knowledge",
       "action:skills",
+      "action:skills-store",
       "action:workspace",
     ]);
   });

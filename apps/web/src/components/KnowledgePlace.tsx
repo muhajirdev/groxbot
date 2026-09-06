@@ -76,6 +76,7 @@ import {
   MoreIcon,
   PlusIcon,
   SearchIcon,
+  SkillsIcon,
   TrashIcon,
   UploadIcon,
 } from "./Icons";
@@ -97,6 +98,8 @@ export function KnowledgeLibrary(props: {
   officeHref?: (path: string) => string;
   onPath: (path: string | null) => void;
   onClose: () => void;
+  /** Open the curated Skills store (skills view). */
+  onOpenStore?: () => void;
 }) {
   const workspace = useKnowledgeWorkspace(props.path ?? null);
   const selected = workspace.selected;
@@ -209,6 +212,7 @@ export function KnowledgeLibrary(props: {
           }
           onUpload={() => workspace.fileRef.current?.click()}
           onImport={workspace.startImport}
+          onStore={skillsView ? props.onOpenStore : undefined}
           fileRef={workspace.fileRef}
           onFile={workspace.uploadFile}
         >
@@ -985,6 +989,7 @@ function KnowledgeNav(props: {
   onNew: () => void;
   onUpload: () => void;
   onImport: () => void;
+  onStore?: () => void;
   fileRef: RefObject<HTMLInputElement | null>;
   onFile: (file: File) => void;
   children: ReactNode;
@@ -1044,6 +1049,17 @@ function KnowledgeNav(props: {
           >
             <ImportIcon />
           </button>
+          {skills && props.onStore ? (
+            <button
+              className="icon-btn"
+              type="button"
+              aria-label="Skills store"
+              title="Skills store"
+              onClick={props.onStore}
+            >
+              <SkillsIcon />
+            </button>
+          ) : null}
           <input
             ref={props.fileRef}
             className="hidden"
@@ -1086,7 +1102,7 @@ function SkillsList(props: {
   if (props.empty) {
     return (
       <p className="explorer-empty">
-        Nothing here yet. New or import a playbook.
+        Nothing here yet. Open the store, or new / import a playbook.
       </p>
     );
   }

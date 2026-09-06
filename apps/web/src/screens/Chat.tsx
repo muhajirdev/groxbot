@@ -38,6 +38,7 @@ import { CommandPalette, SearchTrigger } from "../components/CommandPalette";
 import { ComputerPane } from "../components/ComputerPane";
 import { CreateRoomDialog } from "../components/CreateRoomDialog";
 import { HireMarketplaceModal } from "../components/HireMarketplaceModal";
+import { SkillsStoreModal } from "../components/SkillsStoreModal";
 import {
   CaretSwapIcon,
   ChevronDownIcon,
@@ -482,6 +483,7 @@ export function Chat(props: {
   );
   const [pluginsOpen, setPluginsOpen] = useState(false);
   const [hireOpen, setHireOpen] = useState(false);
+  const [skillsStoreOpen, setSkillsStoreOpen] = useState(false);
   const [roomOpen, setRoomOpen] = useState(false);
   const [roomDelete, setRoomDelete] = useState<Room | null>(null);
   const [sectionOpen, setSectionOpen] = useState(false);
@@ -1285,6 +1287,11 @@ export function Chat(props: {
       }
       if (id === "plugins") {
         setPluginsOpen(true);
+        return;
+      }
+      if (id === "skills-store") {
+        setDesk(deskLibrary(desk, SKILLS_LIBRARY_PATH));
+        setSkillsStoreOpen(true);
         return;
       }
       if (id === "knowledge") {
@@ -2110,6 +2117,7 @@ export function Chat(props: {
               }
               onPath={(path) => setDesk(deskLibrary(desk, path))}
               onClose={() => setDesk(closeLibrary(desk))}
+              onOpenStore={() => setSkillsStoreOpen(true)}
             />
           ) : null}
           </div>
@@ -2176,6 +2184,16 @@ export function Chat(props: {
             open={hireOpen}
             onClose={() => setHireOpen(false)}
             onHire={(input) => void hire(input)}
+          />
+          <SkillsStoreModal
+            open={skillsStoreOpen}
+            onClose={() => setSkillsStoreOpen(false)}
+            onPasteImport={() => {
+              setDesk(deskLibrary(desk, SKILLS_LIBRARY_PATH));
+            }}
+            onInstalled={(path) => {
+              setDesk(deskLibrary(desk, path));
+            }}
           />
           <CreateRoomDialog
             open={roomOpen}
