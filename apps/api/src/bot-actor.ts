@@ -122,6 +122,7 @@ import {
 } from "./bot-execute.js";
 import { HistoryConnector } from "./bot-history.js";
 import { KnowledgeConnector } from "./bot-knowledge.js";
+import { SkillsStoreConnector } from "./bot-skills-store.js";
 import { bindToMarkdown, createPageAgentTools } from "./bot-markdown.js";
 import { WorkspaceMcpConnector } from "./bot-mcp-connector.js";
 import { httpMcpConnectionLike } from "./mcp-http.js";
@@ -1848,6 +1849,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     const connectors: Array<
       | HistoryConnector
       | KnowledgeConnector
+      | SkillsStoreConnector
       | WorkspaceMcpConnector
       | RoutinesConnector
     > = [
@@ -1855,13 +1857,10 @@ export class RoomHome extends Agent<WorkerEnv> {
       new RoutinesConnector(this.ctx, this.env, () => this),
     ];
     if (this.env.KNOWLEDGE) {
+      const disk = r2KnowledgeDisk(this.env.KNOWLEDGE);
       connectors.push(
-        new KnowledgeConnector(
-          this.ctx,
-          this.env,
-          r2KnowledgeDisk(this.env.KNOWLEDGE),
-          () => this.officeId,
-        ),
+        new KnowledgeConnector(this.ctx, this.env, disk, () => this.officeId),
+        new SkillsStoreConnector(this.ctx, this.env, disk, () => this.officeId),
       );
     }
     connectors.push(...this.mcpExecuteConnectors());

@@ -8,3 +8,4 @@ export * from "./office-user.js";
 export * from "./origins.js";
 export * from "./present.js";
 export * from "./rpc.js";
+export * from "./skills-store.js";

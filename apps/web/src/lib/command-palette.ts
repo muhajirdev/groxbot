@@ -88,6 +88,12 @@ export const PALETTE_ACTIONS = [
     keywords: ["skills", "playbook", "skill"],
   },
   {
+    id: "skills-store",
+    label: "Skills store",
+    shortcut: "",
+    keywords: ["skills", "store", "marketplace", "playbook", "install", "import"],
+  },
+  {
     id: "workspace",
     label: "Workspace",
     shortcut: "Mod+,",
