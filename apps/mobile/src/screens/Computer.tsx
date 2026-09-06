@@ -284,10 +284,10 @@ function Tree({
 }
 
 const styles = StyleSheet.create({
-  link: { color: colors.accent, fontWeight: "700" },
+  link: { color: colors.text, fontWeight: "500" },
   section: {
     color: colors.text,
-    fontWeight: "700",
+    fontWeight: "600",
     fontSize: 16,
     marginTop: 16,
   },
@@ -313,8 +313,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     marginTop: 8,
   },
-  name: { color: colors.text, fontWeight: "700" },
+  name: { color: colors.text, fontWeight: "600" },
   meta: { color: colors.muted },
-  on: { color: colors.accent, fontWeight: "700" },
+  on: { color: colors.accent, fontWeight: "600" },
   error: { color: colors.danger },
 });

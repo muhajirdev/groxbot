@@ -70,3 +70,21 @@ export function r2KnowledgeDisk(bucket: KnowledgeBucket): KnowledgeDisk {
     },
   };
 }
+
+/** Delete every object under an R2 prefix. Returns keys removed. */
+export async function purgeR2Prefix(
+  bucket: KnowledgeBucket,
+  prefix: string,
+): Promise<number> {
+  let deleted = 0;
+  let cursor: string | undefined;
+  do {
+    const page = await bucket.list({ prefix, limit: LIST_PAGE, cursor });
+    for (const object of page.objects) {
+      await bucket.delete(object.key);
+      deleted++;
+    }
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+  return deleted;
+}

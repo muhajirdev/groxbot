@@ -36,7 +36,7 @@ const styles = StyleSheet.create({
   card: {
     borderWidth: 1,
     borderColor: colors.line,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.card,
     borderRadius: radius.md,
     padding: 12,
     gap: 8,
@@ -48,10 +48,10 @@ const styles = StyleSheet.create({
   title: { color: colors.text, fontSize: 15, fontWeight: "600" },
   open: {
     alignSelf: "flex-start",
-    backgroundColor: colors.accent,
-    borderRadius: radius.sm,
+    backgroundColor: colors.text,
+    borderRadius: radius.pill,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  openLabel: { color: colors.accentInk, fontWeight: "700", fontSize: 13 },
+  openLabel: { color: colors.bg, fontWeight: "500", fontSize: 13 },
 });

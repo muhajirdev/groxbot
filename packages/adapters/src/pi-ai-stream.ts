@@ -2,10 +2,13 @@ import type { StreamFn } from "@earendil-works/pi-agent-core";
 import {
   createAssistantMessageEventStream,
   createModels,
+  createProvider,
+  envApiKeyAuth,
   type Api,
   type AssistantMessage,
   type Model,
 } from "@earendil-works/pi-ai";
+import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 import { cloudflareAIGatewayProvider } from "@earendil-works/pi-ai/providers/cloudflare-ai-gateway";
 import { openrouterProvider } from "@earendil-works/pi-ai/providers/openrouter";
 import {
@@ -15,17 +18,31 @@ import {
 import type { GatewayConfig, GatewayProvider } from "./gateway.js";
 
 const CLOUDFLARE_AI_GATEWAY = "cloudflare-ai-gateway";
+const GROX_GATEWAY_PROVIDER = "grox-gateway";
 const WORKERS_AI_PREFIX = "workers-ai/";
 const GATEWAY_COMPLETIONS_TEMPLATE_ID =
   "workers-ai/@cf/zai-org/glm-4.7-flash";
 
 let officeModels: ReturnType<typeof createModels> | undefined;
 
+function groxGatewayPiProvider() {
+  return createProvider({
+    id: GROX_GATEWAY_PROVIDER,
+    name: "Grox Gateway",
+    auth: {
+      apiKey: envApiKeyAuth("Grox Gateway secret", ["GROX_GATEWAY_SECRET"]),
+    },
+    models: [],
+    api: openAICompletionsApi(),
+  });
+}
+
 function getOfficePiModels() {
   if (!officeModels) {
     officeModels = createModels();
     officeModels.setProvider(cloudflareAIGatewayProvider());
     officeModels.setProvider(openrouterProvider());
+    officeModels.setProvider(groxGatewayPiProvider());
   }
   return officeModels;
 }
@@ -141,6 +158,17 @@ export function resolvePiAiModel(
     );
   }
   const id = piAiGatewayModelId(requested);
+  if (config.groxGatewayUrl) {
+    const baseUrl = config.groxGatewayUrl.replace(/\/$/, "");
+    const template = fallbackGatewayModel(GATEWAY_COMPLETIONS_TEMPLATE_ID);
+    return {
+      ...cloneCompletions(template, id),
+      provider: GROX_GATEWAY_PROVIDER,
+      baseUrl: baseUrl.endsWith("/v1") || baseUrl.endsWith("/compat")
+        ? baseUrl
+        : `${baseUrl}/v1`,
+    };
+  }
   const found = asCompletions(models.getModel(CLOUDFLARE_AI_GATEWAY, id));
   if (found) return found;
   const template =
@@ -166,6 +194,14 @@ function piAiStreamHeaders(
   config: GatewayConfig,
   metadata?: Record<string, string | undefined>,
 ): Record<string, string> {
+  if (config.groxGatewayUrl) {
+    const headers: Record<string, string> = {};
+    const workspaceId = metadata?.workspaceId?.trim();
+    const userId = metadata?.userId?.trim();
+    if (workspaceId) headers["X-Grox-Workspace-Id"] = workspaceId;
+    if (userId) headers["X-Grox-User-Id"] = userId;
+    return headers;
+  }
   if (config.provider === OPENROUTER_PROVIDER) {
     return {
       "HTTP-Referer": config.referer,
@@ -178,6 +214,9 @@ function piAiStreamHeaders(
 }
 
 function piAiStreamEnv(config: GatewayConfig): Record<string, string> {
+  if (config.groxGatewayUrl) {
+    return { GROX_GATEWAY_SECRET: config.apiKey };
+  }
   if (config.provider !== CLOUDFLARE_PROVIDER || !config.accountId) {
     return {};
   }

@@ -10,6 +10,8 @@ export function Field({
   autoCapitalize = "none",
   keyboardType,
   multiline,
+  maxLength,
+  autoComplete,
 }: {
   label?: string;
   value: string;
@@ -17,8 +19,10 @@ export function Field({
   placeholder?: string;
   secure?: boolean;
   autoCapitalize?: "none" | "sentences" | "words";
-  keyboardType?: "default" | "email-address" | "url";
+  keyboardType?: "default" | "email-address" | "url" | "number-pad";
   multiline?: boolean;
+  maxLength?: number;
+  autoComplete?: "email" | "one-time-code" | "off";
 }) {
   return (
     <View style={styles.wrap}>
@@ -33,6 +37,11 @@ export function Field({
         autoCorrect={false}
         keyboardType={keyboardType}
         multiline={multiline}
+        maxLength={maxLength}
+        autoComplete={autoComplete}
+        textContentType={
+          autoComplete === "one-time-code" ? "oneTimeCode" : undefined
+        }
         style={[styles.input, multiline ? styles.multi : null]}
       />
     </View>
@@ -43,10 +52,10 @@ const styles = StyleSheet.create({
   wrap: { gap: 6 },
   label: { color: colors.muted, fontSize: 13 },
   input: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.card,
     borderColor: colors.line,
     borderWidth: 1,
-    borderRadius: radius.md,
+    borderRadius: radius.sm,
     color: colors.text,
     fontSize: 16,
     paddingHorizontal: 12,

@@ -100,6 +100,10 @@ export class AppRuntime extends DurableObject<AppRuntimeEnv> {
   }
 
   async fetch(request: Request): Promise<Response> {
+    if (request.method === "POST" && new URL(request.url).pathname === "/destroy") {
+      await this.ctx.storage.deleteAll();
+      return Response.json({ ok: true });
+    }
     if (request.headers.get("Upgrade") !== "websocket") {
       return new Response("Expected WebSocket", { status: 426 });
     }
@@ -229,5 +233,16 @@ export class DurableObjectAppStore {
     const headers = new Headers(request.headers);
     headers.set(APP_WORKSPACE_HEADER, workspaceId);
     return this.stub(appId).fetch(new Request(request, { headers }));
+  }
+
+  destroy(appId: string): Promise<void> {
+    const stub = this.stub(appId);
+    return stub.fetch(
+      new Request("https://groxbot.internal/destroy", { method: "POST" }),
+    ).then((response) => {
+      if (!response.ok) {
+        throw new Error(`forget app ${response.status}`);
+      }
+    });
   }
 }

@@ -42,6 +42,19 @@ export const DEFAULT_AI_GATEWAY_ID = "default" as const;
 export const HOSTED_AI_ENV = "GROXBOT_HOSTED_AI" as const;
 export const HOSTED_AI_FLAG = "1" as const;
 
+/** Hosted models through the proprietary grox-gateway Worker (Polar + CF AI Gateway). */
+export const GROX_GATEWAY_URL_ENV = "GROX_GATEWAY_URL" as const;
+export const GROX_GATEWAY_SECRET_ENV = "GROX_GATEWAY_SECRET" as const;
+
+export function groxHostedGateway(
+  env: NodeJS.Dict<string> = process.env,
+): { url: string; secret: string } | null {
+  const url = env[GROX_GATEWAY_URL_ENV]?.trim() ?? "";
+  const secret = env[GROX_GATEWAY_SECRET_ENV]?.trim() ?? "";
+  if (!url || !secret) return null;
+  return { url, secret };
+}
+
 /** Settings sentinel: user typed a model id that is not in the catalog. */
 export const CUSTOM_MODEL_SENTINEL = "custom" as const;
 
@@ -226,6 +239,10 @@ export const ModelSettingsSchema = z.object({
     promptTokens: z.number().int(),
     completionTokens: z.number().int(),
     totalTokens: z.number().int(),
+    /** UTC calendar month the totals cover. */
+    periodStart: z.string(),
+    /** Null = unlimited (self-host). */
+    monthlyTokenLimit: z.number().int().nullable(),
   }),
 });
 export type ModelSettings = z.infer<typeof ModelSettingsSchema>;

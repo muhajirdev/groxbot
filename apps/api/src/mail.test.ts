@@ -43,6 +43,24 @@ describe("createMailer", () => {
     ).rejects.toThrow(/EMAIL Worker binding/);
   });
 
+  it("logs magic links in dev even when EMAIL is configured", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const send = vi.fn(async () => ({ messageId: "msg_1" }));
+    const mailer = createMailer({
+      emailFrom: "Groxbot <noreply@groxbot.com>",
+      email: { send },
+    });
+    await mailer.sendMagicLink({
+      email: "you@example.com",
+      url: "https://app.groxbot.com/api/auth/magic-link/verify?token=abc",
+      otp: "123456",
+    });
+    expect(send).toHaveBeenCalledOnce();
+    expect(info).toHaveBeenCalledWith(
+      "[groxbot] Magic link for you@example.com:\nhttps://app.groxbot.com/api/auth/magic-link/verify?token=abc\ncode: 123456",
+    );
+  });
+
   it("sends through the Worker EMAIL binding", async () => {
     const send = vi.fn(async () => ({ messageId: "msg_1" }));
     const mailer = createMailer({
@@ -53,6 +71,7 @@ describe("createMailer", () => {
     await mailer.sendMagicLink({
       email: "you@example.com",
       url: "https://app.groxbot.com/api/auth/magic-link/verify?token=abc",
+      otp: "123456",
     });
     expect(send).toHaveBeenCalledOnce();
     expect(send.mock.calls[0]?.[0]).toMatchObject({
@@ -60,6 +79,9 @@ describe("createMailer", () => {
       from: { email: "noreply@groxbot.com", name: "Groxbot" },
       subject: "Sign in to Groxbot",
     });
+    expect(String(send.mock.calls[0]?.[0]?.text)).toContain(
+      "Or enter this code: 123456",
+    );
   });
 
   it("does not call Function.bind on the EMAIL stub", async () => {

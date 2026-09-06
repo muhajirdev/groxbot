@@ -12,9 +12,21 @@ import {
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import {
+  emailOTP,
   magicLink,
   organization as organizationPlugin,
 } from "better-auth/plugins";
+import {
+  SIGN_IN_EXPIRES_SEC,
+  SIGN_IN_OTP_LENGTH,
+} from "./sign-in-mail.js";
+
+export {
+  digitsOfOtp,
+  SIGN_IN_EXPIRES_SEC,
+  SIGN_IN_OTP_LENGTH,
+  signInMailCopy,
+} from "./sign-in-mail.js";
 
 export interface OAuthCredentials {
   clientId: string;
@@ -34,7 +46,8 @@ export function createAuth(
     sendMagicLink: (input: {
       email: string;
       url: string;
-      token: string;
+      otp?: string;
+      token?: string;
     }) => Promise<void> | void;
     sendInvitationEmail: (input: {
       email: string;
@@ -44,7 +57,14 @@ export function createAuth(
     }) => Promise<void> | void;
   },
 ) {
-  return betterAuth({
+  const api: {
+    current?: {
+      createVerificationOTP: (args: {
+        body: { email: string; type: "sign-in" };
+      }) => Promise<unknown>;
+    };
+  } = {};
+  const auth = betterAuth({
     secret: opts.secret,
     baseURL: opts.baseURL,
     trustedOrigins: opts.trustedOrigins,
@@ -108,11 +128,36 @@ export function createAuth(
         },
       }),
       magicLink({
-        expiresIn: 15 * 60,
-        sendMagicLink: opts.sendMagicLink,
+        expiresIn: SIGN_IN_EXPIRES_SEC,
+        sendMagicLink: async ({ email, url, token }) => {
+          let otp = "";
+          try {
+            const created = await api.current?.createVerificationOTP({
+              body: { email, type: "sign-in" },
+            });
+            otp = otpFromCreated(created);
+          } catch {
+            // Link still goes out if OTP minting fails.
+          }
+          await opts.sendMagicLink({ email, url, otp, token });
+        },
+      }),
+      emailOTP({
+        otpLength: SIGN_IN_OTP_LENGTH,
+        expiresIn: SIGN_IN_EXPIRES_SEC,
+        sendVerificationOTP: async ({ email, otp, type }) => {
+          if (type !== "sign-in") return;
+          await opts.sendMagicLink({ email, url: "", otp });
+        },
       }),
     ],
   });
+  api.current = auth.api;
+  return auth;
+}
+
+function otpFromCreated(created: unknown): string {
+  return typeof created === "string" && /^\d{4,8}$/.test(created) ? created : "";
 }
 
 function hostnameOf(origin: string): string | undefined {

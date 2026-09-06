@@ -1,15 +1,19 @@
 import {
+  CLOUD_ADMIN_ORIGIN,
   CLOUD_API_ORIGIN,
   CLOUD_APP_ORIGIN,
   CLOUD_LANDING_ORIGIN,
   CLOUD_WEB_ORIGIN,
   DURABLE_OBJECT_WAKEUP,
+  GROX_GATEWAY_SECRET_ENV,
+  GROX_GATEWAY_URL_ENV,
   HOSTED_AI_ENV,
   HOSTED_AI_FLAG,
   HTTP_WAKEUP,
   hostedCloudflareGateway,
   IN_PROCESS_WAKEUP,
   landingOriginForWeb,
+  STAGING_ADMIN_ORIGIN,
   STAGING_API_ORIGIN,
   STAGING_LANDING_ORIGIN,
   STAGING_WEB_ORIGIN,
@@ -39,6 +43,8 @@ export interface Env {
   cloudflareAiGatewayToken?: string;
   cloudflareAiGatewayId?: string;
   hostedAiBinding?: boolean;
+  groxGatewayUrl?: string;
+  groxGatewaySecret?: string;
   emailBinding?: boolean;
   emailFrom?: string;
   encryptionKey?: string;
@@ -47,6 +53,9 @@ export interface Env {
   tinyfishApiKeys: string[];
   production: boolean;
   wakeupKind: WakeupKind;
+  polarAccessToken?: string;
+  polarWebhookSecret?: string;
+  polarEnvironment: "sandbox" | "production";
 }
 
 function pair(
@@ -117,6 +126,11 @@ export type EnvStrings = {
   TINYFISH_API_KEY?: string;
   TINYFISH_API_KEYS?: string;
   WAKEUP_KIND?: string;
+  POLAR_ACCESS_TOKEN?: string;
+  POLAR_WEBHOOK_SECRET?: string;
+  POLAR_ENVIRONMENT?: string;
+  GROX_GATEWAY_URL?: string;
+  GROX_GATEWAY_SECRET?: string;
 };
 
 /** BYOK / hosted gateway keys. Same names as wrangler vars, not Node process.env. */
@@ -155,14 +169,18 @@ export function loadEnv(source: EnvStrings): Env {
       landingOrigin,
       CLOUD_LANDING_ORIGIN,
       CLOUD_WEB_ORIGIN,
+      CLOUD_ADMIN_ORIGIN,
       CLOUD_API_ORIGIN,
       STAGING_WEB_ORIGIN,
+      STAGING_ADMIN_ORIGIN,
       STAGING_LANDING_ORIGIN,
       STAGING_API_ORIGIN,
       "http://127.0.0.1:5173",
       "http://localhost:5173",
       "http://127.0.0.1:5174",
       "http://localhost:5174",
+      "http://127.0.0.1:5177",
+      "http://localhost:5177",
       "http://127.0.0.1:8081",
       "http://localhost:8081",
       CLOUD_APP_ORIGIN,
@@ -181,6 +199,8 @@ export function loadEnv(source: EnvStrings): Env {
       undefined,
     cloudflareAiGatewayId:
       read(source, "CLOUDFLARE_AI_GATEWAY_ID")?.trim() || undefined,
+    groxGatewayUrl: read(source, "GROX_GATEWAY_URL")?.trim() || undefined,
+    groxGatewaySecret: read(source, "GROX_GATEWAY_SECRET")?.trim() || undefined,
     emailFrom: read(source, "EMAIL_FROM"),
     encryptionKey: read(source, "ENCRYPTION_KEY"),
     composioApiKey: read(source, "COMPOSIO_API_KEY")?.trim() || undefined,
@@ -193,6 +213,13 @@ export function loadEnv(source: EnvStrings): Env {
         : read(source, "WORKER_URL")
           ? HTTP_WAKEUP
           : IN_PROCESS_WAKEUP,
+    polarAccessToken: read(source, "POLAR_ACCESS_TOKEN")?.trim() || undefined,
+    polarWebhookSecret:
+      read(source, "POLAR_WEBHOOK_SECRET")?.trim() || undefined,
+    polarEnvironment:
+      read(source, "POLAR_ENVIRONMENT")?.trim().toLowerCase() === "production"
+        ? "production"
+        : "sandbox",
   };
 }
 
@@ -209,6 +236,17 @@ export function productEnv(
 
 /** Overlay for resolveRunModel / AI gateway. Hosted CF gateway + encryption. */
 export function agentRuntimeSource(env: Env): RuntimeSource {
+  if (env.groxGatewayUrl && env.groxGatewaySecret) {
+    return {
+      WEB_ORIGIN: env.webOrigin,
+      ENCRYPTION_KEY: env.encryptionKey,
+      BETTER_AUTH_SECRET: env.authSecret,
+      NODE_ENV: env.production ? "production" : "development",
+      POLAR_ACCESS_TOKEN: env.polarAccessToken,
+      [GROX_GATEWAY_URL_ENV]: env.groxGatewayUrl,
+      [GROX_GATEWAY_SECRET_ENV]: env.groxGatewaySecret,
+    };
+  }
   const hosted = env.hostedAiBinding
     ? hostedCloudflareGateway({
         [HOSTED_AI_ENV]: HOSTED_AI_FLAG,
@@ -225,6 +263,7 @@ export function agentRuntimeSource(env: Env): RuntimeSource {
     ENCRYPTION_KEY: env.encryptionKey,
     BETTER_AUTH_SECRET: env.authSecret,
     NODE_ENV: env.production ? "production" : "development",
+    POLAR_ACCESS_TOKEN: env.polarAccessToken,
     ...(hosted?.kind === "binding"
       ? {
           [HOSTED_AI_ENV]: HOSTED_AI_FLAG,

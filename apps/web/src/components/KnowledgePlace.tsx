@@ -76,6 +76,7 @@ import {
   MoreIcon,
   PlusIcon,
   SearchIcon,
+  ShareIcon,
   SkillsIcon,
   TrashIcon,
   UploadIcon,
@@ -336,6 +337,8 @@ export function KnowledgeLibrary(props: {
                     }
                   : undefined
               }
+              onShare={() => workspace.sharePath(previewPath)}
+              shared={Boolean(workspace.publicShareFor(previewPath))}
               onDownload={() => workspace.downloadPath(previewPath)}
               onRemove={() => {
                 const target =
@@ -488,6 +491,8 @@ export function KnowledgePeek(props: {
                   }
                 : undefined
             }
+            onShare={() => workspace.sharePath(selected)}
+            shared={Boolean(workspace.publicShareFor(selected))}
             onDownload={workspace.downloadSelected}
             onRemove={() =>
               void workspace.removeSelected(() => props.onClose())
@@ -850,6 +855,24 @@ function useKnowledgeWorkspace(initialPath: string | null) {
     );
   }
 
+  function sharePath(path: string) {
+    if (publicShareFor(path)) {
+      copyPublicLink(path);
+      return;
+    }
+    const node = findKnowledgeNode(tree, path);
+    void publishPath(
+      node ?? {
+        path,
+        name: path.split("/").filter(Boolean).at(-1) ?? path,
+        kind: files.has(path) ? "file" : "dir",
+        title: "",
+        description: "",
+        children: [],
+      },
+    );
+  }
+
   return {
     fileRef,
     query,
@@ -894,6 +917,7 @@ function useKnowledgeWorkspace(initialPath: string | null) {
     publishPath,
     unpublishPath,
     copyPublicLink,
+    sharePath,
     startDraft: (folder?: string) => {
       const dest =
         folder ??
@@ -1299,6 +1323,8 @@ function PreviewPane(props: {
   busy: boolean;
   downloading: boolean;
   onUse?: () => void;
+  onShare: () => void;
+  shared: boolean;
   onDownload: () => void;
   onRemove: () => void;
 }) {
@@ -1359,6 +1385,16 @@ function PreviewPane(props: {
               Use in chat
             </button>
           ) : null}
+          <button
+            className={cn("icon-btn", props.shared && "on")}
+            type="button"
+            aria-label={props.shared ? "Copy public link" : "Share publicly"}
+            title={props.shared ? "Copy public link" : "Share publicly"}
+            aria-pressed={props.shared}
+            onClick={props.onShare}
+          >
+            <ShareIcon />
+          </button>
           <button
             className="icon-btn"
             type="button"

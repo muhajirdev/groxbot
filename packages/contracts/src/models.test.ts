@@ -203,6 +203,8 @@ describe("model catalog", () => {
         promptTokens: 0,
         completionTokens: 0,
         totalTokens: 0,
+        periodStart: "2026-09-01T00:00:00.000Z",
+        monthlyTokenLimit: 1_000_000,
       },
     });
     expect(parsed.hostedGateway).toBe(true);

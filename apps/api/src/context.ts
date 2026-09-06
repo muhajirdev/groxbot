@@ -1,4 +1,9 @@
-import type { EnqueueJob, InitApp, InitRoom } from "@groxbot/adapter-kit";
+import type {
+  BillingPort,
+  EnqueueJob,
+  InitApp,
+  InitRoom,
+} from "@groxbot/adapter-kit";
 import type { Auth } from "@groxbot/auth";
 import type {
   ComputerDownload,
@@ -27,6 +32,7 @@ export interface RpcContext {
   env: Env;
   db: Database;
   auth: Auth;
+  billing: BillingPort;
   enqueue: EnqueueJob;
   initApp: InitApp;
   initRoom?: InitRoom;
@@ -76,5 +82,7 @@ export interface RpcContext {
   };
   /** Wipe this bot’s Durable Object. Optional in local tests. */
   forgetBot?: (botId: string) => Promise<void>;
+  /** Wipe a live app’s Durable Object. Optional in local tests. */
+  forgetApp?: (appId: string) => Promise<void>;
   headers?: Headers;
 }

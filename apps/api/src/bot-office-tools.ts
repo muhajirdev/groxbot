@@ -3,6 +3,7 @@ import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { openObjectParameters } from "@groxbot/adapters/edge";
 import {
   executeCodeFromInput,
+  isComputerMeterTool,
   jsonClone,
   OFFICE_CODE_TOOL_NAME,
   resolveAiSdkToolResult,
@@ -85,6 +86,28 @@ export function bindOfficeExecuteTool(raw: OfficeExecuteRaw): AgentTool {
   });
   if (!wrapped) throw new Error("Code Mode code tool is missing execute()");
   return wrapped;
+}
+
+export function wrapAgentToolsForComputerUsage(
+  tools: AgentTool[],
+  onSeconds: (seconds: number) => void,
+): AgentTool[] {
+  return tools.map((tool) => {
+    if (!isComputerMeterTool(tool.name)) return tool;
+    const execute = tool.execute.bind(tool);
+    return {
+      ...tool,
+      execute: async (toolCallId, params, signal, onUpdate) => {
+        const started = Date.now();
+        try {
+          return await execute(toolCallId, params, signal, onUpdate);
+        } finally {
+          const elapsed = Math.max(0, Math.ceil((Date.now() - started) / 1000));
+          if (elapsed > 0) onSeconds(elapsed);
+        }
+      },
+    };
+  });
 }
 
 /** Wrap `@cloudflare/computer/tools` `createAITools` (and Code Mode `runtime.tool()`). */

@@ -1,6 +1,7 @@
 /** Canonical cloud hosts. Local dev still uses 127.0.0.1. */
 export const CLOUD_LANDING_ORIGIN = "https://groxbot.com";
 export const CLOUD_WEB_ORIGIN = "https://app.groxbot.com";
+export const CLOUD_ADMIN_ORIGIN = "https://admin.groxbot.com";
 export const CLOUD_API_ORIGIN = "https://api.groxbot.com";
 
 /** Expo app scheme. Magic-link and OAuth callbacks land here on a device. */
@@ -11,6 +12,7 @@ export const CLOUD_APP_ORIGIN = `${CLOUD_APP_SCHEME}://`;
 export const STAGING_LANDING_ORIGIN =
   "https://groxbot-landing.qalam.workers.dev";
 export const STAGING_WEB_ORIGIN = "https://groxbot-web.qalam.workers.dev";
+export const STAGING_ADMIN_ORIGIN = "https://groxbot-admin.qalam.workers.dev";
 export const STAGING_API_ORIGIN = "https://groxbot-api.qalam.workers.dev";
 
 const LOCAL_LANDING_ORIGIN = "http://127.0.0.1:5174";

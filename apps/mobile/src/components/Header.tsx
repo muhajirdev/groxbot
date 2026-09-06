@@ -48,8 +48,9 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 16,
     fontWeight: "600",
+    letterSpacing: -0.3,
   },
   side: { minWidth: 64 },
   right: { alignItems: "flex-end" },
-  link: { color: colors.accent, fontSize: 16, fontWeight: "600" },
+  link: { color: colors.text, fontSize: 15, fontWeight: "500" },
 });

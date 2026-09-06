@@ -144,6 +144,9 @@ export class RoomActor extends RoomHome {
       if (request.method === "POST" && url.pathname === "/files/write") {
         return this.handleFilesWrite(request);
       }
+      if (request.method === "POST" && url.pathname === "/destroy") {
+        return this.handleDestroy();
+      }
       return new Response("Not found", { status: 404 });
     }
     return super.fetch(request);

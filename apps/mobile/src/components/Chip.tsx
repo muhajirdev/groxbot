@@ -27,15 +27,15 @@ const styles = StyleSheet.create({
   chip: {
     borderWidth: 1,
     borderColor: colors.line,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.card,
     borderRadius: radius.pill,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   on: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.card,
     borderColor: colors.accent,
   },
-  label: { color: colors.text, fontSize: 13, fontWeight: "600" },
-  onLabel: { color: colors.accentInk },
+  label: { color: colors.text, fontSize: 13, fontWeight: "500" },
+  onLabel: { color: colors.text },
 });

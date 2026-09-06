@@ -148,8 +148,8 @@ function Inlines(props: {
 const styles = StyleSheet.create({
   stack: { gap: 8 },
   body: { color: colors.text, fontSize: 16, lineHeight: 24 },
-  h1: { color: colors.text, fontSize: 20, fontWeight: "700", lineHeight: 26 },
-  h2: { color: colors.text, fontSize: 17, fontWeight: "700", lineHeight: 24 },
+  h1: { color: colors.text, fontSize: 20, fontWeight: "600", lineHeight: 26 },
+  h2: { color: colors.text, fontSize: 17, fontWeight: "600", lineHeight: 24 },
   quote: {
     color: colors.muted,
     fontSize: 16,

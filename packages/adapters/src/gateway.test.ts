@@ -125,6 +125,26 @@ function chatSignal(
 }
 
 describe("loadGatewayConfig", () => {
+  it("loads grox-gateway when URL and secret are set", () => {
+    const config = loadGatewayConfig({
+      GROX_GATEWAY_URL: "https://grox-gateway.example.com",
+      GROX_GATEWAY_SECRET: "gw-secret",
+    });
+    expect(config.groxGatewayUrl).toBe("https://grox-gateway.example.com");
+    expect(gatewayChatUrl(config)).toBe(
+      "https://grox-gateway.example.com/v1/chat/completions",
+    );
+    expect(
+      gatewayHeaders(config, { workspaceId: "ws_1" })["x-grox-workspace-id"],
+    ).toBe("ws_1");
+    expect(
+      gatewayConfigured({
+        GROX_GATEWAY_URL: "https://grox-gateway.example.com",
+        GROX_GATEWAY_SECRET: "gw-secret",
+      }),
+    ).toBe(true);
+  });
+
   it("defaults Cloudflare to GLM 5.3 Flash on Workers AI", () => {
     const config = loadGatewayConfig({
       CLOUDFLARE_ACCOUNT_ID: "acct_123",

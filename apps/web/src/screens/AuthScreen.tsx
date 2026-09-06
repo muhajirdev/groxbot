@@ -16,6 +16,7 @@ export function AuthScreen(props: { errorFromUrl?: string; invite?: string }) {
   const [error, setError] = useState(props.errorFromUrl ?? "");
   const [busy, setBusy] = useState(false);
   const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
   const [sentTo, setSentTo] = useState("");
   const emailSend = useRef(0);
   const googleReady = health.data?.oauth?.includes("google") ?? false;
@@ -82,11 +83,39 @@ export function AuthScreen(props: { errorFromUrl?: string; invite?: string }) {
       if (result.error) {
         setSentTo("");
         setError(result.error.message ?? "Could not send a sign-in link");
+      } else {
+        setOtp("");
       }
     } catch (caught) {
       if (sendId !== emailSend.current) return;
       setSentTo("");
       setError(userFacingError(caught, "Could not send a sign-in link"));
+    }
+  }
+
+  async function continueWithCode(event: FormEvent) {
+    event.preventDefault();
+    const code = otp.replace(/\D/g, "").slice(0, 6);
+    if (code.length !== 6) {
+      setError("Enter the 6-digit code from the email.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const result = await authClient.signIn.emailOtp({
+        email: sentTo,
+        otp: code,
+      });
+      setBusy(false);
+      if (result.error) {
+        setError(result.error.message ?? "That code did not work");
+        return;
+      }
+      window.location.assign(officeUrl(afterAuth));
+    } catch (caught) {
+      setBusy(false);
+      setError(userFacingError(caught, "That code did not work"));
     }
   }
 
@@ -140,15 +169,41 @@ export function AuthScreen(props: { errorFromUrl?: string; invite?: string }) {
               <h1>Check your email</h1>
               <div className="auth-sent">
                 <p>
-                  We sent a sign-in link to <strong>{sentTo}</strong>. It
-                  expires in 15 minutes.
+                  Check <strong>{sentTo}</strong>. Tap Open Groxbot, or enter
+                  the 6-digit code. Expires in 15 minutes.
                 </p>
                 {mailLogged ? (
                   <p>
-                    Locally, that link is printed in the API terminal instead of
-                    an inbox.
+                    Locally, that link and code are printed in the API terminal
+                    instead of an inbox.
                   </p>
                 ) : null}
+                <form className="auth-email" onSubmit={continueWithCode}>
+                  <Field label="Code" className="field">
+                    <Input
+                      name="otp"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      placeholder="123456"
+                      value={otp}
+                      maxLength={6}
+                      onChange={(event) =>
+                        setOtp(
+                          event.currentTarget.value.replace(/\D/g, "").slice(0, 6),
+                        )
+                      }
+                      disabled={busy}
+                      required
+                    />
+                  </Field>
+                  <button
+                    className="btn"
+                    type="submit"
+                    disabled={busy || otp.length !== 6}
+                  >
+                    {busy ? "Signing in…" : "Enter code"}
+                  </button>
+                </form>
               </div>
             </>
           ) : (
@@ -210,6 +265,7 @@ export function AuthScreen(props: { errorFromUrl?: string; invite?: string }) {
                 onClick={() => {
                   emailSend.current += 1;
                   setSentTo("");
+                  setOtp("");
                   setError("");
                 }}
               >

@@ -1,6 +1,7 @@
 import {
   invitationIdFromInput,
   invitationUrl,
+  ensureWorkspaceBilling,
   listPendingInvitations,
   peekInvitation,
   renameWorkspace,
@@ -8,6 +9,7 @@ import {
   workspaceAuthMessage,
 } from "@groxbot/core";
 import { ORPCError } from "@orpc/server";
+import { agentRuntimeSource } from "./env.js";
 import type { RpcContext } from "./context.js";
 import { requireActor, type SessionUser } from "./session.js";
 
@@ -55,6 +57,10 @@ export async function createWorkspace(
       message: "Pick another workspace name.",
     });
   }
+  await ensureWorkspaceBilling(
+    context.db,
+    created.id,
+  );
   try {
     await context.auth.api.setActiveOrganization({
       body: { organizationId: created.id },

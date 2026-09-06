@@ -77,6 +77,22 @@ export async function isWorkspaceMember(
   return Boolean(row);
 }
 
+export async function isWorkspaceBillingManager(
+  db: Database,
+  userId: string,
+  workspaceId: string,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ role: member.role })
+    .from(member)
+    .where(
+      and(eq(member.userId, userId), eq(member.organizationId, workspaceId)),
+    )
+    .limit(1);
+  if (!row) return false;
+  return row.role === "owner" || row.role === "admin";
+}
+
 export async function renameWorkspace(
   db: Database,
   workspaceId: string,

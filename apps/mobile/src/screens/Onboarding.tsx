@@ -540,11 +540,10 @@ export function OnboardingScreen({
 const styles = StyleSheet.create({
   kicker: {
     color: colors.muted,
-    letterSpacing: 1,
-    textTransform: "uppercase",
-    fontSize: 11,
+    letterSpacing: 0.4,
+    fontSize: 13,
   },
-  title: { color: colors.text, fontSize: 28, fontWeight: "700" },
+  title: { color: colors.text, fontSize: 28, fontWeight: "600", letterSpacing: -0.6 },
   body: { color: colors.muted, fontSize: 16, lineHeight: 22 },
   error: { color: colors.danger },
   block: { gap: 10 },

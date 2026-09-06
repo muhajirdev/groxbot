@@ -1,3 +1,4 @@
+import { signInMailCopy } from "@groxbot/auth";
 import { MAIL_CLOUDFLARE, MAIL_LOG, type MailKind } from "@groxbot/contracts";
 
 export type { MailKind };
@@ -21,7 +22,11 @@ export interface MailEnv {
 
 export interface Mailer {
   kind: MailKind;
-  sendMagicLink: (input: { email: string; url: string }) => Promise<void>;
+  sendMagicLink: (input: {
+    email: string;
+    url: string;
+    otp?: string;
+  }) => Promise<void>;
   sendInvitation: (input: {
     email: string;
     url: string;
@@ -53,6 +58,17 @@ function bindingFrom(value: string): string | { email: string; name?: string } {
     : parsed.address;
 }
 
+function logMagicLinkDev(
+  env: MailEnv,
+  email: string,
+  url: string,
+  otp?: string,
+) {
+  if (env.production) return;
+  const code = otp?.trim() ? `\ncode: ${otp.trim()}` : "";
+  console.info(`[groxbot] Magic link for ${email}:\n${url}${code}`);
+}
+
 export function createMailer(env: MailEnv): Mailer {
   const binding = env.email;
   const fromRaw = env.emailFrom?.trim() ?? "";
@@ -60,13 +76,15 @@ export function createMailer(env: MailEnv): Mailer {
     const from = bindingFrom(fromRaw);
     return {
       kind: MAIL_CLOUDFLARE,
-      sendMagicLink: async ({ email, url }) => {
+      sendMagicLink: async ({ email, url, otp }) => {
+        logMagicLinkDev(env, email, url, otp);
+        const copy = signInMailCopy({ url, otp });
         await binding.send({
           to: email,
           from,
-          subject: "Sign in to Groxbot",
-          text: `Sign in to Groxbot:\n${url}\n\nThis link expires in 15 minutes.`,
-          html: `<p>Sign in to Groxbot.</p><p><a href="${url}">Open Groxbot</a></p><p>This link expires in 15 minutes.</p>`,
+          subject: copy.subject,
+          text: copy.text,
+          html: copy.html,
         });
       },
       sendInvitation: async ({ email, url, organizationName, inviterName }) => {
@@ -82,9 +100,9 @@ export function createMailer(env: MailEnv): Mailer {
   }
   return {
     kind: MAIL_LOG,
-    sendMagicLink: async ({ email, url }) => {
+    sendMagicLink: async ({ email, url, otp }) => {
       requireMailInProduction(env);
-      console.info(`[groxbot] Magic link for ${email}:\n${url}`);
+      logMagicLinkDev(env, email, url, otp);
     },
     sendInvitation: async ({ email, url, organizationName, inviterName }) => {
       requireMailInProduction(env);

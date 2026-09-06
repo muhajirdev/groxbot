@@ -41,6 +41,8 @@ export interface GatewayEnv {
   CLOUDFLARE_AUTH_TOKEN?: string;
   CLOUDFLARE_AI_GATEWAY_ID?: string;
   CLOUDFLARE_GATEWAY_ID?: string;
+  GROX_GATEWAY_URL?: string;
+  GROX_GATEWAY_SECRET?: string;
   [HOSTED_AI_ENV]?: string;
   OPENROUTER_API_KEY?: string;
   WEB_ORIGIN?: string;
@@ -52,6 +54,7 @@ export interface GatewayConfig {
   model: string;
   accountId?: string;
   gatewayId?: string;
+  groxGatewayUrl?: string;
   referer: string;
   title: string;
   fetch: typeof fetch;
@@ -80,6 +83,12 @@ export function cloudflareAiGatewayChatUrl(
 }
 
 export function gatewayChatUrl(config: GatewayConfig): string {
+  if (config.groxGatewayUrl) {
+    const base = config.groxGatewayUrl.replace(/\/$/, "");
+    return base.endsWith("/v1") || base.endsWith("/compat")
+      ? `${base}/chat/completions`
+      : `${base}/v1/chat/completions`;
+  }
   if (config.provider === OPENROUTER_PROVIDER) return OPENROUTER_CHAT_URL;
   if (!config.accountId) {
     throw new Error("CLOUDFLARE_ACCOUNT_ID is required");
@@ -98,6 +107,13 @@ export function gatewayHeaders(
     authorization: `Bearer ${config.apiKey}`,
     "content-type": "application/json",
   };
+  if (config.groxGatewayUrl) {
+    const workspaceId = metadata?.workspaceId?.trim();
+    const userId = metadata?.userId?.trim();
+    if (workspaceId) headers["x-grox-workspace-id"] = workspaceId;
+    if (userId) headers["x-grox-user-id"] = userId;
+    return headers;
+  }
   if (config.provider === OPENROUTER_PROVIDER) {
     headers["HTTP-Referer"] = config.referer;
     headers["X-Title"] = config.title;
@@ -197,6 +213,9 @@ function resolveProvider(
   explicit?: GatewayProvider,
 ): GatewayProvider {
   if (explicit) return explicit;
+  if (read(source, "GROX_GATEWAY_URL") && read(source, "GROX_GATEWAY_SECRET")) {
+    return CLOUDFLARE_PROVIDER;
+  }
   const named = read(source, "AI_GATEWAY_PROVIDER");
   if (named) {
     if (!isGatewayProvider(named)) {
@@ -224,6 +243,19 @@ export function loadGatewayConfig(
   const model =
     read(source, "AI_GATEWAY_MODEL") ?? defaultGatewayModel(provider);
   const referer = read(source, "WEB_ORIGIN") ?? CLOUD_LANDING_ORIGIN;
+  const groxGatewayUrl = read(source, "GROX_GATEWAY_URL");
+  const groxGatewaySecret = read(source, "GROX_GATEWAY_SECRET");
+  if (groxGatewayUrl && groxGatewaySecret) {
+    return {
+      provider: CLOUDFLARE_PROVIDER,
+      apiKey: groxGatewaySecret,
+      model,
+      groxGatewayUrl,
+      referer,
+      title: "Groxbot",
+      fetch: options.fetch ?? fetch,
+    };
+  }
   if (provider === CLOUDFLARE_PROVIDER) {
     const accountId = read(source, "CLOUDFLARE_ACCOUNT_ID");
     const apiKey = cloudflareGatewayToken(source);
@@ -261,6 +293,9 @@ export function loadGatewayConfig(
 }
 
 export function gatewayConfigured(source: GatewayEnv = process.env): boolean {
+  if (read(source, "GROX_GATEWAY_URL") && read(source, "GROX_GATEWAY_SECRET")) {
+    return true;
+  }
   try {
     loadGatewayConfig(source);
     return true;
