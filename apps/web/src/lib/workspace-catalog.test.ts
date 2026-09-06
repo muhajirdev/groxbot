@@ -7,6 +7,7 @@ import {
   roomsCollection,
 } from "./collections";
 import { orpc, queryClient } from "./orpc";
+import { workspaceListQueryOptions } from "./office-persist";
 import {
   resetRpcWorkspace,
   setLiveCatalogId,
@@ -19,6 +20,7 @@ import {
   knowledgeListKey,
   peekWorkspaceCatalog,
   prepareWorkspaceSwitch,
+  rememberListedWorkspace,
   snapshotWorkspaceCatalog,
   workspaceCatalogKey,
   workspaceSwitchDestination,
@@ -43,6 +45,9 @@ afterEach(() => {
   queryClient.removeQueries({ queryKey: botsListKey });
   queryClient.removeQueries({ queryKey: knowledgeListKey });
   queryClient.removeQueries({ queryKey: orpc.me.key() });
+  queryClient.removeQueries({
+    queryKey: workspaceListQueryOptions().queryKey,
+  });
   try {
     localStorage.removeItem("groxbot.workspace");
     localStorage.removeItem("groxbot.lastRooms");
@@ -122,6 +127,38 @@ describe("workspaceSwitchDestination", () => {
     expect(workspaceSwitchDestination("ws-empty")).toEqual({
       to: "/onboarding",
     });
+  });
+});
+
+describe("rememberListedWorkspace", () => {
+  it("inserts a just-created office into an empty list", () => {
+    queryClient.setQueryData(workspaceListQueryOptions().queryKey, []);
+    rememberListedWorkspace({
+      id: "ws-m",
+      name: "Muhajir",
+      slug: "muhajir-5v6j44mv",
+    });
+    expect(
+      queryClient.getQueryData(workspaceListQueryOptions().queryKey),
+    ).toEqual([
+      { id: "ws-m", name: "Muhajir", slug: "muhajir-5v6j44mv" },
+    ]);
+  });
+
+  it("updates the name of an office already in the list", () => {
+    queryClient.setQueryData(workspaceListQueryOptions().queryKey, [
+      { id: "ws-m", name: "Old", slug: "muhajir-5v6j44mv" },
+    ]);
+    rememberListedWorkspace({
+      id: "ws-m",
+      name: "Muhajir",
+      slug: "muhajir-5v6j44mv",
+    });
+    expect(
+      queryClient.getQueryData(workspaceListQueryOptions().queryKey),
+    ).toEqual([
+      { id: "ws-m", name: "Muhajir", slug: "muhajir-5v6j44mv" },
+    ]);
   });
 });
 

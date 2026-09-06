@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { catalogHasRoom, officeProfileLabel } from "./session";
+import { catalogHasRoom, officeProfileLabel, unknownRoomRedirect } from "./session";
 
 describe("officeProfileLabel", () => {
   it("uses a real name and never the login email", () => {
@@ -39,5 +39,60 @@ describe("catalogHasRoom", () => {
   it("does not invent a missing room", () => {
     expect(catalogHasRoom("missing", rooms, bots)).toBe(false);
     expect(catalogHasRoom("home-1", [], [])).toBe(false);
+  });
+});
+
+describe("unknownRoomRedirect", () => {
+  const rooms = [{ id: "room-group" }];
+  const bots = [
+    { id: "bot-1", homeRoomId: "home-1" },
+    { id: "bot-legacy" },
+  ];
+
+  it("stays on a known home room", () => {
+    expect(
+      unknownRoomRedirect({
+        roomId: "home-1",
+        workspaceSlug: "muhajir-5v6j44mv",
+        rooms,
+        bots,
+      }),
+    ).toBeNull();
+  });
+
+  it("opens a live desk when the URL room is gone", () => {
+    expect(
+      unknownRoomRedirect({
+        roomId: "missing",
+        workspaceSlug: "muhajir-5v6j44mv",
+        rooms,
+        bots,
+      }),
+    ).toEqual({
+      to: "/$workspaceSlug/room/$roomId",
+      params: { workspaceSlug: "muhajir-5v6j44mv", roomId: "home-1" },
+    });
+  });
+
+  it("does not redirect to the same room id", () => {
+    expect(
+      unknownRoomRedirect({
+        roomId: "ghost",
+        workspaceSlug: "acme",
+        rooms: [],
+        bots: [{ id: "ghost" }],
+      }),
+    ).toBeNull();
+  });
+
+  it("sends an empty office to hire", () => {
+    expect(
+      unknownRoomRedirect({
+        roomId: "missing",
+        workspaceSlug: "acme",
+        rooms: [],
+        bots: [],
+      }),
+    ).toEqual({ to: "/onboarding", search: {} });
   });
 });

@@ -5,8 +5,8 @@ import { setRpcWorkspaceId } from "../../../lib/rpc-workspace";
 import { adoptWorkspaceCatalog } from "../../../lib/workspace-catalog";
 import {
   readCachedWorkspace,
+  resolveWorkspaceForRoute,
   workspaceFromCache,
-  workspaceFromList,
 } from "../../../lib/workspace-switcher";
 
 export const Route = createFileRoute("/_authed/$workspaceSlug")({
@@ -20,27 +20,31 @@ export const Route = createFileRoute("/_authed/$workspaceSlug")({
     const listed = context.queryClient.getQueryData<Workspace[]>(
       workspaceListQueryOptions().queryKey,
     );
-    const fromCache = listed
-      ? workspaceFromList(listed, params.workspaceSlug)
-      : undefined;
-    if (fromCache) {
-      setRpcWorkspaceId(fromCache.id);
-      adoptWorkspaceCatalog(fromCache.id);
-      void context.queryClient.ensureQueryData(workspaceListQueryOptions());
-      return { workspace: fromCache };
-    }
-
-    const workspaces = await context.queryClient.ensureQueryData(
-      workspaceListQueryOptions(),
-    );
-    const workspace = workspaceFromList(workspaces, params.workspaceSlug);
-    if (!workspace) {
+    const resolved = await resolveWorkspaceForRoute({
+      slug: params.workspaceSlug,
+      listed,
+      hinted,
+      fetchList: () =>
+        context.queryClient.fetchQuery({
+          ...workspaceListQueryOptions(),
+          staleTime: 0,
+        }),
+    });
+    if (!resolved) {
       setRpcWorkspaceId(null);
       throw redirect({ to: "/onboarding", search: {} });
     }
-    setRpcWorkspaceId(workspace.id);
-    adoptWorkspaceCatalog(workspace.id);
-    return { workspace };
+    if (resolved.needsListRefresh) {
+      void context.queryClient.fetchQuery({
+        ...workspaceListQueryOptions(),
+        staleTime: 0,
+      });
+    } else {
+      void context.queryClient.ensureQueryData(workspaceListQueryOptions());
+    }
+    setRpcWorkspaceId(resolved.workspace.id);
+    adoptWorkspaceCatalog(resolved.workspace.id);
+    return { workspace: resolved.workspace };
   },
   component: WorkspaceLayout,
 });
