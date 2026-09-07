@@ -199,6 +199,6 @@ Empty composer and New Agent must still work without those.
 4. Computer pane: this bot’s Cloudflare Computer workspace (empty first). No takeover, no desk RPC. Wakeup is the bot’s actor, not a queue UI.
 5. Edit profile on the Bot, not a separate admin app.
 6. First-run does not require Composio.
-7. **Models on first-run + Settings → Models**: Groxbot hosted Auto / Free (Polar-gated grox-gateway → OpenRouter) plus leftover named hosted models and workspace BYOK keys (encrypted). BYOK wins. Default model is hosted Auto when no key is pasted. A bot can override. Hosted token usage is counted per workspace. Messaging fails closed until a matching key or the hosted gateway exists (office banner as fallback).
+7. **Models on first-run + Settings → Models**: Groxbot hosted Auto / Free (Polar-gated grox-gateway) plus leftover named hosted models and workspace BYOK keys (encrypted). BYOK wins. Default model is hosted Auto when no key is pasted. A bot can override. Hosted token usage is counted per workspace. Messaging fails closed until a matching key or the hosted gateway exists (office banner as fallback).
 
 Sources: xAI Grok Bot docs dated around 11 Aug 2026, [x.ai/bot](https://x.ai/bot), [introducing grok bot](https://x.ai/news/introducing-grok-bot).

@@ -34,7 +34,7 @@ export type ModelKeySource = z.infer<typeof ModelKeySource>;
 /** One-key starter. Native Anthropic/OpenAI stay available when those keys exist. */
 export const SUGGESTED_STARTER_MODEL = "openrouter/deepseek/deepseek-v4-flash";
 
-/** Groxbot hosted routers. grox-gateway maps these to openrouter/auto and openrouter/free. */
+/** Groxbot hosted routers. The proprietary gateway owns what they run. */
 export const GROXBOT_AUTO_MODEL = "groxbot/auto" as const;
 export const GROXBOT_FREE_MODEL = "groxbot/free" as const;
 
@@ -42,7 +42,7 @@ export const GROXBOT_FREE_MODEL = "groxbot/free" as const;
 export const BINDING_STARTER_MODEL =
   "cloudflare-ai-gateway/workers-ai/@cf/zai-org/glm-5.3-flash";
 
-/** Hosted groxbot.com default. grox-gateway maps this to `openrouter/auto`. */
+/** Hosted groxbot.com default. */
 export const HOSTED_STARTER_MODEL = GROXBOT_AUTO_MODEL;
 
 /** Product brain. Worker `AI` binding, else REST gateway keys. */
@@ -56,7 +56,7 @@ export const DEFAULT_AI_GATEWAY_ID = "default" as const;
 export const HOSTED_AI_ENV = "GROXBOT_HOSTED_AI" as const;
 export const HOSTED_AI_FLAG = "1" as const;
 
-/** Hosted models through the proprietary grox-gateway Worker (Polar + OpenRouter). */
+/** Hosted models through the proprietary grox-gateway Worker (Polar-gated). */
 export const GROX_GATEWAY_URL_ENV = "GROX_GATEWAY_URL" as const;
 export const GROX_GATEWAY_SECRET_ENV = "GROX_GATEWAY_SECRET" as const;
 
