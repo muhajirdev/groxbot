@@ -7,14 +7,10 @@ import {
   appendOfficeUserText,
   compactOfficeSession,
   DurableSessionStorage,
-  gatewayConfigured,
-  gatewayRequestModel,
-  loadGatewayConfig,
   migrateOfficeChatToSession,
   persistOfficeSessionEvent,
   piBoundFromSessionEntries,
-  piCompletionsModel,
-  resolvePiAiModel,
+  resolveOfficePiModel,
   resolvePiStreamFn,
   runPiTurn,
   Session,
@@ -25,6 +21,7 @@ import {
   labelForModel,
   OFFICE_INTRO_SOURCE,
   officeUserFromHeaders,
+  type OpenAiCodexAuth,
   type Routine,
   stampIncomingOfficeUser,
   type UsageBillingKind,
@@ -92,6 +89,7 @@ import {
   patchComputerWorkspace,
   piAssistantTurnSettled,
   piLogShouldRun,
+  persistOpenAiCodexAuth,
   piQueuedUserBound,
   prepareRoutineCreate,
   RoutineError,
@@ -1372,18 +1370,32 @@ export class RoomHome extends Agent<WorkerEnv> {
     return resolvePiStreamFn(this.turnEnv, {
       ai: this.env.AI,
       gatewayId: this.turnEnv.CLOUDFLARE_AI_GATEWAY_ID,
+      modelId: this.turnModel,
       metadata: {
         workspaceId: this.officeId,
         botId: this.botKey(),
       },
+      persistCodexAuth: (auth) => this.persistCodexAuth(auth),
     });
   }
 
   private turnPiModel() {
-    if (gatewayConfigured(this.turnEnv)) {
-      return resolvePiAiModel(loadGatewayConfig(this.turnEnv), this.turnModel);
-    }
-    return piCompletionsModel(gatewayRequestModel(this.turnModel));
+    return resolveOfficePiModel(this.turnEnv, this.turnModel);
+  }
+
+  private async persistCodexAuth(auth: OpenAiCodexAuth): Promise<void> {
+    const userId = this.ownerUserId?.trim();
+    const workspaceId = this.officeId?.trim();
+    if (!userId || !workspaceId) return;
+    const env = productEnv(this.env);
+    const source = agentRuntimeSource(env);
+    const { db } = createNeonHttpDb(env.databaseUrl);
+    await persistOpenAiCodexAuth(
+      db,
+      { userId, workspaceId },
+      auth,
+      encryptionSecret(source, env.production),
+    );
   }
 
   private async compactOfficeContext(

@@ -6,6 +6,7 @@ import {
   isGatewayProvider,
   loadGatewayConfig,
 } from "./gateway.js";
+import { openaiCodexAuthFromEnv } from "./pi-codex-stream.js";
 import { GatewayAgentRuntime } from "./runtime-core.js";
 
 export { openObjectParameters } from "./office-pi.js";
@@ -14,6 +15,7 @@ export {
   createGatewayStreamFn,
   createWorkersAiStreamFn,
   piCompletionsModel,
+  resolveOfficePiModel,
   resolvePiAiModel,
   resolvePiStreamFn,
   runOwnedPiTurn,
@@ -52,7 +54,7 @@ export function agentRuntimeNeedsModel(
     runtime === "pi" ||
     isGatewayProvider(runtime)
   ) {
-    return !gatewayConfigured(source);
+    return !gatewayConfigured(source) && !openaiCodexAuthFromEnv(source);
   }
   return true;
 }

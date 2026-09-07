@@ -45,9 +45,11 @@ export {
 } from "./office-session.js";
 export { Session } from "@earendil-works/pi-agent-core";
 export {
+  createCodexStreamFn,
   createGatewayStreamFn,
   createWorkersAiStreamFn,
   piCompletionsModel,
+  resolveOfficePiModel,
   resolvePiAiModel,
   resolvePiStreamFn,
   runOwnedPiTurn,

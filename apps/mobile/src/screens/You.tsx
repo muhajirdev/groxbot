@@ -4,6 +4,7 @@ import {
   CUSTOM_MODEL_SENTINEL,
   catalogGroupLabel,
   DEFAULT_AI_GATEWAY_ID,
+  OPENAI_CODEX_PROVIDER,
   PROVIDER_META,
   PROVIDER_ORDER,
   pickerCatalog,
@@ -35,6 +36,7 @@ export function YouScreen({ navigation }: Props) {
   const [openrouterKey, setOpenrouterKey] = useState("");
   const [anthropicKey, setAnthropicKey] = useState("");
   const [openaiKey, setOpenaiKey] = useState("");
+  const [openaiCodexAuth, setOpenaiCodexAuth] = useState("");
   const [cloudflareToken, setCloudflareToken] = useState("");
   const [cfAccount, setCfAccount] = useState("");
   const [cfGateway, setCfGateway] = useState<string>(DEFAULT_AI_GATEWAY_ID);
@@ -106,6 +108,12 @@ export function YouScreen({ navigation }: Props) {
       if (openaiKey.trim()) {
         keys.push({ provider: "openai", secret: openaiKey.trim() });
       }
+      if (openaiCodexAuth.trim()) {
+        keys.push({
+          provider: OPENAI_CODEX_PROVIDER,
+          secret: openaiCodexAuth.trim(),
+        });
+      }
       if (cloudflareToken.trim() || cfAccount.trim()) {
         keys.push({
           provider: CLOUDFLARE_PROVIDER,
@@ -131,6 +139,7 @@ export function YouScreen({ navigation }: Props) {
       setOpenrouterKey("");
       setAnthropicKey("");
       setOpenaiKey("");
+      setOpenaiCodexAuth("");
       setCloudflareToken("");
     } catch (caught) {
       setError(userFacingError(caught, "Could not save models"));
@@ -238,6 +247,13 @@ export function YouScreen({ navigation }: Props) {
         value={openaiKey}
         onChangeText={setOpenaiKey}
         secure
+      />
+      <Field
+        label="ChatGPT auth.json"
+        value={openaiCodexAuth}
+        onChangeText={setOpenaiCodexAuth}
+        multiline
+        placeholder="Paste ~/.codex/auth.json after codex login"
       />
       <Field
         label="Cloudflare account id"

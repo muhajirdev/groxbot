@@ -8,7 +8,7 @@ import {
   MAC_DOWNLOAD_URL,
   SOURCE_REPO,
 } from "../lib/copy";
-import { SupportChatLink, SupportChatWidget } from "./SupportChat";
+import { SupportChatLink } from "./SupportChat";
 
 export function SiteHeader(props: { startUrl: string }) {
   return (
@@ -64,7 +64,6 @@ export function SiteChrome(props: { startUrl: string; children: ReactNode }) {
       <SiteHeader startUrl={props.startUrl} />
       {props.children}
       <SiteFooter />
-      <SupportChatWidget />
     </div>
   );
 }

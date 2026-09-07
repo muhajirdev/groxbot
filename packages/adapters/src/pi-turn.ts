@@ -26,7 +26,10 @@ import type { OwnedPiLine, OwnedPiTurn } from "@groxbot/adapter-kit";
 import {
   DEFAULT_AI_GATEWAY_ID,
   HOSTED_STARTER_MODEL,
+  OPENAI_CODEX_PROVIDER,
   hostedAiEnabled,
+  providerForModel,
+  type OpenAiCodexAuth,
 } from "@groxbot/contracts";
 import {
   HOSTED_OFFICE_CONTEXT_WINDOW,
@@ -43,7 +46,13 @@ import {
   loadGatewayConfig,
   readSseData,
 } from "./gateway.js";
-import { createGatewayStreamFn } from "./pi-ai-stream.js";
+import { createGatewayStreamFn, resolvePiAiModel } from "./pi-ai-stream.js";
+import {
+  createCodexStreamFn,
+  missingCodexStreamFn,
+  openaiCodexAuthFromEnv,
+  resolvePiAiCodexModel,
+} from "./pi-codex-stream.js";
 import type { WorkersAiBinding } from "./workers-ai.js";
 
 export type { StreamFn };
@@ -53,6 +62,11 @@ export {
   piAiRequestModel,
   resolvePiAiModel,
 } from "./pi-ai-stream.js";
+export {
+  createCodexStreamFn,
+  openaiCodexTurn,
+  resolvePiAiCodexModel,
+} from "./pi-codex-stream.js";
 
 export function emptyPiUsage(): Usage {
   return {
@@ -711,8 +725,19 @@ export function resolvePiStreamFn(
     ai?: WorkersAiBinding;
     metadata?: Record<string, string | undefined>;
     gatewayId?: string;
+    modelId?: string;
+    persistCodexAuth?: (auth: OpenAiCodexAuth) => Promise<void>;
   },
 ): StreamFn | null {
+  const modelId = (options?.modelId ?? source.GROXBOT_MODEL ?? "").trim();
+  if (providerForModel(modelId) === OPENAI_CODEX_PROVIDER) {
+    const auth = openaiCodexAuthFromEnv(source);
+    if (!auth) return missingCodexStreamFn();
+    return createCodexStreamFn({
+      auth,
+      persist: options?.persistCodexAuth,
+    });
+  }
   if (gatewayConfigured(source)) {
     return createGatewayStreamFn(loadGatewayConfig(source), options?.metadata);
   }
@@ -723,6 +748,19 @@ export function resolvePiStreamFn(
     });
   }
   return null;
+}
+
+export function resolveOfficePiModel(
+  source: GatewayEnv,
+  modelId: string,
+): Model<Api> {
+  if (providerForModel(modelId) === OPENAI_CODEX_PROVIDER) {
+    return resolvePiAiCodexModel(modelId);
+  }
+  if (gatewayConfigured(source)) {
+    return resolvePiAiModel(loadGatewayConfig(source), modelId);
+  }
+  return piCompletionsModel(gatewayRequestModel(modelId));
 }
 
 function isReadableStream(value: unknown): value is ReadableStream<Uint8Array> {

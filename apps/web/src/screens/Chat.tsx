@@ -65,8 +65,8 @@ import { SectionDialog } from "../components/SectionDialog";
 import { SidebarCreateMenu } from "../components/SidebarCreateMenu";
 import { SubscribeModal } from "../components/SubscribeModal";
 import {
-  openOfficeSupportChat,
   SupportChatButton,
+  SupportDialog,
 } from "../components/SupportChatButton";
 import { ThreadList } from "../components/ThreadList";
 import {
@@ -184,7 +184,6 @@ import {
   sectionMenuBox,
   sectionMenuItems,
 } from "../lib/sidebar";
-import { supportChatUser } from "../lib/support-chat";
 import {
   dropThreadMeta,
   ensureThreadMeta,
@@ -517,6 +516,7 @@ export function Chat(props: {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const knowledgeListQuery = useQuery(knowledgeListQueryOptions());
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<
     "general" | "models" | "billing"
   >("general");
@@ -1395,7 +1395,7 @@ export function Chat(props: {
         return;
       }
       if (id === "support") {
-        void openOfficeSupportChat(supportChatUser(me));
+        setSupportOpen(true);
         return;
       }
       if (id === "settings") {
@@ -1404,7 +1404,7 @@ export function Chat(props: {
       }
       setDesk(deskComputer());
     },
-    [desk, me, openMarketplace, room, setDesk],
+    [desk, openMarketplace, room, setDesk],
   );
 
   useHotkeys([
@@ -1694,7 +1694,7 @@ export function Chat(props: {
                     />
                   </div>
                   <div className="no-drag relative flex shrink-0 items-center gap-0.5">
-                    <SupportChatButton user={me} />
+                    <SupportChatButton onClick={() => setSupportOpen(true)} />
                     <InviteFriendButton workspaceId={props.workspace.id} />
                     {bot ? (
                       <Button
@@ -2344,6 +2344,11 @@ export function Chat(props: {
               setSettingsOpen(false);
               setSettingsTab("general");
             }}
+            onSupport={() => {
+              setSettingsOpen(false);
+              setSettingsTab("general");
+              setSupportOpen(true);
+            }}
             onSignOut={() => {
               void (async () => {
                 await authClient.signOut();
@@ -2353,6 +2358,10 @@ export function Chat(props: {
                 await navigate({ to: "/" });
               })();
             }}
+          />
+          <SupportDialog
+            open={supportOpen}
+            onClose={() => setSupportOpen(false)}
           />
           <CommandPalette
             open={paletteOpen}

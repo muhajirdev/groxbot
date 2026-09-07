@@ -18,6 +18,7 @@ import {
   catalogGroupLabel,
   pickerCatalog,
   providerForModel,
+  OPENAI_CODEX_SETUP_STEPS,
   resolveStoredModelId,
   validateCloudflareAccountId,
   validateModelId,
@@ -40,6 +41,10 @@ describe("model catalog", () => {
     expect(providerForModel("@cf/deepseek-ai/deepseek-v4-flash-0731")).toBe(
       CLOUDFLARE_PROVIDER,
     );
+    expect(providerForModel("openai-codex/gpt-5.4")).toBe("openai-codex");
+    expect(providerForModel("openai/gpt-4o")).toBe("openai");
+    expect(OPENAI_CODEX_SETUP_STEPS[0]?.detail).toMatch(/npx @openai\/codex login/);
+    expect(OPENAI_CODEX_SETUP_STEPS[1]?.detail).toMatch(/~\/\.codex\/auth\.json/);
   });
 
   it("normalizes Cloudflare ids for the hosted gateway", () => {
@@ -158,6 +163,20 @@ describe("model catalog", () => {
     ).toMatch(/sk-ant/);
     expect(validateProviderSecret(OPENROUTER_PROVIDER, "••••abcd")).toMatch(
       /hint/,
+    );
+    expect(
+      validateProviderSecret(
+        "openai-codex",
+        JSON.stringify({
+          type: "oauth",
+          access: "at_live_access_token_value",
+          refresh: "rt_codex_refresh_token_value_ok",
+          expires: 0,
+        }),
+      ),
+    ).toBe(undefined);
+    expect(validateProviderSecret("openai-codex", "sk-abcdefghijklmnopqrstuvwxyz")).toMatch(
+      /auth.json/,
     );
     expect(validateCloudflareAccountId("not-an-id")).toMatch(/32 hex/);
     expect(
