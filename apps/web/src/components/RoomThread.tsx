@@ -49,6 +49,7 @@ export const KeptRoomThread = memo(function KeptRoomThread(props: {
   members: RoomMentionSeat[];
   targetBotId?: string;
   needsModel: boolean;
+  needsHostedPlan?: boolean;
   placeholder: string;
   error: string;
   userId?: string;
@@ -56,6 +57,7 @@ export const KeptRoomThread = memo(function KeptRoomThread(props: {
   userImage?: string;
   active?: boolean;
   onNeedsModel: () => void;
+  onNeedsHostedPlan?: () => void;
   stopRef: MutableRefObject<(() => void) | null>;
 }) {
   const onError = useCallback(
@@ -68,6 +70,7 @@ export const KeptRoomThread = memo(function KeptRoomThread(props: {
       members={props.members}
       targetBotId={props.targetBotId}
       needsModel={props.needsModel}
+      needsHostedPlan={props.needsHostedPlan}
       placeholder={props.placeholder}
       error={props.error}
       userId={props.userId}
@@ -76,6 +79,7 @@ export const KeptRoomThread = memo(function KeptRoomThread(props: {
       active={props.active}
       onError={onError}
       onNeedsModel={props.onNeedsModel}
+      onNeedsHostedPlan={props.onNeedsHostedPlan}
       stopRef={props.stopRef}
     />
   );
@@ -86,6 +90,7 @@ export function RoomThread(props: {
   members: RoomMentionSeat[];
   targetBotId?: string;
   needsModel: boolean;
+  needsHostedPlan?: boolean;
   placeholder: string;
   error: string;
   userId?: string;
@@ -94,6 +99,7 @@ export function RoomThread(props: {
   active?: boolean;
   onError: (error: string) => void;
   onNeedsModel: () => void;
+  onNeedsHostedPlan?: () => void;
   stopRef: MutableRefObject<(() => void) | null>;
 }) {
   const active = props.active !== false;
@@ -131,6 +137,7 @@ export function RoomThread(props: {
         members={props.members}
         targetBotId={props.targetBotId}
         needsModel={props.needsModel}
+        needsHostedPlan={props.needsHostedPlan}
         placeholder={props.placeholder}
         error={props.error}
         userId={props.userId}
@@ -138,6 +145,7 @@ export function RoomThread(props: {
         userImage={props.userImage}
         onError={props.onError}
         onNeedsModel={props.onNeedsModel}
+        onNeedsHostedPlan={props.onNeedsHostedPlan}
         stopHolder={stopHolder}
       />
       {active && props.error ? (
@@ -154,6 +162,7 @@ const RoomThreadRuntime = memo(function RoomThreadRuntime(props: {
   members: RoomMentionSeat[];
   targetBotId?: string;
   needsModel: boolean;
+  needsHostedPlan?: boolean;
   placeholder: string;
   error: string;
   userId?: string;
@@ -161,14 +170,19 @@ const RoomThreadRuntime = memo(function RoomThreadRuntime(props: {
   userImage?: string;
   onError: (error: string) => void;
   onNeedsModel: () => void;
+  onNeedsHostedPlan?: () => void;
   stopHolder: MutableRefObject<(() => void) | null>;
 }) {
   const onErrorRef = useRef(props.onError);
   onErrorRef.current = props.onError;
   const onNeedsModelRef = useRef(props.onNeedsModel);
   onNeedsModelRef.current = props.onNeedsModel;
+  const onNeedsHostedPlanRef = useRef(props.onNeedsHostedPlan);
+  onNeedsHostedPlanRef.current = props.onNeedsHostedPlan;
   const needsModelRef = useRef(props.needsModel);
   needsModelRef.current = props.needsModel;
+  const needsHostedPlanRef = useRef(Boolean(props.needsHostedPlan));
+  needsHostedPlanRef.current = Boolean(props.needsHostedPlan);
   const roomIdRef = useRef(props.roomId);
   roomIdRef.current = props.roomId;
   const sender = officeUserFromActor({
@@ -206,6 +220,10 @@ const RoomThreadRuntime = memo(function RoomThreadRuntime(props: {
 
   const send = useCallback(
     async (message: Parameters<typeof onNew>[0]) => {
+      if (needsHostedPlanRef.current) {
+        onNeedsHostedPlanRef.current?.();
+        return Promise.reject(new Error("Hosted plan required"));
+      }
       if (needsModelRef.current) {
         onNeedsModelRef.current();
         onErrorRef.current(

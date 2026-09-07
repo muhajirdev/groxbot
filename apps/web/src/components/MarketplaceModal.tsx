@@ -65,11 +65,11 @@ export function MarketplaceModal(props: {
     <ModalShell
       open={props.open}
       wide
-      className="market-modal h-[min(86vh,760px)] w-[min(920px,calc(100%-32px))] rounded-[20px]"
+      className="market-modal h-[min(86vh,760px)] w-[min(920px,calc(100%-32px))] rounded-[20px] bg-card"
       onClose={props.onClose}
     >
-      <div className="flex items-center gap-3 px-4 pt-3.5 pb-2">
-        <h2 className="m-0 min-w-0 flex-1 text-[17px] font-semibold tracking-tight">
+      <div className="flex items-center gap-3 px-4 pt-3 pb-1.5">
+        <h2 className="m-0 min-w-0 flex-1 text-[16px] font-semibold tracking-tight">
           Marketplace
         </h2>
         <div
@@ -269,11 +269,11 @@ function BotsMarketplacePane(props: {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex shrink-0 flex-col gap-2.5 px-[18px] pt-2 pb-1">
+      <div className="flex shrink-0 flex-col gap-2.5 px-[18px] pt-1 pb-0">
         {showFeaturedRow ? (
           <div>
-            <p className="group-label mb-2">Featured</p>
-            <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-4">
+            <p className="market-section-label mb-1.5">Featured</p>
+            <div className="grid grid-cols-2 gap-1.5 min-[640px]:grid-cols-4">
               {featured.map((item) => {
                 const face = marketplaceAvatar(item.id);
                 return (
@@ -283,15 +283,13 @@ function BotsMarketplacePane(props: {
                     className="market-feature-card"
                     onClick={() => hireTemplate(item)}
                   >
-                    <span className="relative mx-auto mb-1.5 grid size-12 place-items-center">
-                      <AvatarMark
-                        name={item.name}
-                        color={face.color}
-                        shape={face.shape}
-                        size="lg"
-                      />
-                    </span>
-                    <span className="block truncate text-[13px] font-semibold">
+                    <AvatarMark
+                      name={item.name}
+                      color={face.color}
+                      shape={face.shape}
+                      size="md"
+                    />
+                    <span className="mt-2 line-clamp-2 text-[12px] leading-snug font-medium">
                       {item.name}
                     </span>
                   </button>
@@ -300,7 +298,7 @@ function BotsMarketplacePane(props: {
             </div>
           </div>
         ) : null}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <label className="market-search min-w-0 flex-1">
             <SearchIcon />
             <input
@@ -398,7 +396,7 @@ function BotsMarketplacePane(props: {
           ) : null}
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto px-[18px] pb-4">
+      <div className="min-h-0 flex-1 overflow-auto px-[18px] pt-3 pb-4">
         {sections.length === 0 ? (
           <p className="muted py-10 text-center">
             {query.trim()
@@ -409,11 +407,11 @@ function BotsMarketplacePane(props: {
           sections.map((section) => {
             if (section.key === "featured" && showFeaturedRow) return null;
             return (
-              <section key={section.key} className="mb-5">
-                <div className="mb-2.5 flex items-center justify-between gap-2">
-                  <p className="group-label m-0">
+              <section key={section.key} className="market-section">
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <p className="market-section-label mb-0">
                     {section.key === "featured"
-                      ? "From Groxbot Team"
+                      ? "Team"
                       : section.title}
                   </p>
                   {section.hasMore ? (
@@ -426,29 +424,25 @@ function BotsMarketplacePane(props: {
                     </button>
                   ) : null}
                 </div>
-                <div className="grid grid-cols-1 gap-1 min-[560px]:grid-cols-2">
+                <div className="grid grid-cols-1 gap-0.5 min-[560px]:grid-cols-2">
                   {section.items.map((item) => {
                     const face = marketplaceAvatar(item.id);
                     return (
                       <button
                         key={item.id}
                         type="button"
-                        className="flex w-full items-center gap-3 rounded-[12px] border-0 bg-transparent px-1 py-2 text-left text-inherit hover:bg-hover"
+                        className="flex w-full items-center gap-2.5 rounded-[12px] border-0 bg-transparent px-1 py-2 text-left text-inherit hover:bg-hover"
                         onClick={() => hireTemplate(item)}
                       >
                         <AvatarMark
                           name={item.name}
                           color={face.color}
                           shape={face.shape}
-                          size="md"
+                          size="sm"
                         />
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[14px] font-medium">
+                          <span className="block truncate text-[13px] font-medium">
                             {item.name}
-                            <span className="font-normal text-muted">
-                              {" "}
-                              by Groxbot Team
-                            </span>
                           </span>
                           <span className="block truncate text-[12px] text-muted">
                             {item.blurb}
@@ -556,7 +550,7 @@ function SkillsMarketplacePane(props: {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex shrink-0 flex-col gap-2.5 px-[18px] pt-2 pb-1">
+      <div className="flex shrink-0 flex-col gap-2.5 px-[18px] pt-2 pb-0">
         <div className="flex items-center gap-2">
           <label className="market-search min-w-0 flex-1">
             <SearchIcon />
@@ -668,7 +662,7 @@ function SkillsMarketplacePane(props: {
           {error || notice}
         </p>
       ) : null}
-      <div className="min-h-0 flex-1 overflow-auto px-[18px] pb-4">
+      <div className="min-h-0 flex-1 overflow-auto px-[18px] pt-3 pb-4">
         {sections.length === 0 ? (
           <p className="muted py-10 text-center">
             {query.trim()
@@ -677,9 +671,9 @@ function SkillsMarketplacePane(props: {
           </p>
         ) : (
           sections.map((section) => (
-            <section key={section.key} className="mb-5">
-              <div className="mb-2.5 flex items-center justify-between gap-2">
-                <p className="group-label m-0">{section.title}</p>
+            <section key={section.key} className="market-section">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="market-section-label">{section.title}</p>
                 {section.hasMore ? (
                   <button
                     type="button"
@@ -690,7 +684,7 @@ function SkillsMarketplacePane(props: {
                   </button>
                 ) : null}
               </div>
-              <div className="grid grid-cols-1 gap-2 min-[560px]:grid-cols-2">
+              <div className="grid grid-cols-1 gap-1.5 min-[560px]:grid-cols-2">
                 {section.items.map((item) => {
                   const added = installedIds.has(item.id);
                   const busy = busyId === item.id;

@@ -34,7 +34,7 @@ export function isMarketplaceTab(value: string): value is MarketplaceTab {
 }
 
 export function marketplaceSearchPlaceholder(tab: MarketplaceTab): string {
-  if (tab === "bots") return "Search by creator or Bot name";
+  if (tab === "bots") return "Search bots";
   if (tab === "skills") return "Search skills";
   return "Search plugins";
 }

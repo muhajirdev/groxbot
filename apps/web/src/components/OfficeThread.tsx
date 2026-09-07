@@ -59,6 +59,7 @@ export const KeptOfficeThread = memo(function KeptOfficeThread(props: {
   botName: string;
   archived: boolean;
   needsModel: boolean;
+  needsHostedPlan?: boolean;
   placeholder: string;
   error: string;
   userId?: string;
@@ -67,6 +68,7 @@ export const KeptOfficeThread = memo(function KeptOfficeThread(props: {
   opening?: boolean;
   active?: boolean;
   onNeedsModel: () => void;
+  onNeedsHostedPlan?: () => void;
   onUnarchive: (botId: string) => void;
   stopRef: MutableRefObject<(() => void) | null>;
 }) {
@@ -84,6 +86,7 @@ export const KeptOfficeThread = memo(function KeptOfficeThread(props: {
       botName={props.botName}
       archived={props.archived}
       needsModel={props.needsModel}
+      needsHostedPlan={props.needsHostedPlan}
       placeholder={props.placeholder}
       error={props.error}
       userId={props.userId}
@@ -93,6 +96,7 @@ export const KeptOfficeThread = memo(function KeptOfficeThread(props: {
       active={props.active}
       onError={onError}
       onNeedsModel={props.onNeedsModel}
+      onNeedsHostedPlan={props.onNeedsHostedPlan}
       onUnarchive={onUnarchive}
       stopRef={props.stopRef}
     />
@@ -105,6 +109,7 @@ export function OfficeThread(props: {
   botName: string;
   archived: boolean;
   needsModel: boolean;
+  needsHostedPlan?: boolean;
   placeholder: string;
   error: string;
   userId?: string;
@@ -119,6 +124,7 @@ export function OfficeThread(props: {
   active?: boolean;
   onError: (error: string) => void;
   onNeedsModel: () => void;
+  onNeedsHostedPlan?: () => void;
   onUnarchive: () => void;
   stopRef: MutableRefObject<(() => void) | null>;
 }) {
@@ -158,6 +164,7 @@ export function OfficeThread(props: {
         botName={props.botName}
         archived={props.archived}
         needsModel={props.needsModel}
+        needsHostedPlan={props.needsHostedPlan}
         placeholder={props.placeholder}
         error={props.error}
         userId={props.userId}
@@ -166,6 +173,7 @@ export function OfficeThread(props: {
         opening={props.opening}
         onError={props.onError}
         onNeedsModel={props.onNeedsModel}
+        onNeedsHostedPlan={props.onNeedsHostedPlan}
         stopHolder={stopHolder}
       />
       {active && (props.error || props.archived) ? (
@@ -195,6 +203,7 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
   botName: string;
   archived: boolean;
   needsModel: boolean;
+  needsHostedPlan?: boolean;
   placeholder: string;
   error: string;
   userId?: string;
@@ -203,16 +212,21 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
   opening?: boolean;
   onError: (error: string) => void;
   onNeedsModel: () => void;
+  onNeedsHostedPlan?: () => void;
   stopHolder: MutableRefObject<(() => void) | null>;
 }) {
   const onErrorRef = useRef(props.onError);
   onErrorRef.current = props.onError;
   const onNeedsModelRef = useRef(props.onNeedsModel);
   onNeedsModelRef.current = props.onNeedsModel;
+  const onNeedsHostedPlanRef = useRef(props.onNeedsHostedPlan);
+  onNeedsHostedPlanRef.current = props.onNeedsHostedPlan;
   const archivedRef = useRef(props.archived);
   archivedRef.current = props.archived;
   const needsModelRef = useRef(props.needsModel);
   needsModelRef.current = props.needsModel;
+  const needsHostedPlanRef = useRef(Boolean(props.needsHostedPlan));
+  needsHostedPlanRef.current = Boolean(props.needsHostedPlan);
   const botIdRef = useRef(props.botId);
   botIdRef.current = props.botId;
   const sender = officeUserFromActor({
@@ -262,6 +276,10 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
     async (message: Parameters<typeof onNew>[0]) => {
       if (archivedRef.current) {
         return Promise.reject(new Error("Archived"));
+      }
+      if (needsHostedPlanRef.current) {
+        onNeedsHostedPlanRef.current?.();
+        return Promise.reject(new Error("Hosted plan required"));
       }
       if (needsModelRef.current) {
         onNeedsModelRef.current();

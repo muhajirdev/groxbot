@@ -3,11 +3,37 @@ import * as z from "zod";
 /** Workspace plan slug mirrored from Polar / workspace_billing.plan */
 export const WORKSPACE_PLAN_NONE = "none" as const;
 export const WORKSPACE_PLAN_PRO = "pro" as const;
+export const WORKSPACE_PLAN_PLUS = "plus" as const;
 export const WORKSPACE_PLAN_BELIEVERS = "believers" as const;
+
+/** Polar Pro checkout trial. Pro Plus and Believers have none. */
+export const PRO_TRIAL_INTERVAL = "day" as const;
+export const PRO_TRIAL_INTERVAL_COUNT = 3 as const;
+
+export const BILLING_INTERVAL_MONTH = "month" as const;
+export const BILLING_INTERVAL_YEAR = "year" as const;
+
+export const BillingInterval = z.enum([
+  BILLING_INTERVAL_MONTH,
+  BILLING_INTERVAL_YEAR,
+]);
+export type BillingInterval = z.infer<typeof BillingInterval>;
+
+/** List prices. Annual is 10 months (2 months free). */
+export const WORKSPACE_PLAN_PRICE_USD = {
+  [WORKSPACE_PLAN_PRO]: { month: 29, year: 290 },
+  [WORKSPACE_PLAN_PLUS]: { month: 49, year: 490 },
+  [WORKSPACE_PLAN_BELIEVERS]: { month: 99, year: 990 },
+} as const;
+
+/** Polar-hosted groxbot.com: office turns need a paid plan, including BYOK. */
+export const WORKSPACE_PLAN_REQUIRED_MESSAGE =
+  "Subscribe to Pro to use this workspace.";
 
 export const WorkspacePlan = z.enum([
   WORKSPACE_PLAN_NONE,
   WORKSPACE_PLAN_PRO,
+  WORKSPACE_PLAN_PLUS,
   WORKSPACE_PLAN_BELIEVERS,
 ]);
 export type WorkspacePlan = z.infer<typeof WorkspacePlan>;
@@ -58,6 +84,7 @@ export type BillingStatus = z.infer<typeof BillingStatusSchema>;
 
 export const BillingCheckoutInputSchema = z.object({
   plan: WorkspacePlan.exclude(["none"]),
+  interval: BillingInterval.default(BILLING_INTERVAL_MONTH),
 });
 export type BillingCheckoutInput = z.infer<typeof BillingCheckoutInputSchema>;
 

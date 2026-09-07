@@ -30,13 +30,14 @@ describe("office color", () => {
     memory.clear();
   });
 
-  it("defaults to dusk", () => {
+  it("defaults to linear", () => {
     expect(readOfficeColor()).toBe(DEFAULT_OFFICE_COLOR);
+    expect(DEFAULT_OFFICE_COLOR).toBe("linear");
   });
 
   it("ignores unknown values", () => {
     localStorage.setItem(OFFICE_COLOR_KEY, "neon");
-    expect(readOfficeColor()).toBe("dusk");
+    expect(readOfficeColor()).toBe("linear");
   });
 
   it("maps a legacy light hue to paper", () => {
@@ -44,22 +45,28 @@ describe("office color", () => {
     expect(readOfficeColor()).toBe("paper");
   });
 
-  it("uses paper when only the old light theme is set", () => {
+  it("maps a retired look onto a current one", () => {
+    localStorage.setItem(OFFICE_COLOR_KEY, "dusk");
+    expect(readOfficeColor()).toBe("linear");
+  });
+
+  it("uses snow when only the old light theme is set", () => {
     localStorage.setItem("groxbot.theme", "light");
-    expect(readOfficeColor()).toBe("paper");
+    expect(readOfficeColor()).toBe("snow");
   });
 
   it("remembers a color", () => {
-    applyOfficeColor("blush");
-    expect(localStorage.getItem(OFFICE_COLOR_KEY)).toBe("blush");
+    applyOfficeColor("snow");
+    expect(localStorage.getItem(OFFICE_COLOR_KEY)).toBe("snow");
     expect(localStorage.getItem("groxbot.theme")).toBe("light");
-    expect(readOfficeColor()).toBe("blush");
+    expect(readOfficeColor()).toBe("snow");
   });
 
-  it("is four distinct looks", () => {
+  it("lists office looks", () => {
     expect(OFFICE_COLORS.map((color) => color.id)).toEqual([
+      "linear",
       "night",
-      "dusk",
+      "snow",
       "paper",
       "blush",
     ]);

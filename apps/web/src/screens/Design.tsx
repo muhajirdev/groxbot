@@ -851,7 +851,7 @@ function BotRow(props: {
   return (
     <div
       className={cn(
-        "grid min-w-0 grid-cols-[28px_minmax(0,1fr)] items-center gap-2 rounded-[10px] px-1.5 py-1.5",
+        "grid min-w-0 grid-cols-[44px_minmax(0,1fr)] items-center gap-2.5 rounded-[12px] px-2 py-2.5",
         props.selected && "bg-selected",
       )}
     >
@@ -861,13 +861,13 @@ function BotRow(props: {
           color={props.color}
           shape="circle"
           mood={props.mood}
-          size="sm"
+          size="md"
         />
         <PresenceDot on={props.mood === "working"} selected={props.selected} />
       </span>
       <span className="min-w-0">
         <span className="flex items-center justify-between gap-2">
-          <span className="truncate text-[13px] font-semibold">{props.name}</span>
+          <span className="truncate text-[14px] font-semibold">{props.name}</span>
           <span className="shrink-0 text-[11px] text-muted">{props.time}</span>
         </span>
         <div className="mt-0.5 overflow-hidden text-xs text-ellipsis whitespace-nowrap text-muted">

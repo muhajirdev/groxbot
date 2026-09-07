@@ -172,6 +172,9 @@ describe("oRPC", () => {
     ).rejects.toMatchObject({
       code: "UNAUTHORIZED",
     });
+    await expect(client.workspaces.delete()).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
   });
 
   it("requires a session to list apps", async () => {

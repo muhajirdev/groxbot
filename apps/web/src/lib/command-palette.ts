@@ -1,9 +1,6 @@
 import type { Bot, WorkspaceApp } from "@groxbot/contracts";
 import { APP_KIND_LABEL } from "./app-kind";
-import {
-  FILE_PREFETCH_ALL_MAX,
-  isCacheableTextPreview,
-} from "./file-cache";
+import { FILE_PREFETCH_ALL_MAX, isCacheableTextPreview } from "./file-cache";
 
 export type PaletteBot = Pick<
   Bot,
@@ -37,7 +34,15 @@ export const PALETTE_ACTIONS = [
     id: "hire",
     label: "New bot",
     shortcut: "Mod+N",
-    keywords: ["new", "hire", "create", "bot", "teammate", "marketplace", "role"],
+    keywords: [
+      "new",
+      "hire",
+      "create",
+      "bot",
+      "teammate",
+      "marketplace",
+      "role",
+    ],
   },
   {
     id: "room",
@@ -73,7 +78,7 @@ export const PALETTE_ACTIONS = [
     id: "plugins",
     label: "Marketplace",
     shortcut: "",
-    keywords: ["plugins", "integrations", "connect", "marketplace", "bots", "skills"],
+    keywords: ["plugins", "integrations", "connect", "marketplace", "bots"],
   },
   {
     id: "knowledge",
@@ -91,13 +96,26 @@ export const PALETTE_ACTIONS = [
     id: "skills-store",
     label: "Skills marketplace",
     shortcut: "",
-    keywords: ["skills", "store", "marketplace", "playbook", "install", "import"],
+    keywords: [
+      "skills",
+      "store",
+      "marketplace",
+      "playbook",
+      "install",
+      "import",
+    ],
   },
   {
     id: "workspace",
     label: "Workspace",
     shortcut: "Mod+,",
     keywords: ["workspace", "account", "theme", "models", "you"],
+  },
+  {
+    id: "support",
+    label: "Chat with support",
+    shortcut: "",
+    keywords: ["support", "help", "chat", "contact", "bento"],
   },
 ] as const;
 

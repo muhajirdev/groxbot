@@ -17,6 +17,7 @@ import {
 import { TooltipIconButton } from "@/components/assistant-ui/elements/tooltip-icon-button";
 import { ThinkingStatus } from "@/components/assistant-ui/elements/spiral-loader";
 import { PersonAvatar } from "@/components/PersonAvatar";
+import { AvatarMark } from "@/components/Avatar";
 import { OfficeSkillSlash } from "@/components/OfficeSkillSlash";
 import { RoomMentionMenu } from "@/components/RoomMentionMenu";
 import type { RoomMentionSeat } from "@/lib/room-mention";
@@ -448,7 +449,12 @@ const AssistantMessage: FC = () => {
             data-slot="aui_message-sender"
             className="flex items-center gap-1.5"
           >
-            <PersonAvatar name={speakerName} size="xs" />
+            <AvatarMark
+              name={speakerName}
+              color="#5b7cff"
+              shape="circle"
+              size="xs"
+            />
             <span className="text-[12px] font-medium text-ink/80">
               {speakerName}
             </span>

@@ -100,6 +100,12 @@ export const appContract = oc.router({
     list: oc.output(z.array(WorkspaceSchema)),
     activate: oc.input(ActivateWorkspaceInput).output(WorkspaceSchema),
     update: oc.input(UpdateWorkspaceInput).output(WorkspaceSchema),
+    delete: oc.output(
+      z.object({
+        ok: z.literal(true),
+        next: WorkspaceSchema.nullable(),
+      }),
+    ),
     join: oc.input(JoinWorkspaceInput).output(WorkspaceSchema),
     invite: oc.input(InviteWorkspaceInput).output(WorkspaceInviteSchema),
     inviteLink: oc.output(WorkspaceInviteLinkSchema),

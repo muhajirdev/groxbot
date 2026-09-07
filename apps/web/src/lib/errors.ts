@@ -47,6 +47,10 @@ export function isModelSetupError(message: string): boolean {
   return /add a model key|needs a .+ key/i.test(message);
 }
 
+export function isHostedPlanError(message: string): boolean {
+  return /subscribe to pro/i.test(message);
+}
+
 /** Footer banner under the composer: live run/socket errors, never a stale copy. */
 export function composerBannerError(input: {
   inFlight: boolean;
@@ -56,6 +60,12 @@ export function composerBannerError(input: {
   needsModel?: boolean;
 }): string {
   if (input.inFlight) return "";
+  if (
+    isHostedPlanError(input.agentError) ||
+    isHostedPlanError(input.persisted)
+  ) {
+    return "";
+  }
   if (input.agentError) return humanizeRunError(input.agentError);
   if (input.connectionError) return humanizeRunError(input.connectionError);
   if (isModelSetupError(input.persisted) && input.needsModel !== false) {

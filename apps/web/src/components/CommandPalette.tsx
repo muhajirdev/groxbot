@@ -1,22 +1,23 @@
-import type { Bot, Room, WorkspaceApp } from "@groxbot/contracts";
 import { Dialog } from "@base-ui/react/dialog";
+import type { Bot, Room, WorkspaceApp } from "@groxbot/contracts";
 import { formatForDisplay } from "@tanstack/react-hotkeys";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { APP_KIND_COLOR, APP_KIND_LABEL } from "../lib/app-kind";
 import {
-  paletteFilePrefetchPaths,
-  paletteSearchKey,
-  rankPaletteItems,
   type PaletteActionId,
   type PaletteFile,
   type PaletteItem,
   type PaletteRoom,
+  paletteFilePrefetchPaths,
+  paletteSearchKey,
+  rankPaletteItems,
 } from "../lib/command-palette";
 import { prefetchKnowledgeFiles } from "../lib/file-cache";
 import { cn } from "../ui";
 import { AvatarMark } from "./Avatar";
 import {
+  ChatIcon,
   FileIcon,
   GearIcon,
   KnowledgeIcon,
@@ -49,6 +50,7 @@ function ActionGlyph(props: { id: PaletteActionId }) {
   if (props.id === "plugins") return <PlugIcon className={className} />;
   if (props.id === "knowledge") return <KnowledgeIcon className={className} />;
   if (props.id === "skills") return <SkillsIcon className={className} />;
+  if (props.id === "support") return <ChatIcon className={className} />;
   return <GearIcon className={className} />;
 }
 
@@ -306,9 +308,7 @@ export function CommandPalette(props: {
   );
 }
 
-export function SearchTrigger(props: {
-  onOpen: () => void;
-}) {
+export function SearchTrigger(props: { onOpen: () => void }) {
   return (
     <button
       type="button"

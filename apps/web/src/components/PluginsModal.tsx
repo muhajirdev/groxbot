@@ -467,7 +467,7 @@ export function PluginsModal(props: {
         </div>
       )}
       {tab === "browse" ? (
-        <div className="flex shrink-0 flex-col gap-2.5 px-[18px] pt-2 pb-1">
+        <div className="flex shrink-0 flex-col gap-2.5 px-[18px] pt-2 pb-0">
           <button
             type="button"
             className="market-installed-bar"
@@ -501,14 +501,14 @@ export function PluginsModal(props: {
                   ))
                 )}
               </span>
-              <span className="truncate text-[13px] text-muted">
+              <span className="market-installed-label truncate">
                 {marketplaceInstalledSummary({
                   installed: installedToolkitCount,
                   privateCount,
                 })}
               </span>
             </span>
-            <ChevronRightIcon className="size-4 shrink-0 text-muted" />
+            <ChevronRightIcon className="size-3.5 shrink-0 text-muted opacity-70" />
           </button>
           <label className="market-search">
             <SearchIcon />
@@ -617,9 +617,9 @@ export function PluginsModal(props: {
             No plugins match “{q}”.
           </p>
         ) : tab === "browse" ? (
-          <div className="h-full overflow-auto px-[18px] pb-4">
+          <div className="h-full overflow-auto px-[18px] pt-3 pb-4">
             {mcpSearchCard ? (
-              <div className="pt-2 pb-3">
+              <div className="pb-3">
                 <CustomMcpSearchCard
                   onAdd={() => {
                     setQuery("");
@@ -639,9 +639,9 @@ export function PluginsModal(props: {
               <p className="muted py-10 text-center">Nothing in this category.</p>
             ) : (
               browseSections.map((section) => (
-                <section key={section.key} className="mb-5">
-                  <div className="mb-2.5 flex items-center justify-between gap-2">
-                    <p className="group-label m-0">{section.title}</p>
+                <section key={section.key} className="market-section">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="market-section-label">{section.title}</p>
                     {section.hasMore ? (
                       <button
                         type="button"
@@ -652,7 +652,7 @@ export function PluginsModal(props: {
                       </button>
                     ) : null}
                   </div>
-                  <div className="grid grid-cols-1 gap-2 min-[560px]:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-1.5 min-[560px]:grid-cols-2">
                     {section.items.map((item) => (
                       <PluginToolkitCard
                         key={item.id}

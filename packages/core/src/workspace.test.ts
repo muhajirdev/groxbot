@@ -9,6 +9,7 @@ import {
   getOpenInvitation,
   invitationIdFromInput,
   invitationUrl,
+  isOwnerRole,
   officeRoomUrl,
   renameWorkspace,
   slugForWorkspace,
@@ -92,6 +93,16 @@ describe("officeRoomUrl", () => {
     expect(
       officeRoomUrl("https://app.groxbot.com/", "acme-user12ab", "room_1"),
     ).toBe("https://app.groxbot.com/acme-user12ab/room/room_1");
+  });
+});
+
+describe("isOwnerRole", () => {
+  it("only treats owner as the office owner", () => {
+    expect(isOwnerRole("owner")).toBe(true);
+    expect(isOwnerRole(" Owner ")).toBe(true);
+    expect(isOwnerRole("admin")).toBe(false);
+    expect(isOwnerRole("member")).toBe(false);
+    expect(isOwnerRole(null)).toBe(false);
   });
 });
 

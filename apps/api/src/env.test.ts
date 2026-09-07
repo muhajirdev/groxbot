@@ -50,6 +50,18 @@ describe("productEnv", () => {
     expect(env.hostedAiBinding).toBe(true);
     expect(env.databaseUrl).toBe(base.DATABASE_URL);
   });
+
+  it("turns hosted billing on from Polar Worker secrets", () => {
+    const env = productEnv({
+      ...base,
+      POLAR_ACCESS_TOKEN: " polar_oat_test ",
+      POLAR_WEBHOOK_SECRET: " whsec_test ",
+      POLAR_ENVIRONMENT: "production",
+    });
+    expect(env.polarAccessToken).toBe("polar_oat_test");
+    expect(env.polarWebhookSecret).toBe("whsec_test");
+    expect(env.polarEnvironment).toBe("production");
+  });
 });
 
 describe("loadEnv", () => {
@@ -81,6 +93,15 @@ describe("loadEnv", () => {
 
   it("trusts the Expo app scheme so magic links can return to a device", () => {
     expect(loadEnv(base).corsOrigins).toContain("groxbot://");
+  });
+
+  it("keeps Polar off until an access token is set", () => {
+    expect(loadEnv(base).polarAccessToken).toBeUndefined();
+    expect(loadEnv(base).polarEnvironment).toBe("sandbox");
+    expect(
+      loadEnv({ ...base, POLAR_ACCESS_TOKEN: "polar_oat_test" })
+        .polarAccessToken,
+    ).toBe("polar_oat_test");
   });
 
   it("pairs the landing host with the office origin", () => {

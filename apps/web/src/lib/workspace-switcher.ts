@@ -224,12 +224,31 @@ export function resolveWorkspace(opts: {
   };
 }
 
+export function forgetLastRoom(workspaceId: string): void {
+  const id = workspaceId.trim();
+  if (!id) return;
+  const storage = workspaceStorage();
+  if (!storage) return;
+  const map = parseLastRooms(storage.getItem(LAST_ROOMS_KEY));
+  if (!(id in map)) return;
+  delete map[id];
+  storage.setItem(LAST_ROOMS_KEY, JSON.stringify(map));
+}
+
 export function canSaveWorkspaceName(
   current: string | null | undefined,
   draft: string,
 ): boolean {
   const next = draft.trim();
   return next.length > 0 && next !== (current ?? "").trim();
+}
+
+export function canDeleteWorkspace(
+  members: { mine: boolean; role: string }[],
+): boolean {
+  return members.some(
+    (row) => row.mine && row.role.trim().toLowerCase() === "owner",
+  );
 }
 
 export function workspaceMenuItems(opts: {

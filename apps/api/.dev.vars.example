@@ -26,3 +26,7 @@ CORS_ORIGINS=http://127.0.0.1:5173,http://127.0.0.1:5174
 # TINYFISH_API_KEY=
 # GOOGLE_CLIENT_ID=
 # GOOGLE_CLIENT_SECRET=
+# Polar (hosted groxbot.com only — leave unset for self-host)
+# POLAR_ACCESS_TOKEN=
+# POLAR_WEBHOOK_SECRET=
+# POLAR_ENVIRONMENT=production

@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   neighborBotId,
-  paletteFilePrefetchPaths,
-  paletteSearchKey,
   PALETTE_FILE_LIMIT,
-  rankPaletteItems,
-  ROSTER_NEXT_HOTKEY,
-  ROSTER_PREV_HOTKEY,
   type PaletteApp,
   type PaletteBot,
   type PaletteFile,
   type PaletteRoom,
+  paletteFilePrefetchPaths,
+  paletteSearchKey,
+  ROSTER_NEXT_HOTKEY,
+  ROSTER_PREV_HOTKEY,
+  rankPaletteItems,
 } from "./command-palette";
 
 const piper: PaletteBot = {
@@ -70,6 +70,7 @@ describe("rankPaletteItems", () => {
       "action:skills",
       "action:skills-store",
       "action:workspace",
+      "action:support",
     ]);
   });
 
@@ -79,14 +80,9 @@ describe("rankPaletteItems", () => {
         (row) => row.kind === "action" && row.action.id === "delete-room",
       ),
     ).toBe(false);
-    const rows = rankPaletteItems(
-      "delete",
-      [piper],
-      [],
-      [standup],
-      [],
-      { roomName: "Standup" },
-    );
+    const rows = rankPaletteItems("delete", [piper], [], [standup], [], {
+      roomName: "Standup",
+    });
     expect(rows[0]).toMatchObject({
       kind: "action",
       key: "action:delete-room",
@@ -121,6 +117,11 @@ describe("rankPaletteItems", () => {
   it("matches commands by keyword", () => {
     const rows = rankPaletteItems("hire", [piper], []);
     expect(rows[0]).toMatchObject({ kind: "action", key: "action:hire" });
+    expect(
+      rankPaletteItems("help", [piper], []).some(
+        (row) => row.kind === "action" && row.action.id === "support",
+      ),
+    ).toBe(true);
   });
 
   it("matches rooms by name or member", () => {
@@ -168,7 +169,13 @@ describe("rankPaletteItems", () => {
   });
 
   it("scopes to files when the query starts with #", () => {
-    const rows = rankPaletteItems("#voice", [piper], [brief], [standup], [voice]);
+    const rows = rankPaletteItems(
+      "#voice",
+      [piper],
+      [brief],
+      [standup],
+      [voice],
+    );
     expect(rows.map((row) => row.key)).toEqual(["file:how-we-work/voice.md"]);
   });
 

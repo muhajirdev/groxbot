@@ -213,12 +213,16 @@ export function patchMeWorkspace(workspace: {
     orpc.me.key(),
     (prev: Me | undefined): Me | undefined => {
       if (!prev) return prev;
+      const sameOffice = prev.workspaceId === workspace.id;
       return {
         ...prev,
         workspaceId: workspace.id,
         workspaceName: workspace.name,
         workspaceSlug: workspace.slug,
         needsWorkspace: false,
+        // Polar customers are per workspace. Do not inherit "trial ended"
+        // from a previous office or from the no-workspace `me` payload.
+        trialAvailable: sameOffice ? prev.trialAvailable : true,
       };
     },
   );

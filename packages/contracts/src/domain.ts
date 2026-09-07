@@ -626,6 +626,10 @@ export const MeSchema = z.object({
   needsWorkspace: z.boolean(),
   isDeploymentOwner: z.boolean(),
   needsModel: z.boolean(),
+  /** Polar is on and this workspace has no paid/trial plan. */
+  needsHostedPlan: z.boolean(),
+  /** Pro checkout can still start Polar’s 3-day trial. */
+  trialAvailable: z.boolean(),
   defaultModel: z.string(),
   defaultModelLabel: z.string(),
   modelWarning: z.string().nullable(),

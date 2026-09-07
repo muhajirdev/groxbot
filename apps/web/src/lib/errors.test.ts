@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { composerBannerError, humanizeRunError } from "./errors";
+import {
+  composerBannerError,
+  humanizeRunError,
+  isHostedPlanError,
+} from "./errors";
 
 describe("composerBannerError", () => {
   it("clears a run error once the next turn is in flight", () => {
@@ -42,6 +46,27 @@ describe("composerBannerError", () => {
         connectionError: "",
         persisted: message,
         needsModel: false,
+      }),
+    ).toBe("");
+  });
+
+  it("hides hosted-plan errors so the subscribe popup can own them", () => {
+    const message = "Subscribe to Pro to use this workspace.";
+    expect(isHostedPlanError(message)).toBe(true);
+    expect(
+      composerBannerError({
+        inFlight: false,
+        agentError: message,
+        connectionError: "",
+        persisted: "",
+      }),
+    ).toBe("");
+    expect(
+      composerBannerError({
+        inFlight: false,
+        agentError: "",
+        connectionError: "",
+        persisted: message,
       }),
     ).toBe("");
   });

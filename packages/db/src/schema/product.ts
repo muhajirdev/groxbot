@@ -364,11 +364,13 @@ export const modelPricing = pgTable("model_pricing", {
  * groxbot.com operators seed rows in Postgres (not committed to the public repo).
  */
 export const billingPlans = pgTable("billing_plans", {
-  /** pro | believers — matches workspace_billing.plan */
+  /** pro | plus (Pro Plus) | believers — matches workspace_billing.plan */
   plan: text("plan").primaryKey(),
   label: text("label").notNull(),
-  /** Polar subscription product id for checkout. */
+  /** Polar monthly subscription product id for checkout. */
   polarProductId: text("polar_product_id"),
+  /** Polar yearly subscription product id for checkout. */
+  polarYearlyProductId: text("polar_yearly_product_id"),
   /** Higher rank wins when a customer has multiple active subscriptions. */
   rank: integer("rank").notNull().default(0),
   /** Included hosted model spend per UTC month, in cents. */
@@ -387,7 +389,7 @@ export const workspaceBilling = pgTable(
     workspaceId: text("workspace_id")
       .primaryKey()
       .references(() => organization.id, { onDelete: "cascade" }),
-    /** none | pro | believers */
+    /** none | pro | plus (Pro Plus) | believers */
     plan: text("plan").notNull().default("none"),
     /** none | trialing | active | past_due | canceled | revoked */
     status: text("status").notNull().default("none"),

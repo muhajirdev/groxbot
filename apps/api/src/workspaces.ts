@@ -1,5 +1,6 @@
 import { ORGANIZATION_CLIENT_ID_KEY } from "@groxbot/auth";
 import {
+  AdminDeleteError,
   invitationIdFromInput,
   invitationUrl,
   ensureWorkspaceBilling,
@@ -7,17 +8,19 @@ import {
   ensureOpenInvitation,
   getOpenInvitation,
   isWorkspaceMember,
+  isWorkspaceOwner,
   listPendingInvitations,
   peekInvitation,
   renameWorkspace,
   slugForWorkspace,
   workspaceAuthMessage,
 } from "@groxbot/core";
-import { member } from "@groxbot/db";
+import { member, session as authSession } from "@groxbot/db";
+import { eq } from "drizzle-orm";
 import { ORPCError } from "@orpc/server";
-import { agentRuntimeSource } from "./env.js";
 import type { RpcContext } from "./context.js";
 import { requireActor, type SessionUser } from "./session.js";
+import { deleteAdminWorkspace } from "./admin-purge.js";
 
 function toWorkspace(org: { id: string; name: string; slug?: string | null }) {
   return { id: org.id, name: org.name, slug: org.slug || org.id };
@@ -126,6 +129,58 @@ export async function updateWorkspace(context: RpcContext, name: string) {
     });
   }
   return org;
+}
+
+export async function deleteCurrentWorkspace(context: RpcContext) {
+  const actor = await requireActor(context);
+  if (!(await isWorkspaceOwner(context.db, actor.userId, actor.workspaceId))) {
+    throw new ORPCError("FORBIDDEN", {
+      message: "Only the owner can delete this workspace.",
+    });
+  }
+  const headers = context.headers ?? new Headers();
+  const listed = context.auth
+    ? ((await context.auth.api.listOrganizations({ headers })) ?? [])
+    : [];
+  const remaining = listed.filter((org) => org.id !== actor.workspaceId);
+  try {
+    await deleteAdminWorkspace(context, actor.workspaceId);
+  } catch (error) {
+    if (error instanceof AdminDeleteError) {
+      throw new ORPCError(error.code, { message: error.message });
+    }
+    throw error;
+  }
+  const nextOrg = remaining[0] ?? null;
+  const next = nextOrg
+    ? {
+        id: nextOrg.id,
+        name: nextOrg.name,
+        slug: nextOrg.slug || nextOrg.id,
+      }
+    : null;
+  try {
+    await context.db
+      .update(authSession)
+      .set({
+        activeOrganizationId: next?.id ?? null,
+        updatedAt: new Date(),
+      })
+      .where(eq(authSession.userId, actor.userId));
+  } catch {
+    // Session-only tests skip the table write.
+  }
+  if (next && context.auth) {
+    try {
+      await context.auth.api.setActiveOrganization({
+        body: { organizationId: next.id },
+        headers,
+      });
+    } catch {
+      // The session row already points at the next office.
+    }
+  }
+  return { ok: true as const, next };
 }
 
 export async function joinWorkspace(

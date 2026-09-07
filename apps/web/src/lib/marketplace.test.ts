@@ -102,7 +102,7 @@ describe("marketplaceBrowseSections", () => {
 describe("marketplaceSearchPlaceholder", () => {
   it("matches the surface", () => {
     expect(marketplaceSearchPlaceholder("plugins")).toContain("plugins");
-    expect(marketplaceSearchPlaceholder("bots")).toContain("Bot");
+    expect(marketplaceSearchPlaceholder("bots")).toContain("bots");
     expect(marketplaceSearchPlaceholder("skills")).toContain("skills");
   });
 });
