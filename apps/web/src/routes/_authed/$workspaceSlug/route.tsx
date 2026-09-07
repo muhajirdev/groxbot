@@ -1,6 +1,7 @@
 import type { Workspace } from "@groxbot/contracts";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { workspaceListQueryOptions } from "../../../lib/office-persist";
+import { orpc } from "../../../lib/orpc";
 import { setRpcWorkspaceId } from "../../../lib/rpc-workspace";
 import { adoptWorkspaceCatalog } from "../../../lib/workspace-catalog";
 import {
@@ -44,6 +45,8 @@ export const Route = createFileRoute("/_authed/$workspaceSlug")({
     }
     setRpcWorkspaceId(resolved.workspace.id);
     adoptWorkspaceCatalog(resolved.workspace.id);
+    // Boot starts `me` before this stamp. Refetch so Polar/plan is this office.
+    void context.queryClient.invalidateQueries({ queryKey: orpc.me.key() });
     return { workspace: resolved.workspace };
   },
   component: WorkspaceLayout,

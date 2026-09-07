@@ -3,6 +3,7 @@ import { createAuth } from "@groxbot/auth";
 import {
   groxbotCookieDomain,
   officeUserFromActor,
+  WORKSPACE_ID_HEADER,
   withOfficeUserRequest,
 } from "@groxbot/contracts";
 import { GuestHub, handleGuestRequest, readAvatar } from "@groxbot/core";
@@ -370,10 +371,23 @@ export function createApp(
 
 /** React Native WebSocket cannot set Cookie; the office client puts it on the query. */
 function withQueryCookie(request: Request): Request {
-  if (request.headers.get("Cookie")) return request;
-  const cookie = new URL(request.url).searchParams.get("Cookie")?.trim();
-  if (!cookie) return request;
+  const url = new URL(request.url);
   const headers = new Headers(request.headers);
-  headers.set("Cookie", cookie);
+  let changed = false;
+  if (!headers.get("Cookie")) {
+    const cookie = url.searchParams.get("Cookie")?.trim();
+    if (cookie) {
+      headers.set("Cookie", cookie);
+      changed = true;
+    }
+  }
+  if (!headers.get(WORKSPACE_ID_HEADER)) {
+    const workspaceId = url.searchParams.get(WORKSPACE_ID_HEADER)?.trim();
+    if (workspaceId) {
+      headers.set(WORKSPACE_ID_HEADER, workspaceId);
+      changed = true;
+    }
+  }
+  if (!changed) return request;
   return new Request(request, { headers });
 }

@@ -169,10 +169,18 @@ export const appRouter = os.router({
       .where(eq(userModelCredentials.workspaceId, actor.workspaceId))
       .limit(1);
     const workspace = await loadWorkspaceRef(context, user);
-    const billing = await ensureWorkspaceBilling(
+    let billing = await ensureWorkspaceBilling(
       context.db,
       actor.workspaceId,
     );
+    // Checkout can succeed before the Polar webhook lands. Settings already
+    // refreshes Polar; office `me` must too or reload still paints the gate.
+    if (context.billing.enabled() && billing.plan === "none") {
+      await context.billing.refreshCustomerState(actor.workspaceId).catch(
+        () => {},
+      );
+      billing = await ensureWorkspaceBilling(context.db, actor.workspaceId);
+    }
     return {
       userId: actor.userId,
       email: actor.email,

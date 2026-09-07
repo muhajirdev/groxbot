@@ -40,6 +40,9 @@ export function humanizeRunError(raw: string): string {
   if (/^error code:\s*\d+/i.test(text)) {
     return "Could not reach this teammate. Try sending again.";
   }
+  if (/^401 status code/i.test(text)) {
+    return "Could not reach this teammate. Reload and try again.";
+  }
   return text;
 }
 

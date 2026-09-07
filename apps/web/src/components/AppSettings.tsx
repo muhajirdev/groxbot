@@ -685,6 +685,7 @@ function formatCount(value: number): string {
 }
 
 function BillingTab() {
+  const queryClient = useQueryClient();
   const billingQuery = useQuery(orpc.billing.status.queryOptions());
   const [busy, setBusy] = useState<"checkout" | "portal" | "ondemand" | null>(
     null,
@@ -692,6 +693,19 @@ function BillingTab() {
   const [error, setError] = useState("");
 
   const billing = billingQuery.data;
+
+  useEffect(() => {
+    if (!billing) return;
+    queryClient.setQueryData(orpc.me.key(), (prev: Me | undefined) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        needsHostedPlan: Boolean(
+          billing.limitsEnforced && billing.plan === "none",
+        ),
+      };
+    });
+  }, [billing, queryClient]);
 
   if (!billing) {
     return (
