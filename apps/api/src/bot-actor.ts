@@ -876,6 +876,12 @@ export class RoomHome extends Agent<WorkerEnv> {
       if (result.stopReason === "error") {
         this.officeStatus = "error";
         this.officeError = result.errorMessage || "The model run failed.";
+        console.warn("office turn error", {
+          room: this.name,
+          workspace: this.officeId ? "yes" : "no",
+          model: this.turnModel,
+          error: this.officeError.slice(0, 180),
+        });
         await this.broadcastOfficeError();
         await this.broadcastOfficeStatus();
         return;

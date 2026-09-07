@@ -445,6 +445,10 @@ export class RoomActor extends RoomHome {
       if (result.stopReason === "error") {
         this.status = "error";
         this.error = result.errorMessage || "The model run failed.";
+        console.warn("room turn error", {
+          room: this.name,
+          error: this.error.slice(0, 180),
+        });
         await this.broadcastError();
         await this.broadcastStatus();
         return true;
