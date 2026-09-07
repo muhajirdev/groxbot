@@ -34,9 +34,16 @@ export type ModelKeySource = z.infer<typeof ModelKeySource>;
 /** One-key starter. Native Anthropic/OpenAI stay available when those keys exist. */
 export const SUGGESTED_STARTER_MODEL = "openrouter/deepseek/deepseek-v4-flash";
 
-/** Built-in Groxbot gateway (Cloudflare AI Gateway → Workers AI). */
-export const HOSTED_STARTER_MODEL =
+/** Groxbot hosted routers. The proprietary gateway owns what they run. */
+export const GROXBOT_AUTO_MODEL = "groxbot/auto" as const;
+export const GROXBOT_FREE_MODEL = "groxbot/free" as const;
+
+/** Self-host Worker AI binding starter. grox-gateway still accepts leftover `@cf/…` ids. */
+export const BINDING_STARTER_MODEL =
   "cloudflare-ai-gateway/workers-ai/@cf/zai-org/glm-5.3-flash";
+
+/** Hosted groxbot.com default. */
+export const HOSTED_STARTER_MODEL = GROXBOT_AUTO_MODEL;
 
 /** Product brain. Worker `AI` binding, else REST gateway keys. */
 export const PRODUCT_RUNTIME = CLOUDFLARE_PROVIDER;
@@ -49,7 +56,7 @@ export const DEFAULT_AI_GATEWAY_ID = "default" as const;
 export const HOSTED_AI_ENV = "GROXBOT_HOSTED_AI" as const;
 export const HOSTED_AI_FLAG = "1" as const;
 
-/** Hosted models through the proprietary grox-gateway Worker (Polar + CF AI Gateway). */
+/** Hosted models through the proprietary grox-gateway Worker (Polar-gated). */
 export const GROX_GATEWAY_URL_ENV = "GROX_GATEWAY_URL" as const;
 export const GROX_GATEWAY_SECRET_ENV = "GROX_GATEWAY_SECRET" as const;
 
@@ -60,6 +67,23 @@ export function groxHostedGateway(
   const secret = env[GROX_GATEWAY_SECRET_ENV]?.trim() ?? "";
   if (!url || !secret) return null;
   return { url, secret };
+}
+
+/** Hosted grox-gateway default is Auto; self-host Worker AI stays on the binding starter. */
+export function hostedStarterModel(
+  env: NodeJS.Dict<string> = process.env,
+): string {
+  return groxHostedGateway(env) ? HOSTED_STARTER_MODEL : BINDING_STARTER_MODEL;
+}
+
+export function isGroxbotRouterModel(model: string): boolean {
+  const trimmed = model.trim();
+  return (
+    trimmed === GROXBOT_AUTO_MODEL ||
+    trimmed === GROXBOT_FREE_MODEL ||
+    trimmed === "auto" ||
+    trimmed === "free"
+  );
 }
 
 /** Settings sentinel: user typed a model id that is not in the catalog. */
@@ -155,6 +179,16 @@ export function pickerCatalog<T extends { id: string; provider: ModelProvider }>
 }
 
 export const MODEL_CATALOG = [
+  {
+    id: GROXBOT_AUTO_MODEL,
+    label: "Auto",
+    provider: CLOUDFLARE_PROVIDER,
+  },
+  {
+    id: GROXBOT_FREE_MODEL,
+    label: "Free",
+    provider: CLOUDFLARE_PROVIDER,
+  },
   {
     id: "openrouter/deepseek/deepseek-v4-flash",
     label: "DeepSeek V4 Flash",
@@ -361,6 +395,9 @@ export function providerForModel(model: string): ModelProvider | undefined {
   if (trimmed.startsWith("openai/")) return OPENAI_PROVIDER;
   if (trimmed.startsWith("openrouter/")) return OPENROUTER_PROVIDER;
   if (
+    trimmed.startsWith("groxbot/") ||
+    trimmed === "auto" ||
+    trimmed === "free" ||
     trimmed.startsWith("cloudflare-ai-gateway/") ||
     trimmed.startsWith("cloudflare-workers-ai/") ||
     trimmed.startsWith("workers-ai/@cf/") ||
@@ -374,6 +411,11 @@ export function providerForModel(model: string): ModelProvider | undefined {
 /** Chat-completions body id. Workers AI through the unified API wants `@cf/…`. */
 export function gatewayRequestModel(model: string): string {
   const trimmed = model.trim();
+  if (isGroxbotRouterModel(trimmed) || trimmed.startsWith("groxbot/")) {
+    return trimmed.startsWith("groxbot/")
+      ? trimmed
+      : (`groxbot/${trimmed}` as const);
+  }
   const cfIndex = trimmed.indexOf("@cf/");
   if (cfIndex >= 0) return trimmed.slice(cfIndex);
   if (trimmed.startsWith("openrouter/")) {

@@ -1,4 +1,5 @@
 import {
+  BINDING_STARTER_MODEL,
   CLOUDFLARE_PROVIDER,
   HOSTED_STARTER_MODEL,
   OPENROUTER_PROVIDER,
@@ -13,12 +14,15 @@ import {
 
 describe("piAiGatewayModelId", () => {
   it("maps the hosted starter id onto the AI Gateway compat catalog id", () => {
-    expect(piAiGatewayModelId(HOSTED_STARTER_MODEL)).toBe(
+    expect(piAiGatewayModelId(BINDING_STARTER_MODEL)).toBe(
       "workers-ai/@cf/zai-org/glm-5.3-flash",
     );
     expect(piAiGatewayModelId("@cf/zai-org/glm-5.3-flash")).toBe(
       "workers-ai/@cf/zai-org/glm-5.3-flash",
     );
+    expect(piAiGatewayModelId(HOSTED_STARTER_MODEL)).toBe("groxbot/auto");
+    expect(piAiGatewayModelId("auto")).toBe("groxbot/auto");
+    expect(piAiGatewayModelId("free")).toBe("groxbot/free");
   });
 });
 
@@ -33,7 +37,7 @@ describe("resolvePiAiModel", () => {
     );
     expect(model.provider).toBe("grox-gateway");
     expect(model.api).toBe("openai-completions");
-    expect(model.id).toBe("workers-ai/@cf/zai-org/glm-5.3-flash");
+    expect(model.id).toBe("groxbot/auto");
     expect(model.baseUrl).toBe("https://grox-gateway.example.com/v1");
   });
 
@@ -43,7 +47,7 @@ describe("resolvePiAiModel", () => {
         CLOUDFLARE_ACCOUNT_ID: "acct",
         CLOUDFLARE_API_TOKEN: "tok",
       }),
-      HOSTED_STARTER_MODEL,
+      BINDING_STARTER_MODEL,
     );
     expect(model.provider).toBe("cloudflare-ai-gateway");
     expect(model.api).toBe("openai-completions");
@@ -60,6 +64,9 @@ describe("resolvePiAiModel", () => {
     expect(model.provider).toBe(OPENROUTER_PROVIDER);
     expect(model.id).toBe("deepseek/deepseek-v4-flash");
     expect(piAiRequestModel(CLOUDFLARE_PROVIDER, HOSTED_STARTER_MODEL)).toBe(
+      "groxbot/auto",
+    );
+    expect(piAiRequestModel(CLOUDFLARE_PROVIDER, BINDING_STARTER_MODEL)).toBe(
       "workers-ai/@cf/zai-org/glm-5.3-flash",
     );
   });

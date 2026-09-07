@@ -233,7 +233,7 @@ const SHARED_FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: "Can I use Hermes or OpenClaw with Groxbot?",
-    a: "Yes. Guest runtimes are opt-in per bot and off by default. They dial out to Groxbot. Default teammates use the Worker AI binding or a workspace BYOK key.",
+    a: "Yes. Guest runtimes are opt-in per bot and off by default. They dial out to Groxbot. Default teammates use hosted models or a workspace BYOK key.",
   },
 ];
 
