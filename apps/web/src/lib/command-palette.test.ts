@@ -122,6 +122,11 @@ describe("rankPaletteItems", () => {
         (row) => row.kind === "action" && row.action.id === "support",
       ),
     ).toBe(true);
+    expect(
+      rankPaletteItems("discord", [piper], []).some(
+        (row) => row.kind === "action" && row.action.id === "support",
+      ),
+    ).toBe(true);
   });
 
   it("matches rooms by name or member", () => {

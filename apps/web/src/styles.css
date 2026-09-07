@@ -2459,6 +2459,37 @@ html.electron .pane-head {
   color: var(--danger, #c45c26);
 }
 
+.codex-setup {
+  margin: 10px 0 0;
+  display: grid;
+  gap: 8px;
+}
+
+.codex-setup-steps {
+  margin: 0;
+  padding-left: 1.25em;
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.codex-setup-steps strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.codex-setup code,
+.provider-key-body code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+}
+
+.provider-key-body .codex-setup {
+  margin: 0;
+}
+
 .settings-body .field .hint {
   margin: 4px 0 8px;
   font-size: 12px;
@@ -3721,12 +3752,21 @@ html.electron .pane-head {
   margin: 0;
 }
 
-.provider-key-body input {
+.provider-key-body input,
+.provider-key-body textarea {
   border: 1px solid var(--line);
   background: var(--card);
   border-radius: 12px;
   padding: 10px 12px;
   width: 100%;
+}
+
+.provider-key-body textarea {
+  min-height: 140px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .provider-key-body .text-btn {
@@ -3965,11 +4005,6 @@ html.electron .pane-head {
   border: 1px solid var(--line);
   border-radius: var(--radius-shell);
   background: var(--bg-side);
-}
-
-/* Office opens Bento from a button. Never the floating launcher. */
-.woot-widget-bubble {
-  display: none !important;
 }
 
 .chat-panel.is-side-resizing,
