@@ -372,6 +372,7 @@ export const appRouter = os.router({
         payerUserId: actor.userId,
         payerEmail: actor.email,
         plan: input.plan,
+        interval: input.interval,
         successUrl,
         customerIpAddress: forwarded,
       });

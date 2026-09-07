@@ -1,4 +1,4 @@
-import type { WorkspacePlan } from "@groxbot/contracts";
+import type { BillingInterval, WorkspacePlan } from "@groxbot/contracts";
 
 export type BillingCheckoutPlan = Exclude<WorkspacePlan, "none">;
 
@@ -7,6 +7,7 @@ export type BillingCheckoutInput = {
   payerUserId: string;
   payerEmail: string;
   plan: BillingCheckoutPlan;
+  interval?: BillingInterval;
   successUrl: string;
   customerIpAddress?: string;
 };

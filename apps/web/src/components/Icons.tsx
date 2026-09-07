@@ -16,6 +16,7 @@ import {
   ChevronRightIcon as ChevronRightGlyph,
   ComputerIcon,
   Copy01Icon,
+  CustomerService01Icon,
   DashboardSquare01Icon,
   Delete02Icon,
   Download01Icon,
@@ -36,8 +37,8 @@ import {
   MoreHorizontalIcon,
   Note01Icon,
   PencilEdit01Icon,
-  PlayIcon as PlayGlyph,
   PinIcon as PinGlyph,
+  PlayIcon as PlayGlyph,
   Plug01Icon,
   PlusSignIcon,
   SearchIcon as SearchGlyph,
@@ -67,8 +68,14 @@ function Glyph(
     showAlt?: boolean;
   },
 ) {
-  const { icon, altIcon, showAlt, size = 18, strokeWidth = 1.5, ...rest } =
-    props;
+  const {
+    icon,
+    altIcon,
+    showAlt,
+    size = 18,
+    strokeWidth = 1.5,
+    ...rest
+  } = props;
   return (
     <HugeiconsIcon
       icon={icon}
@@ -230,6 +237,10 @@ export function ShareIcon(props: IconProps) {
 
 export function PeoplePlusIcon(props: IconProps) {
   return <Glyph icon={AddTeamIcon} {...props} />;
+}
+
+export function ChatIcon(props: IconProps) {
+  return <Glyph icon={CustomerService01Icon} {...props} />;
 }
 
 export function DownloadIcon(props: IconProps) {

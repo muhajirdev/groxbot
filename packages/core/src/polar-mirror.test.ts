@@ -13,6 +13,7 @@ const catalog = buildBillingPlansCatalog([
     plan: WORKSPACE_PLAN_PRO,
     label: "Pro",
     polarProductId: "prod_pro",
+    polarYearlyProductId: null,
     rank: 1,
     monthlyIncludedSpendCents: 2000,
     monthlyTokenLimit: null,
@@ -21,6 +22,7 @@ const catalog = buildBillingPlansCatalog([
     plan: WORKSPACE_PLAN_PLUS,
     label: "Pro Plus",
     polarProductId: "prod_plus",
+    polarYearlyProductId: "prod_plus_year",
     rank: 2,
     monthlyIncludedSpendCents: 2000,
     monthlyTokenLimit: null,
@@ -29,6 +31,7 @@ const catalog = buildBillingPlansCatalog([
     plan: WORKSPACE_PLAN_BELIEVERS,
     label: "Believers",
     polarProductId: "prod_believers",
+    polarYearlyProductId: null,
     rank: 3,
     monthlyIncludedSpendCents: 6000,
     monthlyTokenLimit: null,
@@ -96,6 +99,25 @@ describe("workspaceBillingFromPolarState", () => {
     expect(mirror.plan).toBe(WORKSPACE_PLAN_PLUS);
   });
 
+  it("maps a yearly polar product to the same plan", () => {
+    const mirror = workspaceBillingFromPolarState(
+      {
+        id: "cus_1",
+        externalId: "ws_1",
+        activeSubscriptions: [
+          {
+            status: "active",
+            productId: "prod_plus_year",
+            currentPeriodEnd: "2027-09-01T00:00:00.000Z",
+          },
+        ],
+      },
+      catalog,
+    );
+    expect(mirror.plan).toBe(WORKSPACE_PLAN_PLUS);
+    expect(mirror.monthlyIncludedSpendCents).toBe(2000);
+  });
+
   it("maps pro subscription limits from billing_plans", () => {
     const mirror = workspaceBillingFromPolarState(
       {
@@ -123,6 +145,7 @@ describe("workspaceBillingFromPolarState", () => {
         plan: WORKSPACE_PLAN_PRO,
         label: "Pro",
         polarProductId: "prod_pro",
+        polarYearlyProductId: null,
         rank: 1,
         monthlyIncludedSpendCents: 2000,
         monthlyTokenLimit: 500_000,

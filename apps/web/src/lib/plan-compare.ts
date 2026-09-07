@@ -1,7 +1,25 @@
-/** Monthly list prices for the people stepper. Claude / ChatGPT $20 per person. */
+/** List prices and the people stepper. Annual is 10 months (2 months free). */
 
-export const GROXBOT_PRO_MONTHLY_USD = 29;
-export const GROXBOT_PLUS_MONTHLY_USD = 49;
+import {
+  BILLING_INTERVAL_MONTH,
+  BILLING_INTERVAL_YEAR,
+  WORKSPACE_PLAN_BELIEVERS,
+  WORKSPACE_PLAN_PLUS,
+  WORKSPACE_PLAN_PRICE_USD,
+  WORKSPACE_PLAN_PRO,
+  type BillingInterval,
+  type WorkspacePlan,
+} from "@groxbot/contracts";
+
+export const GROXBOT_PRO_MONTHLY_USD =
+  WORKSPACE_PLAN_PRICE_USD[WORKSPACE_PLAN_PRO].month;
+export const GROXBOT_PLUS_MONTHLY_USD =
+  WORKSPACE_PLAN_PRICE_USD[WORKSPACE_PLAN_PLUS].month;
+export const GROXBOT_BELIEVERS_MONTHLY_USD =
+  WORKSPACE_PLAN_PRICE_USD[WORKSPACE_PLAN_BELIEVERS].month;
+export const GROXBOT_PRO_YEARLY_USD =
+  WORKSPACE_PLAN_PRICE_USD[WORKSPACE_PLAN_PRO].year;
+
 export const PLAN_COMPARE_MIN_PEOPLE = 1;
 export const PLAN_COMPARE_MAX_PEOPLE = 20;
 export const PLAN_COMPARE_DEFAULT_PEOPLE = 10;
@@ -32,3 +50,21 @@ export function peopleLabel(people: number): string {
   const n = clampPlanPeople(people);
   return n === 1 ? "1 person" : `${n} people`;
 }
+
+export function planListUsd(
+  plan: Exclude<WorkspacePlan, "none">,
+  interval: BillingInterval,
+): number {
+  return WORKSPACE_PLAN_PRICE_USD[plan][interval];
+}
+
+export function planPeriodLabel(interval: BillingInterval): "/mo" | "/yr" {
+  return interval === BILLING_INTERVAL_YEAR ? "/yr" : "/mo";
+}
+
+export function isYearlyInterval(interval: BillingInterval): boolean {
+  return interval === BILLING_INTERVAL_YEAR;
+}
+
+export { BILLING_INTERVAL_MONTH, BILLING_INTERVAL_YEAR };
+export type { BillingInterval };

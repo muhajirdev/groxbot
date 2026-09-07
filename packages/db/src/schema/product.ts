@@ -367,8 +367,10 @@ export const billingPlans = pgTable("billing_plans", {
   /** pro | plus (Pro Plus) | believers — matches workspace_billing.plan */
   plan: text("plan").primaryKey(),
   label: text("label").notNull(),
-  /** Polar subscription product id for checkout. */
+  /** Polar monthly subscription product id for checkout. */
   polarProductId: text("polar_product_id"),
+  /** Polar yearly subscription product id for checkout. */
+  polarYearlyProductId: text("polar_yearly_product_id"),
   /** Higher rank wins when a customer has multiple active subscriptions. */
   rank: integer("rank").notNull().default(0),
   /** Included hosted model spend per UTC month, in cents. */

@@ -51,9 +51,17 @@ export class PolarBillingPort implements BillingPort {
     input: import("@groxbot/adapter-kit").BillingCheckoutInput,
   ): Promise<{ url: string }> {
     const catalog = await loadBillingPlans(this.db);
-    const productId = productIdForPlan(catalog, input.plan);
+    const productId = productIdForPlan(
+      catalog,
+      input.plan,
+      input.interval ?? "month",
+    );
     if (!productId) {
-      throw new Error(`Polar product is not configured for plan ${input.plan}.`);
+      throw new Error(
+        `Polar product is not configured for plan ${input.plan}${
+          input.interval === "year" ? " (yearly)" : ""
+        }.`,
+      );
     }
     const checkout = await this.polar.checkouts.create({
       products: [productId],
@@ -65,6 +73,7 @@ export class PolarBillingPort implements BillingPort {
         workspaceId: input.workspaceId,
         payerUserId: input.payerUserId,
         plan: input.plan,
+        interval: input.interval ?? "month",
       },
       ...(input.plan === WORKSPACE_PLAN_PRO
         ? {

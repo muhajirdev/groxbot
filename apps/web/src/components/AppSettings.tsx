@@ -1,34 +1,39 @@
-import type { Me, ModelCatalogItem, ModelProvider, WorkspaceMember } from "@groxbot/contracts";
+import type {
+  Me,
+  ModelCatalogItem,
+  ModelProvider,
+  WorkspaceMember,
+} from "@groxbot/contracts";
 import {
   CLOUDFLARE_PROVIDER,
   CUSTOM_MODEL_SENTINEL,
+  catalogGroupLabel,
   DEFAULT_AI_GATEWAY_ID,
   missingProviderMessage,
+  PRO_TRIAL_INTERVAL_COUNT,
   PROVIDER_META,
   PROVIDER_ORDER,
-  PRO_TRIAL_INTERVAL_COUNT,
+  pickerCatalog,
   WORKSPACE_PLAN_BELIEVERS,
   WORKSPACE_PLAN_PLUS,
   WORKSPACE_PLAN_PRO,
-  catalogGroupLabel,
-  pickerCatalog,
   type WorkspacePlan,
 } from "@groxbot/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { userFacingError } from "../lib/errors";
 import { BUILD_REVISION, shortRevision } from "../lib/build";
-import { OFFICE_TO, WORKSPACE_TO, officeParams } from "../lib/office-route";
+import { userFacingError } from "../lib/errors";
+import type { OfficeColorId } from "../lib/office-color";
 import { workspaceListQueryOptions } from "../lib/office-persist";
+import { OFFICE_TO, officeParams, WORKSPACE_TO } from "../lib/office-route";
 import { orpc } from "../lib/orpc";
-import { encodeProfileImage } from "../lib/profile-image";
 import { readTimezonePref, writeTimezonePref } from "../lib/prefs";
+import { encodeProfileImage } from "../lib/profile-image";
 import { client } from "../lib/rpc";
 import { setLiveCatalogId, setRpcWorkspaceId } from "../lib/rpc-workspace";
 import { enterActiveWorkspace } from "../lib/session";
-import { OfficeColorPicker } from "./OfficeColorPicker";
-import type { OfficeColorId } from "../lib/office-color";
+import { supportChatUser } from "../lib/support-chat";
 import {
   forgetListedWorkspace,
   rememberListedWorkspace,
@@ -42,8 +47,10 @@ import {
   writeCachedWorkspace,
 } from "../lib/workspace-switcher";
 import { Button, ModalShell } from "../ui";
-import { PersonAvatar } from "./PersonAvatar";
 import { ChevronDownIcon, CloseIcon } from "./Icons";
+import { OfficeColorPicker } from "./OfficeColorPicker";
+import { PersonAvatar } from "./PersonAvatar";
+import { openOfficeSupportChat } from "./SupportChatButton";
 import { TimezoneField } from "./TimezoneField";
 
 type Tab = "general" | "models" | "billing" | "updates";
@@ -126,67 +133,82 @@ export function AppSettings(props: {
           </div>
           <div className="settings-body">
             <div className="settings-pane" hidden={tab !== "general"}>
-                <section className="set-block">
-                  <p className="group-label">Account</p>
-                  <div className="account-row">
-                    <ProfilePhotoButton
-                      name={props.me?.name || "You"}
-                      image={props.me?.image}
-                      disabled={!props.me}
-                    />
-                    <div>
-                      <strong>{props.me?.name || "You"}</strong>
-                      <p className="muted">{props.me?.email}</p>
-                    </div>
-                    <button
-                      className="mini"
-                      type="button"
-                      onClick={props.onSignOut}
-                    >
-                      Sign Out
-                    </button>
-                  </div>
-                </section>
-                <section className="set-block">
-                  <p className="group-label">Workspace</p>
-                  <WorkspaceSettings
-                    key={props.me?.workspaceId ?? "none"}
-                    name={props.me?.workspaceName}
-                    enabled={Boolean(props.me && !props.me.needsWorkspace)}
-                    me={props.me}
-                    onClose={props.onClose}
+              <section className="set-block">
+                <p className="group-label">Account</p>
+                <div className="account-row">
+                  <ProfilePhotoButton
+                    name={props.me?.name || "You"}
+                    image={props.me?.image}
+                    disabled={!props.me}
                   />
-                </section>
-                <section className="set-block">
-                  <p className="group-label">Appearance</p>
-                  <div className="field">
-                    <span>Office color</span>
-                    <OfficeColorPicker
-                      value={props.officeColor}
-                      onChange={props.onOfficeColor}
-                    />
+                  <div>
+                    <strong>{props.me?.name || "You"}</strong>
+                    <p className="muted">{props.me?.email}</p>
                   </div>
-                </section>
-                <section className="set-block">
-                  <p className="group-label">Bot</p>
-                  <label className="field">
-                    <span>Timezone</span>
-                    <TimezoneField
-                      value={timezone}
-                      onChange={(value) => {
-                        setTimezone(value);
-                        writeTimezonePref(value);
-                      }}
-                    />
-                    <p className="hint">
-                      Wall-clock routines run in this zone.
-                    </p>
-                  </label>
-                </section>
-                <section className="set-block">
-                  <p className="group-label">Build</p>
-                  <BuildStamp />
-                </section>
+                  <button
+                    className="mini"
+                    type="button"
+                    onClick={props.onSignOut}
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              </section>
+              <section className="set-block">
+                <p className="group-label">Workspace</p>
+                <WorkspaceSettings
+                  key={props.me?.workspaceId ?? "none"}
+                  name={props.me?.workspaceName}
+                  enabled={Boolean(props.me && !props.me.needsWorkspace)}
+                  me={props.me}
+                  onClose={props.onClose}
+                />
+              </section>
+              <section className="set-block">
+                <p className="group-label">Appearance</p>
+                <div className="field">
+                  <span>Office color</span>
+                  <OfficeColorPicker
+                    value={props.officeColor}
+                    onChange={props.onOfficeColor}
+                  />
+                </div>
+              </section>
+              <section className="set-block">
+                <p className="group-label">Bot</p>
+                <label className="field">
+                  <span>Timezone</span>
+                  <TimezoneField
+                    value={timezone}
+                    onChange={(value) => {
+                      setTimezone(value);
+                      writeTimezonePref(value);
+                    }}
+                  />
+                  <p className="hint">Wall-clock routines run in this zone.</p>
+                </label>
+              </section>
+              <section className="set-block">
+                <p className="group-label">Support</p>
+                <p className="muted">
+                  Chat with us if something is stuck. We see your account email
+                  when you are signed in.
+                </p>
+                <button
+                  className="mini mt-2"
+                  type="button"
+                  onClick={() => {
+                    props.onClose();
+                    void openOfficeSupportChat(supportChatUser(props.me));
+                  }}
+                >
+                  Chat with us
+                </button>
+              </section>
+              <section className="set-block">
+                <p className="group-label">Build</p>
+                <BuildStamp />
+              </section>
             </div>
             {seen.models ? (
               <div className="settings-pane" hidden={tab !== "models"}>
@@ -200,10 +222,10 @@ export function AppSettings(props: {
             ) : null}
             {seen.updates ? (
               <div className="settings-pane" hidden={tab !== "updates"}>
-              <section className="set-block">
-                <p className="muted">Git revision of this office.</p>
-                <BuildStamp />
-              </section>
+                <section className="set-block">
+                  <p className="muted">Git revision of this office.</p>
+                  <BuildStamp />
+                </section>
               </div>
             ) : null}
           </div>
@@ -503,11 +525,7 @@ function WorkspaceSettings(props: {
               setError("");
             }}
           />
-          <button
-            className="mini"
-            type="submit"
-            disabled={saving || !dirty}
-          >
+          <button className="mini" type="submit" disabled={saving || !dirty}>
             {saving ? "Saving…" : "Save"}
           </button>
         </form>
@@ -623,9 +641,7 @@ function WorkspaceSettings(props: {
               <p className="muted">
                 This removes the office, teammates, knowledge, computers, and
                 chat. It cannot be undone.
-                {onlyOffice
-                  ? " We'll open a new empty office after."
-                  : ""}
+                {onlyOffice ? " We'll open a new empty office after." : ""}
               </p>
               <div className="row">
                 <Button
@@ -887,7 +903,7 @@ function ModelsTab() {
   const pickerItems = pickerCatalog(
     settings?.catalog ?? [],
     selectedModel === CUSTOM_MODEL_SENTINEL
-      ? settings?.defaultModelId ?? ""
+      ? (settings?.defaultModelId ?? "")
       : selectedModel,
   );
   const grouped = new Map<ModelProvider, ModelCatalogItem[]>();

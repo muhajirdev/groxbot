@@ -1,7 +1,14 @@
 import { MascotMark } from "@groxbot/mascot";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { FOOTER_BLURB, MAC_DOWNLOAD_URL, SOURCE_REPO, CONTACT_EMAIL, CONTACT_MAILTO } from "../lib/copy";
+import {
+  CONTACT_EMAIL,
+  CONTACT_MAILTO,
+  FOOTER_BLURB,
+  MAC_DOWNLOAD_URL,
+  SOURCE_REPO,
+} from "../lib/copy";
+import { SupportChatLink, SupportChatWidget } from "./SupportChat";
 
 export function SiteHeader(props: { startUrl: string }) {
   return (
@@ -37,6 +44,7 @@ export function SiteFooter() {
         <a href={SOURCE_REPO} target="_blank" rel="noreferrer">
           GitHub
         </a>
+        <SupportChatLink />
         <a href={CONTACT_MAILTO}>{CONTACT_EMAIL}</a>
         <a href={MAC_DOWNLOAD_URL} target="_blank" rel="noreferrer">
           Download Mac app
@@ -56,6 +64,7 @@ export function SiteChrome(props: { startUrl: string; children: ReactNode }) {
       <SiteHeader startUrl={props.startUrl} />
       {props.children}
       <SiteFooter />
+      <SupportChatWidget />
     </div>
   );
 }

@@ -851,7 +851,7 @@ function BotRow(props: {
   return (
     <div
       className={cn(
-        "grid min-w-0 grid-cols-[36px_minmax(0,1fr)] items-center gap-2.5 rounded-[12px] px-2 py-2",
+        "grid min-w-0 grid-cols-[44px_minmax(0,1fr)] items-center gap-2.5 rounded-[12px] px-2 py-2.5",
         props.selected && "bg-selected",
       )}
     >

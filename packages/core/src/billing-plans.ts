@@ -1,4 +1,5 @@
-import type { WorkspacePlan } from "@groxbot/contracts";
+import type { BillingInterval, WorkspacePlan } from "@groxbot/contracts";
+import { BILLING_INTERVAL_YEAR } from "@groxbot/contracts";
 import type { Database } from "@groxbot/db";
 import { billingPlans } from "@groxbot/db";
 
@@ -6,6 +7,7 @@ export type BillingPlanConfig = {
   plan: WorkspacePlan;
   label: string;
   polarProductId: string | null;
+  polarYearlyProductId: string | null;
   rank: number;
   monthlyIncludedSpendCents: number | null;
   monthlyTokenLimit: number | null;
@@ -17,6 +19,15 @@ export type BillingPlansCatalog = {
   byProductId: Map<string, BillingPlanConfig>;
 };
 
+function indexProductId(
+  byProductId: Map<string, BillingPlanConfig>,
+  productId: string | null | undefined,
+  row: BillingPlanConfig,
+) {
+  const id = productId?.trim();
+  if (id) byProductId.set(id, row);
+}
+
 export function buildBillingPlansCatalog(
   rows: BillingPlanConfig[],
 ): BillingPlansCatalog {
@@ -24,8 +35,8 @@ export function buildBillingPlansCatalog(
   const byProductId = new Map<string, BillingPlanConfig>();
   for (const row of rows) {
     byPlan.set(row.plan, row);
-    const productId = row.polarProductId?.trim();
-    if (productId) byProductId.set(productId, row);
+    indexProductId(byProductId, row.polarProductId, row);
+    indexProductId(byProductId, row.polarYearlyProductId, row);
   }
   return { plans: rows, byPlan, byProductId };
 }
@@ -38,6 +49,7 @@ export async function loadBillingPlans(db: Database): Promise<BillingPlansCatalo
       plan: billingPlans.plan,
       label: billingPlans.label,
       polarProductId: billingPlans.polarProductId,
+      polarYearlyProductId: billingPlans.polarYearlyProductId,
       rank: billingPlans.rank,
       monthlyIncludedSpendCents: billingPlans.monthlyIncludedSpendCents,
       monthlyTokenLimit: billingPlans.monthlyTokenLimit,
@@ -48,6 +60,7 @@ export async function loadBillingPlans(db: Database): Promise<BillingPlansCatalo
       plan: row.plan as WorkspacePlan,
       label: row.label,
       polarProductId: row.polarProductId,
+      polarYearlyProductId: row.polarYearlyProductId,
       rank: row.rank,
       monthlyIncludedSpendCents: row.monthlyIncludedSpendCents,
       monthlyTokenLimit: row.monthlyTokenLimit,
@@ -65,7 +78,12 @@ export function billingPlanConfig(
 export function productIdForPlan(
   catalog: BillingPlansCatalog,
   plan: Exclude<WorkspacePlan, "none">,
+  interval: BillingInterval = "month",
 ): string | null {
-  const productId = catalog.byPlan.get(plan)?.polarProductId?.trim();
+  const row = catalog.byPlan.get(plan);
+  const productId =
+    interval === BILLING_INTERVAL_YEAR
+      ? row?.polarYearlyProductId?.trim()
+      : row?.polarProductId?.trim();
   return productId || null;
 }

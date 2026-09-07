@@ -5,6 +5,7 @@ import { client } from "../lib/rpc";
 import { ModalShell } from "../ui";
 import { CloseIcon } from "./Icons";
 import { PlansCompare, type SubscribeCheckoutPlan } from "./PlansCompare";
+import type { BillingInterval } from "../lib/plan-compare";
 
 export function SubscribeModal(props: {
   open: boolean;
@@ -15,11 +16,14 @@ export function SubscribeModal(props: {
   const [error, setError] = useState("");
   const copy = planGateCopy(props.trialAvailable);
 
-  async function startCheckout(plan: SubscribeCheckoutPlan) {
+  async function startCheckout(
+    plan: SubscribeCheckoutPlan,
+    interval: BillingInterval,
+  ) {
     setBusy(plan);
     setError("");
     try {
-      const result = await client.billing.checkout({ plan });
+      const result = await client.billing.checkout({ plan, interval });
       window.location.href = result.url;
     } catch (caught) {
       setError(userFacingError(caught, "Could not start checkout."));
@@ -55,7 +59,7 @@ export function SubscribeModal(props: {
           trialAvailable={props.trialAvailable}
           busy={busy}
           error={error}
-          onCheckout={(plan) => void startCheckout(plan)}
+          onCheckout={(plan, interval) => void startCheckout(plan, interval)}
         />
       </div>
     </ModalShell>

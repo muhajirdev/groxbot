@@ -1,5 +1,7 @@
 import type { AvatarShape } from "@groxbot/contracts";
 import { MascotMark, type MascotMood } from "@groxbot/mascot";
+import { useState } from "react";
+import { clayAvatarSrc } from "../lib/clay-avatar";
 import { cn } from "../ui";
 
 export function MemberStack(props: {
@@ -13,7 +15,7 @@ export function MemberStack(props: {
   const faces = props.faces.slice(0, 3);
   if (faces.length <= 1) {
     const face = faces[0];
-    if (!face) return <span className="inline-grid size-9 shrink-0" />;
+    if (!face) return <span className="inline-grid size-11 shrink-0" />;
     return (
       <AvatarMark
         name={face.name}
@@ -61,14 +63,37 @@ export function AvatarMark(props: {
   mood?: MascotMood;
   size?: "xs" | "sm" | "md" | "lg";
   hero?: boolean;
+  /** Clay photo by default. Shape picks stay geometric. */
+  photo?: boolean;
 }) {
+  const size = props.size ?? (props.large ? "lg" : "md");
+  const usePhoto = props.photo !== false;
+  const [broken, setBroken] = useState(false);
+  const src = clayAvatarSrc(props.name);
+
+  if (usePhoto && !broken) {
+    return (
+      <span
+        className={cn(
+          "clay-avatar",
+          `clay-avatar-${size}`,
+          props.mood === "working" && "is-working",
+          props.hero && "mascot-hero",
+        )}
+        aria-hidden
+      >
+        <img src={src} alt="" onError={() => setBroken(true)} />
+      </span>
+    );
+  }
+
   return (
     <MascotMark
       name={props.name}
       color={props.color}
       shape={props.shape}
       mood={props.mood}
-      size={props.size ?? (props.large ? "lg" : "md")}
+      size={size}
       className={props.hero ? "mascot-hero" : undefined}
     />
   );
@@ -96,6 +121,7 @@ export function ShapePicks(props: {
             color={props.color}
             shape={shape}
             size="sm"
+            photo={false}
           />
         </button>
       ))}

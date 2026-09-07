@@ -5,6 +5,8 @@ import {
   labChargeLabel,
   labMonthlyUsd,
   peopleLabel,
+  planListUsd,
+  planPeriodLabel,
   stepPlanPeople,
 } from "./plan-compare";
 
@@ -15,6 +17,13 @@ describe("labMonthlyUsd", () => {
     expect(labMonthlyUsd(10)).toBe(200);
     expect(labChargeLabel(10)).toBe("$20 × 10");
     expect(GROXBOT_PRO_MONTHLY_USD).toBe(29);
+  });
+
+  it("prices annual as 10 months", () => {
+    expect(planListUsd("pro", "year")).toBe(290);
+    expect(planListUsd("plus", "year")).toBe(490);
+    expect(planListUsd("believers", "year")).toBe(990);
+    expect(planPeriodLabel("year")).toBe("/yr");
   });
 
   it("steps people with + and −", () => {
