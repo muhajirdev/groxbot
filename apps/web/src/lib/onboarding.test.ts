@@ -1,16 +1,24 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
-  GROXBOT_DEMO_URL,
   defaultWorkspaceName,
+  GROXBOT_DEMO_URL,
   onboardingFirstName,
   workspaceNeedsOnboarding,
 } from "./onboarding";
 
+const root = dirname(fileURLToPath(import.meta.url));
+const css = readFileSync(join(root, "../styles.css"), "utf8");
+const dialog = readFileSync(
+  join(root, "../components/OnboardingDialog.tsx"),
+  "utf8",
+);
+
 describe("GROXBOT_DEMO_URL", () => {
   it("points at the founder Cal booking", () => {
-    expect(GROXBOT_DEMO_URL).toBe(
-      "https://cal.com/muhajirdev/groxbot-demo",
-    );
+    expect(GROXBOT_DEMO_URL).toBe("https://cal.com/muhajirdev/groxbot-demo");
   });
 });
 
@@ -53,15 +61,32 @@ describe("onboardingFirstName", () => {
   });
 });
 
+describe("founder letter chrome", () => {
+  it("scrolls the note instead of clipping it on a short screen", () => {
+    expect(dialog).toMatch(/onboard-dialog[^"\n]*overflow-auto/);
+    expect(dialog).not.toMatch(/onboard-dialog[^"\n]*overflow-hidden/);
+    expect(css).toMatch(/\.onboard-head\s*\{[^}]*position:\s*sticky/s);
+  });
+
+  it("keeps the founder photo from eating the letter", () => {
+    expect(dialog).toMatch(/onboard-from-meta/);
+    expect(css).toMatch(
+      /\.onboard-from\s*\{[^}]*display:\s*flex[^}]*align-items:\s*center/s,
+    );
+    expect(css).toMatch(/grid-template-columns:\s*96px minmax\(0,\s*1fr\)/);
+    expect(css).not.toMatch(/grid-template-columns:\s*180px/);
+    expect(css).toMatch(/\.onboard-from-photo\s*\{[^}]*width:\s*40px/s);
+    expect(css).not.toMatch(/\.onboard-from-photo\s*\{[^}]*width:\s*88px/s);
+  });
+});
+
 describe("workspaceNeedsOnboarding", () => {
   it("is true for an empty office", () => {
     expect(workspaceNeedsOnboarding([])).toBe(true);
   });
 
   it("ignores archived teammates", () => {
-    expect(workspaceNeedsOnboarding([{ archivedAt: "2026-09-01" }])).toBe(
-      true,
-    );
+    expect(workspaceNeedsOnboarding([{ archivedAt: "2026-09-01" }])).toBe(true);
     expect(
       workspaceNeedsOnboarding([
         { archivedAt: null },
