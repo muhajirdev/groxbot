@@ -4,6 +4,8 @@ import {
   hostedSubscriptionAllowsUsage,
   hostedUsageDecision,
   includedUsagePercent,
+  needsHostedPlan,
+  hostedTrialAvailable,
   onDemandUsageActive,
   UsageLimitExceededError,
   utcMonthStart,
@@ -26,6 +28,33 @@ describe("billing limits", () => {
     expect(billingLimitsEnabled({ POLAR_ACCESS_TOKEN: "pat_test" })).toBe(
       true,
     );
+  });
+
+  it("asks for a plan when Polar is on and the workspace is free, even with a key", () => {
+    expect(
+      needsHostedPlan({
+        limitsEnforced: true,
+        plan: "none",
+      }),
+    ).toBe(true);
+    expect(
+      needsHostedPlan({
+        limitsEnforced: true,
+        plan: "pro",
+      }),
+    ).toBe(false);
+    expect(
+      needsHostedPlan({
+        limitsEnforced: false,
+        plan: "none",
+      }),
+    ).toBe(false);
+  });
+
+  it("offers a Pro trial only before Polar has a customer", () => {
+    expect(hostedTrialAvailable(null)).toBe(true);
+    expect(hostedTrialAvailable("")).toBe(true);
+    expect(hostedTrialAvailable("cus_123")).toBe(false);
   });
 
   it("uses UTC month boundaries", () => {

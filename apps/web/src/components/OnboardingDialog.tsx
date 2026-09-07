@@ -6,6 +6,7 @@ import {
   ONBOARDING_VIDEO_SRC,
   onboardingFirstName,
 } from "../lib/onboarding";
+import { planGateCopy } from "../lib/plan-gate";
 import type { OfficeColorId } from "../lib/office-color";
 import { ModalShell } from "../ui";
 import { CloseIcon } from "./Icons";
@@ -38,7 +39,9 @@ export function OnboardingWelcome(props: {
   youEmail?: string | null;
   officeColor?: OfficeColorId;
   onOfficeColor?: (id: OfficeColorId) => void;
+  continueLabel?: string;
   onContinue: () => void;
+  onClose?: () => void;
 }) {
   const firstName = onboardingFirstName({
     name: props.youName,
@@ -53,7 +56,7 @@ export function OnboardingWelcome(props: {
           className="icon-btn"
           type="button"
           aria-label="Close"
-          onClick={props.onContinue}
+          onClick={props.onClose ?? props.onContinue}
         >
           <CloseIcon />
         </button>
@@ -121,7 +124,7 @@ export function OnboardingWelcome(props: {
             />
           </div>
           <button className="onboard-go" type="button" onClick={props.onContinue}>
-            OK, let's see my office
+            {props.continueLabel ?? "OK, let's see my office"}
           </button>
         </div>
       </div>
@@ -184,20 +187,28 @@ export function OnboardingDialog(props: {
   youEmail?: string | null;
   officeColor?: OfficeColorId;
   onOfficeColor?: (id: OfficeColorId) => void;
+  needsPlan?: boolean;
+  trialAvailable?: boolean;
+  onDismiss: () => void;
   onContinue: () => void;
 }) {
+  const needsPlan = props.needsPlan !== false;
+  const copy = planGateCopy(props.trialAvailable !== false);
+
   return (
     <ModalShell
       open={props.open}
       className="onboard-dialog overflow-hidden p-0"
-      onClose={props.onContinue}
+      onClose={props.onDismiss}
     >
       <OnboardingWelcome
         youName={props.youName}
         youEmail={props.youEmail}
         officeColor={props.officeColor}
         onOfficeColor={props.onOfficeColor}
+        continueLabel={needsPlan ? copy.cta : "OK, let's see my office"}
         onContinue={props.onContinue}
+        onClose={props.onDismiss}
       />
     </ModalShell>
   );

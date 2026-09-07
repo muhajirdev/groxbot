@@ -1,6 +1,7 @@
 import {
   WORKSPACE_PLAN_BELIEVERS,
   WORKSPACE_PLAN_NONE,
+  WORKSPACE_PLAN_PLUS,
   WORKSPACE_PLAN_PRO,
 } from "@groxbot/contracts";
 import { describe, expect, it } from "vitest";
@@ -17,10 +18,18 @@ const catalog = buildBillingPlansCatalog([
     monthlyTokenLimit: null,
   },
   {
+    plan: WORKSPACE_PLAN_PLUS,
+    label: "Pro Plus",
+    polarProductId: "prod_plus",
+    rank: 2,
+    monthlyIncludedSpendCents: 2000,
+    monthlyTokenLimit: null,
+  },
+  {
     plan: WORKSPACE_PLAN_BELIEVERS,
     label: "Believers",
     polarProductId: "prod_believers",
-    rank: 2,
+    rank: 3,
     monthlyIncludedSpendCents: 6000,
     monthlyTokenLimit: null,
   },
@@ -62,6 +71,29 @@ describe("workspaceBillingFromPolarState", () => {
     );
     expect(mirror.plan).toBe(WORKSPACE_PLAN_BELIEVERS);
     expect(mirror.monthlyIncludedSpendCents).toBe(6000);
+  });
+
+  it("prefers plus over pro", () => {
+    const mirror = workspaceBillingFromPolarState(
+      {
+        id: "cus_1",
+        externalId: "ws_1",
+        activeSubscriptions: [
+          {
+            status: "active",
+            productId: "prod_pro",
+            currentPeriodEnd: "2026-10-01T00:00:00.000Z",
+          },
+          {
+            status: "active",
+            productId: "prod_plus",
+            currentPeriodEnd: "2026-10-01T00:00:00.000Z",
+          },
+        ],
+      },
+      catalog,
+    );
+    expect(mirror.plan).toBe(WORKSPACE_PLAN_PLUS);
   });
 
   it("maps pro subscription limits from billing_plans", () => {

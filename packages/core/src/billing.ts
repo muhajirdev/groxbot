@@ -2,6 +2,7 @@ import {
   USAGE_BILLING_KIND_INCLUDED,
   USAGE_BILLING_KIND_ON_DEMAND,
   WORKSPACE_PLAN_NONE,
+  WORKSPACE_PLAN_REQUIRED_MESSAGE,
   WorkspacePlan,
   type UsageBillingKind,
 } from "@groxbot/contracts";
@@ -21,6 +22,7 @@ export type WorkspaceBillingRow = {
   monthlyTokenLimit: number | null;
   onDemandEnabled: boolean;
   onDemandSpendCapCents: number | null;
+  polarCustomerId?: string | null;
 };
 
 export type MonthlyUsageSnapshot = {
@@ -52,6 +54,42 @@ export function billingEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return billingLimitsEnabled(env);
 }
 
+const HOSTED_SUBSCRIPTION_STATUSES = new Set([
+  "active",
+  "trialing",
+  "past_due",
+]);
+
+/** Polar-hosted groxbot.com needs a paid plan even if the workspace has a BYOK key. */
+export function needsHostedPlan(input: {
+  limitsEnforced: boolean;
+  plan: string;
+}): boolean {
+  if (!input.limitsEnforced) return false;
+  return input.plan === WORKSPACE_PLAN_NONE;
+}
+
+/** Polar gives one Pro trial per customer. Empty customer id means this workspace has not checked out yet. */
+export function hostedTrialAvailable(polarCustomerId?: string | null): boolean {
+  return !polarCustomerId?.trim();
+}
+
+/** Block every office turn (hosted or BYOK) until Polar shows a paid/trial plan. */
+export async function assertWorkspacePlanAllowed(
+  db: Database,
+  workspaceId: string,
+  env: NodeJS.ProcessEnv,
+): Promise<void> {
+  if (!billingLimitsEnabled(env)) return;
+  const billing = await ensureWorkspaceBilling(db, workspaceId);
+  if (billing.plan === WORKSPACE_PLAN_NONE) {
+    throw new UsageLimitExceededError(WORKSPACE_PLAN_REQUIRED_MESSAGE);
+  }
+  if (!HOSTED_SUBSCRIPTION_STATUSES.has(billing.status)) {
+    throw new UsageLimitExceededError(WORKSPACE_PLAN_REQUIRED_MESSAGE);
+  }
+}
+
 export function utcMonthStart(now = new Date()): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 }
@@ -59,12 +97,6 @@ export function utcMonthStart(now = new Date()): Date {
 export function utcMonthStartIso(now = new Date()): string {
   return utcMonthStart(now).toISOString();
 }
-
-const HOSTED_SUBSCRIPTION_STATUSES = new Set([
-  "active",
-  "trialing",
-  "past_due",
-]);
 
 /** Paid plan with configured monthly limits — required for hosted usage when Polar is on. */
 export function hostedSubscriptionAllowsUsage(
@@ -179,6 +211,7 @@ export async function getWorkspaceBilling(
       monthlyTokenLimit: workspaceBilling.monthlyTokenLimit,
       onDemandEnabled: workspaceBilling.onDemandEnabled,
       onDemandSpendCapCents: workspaceBilling.onDemandSpendCapCents,
+      polarCustomerId: workspaceBilling.polarCustomerId,
     })
     .from(workspaceBilling)
     .where(eq(workspaceBilling.workspaceId, workspaceId))
@@ -212,6 +245,7 @@ export async function ensureWorkspaceBilling(
       monthlyTokenLimit: null,
       onDemandEnabled: false,
       onDemandSpendCapCents: null,
+      polarCustomerId: null,
     }
   );
 }
@@ -231,9 +265,7 @@ export async function assertHostedUsageAllowed(
   const decision = hostedUsageDecision(billing, usage, { limitsEnforced });
   if (decision === "blocked") {
     if (!hostedSubscriptionAllowsUsage(billing)) {
-      throw new UsageLimitExceededError(
-        "Subscribe to Pro or add your own model key to use hosted models.",
-      );
+      throw new UsageLimitExceededError(WORKSPACE_PLAN_REQUIRED_MESSAGE);
     }
     throw new UsageLimitExceededError();
   }

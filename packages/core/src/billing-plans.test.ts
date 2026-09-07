@@ -1,5 +1,6 @@
 import {
   WORKSPACE_PLAN_BELIEVERS,
+  WORKSPACE_PLAN_PLUS,
   WORKSPACE_PLAN_PRO,
 } from "@groxbot/contracts";
 import { describe, expect, it } from "vitest";
@@ -19,10 +20,18 @@ describe("billing plans catalog", () => {
       monthlyTokenLimit: null,
     },
     {
+      plan: WORKSPACE_PLAN_PLUS,
+      label: "Pro Plus",
+      polarProductId: "prod_plus",
+      rank: 2,
+      monthlyIncludedSpendCents: 2000,
+      monthlyTokenLimit: null,
+    },
+    {
       plan: WORKSPACE_PLAN_BELIEVERS,
       label: "Believers",
       polarProductId: "prod_believers",
-      rank: 2,
+      rank: 3,
       monthlyIncludedSpendCents: 6000,
       monthlyTokenLimit: null,
     },
@@ -30,14 +39,15 @@ describe("billing plans catalog", () => {
 
   it("resolves polar product ids by plan", () => {
     expect(productIdForPlan(catalog, WORKSPACE_PLAN_PRO)).toBe("prod_pro");
+    expect(productIdForPlan(catalog, WORKSPACE_PLAN_PLUS)).toBe("prod_plus");
     expect(productIdForPlan(catalog, WORKSPACE_PLAN_BELIEVERS)).toBe(
       "prod_believers",
     );
   });
 
   it("indexes plans by polar product id", () => {
-    expect(catalog.byProductId.get("prod_believers")?.plan).toBe(
-      WORKSPACE_PLAN_BELIEVERS,
+    expect(catalog.byProductId.get("prod_plus")?.plan).toBe(
+      WORKSPACE_PLAN_PLUS,
     );
   });
 });

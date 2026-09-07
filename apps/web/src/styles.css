@@ -54,21 +54,21 @@
 
 :root {
   color-scheme: dark;
-  --bg: #120c09;
-  --bg-side: #1d130e;
-  --bg-thread: #1d130e;
-  --bg-pane: #251c16;
-  --ink: #f3ebe3;
-  --muted: #a09080;
-  --line: #4a3c30;
+  --bg: #08090a;
+  --bg-side: #0f1011;
+  --bg-thread: #0f1011;
+  --bg-pane: #191a1b;
+  --ink: #f7f8f8;
+  --muted: #8a8f98;
+  --line: #2a2e33;
   --line-inner: color-mix(in srgb, var(--line) 42%, var(--bg-thread));
-  --card: #281f18;
-  --card-2: #3a2e24;
-  --hover: #241b16;
-  --selected: #281f18;
-  --accent: #e45c9a;
+  --card: #1c1c1f;
+  --card-2: #232326;
+  --hover: #191a1b;
+  --selected: #1c1c1f;
+  --accent: #828fff;
   --ok: #3ecf8e;
-  --danger: #e25d4a;
+  --danger: #eb5757;
   --shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
   --shadow-menu: 0 10px 28px rgba(0, 0, 0, 0.45);
   --radius: 16px;
@@ -87,54 +87,72 @@
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #d4c4ae;
-  --bg-side: #f7f0e4;
-  --bg-thread: #f7f0e4;
-  --bg-pane: #efe6d6;
-  --ink: #2a2118;
-  --muted: #7a6d5c;
-  --line: #dccbb6;
+  --bg: #eceef2;
+  --bg-side: #ffffff;
+  --bg-thread: #ffffff;
+  --bg-pane: #f7f8fa;
+  --ink: #111113;
+  --muted: #5c6370;
+  --line: #e6e8ec;
   --line-inner: color-mix(in srgb, var(--line) 42%, var(--bg-thread));
-  --card: #fffaf2;
-  --card-2: #eadfcb;
-  --hover: #f0e6d6;
-  --selected: #e8dcc8;
-  --accent: #c45e2a;
-  --danger: #8b2e13;
+  --card: #f7f8fa;
+  --card-2: #eef0f3;
+  --hover: #f4f5f7;
+  --selected: #eceef2;
+  --accent: #111113;
+  --danger: #b42318;
   --shadow: 0 16px 50px rgba(0, 0, 0, 0.08);
   --shadow-menu: 0 10px 28px rgba(0, 0, 0, 0.1);
 }
 
 :root[data-office-color="night"] {
   color-scheme: dark;
-  --bg: #08090b;
-  --bg-side: #12141a;
-  --bg-thread: #12141a;
-  --bg-pane: #181b22;
-  --ink: #eceef2;
-  --muted: #8b909c;
-  --line: #2a2e38;
-  --card: #1a1e26;
-  --card-2: #262b36;
-  --hover: #1c2028;
-  --selected: #1a1e26;
+  --bg: #060a18;
+  --bg-side: #0c152c;
+  --bg-thread: #0c152c;
+  --bg-pane: #121c38;
+  --ink: #e6eefc;
+  --muted: #8a9bb8;
+  --line: #243656;
+  --card: #141e38;
+  --card-2: #1e2e54;
+  --hover: #121c38;
+  --selected: #141e38;
   --accent: #7aa2ff;
 }
 
-:root[data-office-color="dusk"] {
+:root[data-office-color="linear"] {
   color-scheme: dark;
-  --bg: #120c09;
-  --bg-side: #1d130e;
-  --bg-thread: #1d130e;
-  --bg-pane: #251c16;
-  --ink: #f3ebe3;
-  --muted: #a09080;
-  --line: #4a3c30;
-  --card: #281f18;
-  --card-2: #3a2e24;
-  --hover: #241b16;
-  --selected: #281f18;
-  --accent: #e45c9a;
+  --bg: #08090a;
+  --bg-side: #0f1011;
+  --bg-thread: #0f1011;
+  --bg-pane: #191a1b;
+  --ink: #f7f8f8;
+  --muted: #8a8f98;
+  --line: #2a2e33;
+  --card: #1c1c1f;
+  --card-2: #232326;
+  --hover: #191a1b;
+  --selected: #1c1c1f;
+  --accent: #828fff;
+  --danger: #eb5757;
+}
+
+:root[data-office-color="snow"] {
+  color-scheme: light;
+  --bg: #eceef2;
+  --bg-side: #ffffff;
+  --bg-thread: #ffffff;
+  --bg-pane: #f7f8fa;
+  --ink: #111113;
+  --muted: #5c6370;
+  --line: #e6e8ec;
+  --card: #f7f8fa;
+  --card-2: #eef0f3;
+  --hover: #f4f5f7;
+  --selected: #eceef2;
+  --accent: #111113;
+  --danger: #b42318;
 }
 
 :root[data-office-color="paper"] {
@@ -2241,6 +2259,7 @@ a.btn {
   display: grid;
   gap: 6px;
   margin-bottom: 14px;
+  min-width: 0;
 }
 
 .field span {
@@ -2255,6 +2274,9 @@ a.btn {
   background: var(--card);
   border-radius: 12px;
   padding: 10px 12px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .chips {
@@ -2815,6 +2837,7 @@ html.electron .pane-head {
 
 .pane-scroll {
   overflow: auto;
+  min-width: 0;
   padding: 8px 10px 12px;
 }
 
@@ -2951,6 +2974,202 @@ html.electron .pane-head {
   margin: 0;
 }
 
+.subscribe-headcount {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.subscribe-headcount-stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.subscribe-headcount-for {
+  margin-right: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.subscribe-headcount-stepper p {
+  margin: 0;
+  min-width: 7.5ch;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.subscribe-headcount-rows {
+  display: grid;
+  gap: 8px;
+}
+
+.subscribe-headcount-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px 16px;
+  align-items: baseline;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.subscribe-headcount-row > span:first-child {
+  min-width: 0;
+}
+
+.subscribe-headcount-math {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.subscribe-headcount-row strong {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  min-width: 6.5ch;
+}
+
+.subscribe-headcount-row.ours {
+  color: var(--ink);
+}
+
+.subscribe-compare {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--card);
+}
+
+.subscribe-compare-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 18px 22px;
+  border-left: 1px solid var(--line);
+  min-width: 0;
+}
+
+.subscribe-compare-col:first-child {
+  border-left: 0;
+}
+
+.subscribe-compare-col.popular {
+  background: color-mix(in srgb, var(--card-2) 80%, transparent);
+}
+
+.subscribe-plan-head {
+  display: grid;
+  gap: 6px;
+}
+
+.subscribe-plan-badge {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: var(--pill);
+  background: var(--ink);
+  color: var(--bg);
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+.subscribe-plan-badge-slot {
+  display: inline-flex;
+  min-height: 20px;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.subscribe-plan-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.subscribe-plan-price {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 2px 0 0;
+}
+
+.subscribe-plan-price strong {
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.subscribe-plan-price span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.subscribe-plan-note {
+  margin: -6px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.subscribe-plan-features {
+  display: grid;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.subscribe-plan-prefix {
+  margin: 0 0 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.subscribe-plan-features ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.subscribe-plan-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.subscribe-plan-features li svg {
+  margin-top: 2px;
+  color: var(--ink);
+}
+
+@media (max-width: 720px) {
+  .subscribe-compare {
+    grid-template-columns: 1fr;
+  }
+
+  .subscribe-compare-col {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .subscribe-compare-col:first-child {
+    border-top: 0;
+  }
+}
+
 .group-label {
   font-size: 12px;
   color: var(--muted);
@@ -2958,7 +3177,7 @@ html.electron .pane-head {
 }
 
 .market-modal {
-  background: var(--bg);
+  background: var(--card);
 }
 
 .market-segment {
@@ -2967,8 +3186,8 @@ html.electron .pane-head {
   gap: 2px;
   padding: 3px;
   border-radius: var(--pill);
-  background: var(--card-2);
-  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--card-2) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
 }
 
 .market-segment-btn {
@@ -2978,10 +3197,14 @@ html.electron .pane-head {
   border: 0;
   border-radius: var(--pill);
   background: transparent;
-  color: var(--ink);
+  color: var(--muted);
   padding: 6px 12px;
   font-size: 13px;
   font-weight: 500;
+}
+
+.market-segment-btn:hover {
+  color: var(--ink);
 }
 
 .market-segment-btn.on {
@@ -2990,21 +3213,31 @@ html.electron .pane-head {
 }
 
 .market-installed-bar {
-  display: flex;
-  width: 100%;
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   border: 0;
   border-radius: var(--pill);
-  background: var(--card-2);
+  background: transparent;
   color: inherit;
-  padding: 8px 12px;
+  padding: 2px 4px 2px 2px;
   text-align: left;
 }
 
 .market-installed-bar:hover {
-  background: var(--hover);
+  background: transparent;
+  color: var(--ink);
+}
+
+.market-installed-bar:hover .market-installed-label {
+  color: var(--ink);
+}
+
+.market-installed-label {
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .market-search {
@@ -3012,12 +3245,20 @@ html.electron .pane-head {
   align-items: center;
   gap: 8px;
   width: 100%;
-  background: var(--card-2);
-  border: 0;
+  background: color-mix(in srgb, var(--card-2) 42%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
   border-radius: var(--pill);
-  padding: 10px 14px;
+  padding: 9px 14px;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
+  transition:
+    background-color var(--dur-popover) var(--ease-dialog),
+    border-color var(--dur-popover) var(--ease-dialog);
+}
+
+.market-search:focus-within {
+  background: color-mix(in srgb, var(--card-2) 62%, transparent);
+  border-color: color-mix(in srgb, var(--line) 90%, transparent);
 }
 
 .market-search input {
@@ -3028,6 +3269,10 @@ html.electron .pane-head {
   color: var(--ink);
 }
 
+.market-search input::placeholder {
+  color: color-mix(in srgb, var(--muted) 85%, transparent);
+}
+
 .market-chips {
   display: flex;
   flex-wrap: nowrap;
@@ -3036,7 +3281,22 @@ html.electron .pane-head {
   overflow-x: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  padding-bottom: 1px;
+}
+
+.market-section {
+  margin-bottom: 1.25rem;
+}
+
+.market-section:first-child {
+  margin-top: 0;
+}
+
+.market-section-label {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--muted);
 }
 
 .market-chips::-webkit-scrollbar {
@@ -3046,8 +3306,22 @@ html.electron .pane-head {
 .market-chips .chip {
   flex: none;
   white-space: nowrap;
-  padding: 6px 11px;
+  padding: 5px 10px;
   font-size: 12px;
+  background: transparent;
+  border-color: color-mix(in srgb, var(--line) 65%, transparent);
+  color: var(--muted);
+}
+
+.market-chips .chip:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--hover) 70%, transparent);
+}
+
+.market-chips .chip.on {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--ink);
 }
 
 .market-added {
@@ -3060,17 +3334,30 @@ html.electron .pane-head {
   padding: 6px 4px;
 }
 
+.market-modal .mini {
+  border-color: color-mix(in srgb, var(--line) 65%, transparent);
+  background: color-mix(in srgb, var(--card-2) 40%, transparent);
+}
+
+.market-modal .mini:hover {
+  background: color-mix(in srgb, var(--hover) 85%, transparent);
+}
+
 .market-feature-card {
-  border: 1px solid var(--line);
-  background: var(--card-2);
-  border-radius: 16px;
-  padding: 14px 10px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+  background: transparent;
+  border-radius: 14px;
+  padding: 12px 8px 10px;
   color: inherit;
   text-align: center;
 }
 
 .market-feature-card:hover {
-  background: var(--hover);
+  background: color-mix(in srgb, var(--hover) 75%, transparent);
+  border-color: color-mix(in srgb, var(--line) 85%, transparent);
 }
 
 .modal-head {
@@ -3635,8 +3922,8 @@ html.electron .pane-head {
 .member-stack {
   position: relative;
   display: inline-grid;
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   flex: none;
 }
 
@@ -3664,8 +3951,8 @@ html.electron .pane-head {
 }
 
 .member-stack[data-n="2"] .mascot {
-  width: 20px;
-  height: 20px;
+  width: 26px;
+  height: 26px;
 }
 
 .member-stack[data-n="3"] .member-stack-face:nth-child(1) {
@@ -3688,8 +3975,8 @@ html.electron .pane-head {
 }
 
 .member-stack[data-n="3"] .mascot {
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
 }
 
 .chat-dock {
@@ -4914,11 +5201,11 @@ html.electron .pane-head {
     grid-template-columns: 1fr 1fr;
   }
   .chat-conv {
-    grid-template-columns: 28px;
+    grid-template-columns: 36px;
     justify-content: center;
     justify-items: center;
     gap: 0;
-    padding: 6px;
+    padding: 8px;
   }
 }
 

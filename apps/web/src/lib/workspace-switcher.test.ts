@@ -1,8 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+  canDeleteWorkspace,
   canSaveWorkspaceName,
   destinationAfterWorkspaceChange,
   draftCreatedWorkspace,
+  forgetLastRoom,
+  LAST_ROOMS_KEY,
   parseCachedWorkspace,
   parseLastRooms,
   resolveWorkspace,
@@ -11,6 +14,7 @@ import {
   workspaceFromCache,
   workspaceFromList,
   workspaceMenuItems,
+  writeLastRoom,
 } from "./workspace-switcher";
 
 describe("workspaceDisplayName", () => {
@@ -201,6 +205,41 @@ describe("canSaveWorkspaceName", () => {
     expect(canSaveWorkspaceName("Acme", "  Acme  ")).toBe(false);
     expect(canSaveWorkspaceName("Acme", "   ")).toBe(false);
     expect(canSaveWorkspaceName("Acme", "Studio")).toBe(true);
+  });
+});
+
+describe("canDeleteWorkspace", () => {
+  it("only the owner of this office can delete it", () => {
+    expect(canDeleteWorkspace([{ mine: true, role: "owner" }])).toBe(true);
+    expect(
+      canDeleteWorkspace([
+        { mine: true, role: "member" },
+        { mine: false, role: "owner" },
+      ]),
+    ).toBe(false);
+    expect(canDeleteWorkspace([])).toBe(false);
+  });
+});
+
+describe("forgetLastRoom", () => {
+  it("drops the last desk for one office", () => {
+    const store: Record<string, string> = {};
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => store[key] ?? null,
+      setItem: (key: string, value: string) => {
+        store[key] = value;
+      },
+      removeItem: (key: string) => {
+        delete store[key];
+      },
+    });
+    writeLastRoom("ws-1", "home-1");
+    writeLastRoom("ws-2", "home-2");
+    forgetLastRoom("ws-1");
+    expect(parseLastRooms(store[LAST_ROOMS_KEY] ?? null)).toEqual({
+      "ws-2": "home-2",
+    });
+    vi.unstubAllGlobals();
   });
 });
 

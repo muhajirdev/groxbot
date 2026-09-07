@@ -1,5 +1,10 @@
 import type { BillingPort, HostedUsageIngestInput } from "@groxbot/adapter-kit";
-import { USAGE_METER_HOSTED_TOKENS } from "@groxbot/contracts";
+import {
+  PRO_TRIAL_INTERVAL,
+  PRO_TRIAL_INTERVAL_COUNT,
+  USAGE_METER_HOSTED_TOKENS,
+  WORKSPACE_PLAN_PRO,
+} from "@groxbot/contracts";
 import {
   applyPolarCustomerState,
   loadBillingPlans,
@@ -61,6 +66,13 @@ export class PolarBillingPort implements BillingPort {
         payerUserId: input.payerUserId,
         plan: input.plan,
       },
+      ...(input.plan === WORKSPACE_PLAN_PRO
+        ? {
+            allowTrial: true,
+            trialInterval: PRO_TRIAL_INTERVAL,
+            trialIntervalCount: PRO_TRIAL_INTERVAL_COUNT,
+          }
+        : { allowTrial: false }),
     });
     if (!checkout.url) {
       throw new Error("Polar checkout did not return a URL.");

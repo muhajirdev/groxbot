@@ -3,11 +3,21 @@ import * as z from "zod";
 /** Workspace plan slug mirrored from Polar / workspace_billing.plan */
 export const WORKSPACE_PLAN_NONE = "none" as const;
 export const WORKSPACE_PLAN_PRO = "pro" as const;
+export const WORKSPACE_PLAN_PLUS = "plus" as const;
 export const WORKSPACE_PLAN_BELIEVERS = "believers" as const;
+
+/** Polar Pro checkout trial. Pro Plus and Believers have none. */
+export const PRO_TRIAL_INTERVAL = "day" as const;
+export const PRO_TRIAL_INTERVAL_COUNT = 3 as const;
+
+/** Polar-hosted groxbot.com: office turns need a paid plan, including BYOK. */
+export const WORKSPACE_PLAN_REQUIRED_MESSAGE =
+  "Subscribe to Pro to use this workspace.";
 
 export const WorkspacePlan = z.enum([
   WORKSPACE_PLAN_NONE,
   WORKSPACE_PLAN_PRO,
+  WORKSPACE_PLAN_PLUS,
   WORKSPACE_PLAN_BELIEVERS,
 ]);
 export type WorkspacePlan = z.infer<typeof WorkspacePlan>;

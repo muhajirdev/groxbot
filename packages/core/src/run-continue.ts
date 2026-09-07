@@ -4,6 +4,7 @@ import {
   type MessageBlock,
   type RunStatus,
   type UsageBillingKind,
+  WORKSPACE_PLAN_REQUIRED_MESSAGE,
 } from "@groxbot/contracts";
 import {
   bots,
@@ -15,7 +16,7 @@ import {
 } from "@groxbot/db";
 import { asc, eq } from "drizzle-orm";
 import { parseAppIntent } from "./app-intent.js";
-import { assertHostedUsageAllowed, billingKindForDecision } from "./billing.js";
+import { assertHostedUsageAllowed, assertWorkspacePlanAllowed, billingKindForDecision } from "./billing.js";
 import { stampApp } from "./apps.js";
 import type { GuestHub } from "./guest-hub.js";
 import { GuestAgentRuntime } from "./guest-runtime.js";
@@ -257,6 +258,16 @@ export async function startOfficeRun(opts: {
   );
   if (!overlay.configured) {
     await failOfficeRun(db, current, missingModelMessage(overlay.model));
+    return null;
+  }
+  try {
+    await assertWorkspacePlanAllowed(db, run.workspaceId, sourceEnv);
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : WORKSPACE_PLAN_REQUIRED_MESSAGE;
+    await failOfficeRun(db, current, message);
     return null;
   }
   if (overlay.hosted) {

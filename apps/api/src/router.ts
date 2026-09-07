@@ -8,7 +8,9 @@ import {
   ComputerPathError,
   ComputerWriteError,
   createKnowledgeShare,
+  billingLimitsEnabled,
   encryptionSecret,
+  ensureWorkspaceBilling,
   getPokeThread,
   KnowledgeFileError,
   KnowledgePathError,
@@ -21,6 +23,8 @@ import {
   loadBillingStatus,
   loadModelSettings,
   ModelSettingsError,
+  needsHostedPlan,
+  hostedTrialAvailable,
   PokeError,
   publishedProfileImage,
   revokeKnowledgeShare,
@@ -104,6 +108,7 @@ import {
 import {
   activateWorkspace,
   createWorkspace,
+  deleteCurrentWorkspace,
   deleteWorkspaceInviteLink,
   getWorkspaceInviteLink,
   inviteToWorkspace,
@@ -134,6 +139,8 @@ export const appRouter = os.router({
         needsWorkspace: true,
         isDeploymentOwner,
         needsModel: false,
+        needsHostedPlan: false,
+        trialAvailable: true,
         defaultModel: SUGGESTED_STARTER_MODEL,
         defaultModelLabel: labelForModel(SUGGESTED_STARTER_MODEL),
         modelWarning: null,
@@ -162,6 +169,10 @@ export const appRouter = os.router({
       .where(eq(userModelCredentials.workspaceId, actor.workspaceId))
       .limit(1);
     const workspace = await loadWorkspaceRef(context, user);
+    const billing = await ensureWorkspaceBilling(
+      context.db,
+      actor.workspaceId,
+    );
     return {
       userId: actor.userId,
       email: actor.email,
@@ -174,6 +185,11 @@ export const appRouter = os.router({
       isDeploymentOwner,
       needsModel:
         !settings.hostedGateway && !userHasModelCredentials(creds.length),
+      needsHostedPlan: needsHostedPlan({
+        limitsEnforced: billingLimitsEnabled(source),
+        plan: billing.plan,
+      }),
+      trialAvailable: hostedTrialAvailable(billing.polarCustomerId),
       defaultModel: settings.defaultModelId,
       defaultModelLabel: labelForModel(settings.defaultModelId),
       modelWarning: settings.warning,
@@ -194,6 +210,9 @@ export const appRouter = os.router({
     }),
     update: os.workspaces.update.handler(async ({ context, input }) => {
       return updateWorkspace(context, input.name);
+    }),
+    delete: os.workspaces.delete.handler(async ({ context }) => {
+      return deleteCurrentWorkspace(context);
     }),
     join: os.workspaces.join.handler(async ({ context, input }) => {
       const user = await requireUser(context);
@@ -344,7 +363,7 @@ export const appRouter = os.router({
           message: "Only workspace owners and admins can manage billing.",
         });
       }
-      const successUrl = `${context.env.webOrigin.replace(/\/$/, "")}/settings?tab=billing`;
+      const successUrl = `${context.env.webOrigin.replace(/\/$/, "")}/`;
       const forwarded = context.headers?.get("CF-Connecting-IP")?.trim()
         || context.headers?.get("X-Forwarded-For")?.split(",")[0]?.trim()
         || undefined;
@@ -375,7 +394,7 @@ export const appRouter = os.router({
           message: "Only workspace owners and admins can manage billing.",
         });
       }
-      const returnUrl = `${context.env.webOrigin.replace(/\/$/, "")}/settings?tab=billing`;
+      const returnUrl = `${context.env.webOrigin.replace(/\/$/, "")}/`;
       return context.billing.createPortalSession({
         workspaceId: actor.workspaceId,
         returnUrl,

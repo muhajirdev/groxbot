@@ -66,6 +66,7 @@ import {
   TooltipTrigger,
 } from "../components/ui/tooltip";
 import { KeptRoomThread } from "../components/RoomThread";
+import { SubscribeModal } from "../components/SubscribeModal";
 import { ThreadList } from "../components/ThreadList";
 import { WorkspaceSwitcher } from "../components/WorkspaceSwitcher";
 import { InviteFriendButton } from "../components/InviteFriendButton";
@@ -133,6 +134,7 @@ import {
   toggleDesk,
 } from "../lib/office-search";
 import { workspaceNeedsOnboarding } from "../lib/onboarding";
+import { onboardingNeedsPlan, planGateCopy } from "../lib/plan-gate";
 import { orpc } from "../lib/orpc";
 import { usePanePresence } from "../lib/presence";
 import {
@@ -251,7 +253,7 @@ const BotRow = memo(function BotRow(props: {
         preload="intent"
         preloadDelay={300}
         className={cn(
-          "chat-conv grid min-w-0 grid-cols-[28px_minmax(0,1fr)] items-center gap-2 rounded-[10px] border-0 bg-transparent px-1.5 py-1.5 text-left text-inherit no-underline",
+          "chat-conv grid min-w-0 grid-cols-[36px_minmax(0,1fr)] items-center gap-2.5 rounded-[12px] border-0 bg-transparent px-2 py-2 text-left text-inherit no-underline",
           props.selected && "bg-selected",
           props.muted && "opacity-70",
         )}
@@ -268,7 +270,7 @@ const BotRow = memo(function BotRow(props: {
             color={item.avatarColor}
             shape={item.avatarShape}
             mood={props.working ? "working" : "idle"}
-            size="sm"
+            size="md"
           />
           <PresenceDot on={props.working} selected={props.selected} />
           {pinned && !props.working ? (
@@ -283,11 +285,11 @@ const BotRow = memo(function BotRow(props: {
         <span className="chat-conv-copy min-w-0">
           <span className="flex items-center justify-between gap-2">
             <span className="flex min-w-0 items-center gap-1">
-              <span className="truncate text-[13px] font-semibold">
+              <span className="truncate text-[14px] font-semibold">
                 {item.name}
               </span>
               {item.visibility === "private" ? (
-                <span className="shrink-0 text-[11px] font-normal text-muted">
+                <span className="shrink-0 text-xs font-normal text-muted">
                   Private
                 </span>
               ) : null}
@@ -295,14 +297,14 @@ const BotRow = memo(function BotRow(props: {
                 <PinIcon className="size-3 shrink-0 text-muted" weight="fill" />
               ) : null}
             </span>
-            <span className="chat-conv-time shrink-0 text-[11px] whitespace-nowrap text-muted group-hover/bot:invisible">
+            <span className="chat-conv-time shrink-0 text-xs whitespace-nowrap text-muted group-hover/bot:invisible">
               {formatListTime(item.lastAt)}
             </span>
           </span>
         </span>
       </Link>
       <button
-        className="chat-conv-more absolute top-1.5 right-1.5 grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted opacity-0 group-hover/bot:opacity-100 hover:bg-hover hover:text-ink focus-visible:opacity-100"
+        className="chat-conv-more absolute top-2 right-2 grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted opacity-0 group-hover/bot:opacity-100 hover:bg-hover hover:text-ink focus-visible:opacity-100"
         type="button"
         aria-label={`${item.name} actions`}
         onClick={(event) => {
@@ -345,7 +347,7 @@ const RoomRow = memo(function RoomRow(props: {
         }}
         aria-label={props.working ? `${item.name}, working` : item.name}
         className={cn(
-          "chat-conv grid min-w-0 grid-cols-[28px_minmax(0,1fr)] items-center gap-2 rounded-[10px] border-0 bg-transparent px-1.5 py-1.5 text-left text-inherit no-underline",
+          "chat-conv grid min-w-0 grid-cols-[36px_minmax(0,1fr)] items-center gap-2.5 rounded-[12px] border-0 bg-transparent px-2 py-2 text-left text-inherit no-underline",
           props.selected && "bg-selected",
         )}
       >
@@ -355,15 +357,15 @@ const RoomRow = memo(function RoomRow(props: {
         </span>
         <span className="chat-conv-copy min-w-0">
           <span className="flex items-center justify-between gap-2">
-            <span className="truncate text-[13px] font-semibold">{item.name}</span>
-            <span className="chat-conv-time shrink-0 text-[11px] whitespace-nowrap text-muted group-hover/room:invisible">
+            <span className="truncate text-[14px] font-semibold">{item.name}</span>
+            <span className="chat-conv-time shrink-0 text-xs whitespace-nowrap text-muted group-hover/room:invisible">
               {formatListTime(item.lastAt)}
             </span>
           </span>
         </span>
       </Link>
       <button
-        className="chat-conv-more absolute top-1.5 right-1.5 grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted opacity-0 group-hover/room:opacity-100 hover:bg-hover hover:text-ink focus-visible:opacity-100"
+        className="chat-conv-more absolute top-2 right-2 grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted opacity-0 group-hover/room:opacity-100 hover:bg-hover hover:text-ink focus-visible:opacity-100"
         type="button"
         aria-label={`${item.name} actions`}
         onClick={(event) => {
@@ -388,21 +390,21 @@ const AppRow = memo(function AppRow(props: {
     <button
       type="button"
       className={cn(
-        "chat-conv grid min-w-0 grid-cols-[28px_minmax(0,1fr)] items-center gap-2 rounded-[10px] border-0 bg-transparent px-1.5 py-1.5 text-left text-inherit",
+        "chat-conv grid min-w-0 grid-cols-[36px_minmax(0,1fr)] items-center gap-2.5 rounded-[12px] border-0 bg-transparent px-2 py-2 text-left text-inherit",
         props.selected && "bg-selected",
       )}
       onClick={props.onOpen}
     >
       <span
-        className="grid size-7 shrink-0 place-items-center rounded-[8px] text-white"
+        className="grid size-9 shrink-0 place-items-center rounded-[10px] text-white"
         style={{ background: APP_KIND_COLOR[item.templateId] }}
       >
         <FileIcon />
       </span>
       <span className="chat-conv-copy min-w-0">
         <span className="flex items-baseline justify-between gap-2">
-          <span className="truncate text-[13px] font-semibold">{item.title}</span>
-          <span className="shrink-0 text-[11px] whitespace-nowrap text-muted">
+          <span className="truncate text-[14px] font-semibold">{item.title}</span>
+          <span className="shrink-0 text-xs whitespace-nowrap text-muted">
             {formatListTime(item.createdAt)}
           </span>
         </span>
@@ -497,6 +499,10 @@ export function Chat(props: {
       ? liveSectionRows
       : peekedSections;
   const me = meQuery.data;
+  const thisOffice = me?.workspaceId === props.workspace.id;
+  const needsHostedPlan = Boolean(thisOffice && me?.needsHostedPlan);
+  const needsPlan = onboardingNeedsPlan(me, props.workspace.id);
+  const planCopy = planGateCopy(me?.trialAvailable !== false);
   const sessionUser = readSession(queryClient)?.user;
   const youName = me?.name ?? sessionUser?.name;
   const youEmail = me?.email ?? sessionUser?.email;
@@ -504,9 +510,10 @@ export function Chat(props: {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const knowledgeListQuery = useQuery(knowledgeListQueryOptions());
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<"general" | "models">(
-    "general",
-  );
+  const [settingsTab, setSettingsTab] = useState<
+    "general" | "models" | "billing"
+  >("general");
+  const [subscribeOpen, setSubscribeOpen] = useState(false);
   const [marketplaceOpen, setMarketplaceOpen] = useState(false);
   const [marketplaceTab, setMarketplaceTab] =
     useState<MarketplaceTab>("plugins");
@@ -861,6 +868,10 @@ export function Chat(props: {
   const onNeedsModel = useCallback(() => {
     setSettingsTab("models");
     setSettingsOpen(true);
+  }, []);
+
+  const onNeedsHostedPlan = useCallback(() => {
+    setSubscribeOpen(true);
   }, []);
 
   const onUnarchiveBot = useCallback(
@@ -1308,6 +1319,7 @@ export function Chat(props: {
     hireOpen ||
     marketplaceOpen ||
     onboardOpen ||
+    subscribeOpen ||
     roomOpen ||
     sectionOpen ||
     Boolean(sectionRename) ||
@@ -1389,7 +1401,11 @@ export function Chat(props: {
       },
       options: {
         enabled:
-          (!hireOpen && !marketplaceOpen && !onboardOpen && !settingsOpen) ||
+          (!hireOpen &&
+            !marketplaceOpen &&
+            !onboardOpen &&
+            !subscribeOpen &&
+            !settingsOpen) ||
           paletteOpen,
       },
     },
@@ -1400,7 +1416,12 @@ export function Chat(props: {
         if (!hiring.current) setHireOpen(true);
       },
       options: {
-        enabled: !settingsOpen && !onboardOpen && !hireOpen && !marketplaceOpen,
+        enabled:
+          !settingsOpen &&
+          !onboardOpen &&
+          !subscribeOpen &&
+          !hireOpen &&
+          !marketplaceOpen,
       },
     },
     {
@@ -1410,7 +1431,9 @@ export function Chat(props: {
         setSettingsTab("general");
         setSettingsOpen(true);
       },
-      options: { enabled: !hireOpen && !marketplaceOpen && !onboardOpen },
+      options: {
+        enabled: !hireOpen && !marketplaceOpen && !onboardOpen && !subscribeOpen,
+      },
     },
     {
       hotkey: "Escape",
@@ -1455,7 +1478,13 @@ export function Chat(props: {
       hotkey: "Escape",
       callback: () => setDesk(closeLibrary(desk)),
       options: {
-        enabled: Boolean(desk.library) && !paletteOpen && !hireOpen && !marketplaceOpen && !onboardOpen,
+        enabled:
+          Boolean(desk.library) &&
+          !paletteOpen &&
+          !hireOpen &&
+          !marketplaceOpen &&
+          !onboardOpen &&
+          !subscribeOpen,
       },
     },
   ]);
@@ -1661,7 +1690,14 @@ export function Chat(props: {
                   ) : null}
                   <SidebarCreateMenu
                     disabled={hiringThis}
-                    active={hireOpen || marketplaceOpen || onboardOpen || roomOpen || sectionOpen}
+                    active={
+                      hireOpen ||
+                      marketplaceOpen ||
+                      onboardOpen ||
+                      subscribeOpen ||
+                      roomOpen ||
+                      sectionOpen
+                    }
                     onNewBot={() => {
                       if (!hiring.current) setHireOpen(true);
                     }}
@@ -1885,7 +1921,7 @@ export function Chat(props: {
           </aside>
           <div className="chat-stage">
             <section
-              className="chat-thread flex min-h-0 min-w-0 flex-col bg-bg-thread"
+              className="chat-thread relative flex min-h-0 min-w-0 flex-col bg-bg-thread"
               inert={narrow && rosterOpen ? true : undefined}
             >
               <div className="thread-head drag flex items-center justify-between gap-2 border-b border-line px-3.5 py-2">
@@ -1967,13 +2003,26 @@ export function Chat(props: {
                   ) : null}
                 </div>
               </div>
-              {me?.needsModel || me?.modelWarning ? (
+              {me?.needsModel ? (
                 <div className="mx-5 mb-2 flex items-center justify-between gap-3 rounded-xl border border-line bg-card px-3 py-2.5 text-[13px] max-[720px]:mx-3">
                   <span>
-                    {me?.needsModel
-                      ? "Add a model key, or use Groxbot’s included gateway, to talk to teammates."
-                      : me?.modelWarning}
+                    Add a model key, or use Groxbot’s included gateway, to talk
+                    to teammates.
                   </span>
+                  <Button
+                    variant="text"
+                    type="button"
+                    onClick={() => {
+                      setSettingsTab("models");
+                      setSettingsOpen(true);
+                    }}
+                  >
+                    Open models
+                  </Button>
+                </div>
+              ) : me?.modelWarning ? (
+                <div className="mx-5 mb-2 flex items-center justify-between gap-3 rounded-xl border border-line bg-card px-3 py-2.5 text-[13px] max-[720px]:mx-3">
+                  <span>{me.modelWarning}</span>
                   <Button
                     variant="text"
                     type="button"
@@ -2036,16 +2085,20 @@ export function Chat(props: {
                         members={members}
                         active={isActive}
                         needsModel={Boolean(me?.needsModel)}
+                        needsHostedPlan={needsHostedPlan}
                         userId={me?.userId}
                         userName={me?.name}
                         userImage={me?.image ?? undefined}
                         placeholder={
-                          me?.needsModel
-                            ? "Add a model key to send"
-                            : `Message ${item.name}`
+                          needsHostedPlan
+                            ? planCopy.cta
+                            : me?.needsModel
+                              ? "Add a model key to send"
+                              : `Message ${item.name}`
                         }
                         error={itemError}
                         onNeedsModel={onNeedsModel}
+                        onNeedsHostedPlan={onNeedsHostedPlan}
                         stopRef={stopOffice}
                       />
                     );
@@ -2071,17 +2124,21 @@ export function Chat(props: {
                         active={isActive}
                         archived={Boolean(item.archivedAt)}
                         needsModel={Boolean(me?.needsModel)}
+                        needsHostedPlan={needsHostedPlan}
                         userId={me?.userId}
                         userName={me?.name}
                         userImage={me?.image ?? undefined}
                         opening={itemOpening}
                         placeholder={
-                          me?.needsModel
-                            ? "Add a model key to send"
-                            : `Message ${item.name}`
+                          needsHostedPlan
+                            ? planCopy.cta
+                            : me?.needsModel
+                              ? "Add a model key to send"
+                              : `Message ${item.name}`
                         }
                         error={itemError}
                         onNeedsModel={onNeedsModel}
+                        onNeedsHostedPlan={onNeedsHostedPlan}
                         onUnarchive={onUnarchiveBot}
                         stopRef={stopOffice}
                       />
@@ -2106,6 +2163,24 @@ export function Chat(props: {
                   </Button>
                 </div>
               )}
+              {needsHostedPlan && !onboardOpen && !subscribeOpen && (bot || room) ? (
+                <div className="absolute inset-0 z-[2] grid place-items-center bg-bg-thread px-6">
+                  <div className="flex max-w-[34ch] flex-col items-center gap-3 text-center">
+                    <p className="m-0 text-[17px] font-semibold tracking-tight">
+                      {planCopy.title}
+                    </p>
+                    <p className="m-0 text-[13px] leading-normal text-muted">
+                      {planCopy.body}
+                    </p>
+                    <Button
+                      type="button"
+                      onClick={() => setSubscribeOpen(true)}
+                    >
+                      {planCopy.cta}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
             </section>
             <div
               className={cn("chat-pane-slot", pane.leaving && "is-leaving")}
@@ -2277,14 +2352,26 @@ export function Chat(props: {
             youName={youName}
             youEmail={youEmail}
             officeColor={officeColor}
+            needsPlan={needsPlan}
+            trialAvailable={me?.trialAvailable !== false}
             onOfficeColor={(id) => {
               setOfficeColor(id);
               applyOfficeColor(id);
             }}
-            onContinue={() => {
+            onDismiss={() => {
               onboardDismissed.current = true;
               setOnboardOpen(false);
             }}
+            onContinue={() => {
+              onboardDismissed.current = true;
+              setOnboardOpen(false);
+              if (needsPlan) setSubscribeOpen(true);
+            }}
+          />
+          <SubscribeModal
+            open={subscribeOpen}
+            trialAvailable={me?.trialAvailable !== false}
+            onClose={() => setSubscribeOpen(false)}
           />
           <CreateRoomDialog
             open={roomOpen}

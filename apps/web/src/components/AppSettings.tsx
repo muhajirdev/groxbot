@@ -6,25 +6,42 @@ import {
   missingProviderMessage,
   PROVIDER_META,
   PROVIDER_ORDER,
+  PRO_TRIAL_INTERVAL_COUNT,
+  WORKSPACE_PLAN_BELIEVERS,
+  WORKSPACE_PLAN_PLUS,
+  WORKSPACE_PLAN_PRO,
   catalogGroupLabel,
   pickerCatalog,
+  type WorkspacePlan,
 } from "@groxbot/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { userFacingError } from "../lib/errors";
 import { BUILD_REVISION, shortRevision } from "../lib/build";
+import { OFFICE_TO, WORKSPACE_TO, officeParams } from "../lib/office-route";
+import { workspaceListQueryOptions } from "../lib/office-persist";
 import { orpc } from "../lib/orpc";
 import { encodeProfileImage } from "../lib/profile-image";
 import { readTimezonePref, writeTimezonePref } from "../lib/prefs";
 import { client } from "../lib/rpc";
+import { setLiveCatalogId, setRpcWorkspaceId } from "../lib/rpc-workspace";
+import { enterActiveWorkspace } from "../lib/session";
 import { OfficeColorPicker } from "./OfficeColorPicker";
 import type { OfficeColorId } from "../lib/office-color";
-import { rememberListedWorkspace } from "../lib/workspace-catalog";
 import {
+  forgetListedWorkspace,
+  rememberListedWorkspace,
+  workspaceCatalogKey,
+} from "../lib/workspace-catalog";
+import {
+  canDeleteWorkspace,
   canSaveWorkspaceName,
+  clearCachedWorkspace,
+  forgetLastRoom,
   writeCachedWorkspace,
 } from "../lib/workspace-switcher";
-import { ModalShell } from "../ui";
+import { Button, ModalShell } from "../ui";
 import { PersonAvatar } from "./PersonAvatar";
 import { ChevronDownIcon, CloseIcon } from "./Icons";
 import { TimezoneField } from "./TimezoneField";
@@ -137,6 +154,7 @@ export function AppSettings(props: {
                     name={props.me?.workspaceName}
                     enabled={Boolean(props.me && !props.me.needsWorkspace)}
                     me={props.me}
+                    onClose={props.onClose}
                   />
                 </section>
                 <section className="set-block">
@@ -285,17 +303,24 @@ function WorkspaceSettings(props: {
   name: string | null | undefined;
   enabled: boolean;
   me: Me | undefined;
+  onClose: () => void;
 }) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [draft, setDraft] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [sent, setSent] = useState<{ email: string; url: string } | null>(null);
   const name = draft ?? props.name ?? "";
   const dirty = canSaveWorkspaceName(props.name, name);
+  const listed =
+    queryClient.getQueryData(workspaceListQueryOptions().queryKey) ?? [];
+  const onlyOffice = listed.every((item) => item.id === props.me?.workspaceId);
   const membersQuery = useQuery({
     ...orpc.workspaces.members.queryOptions(),
     enabled: props.enabled,
@@ -392,6 +417,68 @@ function WorkspaceSettings(props: {
       setCopied(true);
     } catch {
       setError("Copy the link from the field below.");
+    }
+  }
+
+  async function deleteWorkspace() {
+    const deletedId = props.me?.workspaceId?.trim();
+    if (!props.enabled || !deletedId || deleting) return;
+    setDeleting(true);
+    setError("");
+    try {
+      const result = await client.workspaces.delete();
+      forgetListedWorkspace(deletedId);
+      forgetLastRoom(deletedId);
+      queryClient.removeQueries({ queryKey: workspaceCatalogKey(deletedId) });
+      props.onClose();
+      const next = result.next;
+      if (next) {
+        rememberListedWorkspace(next);
+        writeCachedWorkspace(next);
+        setRpcWorkspaceId(next.id);
+        await enterActiveWorkspace({
+          workspace: next,
+          goWorkspace: () =>
+            navigate({
+              to: WORKSPACE_TO,
+              params: { workspaceSlug: next.slug },
+              viewTransition: true,
+            }),
+          goBot: (roomId) =>
+            navigate({
+              to: OFFICE_TO,
+              params: officeParams(next.slug, roomId),
+              viewTransition: true,
+            }),
+        });
+        await queryClient.invalidateQueries({ queryKey: orpc.me.key() });
+        await queryClient.invalidateQueries({
+          queryKey: workspaceListQueryOptions().queryKey,
+        });
+        return;
+      }
+      clearCachedWorkspace();
+      setRpcWorkspaceId(null);
+      setLiveCatalogId(null);
+      queryClient.setQueryData(orpc.me.key(), (prev: Me | undefined) =>
+        prev
+          ? {
+              ...prev,
+              workspaceId: null,
+              workspaceName: null,
+              workspaceSlug: null,
+              needsWorkspace: true,
+            }
+          : prev,
+      );
+      await queryClient.invalidateQueries({ queryKey: orpc.me.key() });
+      await queryClient.invalidateQueries({
+        queryKey: workspaceListQueryOptions().queryKey,
+      });
+      await navigate({ to: "/" });
+    } catch (caught) {
+      setError(userFacingError(caught, "Could not delete workspace"));
+      setDeleting(false);
     }
   }
 
@@ -528,6 +615,52 @@ function WorkspaceSettings(props: {
       ) : (
         <p className="muted">Create a workspace first, then invite people.</p>
       )}
+      {props.enabled && canDeleteWorkspace(membersQuery.data ?? []) ? (
+        <div className="field">
+          {confirmDelete ? (
+            <>
+              <span>Delete workspace</span>
+              <p className="muted">
+                This removes the office, teammates, knowledge, computers, and
+                chat. It cannot be undone.
+                {onlyOffice
+                  ? " We'll open a new empty office after."
+                  : ""}
+              </p>
+              <div className="row">
+                <Button
+                  className="px-3 py-1.5 text-[13px]"
+                  variant="ghost"
+                  type="button"
+                  disabled={deleting}
+                  onClick={() => setConfirmDelete(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="border-0 bg-danger px-3 py-1.5 text-[13px] text-white"
+                  type="button"
+                  disabled={deleting}
+                  onClick={() => void deleteWorkspace()}
+                >
+                  {deleting ? "Deleting…" : "Delete"}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <button
+              className="text-btn danger"
+              type="button"
+              onClick={() => {
+                setConfirmDelete(true);
+                setError("");
+              }}
+            >
+              Delete workspace
+            </button>
+          )}
+        </div>
+      ) : null}
     </>
   );
 }
@@ -553,7 +686,7 @@ function BillingTab() {
     );
   }
 
-  async function startCheckout(plan: "pro" | "believers") {
+  async function startCheckout(plan: Exclude<WorkspacePlan, "none">) {
     setBusy("checkout");
     setError("");
     try {
@@ -591,11 +724,19 @@ function BillingTab() {
   }
 
   const planLabel =
-    billing.plan === "believers"
+    billing.plan === WORKSPACE_PLAN_BELIEVERS
       ? "Believers"
-      : billing.plan === "pro"
-        ? "Pro"
-        : "Free";
+      : billing.plan === WORKSPACE_PLAN_PLUS
+        ? "Pro Plus"
+        : billing.plan === WORKSPACE_PLAN_PRO
+          ? "Pro"
+          : "Free";
+  const statusLabel =
+    billing.status === "trialing"
+      ? "trial"
+      : billing.status !== "none"
+        ? billing.status
+        : null;
   const usagePercent = billing.includedUsagePercent;
   const atLimit = usagePercent !== null && usagePercent >= 100;
 
@@ -606,27 +747,43 @@ function BillingTab() {
         <>
           <p>
             <strong>{planLabel}</strong>
-            {billing.status !== "none" ? ` · ${billing.status}` : null}
+            {statusLabel ? ` · ${statusLabel}` : null}
           </p>
           {billing.checkoutAvailable && billing.plan === "none" ? (
-            <div className="row">
-              <button
-                type="button"
-                className="btn"
-                disabled={busy !== null}
-                onClick={() => startCheckout("pro")}
-              >
-                Upgrade to Pro
-              </button>
-              <button
-                type="button"
-                className="btn ghost"
-                disabled={busy !== null}
-                onClick={() => startCheckout("believers")}
-              >
-                Believers
-              </button>
-            </div>
+            <>
+              <p className="hint">
+                Pro starts with a {PRO_TRIAL_INTERVAL_COUNT}-day trial. Card on
+                file; cancel before it ends and you are not charged. Your own
+                keys still need a plan; they are not counted against hosted
+                usage.
+              </p>
+              <div className="row">
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={busy !== null}
+                  onClick={() => startCheckout(WORKSPACE_PLAN_PRO)}
+                >
+                  Start {PRO_TRIAL_INTERVAL_COUNT}-day Pro trial
+                </button>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  disabled={busy !== null}
+                  onClick={() => startCheckout(WORKSPACE_PLAN_PLUS)}
+                >
+                  Pro Plus
+                </button>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  disabled={busy !== null}
+                  onClick={() => startCheckout(WORKSPACE_PLAN_BELIEVERS)}
+                >
+                  Believers
+                </button>
+              </div>
+            </>
           ) : null}
           {billing.portalAvailable && billing.plan !== "none" ? (
             <p>

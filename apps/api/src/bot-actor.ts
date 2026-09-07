@@ -101,6 +101,7 @@ import {
   recordHostedModelUsage,
   resolveRunModel,
   assertHostedUsageAllowed,
+  assertWorkspacePlanAllowed,
   billingKindForDecision,
   type StoredRoutine,
   searchOfficeHistory,
@@ -171,6 +172,11 @@ export interface WorkerEnv {
   COMPOSIO_API_KEY?: string;
   TINYFISH_API_KEY?: string;
   TINYFISH_API_KEYS?: string;
+  POLAR_ACCESS_TOKEN?: string;
+  POLAR_WEBHOOK_SECRET?: string;
+  POLAR_ENVIRONMENT?: string;
+  GROX_GATEWAY_URL?: string;
+  GROX_GATEWAY_SECRET?: string;
   EMAIL?: SendEmailBinding;
   AI?: WorkersAiBinding;
   APP_RUNTIME: DurableObjectNamespace;
@@ -725,17 +731,20 @@ export class RoomHome extends Agent<WorkerEnv> {
     this.officeTurnTouched = false;
     let computerSeconds = 0;
     let hostedBillingKind: UsageBillingKind | null = null;
-    if (this.turnHosted && this.officeId) {
+    if (this.officeId) {
       const env = productEnv(this.env);
       const source = agentRuntimeSource(env);
       const { db, close } = createNeonHttpDb(env.databaseUrl);
       try {
-        const decision = await assertHostedUsageAllowed(
-          db,
-          this.officeId,
-          source,
-        );
-        hostedBillingKind = billingKindForDecision(decision);
+        await assertWorkspacePlanAllowed(db, this.officeId, source);
+        if (this.turnHosted) {
+          const decision = await assertHostedUsageAllowed(
+            db,
+            this.officeId,
+            source,
+          );
+          hostedBillingKind = billingKindForDecision(decision);
+        }
       } catch (error) {
         this.officeStatus = "error";
         this.officeError =
@@ -1608,6 +1617,18 @@ export class RoomHome extends Agent<WorkerEnv> {
     await this.ensureBotLoaded();
     if (!this.hireName.trim()) return false;
     if (!this.turnStreamFn()) return false;
+    if (this.officeId) {
+      const env = productEnv(this.env);
+      const source = agentRuntimeSource(env);
+      const { db, close } = createNeonHttpDb(env.databaseUrl);
+      try {
+        await assertWorkspacePlanAllowed(db, this.officeId, source);
+      } catch {
+        return false;
+      } finally {
+        await close();
+      }
+    }
     const session = await this.ensureOfficeSession();
     const bound = await this.officeBound(session);
     if (!shouldRunOfficeIntro(bound)) {

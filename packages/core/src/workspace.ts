@@ -53,14 +53,20 @@ export async function isWorkspaceMember(
   userId: string,
   workspaceId: string,
 ): Promise<boolean> {
-  const [row] = await db
-    .select({ id: member.id })
-    .from(member)
-    .where(
-      and(eq(member.userId, userId), eq(member.organizationId, workspaceId)),
-    )
-    .limit(1);
-  return Boolean(row);
+  const role = await workspaceMemberRole(db, userId, workspaceId);
+  return role !== null;
+}
+
+export function isOwnerRole(role: string | null | undefined): boolean {
+  return role?.trim().toLowerCase() === "owner";
+}
+
+export async function isWorkspaceOwner(
+  db: Database,
+  userId: string,
+  workspaceId: string,
+): Promise<boolean> {
+  return isOwnerRole(await workspaceMemberRole(db, userId, workspaceId));
 }
 
 export async function isWorkspaceBillingManager(
@@ -68,6 +74,16 @@ export async function isWorkspaceBillingManager(
   userId: string,
   workspaceId: string,
 ): Promise<boolean> {
+  const role = await workspaceMemberRole(db, userId, workspaceId);
+  if (!role) return false;
+  return isOwnerRole(role) || role.trim().toLowerCase() === "admin";
+}
+
+async function workspaceMemberRole(
+  db: Database,
+  userId: string,
+  workspaceId: string,
+): Promise<string | null> {
   const [row] = await db
     .select({ role: member.role })
     .from(member)
@@ -75,8 +91,7 @@ export async function isWorkspaceBillingManager(
       and(eq(member.userId, userId), eq(member.organizationId, workspaceId)),
     )
     .limit(1);
-  if (!row) return false;
-  return row.role === "owner" || row.role === "admin";
+  return row?.role ?? null;
 }
 
 export async function renameWorkspace(

@@ -13,13 +13,13 @@ export function MemberStack(props: {
   const faces = props.faces.slice(0, 3);
   if (faces.length <= 1) {
     const face = faces[0];
-    if (!face) return <span className="inline-grid size-7 shrink-0" />;
+    if (!face) return <span className="inline-grid size-9 shrink-0" />;
     return (
       <AvatarMark
         name={face.name}
         color={face.avatarColor}
         shape={face.avatarShape}
-        size="sm"
+        size="md"
       />
     );
   }

@@ -19,8 +19,8 @@
       html[data-theme="light"],
       html[data-theme="light"] body,
       html[data-theme="light"] #root {
-        background: #f6f6f6;
-        color: #111;
+        background: #eceef2;
+        color: #111113;
       }
     </style>
     <script>
@@ -28,14 +28,20 @@
         var color = localStorage.getItem("groxbot.officeColor") || "";
         var theme = localStorage.getItem("groxbot.theme");
         var map = {
+          linear: ["linear", "dark"],
           night: ["night", "dark"],
-          dusk: ["dusk", "dark"],
+          snow: ["snow", "light"],
           paper: ["paper", "light"],
           blush: ["blush", "light"],
-          clay: ["dusk", "dark"],
+          dusk: ["linear", "dark"],
+          clay: ["linear", "dark"],
+          charcoal: ["linear", "dark"],
           umber: ["night", "dark"],
           moss: ["night", "dark"],
           teal: ["night", "dark"],
+          panic: ["night", "dark"],
+          nord: ["night", "dark"],
+          graphite: ["snow", "light"],
           dust: ["paper", "light"],
           bone: ["paper", "light"],
           sage: ["paper", "light"],
@@ -49,8 +55,12 @@
         if (pair) {
           document.documentElement.dataset.officeColor = pair[0];
           document.documentElement.dataset.theme = pair[1];
+        } else if (lightPref) {
+          document.documentElement.dataset.officeColor = "snow";
+          document.documentElement.dataset.theme = "light";
         } else {
-          document.documentElement.dataset.theme = lightPref ? "light" : "dark";
+          document.documentElement.dataset.officeColor = "linear";
+          document.documentElement.dataset.theme = "dark";
         }
       } catch (e) {}
     </script>

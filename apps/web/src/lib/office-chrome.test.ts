@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { OFFICE_COLORS } from "./office-color";
 
 const root = dirname(fileURLToPath(import.meta.url));
 const css = readFileSync(join(root, "../styles.css"), "utf8");
@@ -23,10 +24,14 @@ function rootBlock(marker: string): string {
   return css.slice(open, close);
 }
 
+function readToken(block: string, name: string): string | undefined {
+  return block.match(new RegExp(`${name}:\\s*([^;]+);`))?.[1]?.trim();
+}
+
 function token(block: string, name: string): string {
-  const match = block.match(new RegExp(`${name}:\\s*([^;]+);`));
-  expect(match?.[1], name).toBeTruthy();
-  return match?.[1]?.trim() ?? "";
+  const value = readToken(block, name);
+  expect(value, name).toBeTruthy();
+  return value ?? "";
 }
 
 function gray(hex: string): number {
@@ -54,16 +59,16 @@ describe("office chrome", () => {
   const light = rootBlock(':root[data-theme="light"] {');
 
   it("keeps a dark gutter around one office panel", () => {
-    expect(token(dark, "--bg")).toBe("#120c09");
-    expect(token(dark, "--bg-side")).toBe("#1d130e");
+    expect(token(dark, "--bg")).toBe("#08090a");
+    expect(token(dark, "--bg-side")).toBe("#0f1011");
     expect(token(dark, "--bg-side")).toBe(token(dark, "--bg-thread"));
     expect(gray(token(dark, "--bg-side"))).toBeGreaterThan(gray(token(dark, "--bg")));
     expect(css).toMatch(/\.chat-side\s*\{[^}]*background:\s*var\(--bg-side\)/s);
   });
 
-  it("lifts the light panel off the paper gutter", () => {
-    expect(token(light, "--bg")).toBe("#d4c4ae");
-    expect(token(light, "--bg-thread")).toBe("#f7f0e4");
+  it("lifts the light panel off the cool gutter", () => {
+    expect(token(light, "--bg")).toBe("#eceef2");
+    expect(token(light, "--bg-thread")).toBe("#ffffff");
     expect(token(light, "--bg-side")).toBe(token(light, "--bg-thread"));
     expect(token(light, "--bg-thread")).not.toBe(token(light, "--bg"));
   });
@@ -93,31 +98,69 @@ describe("office chrome", () => {
 
   it("lets an office look beat the light theme tokens", () => {
     const light = css.indexOf(':root[data-theme="light"] {');
-    const blush = css.indexOf(':root[data-office-color="blush"] {');
+    const snow = css.indexOf(':root[data-office-color="snow"] {');
     expect(light).toBeGreaterThan(-1);
-    expect(blush).toBeGreaterThan(light);
+    expect(snow).toBeGreaterThan(light);
     expect(css).toMatch(
-      /:root\[data-office-color="night"\]\s*\{[^}]*--bg-side:\s*#12141a/s,
+      /:root\[data-office-color="night"\]\s*\{[^}]*--bg-side:\s*#0c152c/s,
     );
     expect(css).toMatch(
-      /:root\[data-office-color="blush"\]\s*\{[^}]*--bg-side:\s*#f3c2d2/s,
+      /:root\[data-office-color="snow"\]\s*\{[^}]*--bg-side:\s*#ffffff/s,
     );
     expect(css).toMatch(
       /:root\[data-office-color="paper"\]\s*\{[^}]*--bg-side:\s*#f7f0e4/s,
     );
+    expect(css).toMatch(
+      /:root\[data-office-color="blush"\]\s*\{[^}]*--bg-side:\s*#f3c2d2/s,
+    );
   });
 
-  it("keeps blush type readable on the pink shell", () => {
-    const blush = rootBlock(':root[data-office-color="blush"] {');
-    const side = token(blush, "--bg-side");
-    const card = token(blush, "--card");
-    expect(contrast(token(blush, "--ink"), side)).toBeGreaterThanOrEqual(7);
-    expect(contrast(token(blush, "--muted"), side)).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(token(blush, "--muted"), card)).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(token(blush, "--accent"), side)).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(token(blush, "--danger"), side)).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(token(blush, "--danger"), card)).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(token(blush, "--line"), side)).toBeLessThan(2);
+  it("keeps night type readable on the navy shell", () => {
+    const night = rootBlock(':root[data-office-color="night"] {');
+    const side = token(night, "--bg-side");
+    const card = token(night, "--card");
+    expect(side).toBe("#0c152c");
+    expect(contrast(token(night, "--ink"), side)).toBeGreaterThanOrEqual(7);
+    expect(contrast(token(night, "--muted"), side)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(token(night, "--muted"), card)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(token(night, "--accent"), side)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(token(dark, "--danger"), side)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(token(dark, "--danger"), card)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(token(night, "--line"), side)).toBeLessThan(2);
+  });
+
+  it("keeps snow type readable on the white shell", () => {
+    const snow = rootBlock(':root[data-office-color="snow"] {');
+    const side = token(snow, "--bg-side");
+    const card = token(snow, "--card");
+    expect(side).toBe("#ffffff");
+    expect(contrast(token(snow, "--ink"), side)).toBeGreaterThanOrEqual(7);
+    expect(contrast(token(snow, "--muted"), side)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(token(snow, "--muted"), card)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(token(snow, "--accent"), side)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(token(snow, "--danger"), side)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(token(snow, "--danger"), card)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(token(snow, "--line"), side)).toBeLessThan(2);
+  });
+
+  it("keeps every office look readable", () => {
+    for (const color of OFFICE_COLORS) {
+      const block = rootBlock(`:root[data-office-color="${color.id}"] {`);
+      const side = token(block, "--bg-side");
+      const card = token(block, "--card");
+      const danger =
+        readToken(block, "--danger") ??
+        token(color.theme === "light" ? light : dark, "--danger");
+      expect(side, color.id).toBe(color.swatch);
+      expect(contrast(token(block, "--ink"), side), color.id).toBeGreaterThanOrEqual(7);
+      if (color.id === "paper") continue;
+      expect(contrast(token(block, "--muted"), side), color.id).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(token(block, "--muted"), card), color.id).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(token(block, "--accent"), side), color.id).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(danger, side), color.id).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(danger, card), color.id).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(token(block, "--line"), side), color.id).toBeLessThan(2);
+    }
   });
 
   it("keeps paper danger readable on the cream shell", () => {
@@ -184,6 +227,12 @@ describe("office chrome", () => {
     expect(css).not.toMatch(
       /\.chat-shell\.is-library \.chat-side,\s*\n\s*\.chat-shell\.is-library \.chat-stage/,
     );
+  });
+
+  it("gives sidebar bot rows a 36px face", () => {
+    expect(chatScreen).toMatch(/grid-cols-\[36px_minmax\(0,1fr\)\]/);
+    expect(chatScreen).toMatch(/size="md"/);
+    expect(css).toMatch(/\.member-stack\s*\{[^}]*width:\s*36px/s);
   });
 
   it("paints the assistant-ui canvas with the thread token", () => {
@@ -279,6 +328,14 @@ describe("office chrome", () => {
     expect(computerPane).toContain("Delete");
     expect(computerPane).toContain("openEdit");
     expect(computerPane).not.toMatch(/>\s*Remove\s*</);
+  });
+
+  it("keeps settings field controls inside the pane", () => {
+    expect(css).toMatch(/\.field\s*\{[^}]*min-width:\s*0/s);
+    expect(css).toMatch(
+      /\.field input,\s*\.field textarea,\s*\.field select\s*\{[^}]*width:\s*100%[^}]*min-width:\s*0/s,
+    );
+    expect(css).toMatch(/\.pane-scroll\s*\{[^}]*min-width:\s*0/s);
   });
 
   it("aligns the computer bar with the thread head", () => {

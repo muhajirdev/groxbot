@@ -19,6 +19,7 @@ import {
   botsListKey,
   commitCreatedWorkspace,
   forgetListedWorkspace,
+  patchMeWorkspace,
   knowledgeListKey,
   peekWorkspaceCatalog,
   prepareWorkspaceSwitch,
@@ -188,6 +189,53 @@ describe("rememberListedWorkspace", () => {
   });
 });
 
+describe("patchMeWorkspace", () => {
+  const me = {
+    userId: "u1",
+    email: "a@b.co",
+    name: "A",
+    image: null,
+    isDeploymentOwner: false,
+    needsModel: false,
+    needsHostedPlan: true,
+    defaultModel: "x",
+    defaultModelLabel: "X",
+    modelWarning: null,
+  };
+
+  it("offers a trial on a new office instead of inheriting trial-ended copy", () => {
+    queryClient.setQueryData(orpc.me.key(), {
+      ...me,
+      workspaceId: "ws-old",
+      workspaceName: "Old",
+      workspaceSlug: "old",
+      needsWorkspace: false,
+      trialAvailable: false,
+    });
+    patchMeWorkspace({ id: "ws-new", name: "New", slug: "new" });
+    expect(queryClient.getQueryData(orpc.me.key())).toMatchObject({
+      workspaceId: "ws-new",
+      trialAvailable: true,
+    });
+  });
+
+  it("keeps trial-ended copy when the same office is renamed", () => {
+    queryClient.setQueryData(orpc.me.key(), {
+      ...me,
+      workspaceId: "ws-1",
+      workspaceName: "Acme",
+      workspaceSlug: "acme",
+      needsWorkspace: false,
+      trialAvailable: false,
+    });
+    patchMeWorkspace({ id: "ws-1", name: "Acme Co", slug: "acme" });
+    expect(queryClient.getQueryData(orpc.me.key())).toMatchObject({
+      workspaceName: "Acme Co",
+      trialAvailable: false,
+    });
+  });
+});
+
 describe("commitCreatedWorkspace", () => {
   it("remaps a draft id onto the server row", () => {
     queryClient.setQueryData(workspaceListQueryOptions().queryKey, [
@@ -204,6 +252,8 @@ describe("commitCreatedWorkspace", () => {
       needsWorkspace: false,
       isDeploymentOwner: false,
       needsModel: false,
+      needsHostedPlan: false,
+      trialAvailable: true,
       defaultModel: "x",
       defaultModelLabel: "X",
       modelWarning: null,
