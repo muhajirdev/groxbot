@@ -27,6 +27,7 @@ const PRO_FEATURES = [
   "Plugins",
   "$20 hosted models / month",
   "Live apps — coming soon",
+  "Goal and task management — coming soon",
   "Mobile — coming soon",
 ];
 
