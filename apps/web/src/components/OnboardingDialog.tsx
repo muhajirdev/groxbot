@@ -70,8 +70,10 @@ export function OnboardingWelcome(props: {
             size="md"
             className="onboard-from-photo"
           />
-          <p className="onboard-from-name">{FOUNDER_NAME}</p>
-          <p className="onboard-from-note">Founder</p>
+          <div className="onboard-from-meta">
+            <p className="onboard-from-name">{FOUNDER_NAME}</p>
+            <p className="onboard-from-note">Founder</p>
+          </div>
         </div>
         <div className="onboard-letter">
           <p className="onboard-hello">
@@ -202,7 +204,7 @@ export function OnboardingDialog(props: {
   return (
     <ModalShell
       open={props.open}
-      className="onboard-dialog overflow-hidden p-0"
+      className="onboard-dialog flex flex-col overflow-auto p-0"
       onClose={props.onDismiss}
     >
       <OnboardingWelcome

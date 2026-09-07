@@ -1125,19 +1125,26 @@ html.vt-ready .gate > .gate-steps {
 }
 
 .onboard-dialog {
-  width: min(760px, calc(100% - 48px));
+  width: min(720px, calc(100% - 24px));
+  overscroll-behavior: contain;
 }
 
 .onboard-welcome {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .onboard-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 1;
   padding: 10px 16px;
   border-bottom: 1px solid var(--line);
+  background: var(--card);
 }
 
 .onboard-head h2 {
@@ -1149,21 +1156,28 @@ html.vt-ready .gate > .gate-steps {
 
 .onboard-body {
   display: grid;
-  gap: 16px;
-  padding: 16px;
+  gap: 12px;
+  padding: 14px 16px 16px;
+  min-width: 0;
 }
 
 .onboard-from {
-  display: grid;
-  justify-items: center;
-  align-content: center;
+  display: flex;
+  align-items: center;
   gap: 10px;
-  text-align: center;
+  min-width: 0;
+  text-align: left;
+}
+
+.onboard-from-meta {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
 }
 
 .onboard-from-name {
   margin: 0;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: -0.03em;
 }
@@ -1171,7 +1185,7 @@ html.vt-ready .gate > .gate-steps {
 .onboard-from-note {
   margin: 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -1198,12 +1212,13 @@ html.vt-ready .gate > .gate-steps {
 }
 
 .onboard-from-photo {
-  width: 72px;
-  height: 72px;
+  width: 40px;
+  height: 40px;
 }
 
 .onboard-letter {
-  padding: 18px 20px 16px;
+  min-width: 0;
+  padding: 16px 16px 14px;
   border: 1px solid color-mix(in srgb, #c4b89a 22%, var(--line));
   border-radius: 10px;
   background: color-mix(in srgb, #c4b89a 9%, var(--card));
@@ -1214,24 +1229,30 @@ html.vt-ready .gate > .gate-steps {
 
 @media (min-width: 720px) {
   .onboard-body {
-    grid-template-columns: 180px minmax(0, 1fr);
-    align-items: stretch;
-    gap: 18px;
-    padding: 18px;
+    grid-template-columns: 96px minmax(0, 1fr);
+    align-items: start;
+    gap: 14px;
+    padding: 16px;
   }
 
   .onboard-from {
-    padding: 8px 8px 8px 4px;
+    display: grid;
+    justify-items: center;
+    align-content: start;
+    gap: 8px;
+    padding: 2px 0 0;
+    text-align: center;
   }
 
   .onboard-from-photo {
-    width: 88px;
-    height: 88px;
+    width: 56px;
+    height: 56px;
   }
 
   .onboard-letter {
     display: flex;
     flex-direction: column;
+    padding: 18px 20px 16px;
   }
 }
 
