@@ -292,12 +292,34 @@ function isComputerFileNote(text: string): boolean {
   );
 }
 
-function visibleText(message: PiProjectedMessage): string {
+function textLines(text: string): string[] {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function stripComputerFileNotes(text: string): string {
+  return textLines(text)
+    .filter((line) => !isComputerFileNote(line))
+    .join("\n");
+}
+
+function hasComputerFileNote(text: string): boolean {
+  return textLines(text).some((line) => isComputerFileNote(line));
+}
+
+function joinedUserText(message: PiProjectedMessage): string {
   return message.content
-    .filter((part): part is { type: "text"; text: string } => part.type === "text")
+    .filter(
+      (part): part is { type: "text"; text: string } => part.type === "text",
+    )
     .map((part) => part.text)
-    .filter((text) => !isComputerFileNote(text))
-    .join("");
+    .join("\n");
+}
+
+function visibleText(message: PiProjectedMessage): string {
+  return stripComputerFileNotes(joinedUserText(message));
 }
 
 export function usedProjectedTools(message: PiProjectedMessage): boolean {
@@ -314,6 +336,7 @@ export function isVisibleProjectedMessage(message: PiProjectedMessage): boolean 
   if (message.role === "user") {
     return (
       visibleText(message).trim().length > 0 ||
+      hasComputerFileNote(joinedUserText(message)) ||
       message.content.some((part) => part.type === "image")
     );
   }

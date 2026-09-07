@@ -10,12 +10,15 @@ import {
 
 describe("workspaceAttachmentContent", () => {
   it("names the inbox path as text and does not attach bytes", () => {
-    expect(
-      workspaceAttachmentContent({ path: "inbox/shot.png" }),
-    ).toEqual([{ type: "text", text: computerFileNote("inbox/shot.png") }]);
-    expect(
-      workspaceAttachmentContent({ path: "inbox/brief.md" }),
-    ).toEqual([{ type: "text", text: computerFileNote("inbox/brief.md") }]);
+    expect(computerFileNote("inbox/brief.md")).toBe(
+      "On this computer: `inbox/brief.md`",
+    );
+    expect(workspaceAttachmentContent({ path: "inbox/shot.png" })).toEqual([
+      { type: "text", text: computerFileNote("inbox/shot.png") },
+    ]);
+    expect(workspaceAttachmentContent({ path: "inbox/brief.md" })).toEqual([
+      { type: "text", text: computerFileNote("inbox/brief.md") },
+    ]);
   });
 });
 

@@ -122,6 +122,23 @@ describe("lastOfficePreview", () => {
     ).toBe("can you read this pdf");
   });
 
+  it("strips an inbox path line from a single user blob", () => {
+    expect(
+      lastOfficePreview([
+        {
+          id: "u1",
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "can you read this pdf\n\nOn this computer: `inbox/a.pdf`",
+            },
+          ],
+        },
+      ]),
+    ).toBe("can you read this pdf");
+  });
+
   it("uses a present card title when the assistant has no text", () => {
     expect(
       lastOfficePreview([
@@ -148,7 +165,9 @@ describe("lastOfficePreview", () => {
         {
           id: "u-intro",
           role: "user",
-          content: [{ type: "text", text: "Office intro. Become Alex Hormozi." }],
+          content: [
+            { type: "text", text: "Office intro. Become Alex Hormozi." },
+          ],
           metadata: { custom: { source: OFFICE_INTRO_SOURCE } },
         },
         assistant("a1", "I'm Hormozi. What's the offer?"),
@@ -192,7 +211,9 @@ describe("isVisibleChatMessage", () => {
       isVisibleChatMessage({
         id: "filed",
         role: "assistant",
-        content: [{ type: "text", text: "Saved skills/weekly-update/SKILL.md" }],
+        content: [
+          { type: "text", text: "Saved skills/weekly-update/SKILL.md" },
+        ],
         metadata: { custom: { source: OFFICE_REVIEW_SOURCE } },
       }),
     ).toBe(true);
@@ -208,9 +229,17 @@ describe("isVisibleChatMessage", () => {
       }),
     ).toBe(false);
     expect(
-      isVisibleChatMessage(
-        assistant("a", "I'm Hormozi. What's the offer?"),
-      ),
+      isVisibleChatMessage(assistant("a", "I'm Hormozi. What's the offer?")),
+    ).toBe(true);
+  });
+
+  it("shows a user bubble that is only an inbox path note", () => {
+    expect(
+      isVisibleChatMessage({
+        id: "u",
+        role: "user",
+        content: [{ type: "text", text: "On this computer: `inbox/a.pdf`" }],
+      }),
     ).toBe(true);
   });
 });

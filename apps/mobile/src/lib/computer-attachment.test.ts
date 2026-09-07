@@ -11,7 +11,7 @@ import {
 describe("computerFileNote", () => {
   it("names the inbox path as a chat note", () => {
     expect(computerFileNote("inbox/brief.md")).toBe(
-      "On this computer: inbox/brief.md",
+      "On this computer: `inbox/brief.md`",
     );
     expect(workspaceAttachmentText("inbox/brief.md")).toContain(
       "inbox/brief.md",

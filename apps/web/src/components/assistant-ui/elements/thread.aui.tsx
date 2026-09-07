@@ -58,6 +58,7 @@ import {
   PencilIcon,
   ReloadIcon,
   SquareIcon,
+  UploadIcon,
 } from "@/components/Icons";
 import {
   createContext,
@@ -215,6 +216,10 @@ const ThreadRoot: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
         ["--composer-padding" as string]: "6px",
       }}
     >
+      <ComposerPrimitive.AttachmentDropzone
+        disabled={hideComposer}
+        className="aui-thread-dropzone group/drop relative flex min-h-0 flex-1 flex-col"
+      >
       <ThreadPrimitive.Viewport
         turnAnchor="top"
         data-slot="aui_thread-viewport"
@@ -251,7 +256,25 @@ const ThreadRoot: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
           </ThreadPrimitive.ViewportFooter>
         </div>
       </ThreadPrimitive.Viewport>
+      <ThreadDropHint />
+      </ComposerPrimitive.AttachmentDropzone>
     </ThreadPrimitive.Root>
+  );
+};
+
+const ThreadDropHint: FC = () => {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none invisible absolute inset-0 z-20 grid place-items-center bg-bg-thread/80 opacity-0 backdrop-blur-[2px] transition-[opacity,visibility] duration-150 group-data-[dragging=true]/drop:visible group-data-[dragging=true]/drop:opacity-100"
+    >
+      <div className="flex scale-95 flex-col items-center gap-2.5 transition-transform duration-150 group-data-[dragging=true]/drop:scale-100">
+        <div className="grid size-12 place-items-center rounded-full bg-accent/15 text-accent">
+          <UploadIcon size={22} />
+        </div>
+        <p className="text-[14px] font-medium text-ink">Drop files here</p>
+      </div>
+    </div>
   );
 };
 
@@ -327,14 +350,21 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
       {mentionSeats.length > 0 ? (
         <RoomMentionMenu seats={mentionSeats} />
       ) : null}
-      <ComposerPrimitive.AttachmentDropzone render={<div data-slot="aui_composer-shell" className="border-border/60 data-[dragging=true]:border-ring focus-within:border-border dark:border-muted-foreground/15 dark:focus-within:border-muted-foreground/30 flex w-full cursor-text flex-col gap-1 rounded-(--composer-radius) border bg-(--composer-bg) p-(--composer-padding) transition-[border-color] data-[dragging=true]:border-dashed data-[dragging=true]:bg-[color-mix(in_oklab,var(--color-accent)_50%,var(--color-background))]" />}><ComposerAttachments /><ComposerPrimitive.Input
-                      placeholder={placeholder}
-                      className="aui-composer-input caret-primary placeholder:text-muted-foreground/60 max-h-40 min-h-8 w-full resize-none bg-transparent px-2 py-0.5 text-base leading-5 outline-none min-[721px]:text-[14px]"
-                      rows={1}
-                      autoFocus={autoFocus}
-                      enterKeyHint="send"
-                      aria-label="Message input"
-                    /><ComposerAction /></ComposerPrimitive.AttachmentDropzone>
+      <div
+        data-slot="aui_composer-shell"
+        className="border-border/60 focus-within:border-border dark:border-muted-foreground/15 dark:focus-within:border-muted-foreground/30 flex w-full cursor-text flex-col gap-1 rounded-(--composer-radius) border bg-(--composer-bg) p-(--composer-padding) transition-[border-color]"
+      >
+        <ComposerAttachments />
+        <ComposerPrimitive.Input
+          placeholder={placeholder}
+          className="aui-composer-input caret-primary placeholder:text-muted-foreground/60 max-h-40 min-h-8 w-full resize-none bg-transparent px-2 py-0.5 text-base leading-5 outline-none min-[721px]:text-[14px]"
+          rows={1}
+          autoFocus={autoFocus}
+          enterKeyHint="send"
+          aria-label="Message input"
+        />
+        <ComposerAction />
+      </div>
     </ComposerPrimitive.Root>
   );
 };

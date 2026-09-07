@@ -16,7 +16,7 @@ export type ComputerWrite = (input: {
 }) => Promise<{ path: string; size: number }>;
 
 export function computerFileNote(path: string): string {
-  return `${COMPUTER_FILE_NOTE_PREFIX} ${path}`;
+  return `${COMPUTER_FILE_NOTE_PREFIX} \`${path}\``;
 }
 
 export function isComputerFileNote(text: string): boolean {

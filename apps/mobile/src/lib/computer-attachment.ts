@@ -9,7 +9,7 @@ export { isComputerFileNote };
 export const COMPUTER_FILE_NOTE_PREFIX = "On this computer:";
 
 export function computerFileNote(path: string): string {
-  return `${COMPUTER_FILE_NOTE_PREFIX} ${path}`;
+  return `${COMPUTER_FILE_NOTE_PREFIX} \`${path}\``;
 }
 
 export type PickedOfficeFile = {

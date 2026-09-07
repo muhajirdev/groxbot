@@ -45,14 +45,28 @@ export function textFromMessage(message: PiProjectedMessage): string {
   return projectedText(collapseTextParts(message));
 }
 
-function visibleTextFromMessage(message: PiProjectedMessage): string {
-  return collapseTextParts(message)
-    .content.filter(
-      (part): part is { type: "text"; text: string } => part.type === "text",
+function joinedTextParts(
+  parts: ReadonlyArray<{ type: string; text?: string }>,
+): string {
+  return parts
+    .filter(
+      (part): part is { type: "text"; text: string } =>
+        part.type === "text" && typeof part.text === "string",
     )
     .map((part) => part.text)
-    .filter((text) => !isComputerFileNote(text))
-    .join("");
+    .join("\n");
+}
+
+function stripComputerFileNotes(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !isComputerFileNote(line))
+    .join("\n");
+}
+
+function hasComputerFileNote(text: string): boolean {
+  return text.split("\n").some((line) => isComputerFileNote(line.trim()));
 }
 
 export function lastOfficePreview(messages: PiProjectedMessage[]): string {
@@ -83,16 +97,10 @@ export function isVisibleChatMessage(message: {
     return false;
   }
   if (message.role === "user") {
-    const visible = parts
-      .filter(
-        (part): part is { type: "text"; text: string } =>
-          part.type === "text" && typeof part.text === "string",
-      )
-      .map((part) => part.text)
-      .filter((value) => !isComputerFileNote(value))
-      .join("");
+    const joined = joinedTextParts(parts);
     return (
-      visible.length > 0 ||
+      stripComputerFileNotes(joined).length > 0 ||
+      hasComputerFileNote(joined) ||
       parts.some((part) => part.type === "image" || part.type === "file")
     );
   }
