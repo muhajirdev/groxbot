@@ -239,6 +239,7 @@ export function createApp(
     app.get("/bots/:botId/rpc", async (c) => {
       const origin = c.req.header("Origin");
       if (origin && !env.corsOrigins.includes(origin)) {
+        logOfficeRpc("bot", c.req.raw, 403, "origin");
         return c.text("Forbidden", 403);
       }
       try {
@@ -255,7 +256,10 @@ export function createApp(
             and(eq(bots.id, botId), eq(bots.workspaceId, actor.workspaceId)),
           )
           .limit(1);
-        if (!bot) return c.text("Not found", 404);
+        if (!bot) {
+          logOfficeRpc("bot", inbound, 404, "not_found");
+          return c.text("Not found", 404);
+        }
         const officeUser = officeUserFromActor(actor);
         const stamped = officeUser
           ? withOfficeUserRequest(inbound, officeUser)
@@ -263,6 +267,7 @@ export function createApp(
         return connectBot(botId, stamped, actor.workspaceId);
       } catch (error) {
         if (error instanceof ORPCError) {
+          logOfficeRpc("bot", c.req.raw, error.status, error.code);
           return new Response(error.message, { status: error.status });
         }
         throw error;
@@ -275,6 +280,7 @@ export function createApp(
     app.get("/rooms/:roomId/rpc", async (c) => {
       const origin = c.req.header("Origin");
       if (origin && !env.corsOrigins.includes(origin)) {
+        logOfficeRpc("room", c.req.raw, 403, "origin");
         return c.text("Forbidden", 403);
       }
       try {
@@ -291,7 +297,10 @@ export function createApp(
             and(eq(rooms.id, roomId), eq(rooms.workspaceId, actor.workspaceId)),
           )
           .limit(1);
-        if (!room) return c.text("Not found", 404);
+        if (!room) {
+          logOfficeRpc("room", inbound, 404, "not_found");
+          return c.text("Not found", 404);
+        }
         const officeUser = officeUserFromActor(actor);
         const stamped = officeUser
           ? withOfficeUserRequest(inbound, officeUser)
@@ -299,6 +308,7 @@ export function createApp(
         return connectRoom(roomId, stamped, actor.workspaceId);
       } catch (error) {
         if (error instanceof ORPCError) {
+          logOfficeRpc("room", c.req.raw, error.status, error.code);
           return new Response(error.message, { status: error.status });
         }
         throw error;
@@ -311,6 +321,7 @@ export function createApp(
     app.get("/apps/:appId/rpc", async (c) => {
       const origin = c.req.header("Origin");
       if (origin && !env.corsOrigins.includes(origin)) {
+        logOfficeRpc("app", c.req.raw, 403, "origin");
         return c.text("Forbidden", 403);
       }
       try {
@@ -321,6 +332,7 @@ export function createApp(
         return connectApp(c.req.param("appId"), c.req.raw, actor.workspaceId);
       } catch (error) {
         if (error instanceof ORPCError) {
+          logOfficeRpc("app", c.req.raw, error.status, error.code);
           return new Response(error.message, { status: error.status });
         }
         throw error;
@@ -367,6 +379,29 @@ export function createApp(
   });
 
   return handles;
+}
+
+/** Failures on Cap’n Web connect. Never log Cookie or the workspace id value. */
+function logOfficeRpc(
+  kind: "bot" | "room" | "app",
+  request: Request,
+  status: number,
+  detail: string,
+): void {
+  const url = new URL(request.url);
+  console.warn("office rpc", {
+    kind,
+    status,
+    detail,
+    path: url.pathname,
+    origin: request.headers.get("Origin") ?? "",
+    upgrade: request.headers.get("Upgrade") ?? "",
+    hasCookie: Boolean(request.headers.get("Cookie")?.trim()),
+    hasWorkspace: Boolean(
+      request.headers.get(WORKSPACE_ID_HEADER)?.trim() ||
+        url.searchParams.get(WORKSPACE_ID_HEADER)?.trim(),
+    ),
+  });
 }
 
 /** React Native WebSocket cannot set Cookie; the office client puts it on the query. */
