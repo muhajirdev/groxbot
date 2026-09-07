@@ -21,7 +21,7 @@ import {
   peopleLabel,
   planListUsd,
   planPeriodLabel,
-  stepPlanPeople,
+  teamProductivityLiftPercent,
 } from "../lib/plan-compare";
 import { Button, cn } from "../ui";
 import { CheckIcon } from "./Icons";
@@ -166,31 +166,38 @@ function HeadcountCompare(props: { interval: BillingInterval }) {
   const count = peopleLabel(people);
   const yearly = isYearlyInterval(props.interval);
   const ours = yearly ? GROXBOT_PRO_YEARLY_USD : GROXBOT_PRO_MONTHLY_USD;
+  const lift = teamProductivityLiftPercent(people);
 
   return (
     <div className="subscribe-headcount">
       <h3 className="subscribe-headcount-title">Pricing comparison</h3>
-      <div className="subscribe-headcount-stepper">
-        <span className="subscribe-headcount-for">For</span>
-        <Button
-          variant="icon"
-          type="button"
-          aria-label="Fewer people"
-          disabled={people <= PLAN_COMPARE_MIN_PEOPLE}
-          onClick={() => setPeople((n) => stepPlanPeople(n, -1))}
-        >
-          −
-        </Button>
-        <p>{count}</p>
-        <Button
-          variant="icon"
-          type="button"
-          aria-label="More people"
-          disabled={people >= PLAN_COMPARE_MAX_PEOPLE}
-          onClick={() => setPeople((n) => stepPlanPeople(n, 1))}
-        >
-          +
-        </Button>
+      <div className="subscribe-headcount-slider">
+        <div className="subscribe-headcount-slider-meta">
+          <p>
+            For <span className="subscribe-headcount-for-count">{count}</span>
+          </p>
+          <strong className="subscribe-headcount-price">
+            ${GROXBOT_PRO_MONTHLY_USD}/mo
+          </strong>
+        </div>
+        <input
+          className="subscribe-headcount-range"
+          type="range"
+          min={PLAN_COMPARE_MIN_PEOPLE}
+          max={PLAN_COMPARE_MAX_PEOPLE}
+          step={1}
+          value={people}
+          aria-label="Team size"
+          aria-valuemin={PLAN_COMPARE_MIN_PEOPLE}
+          aria-valuemax={PLAN_COMPARE_MAX_PEOPLE}
+          aria-valuenow={people}
+          aria-valuetext={`${count}, Groxbot Pro $${GROXBOT_PRO_MONTHLY_USD} per month, team productivity plus ${lift} percent`}
+          onChange={(event) => setPeople(Number(event.target.value))}
+        />
+        <div className="subscribe-headcount-ends">
+          <span>{PLAN_COMPARE_MIN_PEOPLE}</span>
+          <span>{PLAN_COMPARE_MAX_PEOPLE}</span>
+        </div>
       </div>
       <div className="subscribe-headcount-rows">
         <div className="subscribe-headcount-row">
@@ -207,6 +214,13 @@ function HeadcountCompare(props: { interval: BillingInterval }) {
             ${ours}
             {planPeriodLabel(props.interval)}
           </strong>
+        </div>
+        <div className="subscribe-headcount-row lift">
+          <span>Team productivity</span>
+          <span className="subscribe-headcount-math">
+            more headcount, more lift
+          </span>
+          <strong>+{lift}%</strong>
         </div>
       </div>
     </div>

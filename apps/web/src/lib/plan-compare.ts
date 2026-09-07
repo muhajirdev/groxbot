@@ -51,6 +51,11 @@ export function peopleLabel(people: number): string {
   return n === 1 ? "1 person" : `${n} people`;
 }
 
+/** Shared-office lift: +8 pts per person (1 → 8%, 10 → 80%, 20 → 160%). */
+export function teamProductivityLiftPercent(people: number): number {
+  return clampPlanPeople(people) * 8;
+}
+
 export function planListUsd(
   plan: Exclude<WorkspacePlan, "none">,
   interval: BillingInterval,
