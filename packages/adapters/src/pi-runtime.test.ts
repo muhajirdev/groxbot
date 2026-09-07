@@ -1,7 +1,7 @@
 import {
+  BINDING_STARTER_MODEL,
   CLOUDFLARE_PROVIDER,
   DEFAULT_AI_GATEWAY_ID,
-  HOSTED_STARTER_MODEL,
   OPENROUTER_PROVIDER,
 } from "@groxbot/contracts";
 import { describe, expect, it } from "vitest";
@@ -164,7 +164,7 @@ describe("PiAgentRuntime", () => {
     expect(seen).toEqual([
       {
         url: cloudflareAiGatewayChatUrl("acct_123", DEFAULT_AI_GATEWAY_ID),
-        model: piAiRequestModel(CLOUDFLARE_PROVIDER, HOSTED_STARTER_MODEL),
+        model: piAiRequestModel(CLOUDFLARE_PROVIDER, BINDING_STARTER_MODEL),
         auth: "Bearer cf-token",
         metadata: JSON.stringify({
           workspaceId: "ws-1",

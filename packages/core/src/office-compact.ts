@@ -73,6 +73,9 @@ export function officeModelContextWindow(model: {
   if (id.includes("glm-5.3") || id.includes("glm-5.2")) {
     return Math.max(listed, HOSTED_OFFICE_CONTEXT_WINDOW);
   }
+  if (id.includes("groxbot/") || id === "auto" || id === "free") {
+    return Math.max(listed, HOSTED_OFFICE_CONTEXT_WINDOW);
+  }
   if (listed >= 256_000) return listed;
   if (listed > 0 && !id.includes("workers-ai/") && !id.includes("@cf/")) {
     return listed;

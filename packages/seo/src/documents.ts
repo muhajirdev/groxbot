@@ -335,7 +335,7 @@ A: Self-host and the office stays in your Postgres and sandboxes — groxbot.com
 ---
 
 Q: What models does it use?
-A: Bring your own keys, or Groxbot’s hosted Workers AI on the Worker AI binding. Tests construct ScriptedAgentRuntime so they stay offline.
+A: Bring your own keys, or Groxbot’s hosted models (Polar-gated, OpenRouter). Tests construct ScriptedAgentRuntime so they stay offline.
 
 ---
 

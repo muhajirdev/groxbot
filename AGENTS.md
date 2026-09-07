@@ -13,7 +13,7 @@
 - Live apps: workspace-owned docs / slides / sheets. Talk → chat card → Open. `AppRuntime` supervisor DO; `export class Gadget` from stamped `server.js` is a Dynamic Worker Facet; iframe Cap’n Web; parent holds `wss://…/apps/:id/rpc`. Listing (`apps.list`) is derived from chat cards. No Postgres apps catalog. No file manager in product UI.
 - Auth, secrets, and host commands are security-sensitive.
 - Tests stay offline: `ScriptedAgentRuntime` — no live OpenRouter / Cloudflare AI Gateway / Computer / Sandbox / E2B / TinyFish. Actor tests enqueue onto a function that runs `createWakeHandlers`.
-- Hosted models: Worker `AI` binding through Cloudflare AI Gateway. Workspace BYOK wins. Count hosted usage per workspace (`model_usage`).
+- Hosted models: grox-gateway (Polar + OpenRouter). Catalog ids `groxbot/auto` and `groxbot/free` stay in the app; the gateway maps them. Self-host uses the Worker `AI` binding. Workspace BYOK wins. Count hosted usage per workspace (`model_usage`).
 - Auth email: Worker `EMAIL` binding (`send_email`). `EMAIL_FROM` is the from address.
 - Guest runtimes (Hermes/OpenClaw) are opt-in per bot, off by default.
 - v1 surface is **web** (Vite + TanStack Router). Desktop is Electron around web. Mobile is Expo later. All three call **oRPC** via `@groxbot/rpc`.

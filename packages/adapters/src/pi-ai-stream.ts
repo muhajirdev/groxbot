@@ -14,6 +14,7 @@ import { openrouterProvider } from "@earendil-works/pi-ai/providers/openrouter";
 import {
   CLOUDFLARE_PROVIDER,
   OPENROUTER_PROVIDER,
+  isGroxbotRouterModel,
 } from "@groxbot/contracts";
 import type { GatewayConfig, GatewayProvider } from "./gateway.js";
 
@@ -67,9 +68,12 @@ function cloneCompletions(
   };
 }
 
-/** Unified AI Gateway `/compat` model id (`workers-ai/@cf/...`). */
+/** Unified AI Gateway `/compat` model id (`workers-ai/@cf/...`). Groxbot routers stay opaque. */
 export function piAiGatewayModelId(model: string): string {
   const trimmed = model.trim();
+  if (isGroxbotRouterModel(trimmed) || trimmed.startsWith("groxbot/")) {
+    return trimmed.startsWith("groxbot/") ? trimmed : `groxbot/${trimmed}`;
+  }
   const cfIndex = trimmed.indexOf("@cf/");
   if (cfIndex >= 0) {
     const workers = trimmed.slice(cfIndex);
@@ -228,7 +232,7 @@ function piAiStreamEnv(config: GatewayConfig): Record<string, string> {
 }
 
 /**
- * Pi `StreamFn` via `@earendil-works/pi-ai` (Cloudflare AI Gateway + OpenRouter).
+ * Pi `StreamFn` via `@earendil-works/pi-ai` (grox-gateway / Cloudflare AI Gateway / OpenRouter).
  * Must not throw — failures are `stopReason` error/aborted on the assistant message.
  */
 export function createGatewayStreamFn(

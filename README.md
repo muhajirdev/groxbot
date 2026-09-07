@@ -63,7 +63,7 @@ Google / GitHub need client IDs in `.env`. Use **127.0.0.1**, not localhost:
 
 Email sign-in sends a magic link through the Worker **`EMAIL` binding** (`send_email` in `apps/api/wrangler.jsonc`). Set `EMAIL_FROM`. Local `wrangler dev` logs mail unless you set `"remote": true` on the binding. Tests stay on `mail: log`.
 
-Office chats on hosted groxbot.com (and local when `GROX_GATEWAY_URL` is set) go through **grox-gateway**. Self-host uses the Worker **`AI` binding**. Workspace BYOK still wins. Tests construct `ScriptedAgentRuntime`.
+Office chats on hosted groxbot.com (and local when `GROX_GATEWAY_URL` is set) go through **grox-gateway** (Polar gate, OpenRouter inference). Self-host uses the Worker **`AI` binding**. Workspace BYOK still wins. Tests construct `ScriptedAgentRuntime`.
 
 **Cloudflare AI Gateway** also accepts a workspace BYOK key in Settings → Models (account id, API token, gateway id). Hosted usage is counted per workspace. See [Cloudflare’s Pi guide](https://developers.cloudflare.com/ai-gateway/integrations/coding-agents/pi/).
 

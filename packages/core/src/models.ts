@@ -16,6 +16,10 @@ import {
   HOSTED_STARTER_MODEL,
   hostedAiEnabled,
   hostedCloudflareGateway,
+  hostedStarterModel,
+  groxHostedGateway,
+  GROXBOT_AUTO_MODEL,
+  GROXBOT_FREE_MODEL,
   MODEL_CATALOG,
   missingProviderMessage,
   modelIsRunnable,
@@ -193,11 +197,12 @@ export function fallbackRunnableModel(
   model: string,
   providers: readonly ModelProvider[],
   hosted = false,
+  hostedStarter = HOSTED_STARTER_MODEL,
 ): string {
   const current = gatewayModelId(model);
   if (current && modelIsRunnable(current, providers)) return current;
-  if (hosted && modelIsRunnable(HOSTED_STARTER_MODEL, providers)) {
-    return gatewayModelId(HOSTED_STARTER_MODEL);
+  if (hosted && modelIsRunnable(hostedStarter, providers)) {
+    return gatewayModelId(hostedStarter);
   }
   const fromCatalog = MODEL_CATALOG.find((item) =>
     modelIsRunnable(item.id, providers),
@@ -299,12 +304,17 @@ export async function loadModelSettings(
     creds.find((row) => row.isDefault)?.defaultModel?.trim() ||
     "";
   const defaultModelId = fallbackRunnableModel(
-    stored || (hosted ? HOSTED_STARTER_MODEL : SUGGESTED_STARTER_MODEL),
+    stored || (hosted ? hostedStarterModel(env) : SUGGESTED_STARTER_MODEL),
     available,
     Boolean(hosted),
+    hostedStarterModel(env),
   );
   const listed = MODEL_CATALOG.some((item) => item.id === defaultModelId);
-  const catalog = MODEL_CATALOG.map((item) => ({
+  const groxGateway = Boolean(groxHostedGateway(env));
+  const catalog = MODEL_CATALOG.filter((item) => {
+    if (groxGateway) return true;
+    return item.id !== GROXBOT_AUTO_MODEL && item.id !== GROXBOT_FREE_MODEL;
+  }).map((item) => ({
     id: item.id,
     label: item.label,
     provider: item.provider,
@@ -609,6 +619,7 @@ export async function resolveRunModel(
     bot.model?.trim() || settings.defaultModel,
     providers,
     usedHosted,
+    hostedStarterModel(baseEnv),
   );
   if (model) env.GROXBOT_MODEL = model;
   const configured = modelIsRunnable(model, providers);
