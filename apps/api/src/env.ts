@@ -245,6 +245,9 @@ export function agentRuntimeSource(env: Env): RuntimeSource {
       POLAR_ACCESS_TOKEN: env.polarAccessToken,
       [GROX_GATEWAY_URL_ENV]: env.groxGatewayUrl,
       [GROX_GATEWAY_SECRET_ENV]: env.groxGatewaySecret,
+      [HOSTED_AI_ENV]: HOSTED_AI_FLAG,
+      CLOUDFLARE_AI_GATEWAY_ID: env.cloudflareAiGatewayId,
+      CLOUDFLARE_GATEWAY_ID: env.cloudflareAiGatewayId,
     };
   }
   const hosted = env.hostedAiBinding
