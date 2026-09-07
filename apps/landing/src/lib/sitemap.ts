@@ -1,5 +1,6 @@
 import { COMPARE_PAGES } from "../data/compare";
 import { USE_CASES } from "../data/use-cases";
+import { LANDING_HIRE_BOTS } from "./bot-marketplace";
 import { DISCOVERY_SITEMAP_PATHS } from "./discovery";
 import { INTEGRATIONS, integrationCategories } from "./integrations";
 import { canonicalUrl } from "./site";
@@ -10,14 +11,37 @@ export type SitemapEntry = {
   priority: string;
 };
 
+/** Top-level marketing hubs (not discovery files or generated detail pages). */
+export const SITEMAP_HUB_PATHS = [
+  "/",
+  "/integrations",
+  "/use-cases",
+  "/templates",
+  "/pricing",
+  "/enterprise",
+  "/compare",
+  "/press",
+  "/changelog",
+  "/contact",
+  "/privacy",
+  "/terms",
+] as const;
+
 export function sitemapEntries(): SitemapEntry[] {
-  const entries: SitemapEntry[] = [
-    { path: "/", changefreq: "weekly", priority: "1.0" },
-    { path: "/integrations", changefreq: "weekly", priority: "0.9" },
-    { path: "/use-cases", changefreq: "weekly", priority: "0.9" },
-    { path: "/compare", changefreq: "weekly", priority: "0.9" },
-    { path: "/press", changefreq: "monthly", priority: "0.6" },
-  ];
+  const entries: SitemapEntry[] = SITEMAP_HUB_PATHS.map((path) => ({
+    path,
+    changefreq: path === "/press" || path === "/privacy" || path === "/terms"
+      ? ("monthly" as const)
+      : ("weekly" as const),
+    priority:
+      path === "/"
+        ? "1.0"
+        : path === "/privacy" || path === "/terms"
+          ? "0.4"
+          : path === "/press" || path === "/changelog" || path === "/contact"
+            ? "0.6"
+            : "0.9",
+  }));
   for (const path of DISCOVERY_SITEMAP_PATHS) {
     if (entries.some((entry) => entry.path === path)) continue;
     entries.push({ path, changefreq: "weekly", priority: "0.5" });
@@ -41,6 +65,13 @@ export function sitemapEntries(): SitemapEntry[] {
       path: `/use-cases/${item.slug}`,
       changefreq: "weekly",
       priority: "0.8",
+    });
+  }
+  for (const bot of LANDING_HIRE_BOTS) {
+    entries.push({
+      path: `/templates/${bot.id}`,
+      changefreq: "weekly",
+      priority: "0.7",
     });
   }
   for (const page of COMPARE_PAGES) {
