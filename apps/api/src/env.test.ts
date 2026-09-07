@@ -36,6 +36,17 @@ describe("agentRuntimeSource", () => {
     expect(source[HOSTED_AI_ENV]).toBeUndefined();
     expect(source.AGENT_RUNTIME).toBeUndefined();
   });
+
+  it("treats grox-gateway as the included hosted catalog", () => {
+    const env = loadEnv({
+      ...base,
+      GROX_GATEWAY_URL: "https://gateway.groxbot.com",
+      GROX_GATEWAY_SECRET: "gw-secret",
+    });
+    const source = agentRuntimeSource(env);
+    expect(source.GROX_GATEWAY_URL).toBe("https://gateway.groxbot.com");
+    expect(source[HOSTED_AI_ENV]).toBe(HOSTED_AI_FLAG);
+  });
 });
 
 describe("productEnv", () => {

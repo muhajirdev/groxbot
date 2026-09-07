@@ -338,7 +338,9 @@ export function hostedCloudflareGateway(
 ): HostedCloudflareGateway | null {
   const gatewayId =
     env.CLOUDFLARE_AI_GATEWAY_ID?.trim() || DEFAULT_AI_GATEWAY_ID;
-  if (hostedAiEnabled(env)) {
+  // grox-gateway is the hosted office brain on groxbot.com. Same “included”
+  // catalog as the Worker AI binding — do not make Settings ask for a key.
+  if (groxHostedGateway(env) || hostedAiEnabled(env)) {
     return { kind: "binding", gatewayId };
   }
   const accountId = env.CLOUDFLARE_ACCOUNT_ID?.trim() ?? "";

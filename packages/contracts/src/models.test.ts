@@ -81,6 +81,12 @@ describe("model catalog", () => {
     ).toEqual({ kind: "binding", gatewayId: "office" });
     expect(
       hostedCloudflareGateway({
+        GROX_GATEWAY_URL: "https://gateway.groxbot.com",
+        GROX_GATEWAY_SECRET: "gw-secret",
+      }),
+    ).toEqual({ kind: "binding", gatewayId: DEFAULT_AI_GATEWAY_ID });
+    expect(
+      hostedCloudflareGateway({
         CLOUDFLARE_ACCOUNT_ID: "acct",
         CLOUDFLARE_AI_GATEWAY_TOKEN: "gw-token",
       }),

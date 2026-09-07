@@ -298,13 +298,11 @@ export async function loadModelSettings(
     legacyChoice ||
     creds.find((row) => row.isDefault)?.defaultModel?.trim() ||
     "";
-  const fallback =
-    (hosted && modelIsRunnable(HOSTED_STARTER_MODEL, available)
-      ? HOSTED_STARTER_MODEL
-      : undefined) ??
-    MODEL_CATALOG.find((item) => modelIsRunnable(item.id, available))?.id ??
-    (hosted ? HOSTED_STARTER_MODEL : SUGGESTED_STARTER_MODEL);
-  const defaultModelId = gatewayModelId(stored || fallback);
+  const defaultModelId = fallbackRunnableModel(
+    stored || (hosted ? HOSTED_STARTER_MODEL : SUGGESTED_STARTER_MODEL),
+    available,
+    Boolean(hosted),
+  );
   const listed = MODEL_CATALOG.some((item) => item.id === defaultModelId);
   const catalog = MODEL_CATALOG.map((item) => ({
     id: item.id,
