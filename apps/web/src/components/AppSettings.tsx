@@ -10,6 +10,9 @@ import {
   catalogGroupLabel,
   DEFAULT_AI_GATEWAY_ID,
   missingProviderMessage,
+  OPENAI_CODEX_PROVIDER,
+  OPENAI_CODEX_SETUP_STEPS,
+  isOpenAiCodexModel,
   PRO_TRIAL_INTERVAL_COUNT,
   PROVIDER_META,
   PROVIDER_ORDER,
@@ -33,7 +36,6 @@ import { encodeProfileImage } from "../lib/profile-image";
 import { client } from "../lib/rpc";
 import { setLiveCatalogId, setRpcWorkspaceId } from "../lib/rpc-workspace";
 import { enterActiveWorkspace } from "../lib/session";
-import { supportChatUser } from "../lib/support-chat";
 import {
   forgetListedWorkspace,
   rememberListedWorkspace,
@@ -50,7 +52,6 @@ import { Button, ModalShell } from "../ui";
 import { ChevronDownIcon, CloseIcon } from "./Icons";
 import { OfficeColorPicker } from "./OfficeColorPicker";
 import { PersonAvatar } from "./PersonAvatar";
-import { openOfficeSupportChat } from "./SupportChatButton";
 import { TimezoneField } from "./TimezoneField";
 
 type Tab = "general" | "models" | "billing" | "updates";
@@ -62,6 +63,7 @@ export function AppSettings(props: {
   onOfficeColor: (id: OfficeColorId) => void;
   onClose: () => void;
   onSignOut: () => void;
+  onSupport: () => void;
   initialTab?: Tab;
 }) {
   const [tab, setTab] = useState<Tab>(props.initialTab ?? "general");
@@ -191,16 +193,13 @@ export function AppSettings(props: {
               <section className="set-block">
                 <p className="group-label">Support</p>
                 <p className="muted">
-                  Chat with us if something is stuck. We see your account email
-                  when you are signed in.
+                  Discord is the fastest way to reach us. Join the Groxbot
+                  server and ask there.
                 </p>
                 <button
                   className="mini mt-2"
                   type="button"
-                  onClick={() => {
-                    props.onClose();
-                    void openOfficeSupportChat(supportChatUser(props.me));
-                  }}
+                  onClick={props.onSupport}
                 >
                   Chat with us
                 </button>
@@ -874,6 +873,31 @@ function BillingTab() {
   );
 }
 
+function CodexSetupSteps(props: { connected: boolean }) {
+  return (
+    <div className="codex-setup">
+      {props.connected ? (
+        <p className="hint">
+          Office turns use your ChatGPT subscription. Tokens refresh on their
+          own. Re-paste the auth file if you log out of Codex.
+        </p>
+      ) : (
+        <p className="hint">
+          This is not an API key. ChatGPT Plus or Pro, then paste the login
+          file from your computer.
+        </p>
+      )}
+      <ol className="codex-setup-steps">
+        {OPENAI_CODEX_SETUP_STEPS.map((step) => (
+          <li key={step.title}>
+            <strong>{step.title}.</strong> {step.detail}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 function ModelsTab() {
   const queryClient = useQueryClient();
   const query = useQuery(orpc.models.get.queryOptions());
@@ -915,6 +939,11 @@ function ModelsTab() {
   const selectedMeta = settings?.catalog.find(
     (item) => item.id === selectedModel,
   );
+  const selectedCodexModel =
+    selectedModel === CUSTOM_MODEL_SENTINEL
+      ? isOpenAiCodexModel(custom)
+      : selectedMeta?.provider === OPENAI_CODEX_PROVIDER ||
+        isOpenAiCodexModel(selectedModel);
   const neededProvider =
     selectedModel !== CUSTOM_MODEL_SENTINEL &&
     selectedMeta &&
@@ -930,7 +959,10 @@ function ModelsTab() {
 
   function keyExpanded(provider: ModelProvider) {
     if (openKeys[provider] !== undefined) return Boolean(openKeys[provider]);
-    return neededProvider === provider;
+    return (
+      neededProvider === provider ||
+      (selectedCodexModel && provider === OPENAI_CODEX_PROVIDER)
+    );
   }
 
   function toggleKey(provider: ModelProvider) {
@@ -975,7 +1007,14 @@ function ModelsTab() {
 
   async function clear(provider: ModelProvider) {
     if (!settings) return;
-    if (!window.confirm("Remove this key from the office?")) return;
+    if (
+      !window.confirm(
+        provider === OPENAI_CODEX_PROVIDER
+          ? "Disconnect ChatGPT from this office?"
+          : "Remove this key from the office?",
+      )
+    )
+      return;
     setBusy(true);
     setError("");
     try {
@@ -1018,7 +1057,10 @@ function ModelsTab() {
               const next = e.target.value;
               setDefaultModel(next);
               const meta = settings.catalog.find((item) => item.id === next);
-              if (meta && !meta.available) {
+              if (
+                meta?.provider === OPENAI_CODEX_PROVIDER ||
+                (meta && !meta.available)
+              ) {
                 setOpenKeys((current) => ({
                   ...current,
                   [meta.provider]: true,
@@ -1050,6 +1092,16 @@ function ModelsTab() {
               onChange={(e) => setCustomModel(e.target.value)}
             />
           </label>
+        ) : null}
+        {selectedCodexModel ? (
+          <CodexSetupSteps
+            connected={Boolean(
+              settings.keys.find(
+                (item) =>
+                  item.provider === OPENAI_CODEX_PROVIDER && item.configured,
+              ),
+            )}
+          />
         ) : null}
         {warning ? <p className="model-warn">{warning}</p> : null}
       </section>
@@ -1124,36 +1176,72 @@ function ModelsTab() {
                 </button>
                 {expanded ? (
                   <div className="provider-key-body">
-                    <p className="hint">
-                      {meta.hint}{" "}
-                      <a href={meta.docsUrl} target="_blank" rel="noreferrer">
-                        Get a key
-                      </a>
-                    </p>
+                    {provider === OPENAI_CODEX_PROVIDER ? (
+                      selectedCodexModel ? (
+                        <p className="hint">
+                          Paste the whole{" "}
+                          <code>~/.codex/auth.json</code> file below, then
+                          save.
+                        </p>
+                      ) : (
+                        <CodexSetupSteps
+                          connected={Boolean(status?.configured)}
+                        />
+                      )
+                    ) : (
+                      <p className="hint">
+                        {meta.hint}{" "}
+                        <a href={meta.docsUrl} target="_blank" rel="noreferrer">
+                          Get a key
+                        </a>
+                      </p>
+                    )}
                     <label className="field">
                       <span className="sr-only">
                         {meta.label}{" "}
-                        {provider === CLOUDFLARE_PROVIDER
-                          ? "API token"
-                          : "API key"}
+                        {provider === OPENAI_CODEX_PROVIDER
+                          ? "auth.json"
+                          : provider === CLOUDFLARE_PROVIDER
+                            ? "API token"
+                            : "API key"}
                       </span>
-                      <input
-                        type="password"
-                        autoComplete="new-password"
-                        spellCheck={false}
-                        placeholder={
-                          status?.configured
-                            ? "Leave blank to keep"
-                            : meta.placeholder
-                        }
-                        value={drafts[provider] ?? ""}
-                        onChange={(e) =>
-                          setDrafts((current) => ({
-                            ...current,
-                            [provider]: e.target.value,
-                          }))
-                        }
-                      />
+                      {provider === OPENAI_CODEX_PROVIDER ? (
+                        <textarea
+                          rows={8}
+                          spellCheck={false}
+                          autoComplete="off"
+                          placeholder={
+                            status?.configured
+                              ? "Leave blank to keep"
+                              : meta.placeholder
+                          }
+                          value={drafts[provider] ?? ""}
+                          onChange={(e) =>
+                            setDrafts((current) => ({
+                              ...current,
+                              [provider]: e.target.value,
+                            }))
+                          }
+                        />
+                      ) : (
+                        <input
+                          type="password"
+                          autoComplete="new-password"
+                          spellCheck={false}
+                          placeholder={
+                            status?.configured
+                              ? "Leave blank to keep"
+                              : meta.placeholder
+                          }
+                          value={drafts[provider] ?? ""}
+                          onChange={(e) =>
+                            setDrafts((current) => ({
+                              ...current,
+                              [provider]: e.target.value,
+                            }))
+                          }
+                        />
+                      )}
                     </label>
                     {provider === CLOUDFLARE_PROVIDER ? (
                       <>
@@ -1180,7 +1268,9 @@ function ModelsTab() {
                         disabled={busy}
                         onClick={() => void clear(provider)}
                       >
-                        Remove key
+                        {provider === OPENAI_CODEX_PROVIDER
+                          ? "Disconnect"
+                          : "Remove key"}
                       </button>
                     ) : null}
                   </div>

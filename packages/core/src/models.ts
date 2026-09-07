@@ -2,6 +2,7 @@ import type {
   ModelKeyStatus,
   ModelProvider,
   ModelSettings,
+  OpenAiCodexAuth,
   SaveModelSettingsInput,
 } from "@groxbot/contracts";
 import {
@@ -18,8 +19,13 @@ import {
   MODEL_CATALOG,
   missingProviderMessage,
   modelIsRunnable,
+  OPENAI_CODEX_AUTH_ENV,
+  OPENAI_CODEX_PROVIDER,
   OPENAI_PROVIDER,
   OPENROUTER_PROVIDER,
+  openAiCodexHint,
+  packOpenAiCodexAuth,
+  parseOpenAiCodexAuth,
   PRODUCT_RUNTIME,
   PROVIDER_META,
   PROVIDER_ORDER,
@@ -46,7 +52,10 @@ const PROVIDERS: ModelProvider[] = [...PROVIDER_ORDER];
 const DEV_FALLBACK = "development-only-change-me-please-32ch";
 
 export const PROVIDER_ENV: Record<
-  Exclude<ModelProvider, typeof CLOUDFLARE_PROVIDER>,
+  Exclude<
+    ModelProvider,
+    typeof CLOUDFLARE_PROVIDER | typeof OPENAI_CODEX_PROVIDER
+  >,
   string
 > = {
   [ANTHROPIC_PROVIDER]: "ANTHROPIC_API_KEY",
@@ -59,6 +68,7 @@ const PROCESS_MODEL_ENV = [
   "GROXBOT_MODEL",
   "ANTHROPIC_API_KEY",
   "OPENAI_API_KEY",
+  OPENAI_CODEX_AUTH_ENV,
   "OPENROUTER_API_KEY",
   "CLOUDFLARE_API_TOKEN",
   "CLOUDFLARE_AI_GATEWAY_TOKEN",
@@ -128,6 +138,9 @@ function envKeyConfigured(
       env.CLOUDFLARE_API_KEY?.trim() ||
       env.CLOUDFLARE_AUTH_TOKEN?.trim();
     return Boolean(env.CLOUDFLARE_ACCOUNT_ID?.trim() && token);
+  }
+  if (provider === OPENAI_CODEX_PROVIDER) {
+    return parseOpenAiCodexAuth(env[OPENAI_CODEX_AUTH_ENV] ?? "").ok;
   }
   return Boolean(env[PROVIDER_ENV[provider]]?.trim());
 }
@@ -244,6 +257,9 @@ export async function loadModelSettings(
           hint = secretHint(parsed.apiToken ?? plain);
           accountId = parsed.accountId?.trim() || null;
           gatewayId = parsed.gatewayId?.trim() || DEFAULT_AI_GATEWAY_ID;
+        } else if (provider === OPENAI_CODEX_PROVIDER) {
+          const parsed = parseOpenAiCodexAuth(plain);
+          hint = parsed.ok ? openAiCodexHint(parsed.auth) : "••••";
         } else {
           hint = secretHint(plain);
         }
@@ -429,7 +445,13 @@ export async function saveModelSettings(
         continue;
       }
       if (!incoming) continue;
-      await upsertSecret(tx, actor, kind, incoming, secret, now);
+      let stored = incoming;
+      if (item.provider === OPENAI_CODEX_PROVIDER) {
+        const parsed = parseOpenAiCodexAuth(incoming);
+        if (!parsed.ok) throw new ModelSettingsError(parsed.error);
+        stored = packOpenAiCodexAuth(parsed.auth);
+      }
+      await upsertSecret(tx, actor, kind, stored, secret, now);
       await upsertCredential(
         tx,
         actor,
@@ -652,16 +674,41 @@ async function loadStoredEnv(
       const gatewayId = parsed.gatewayId?.trim() || DEFAULT_AI_GATEWAY_ID;
       env.CLOUDFLARE_GATEWAY_ID = gatewayId;
       env.CLOUDFLARE_AI_GATEWAY_ID = gatewayId;
+    } else if (provider === OPENAI_CODEX_PROVIDER) {
+      const parsed = parseOpenAiCodexAuth(plain);
+      if (parsed.ok) {
+        env[OPENAI_CODEX_AUTH_ENV] = packOpenAiCodexAuth(parsed.auth);
+      }
     } else if (provider in PROVIDER_ENV) {
       env[
         PROVIDER_ENV[
-          provider as Exclude<ModelProvider, typeof CLOUDFLARE_PROVIDER>
+          provider as Exclude<
+            ModelProvider,
+            typeof CLOUDFLARE_PROVIDER | typeof OPENAI_CODEX_PROVIDER
+          >
         ]
       ] = plain;
     }
     if (!defaultModel && row.defaultModel) defaultModel = row.defaultModel;
   }
   return { env, defaultModel };
+}
+
+export async function persistOpenAiCodexAuth(
+  db: Database,
+  actor: { userId: string; workspaceId: string },
+  auth: OpenAiCodexAuth,
+  secret: string,
+): Promise<void> {
+  if (!actor.userId.trim() || !actor.workspaceId.trim()) return;
+  await upsertSecret(
+    db,
+    actor,
+    `model:${OPENAI_CODEX_PROVIDER}`,
+    packOpenAiCodexAuth(auth),
+    secret,
+    new Date(),
+  );
 }
 
 export function userHasModelCredentials(count: number): boolean {

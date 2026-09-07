@@ -7,6 +7,7 @@ import {
   CLOUDFLARE_PROVIDER,
   catalogGroupLabel,
   DEFAULT_AI_GATEWAY_ID,
+  OPENAI_CODEX_PROVIDER,
   OPENROUTER_PROVIDER,
   PROVIDER_META,
   PROVIDER_ORDER,
@@ -89,6 +90,7 @@ export function OnboardingScreen({
   const [openrouterKey, setOpenrouterKey] = useState("");
   const [anthropicKey, setAnthropicKey] = useState("");
   const [openaiKey, setOpenaiKey] = useState("");
+  const [openaiCodexAuth, setOpenaiCodexAuth] = useState("");
   const [cloudflareToken, setCloudflareToken] = useState("");
   const [cfAccount, setCfAccount] = useState("");
   const [cfGateway, setCfGateway] = useState<string>(DEFAULT_AI_GATEWAY_ID);
@@ -126,7 +128,9 @@ export function OnboardingScreen({
         ? anthropicKey
         : selectedProvider === "openai"
           ? openaiKey
-          : cloudflareToken;
+          : selectedProvider === OPENAI_CODEX_PROVIDER
+            ? openaiCodexAuth
+            : cloudflareToken;
   const providerStatus = settings?.keys.find(
     (item) => item.provider === selectedProvider,
   );
@@ -203,6 +207,12 @@ export function OnboardingScreen({
       }
       if (openaiKey.trim()) {
         keys.push({ provider: "openai", secret: openaiKey.trim() });
+      }
+      if (openaiCodexAuth.trim()) {
+        keys.push({
+          provider: OPENAI_CODEX_PROVIDER,
+          secret: openaiCodexAuth.trim(),
+        });
       }
       if (
         selectedProvider === CLOUDFLARE_PROVIDER ||
@@ -453,6 +463,14 @@ export function OnboardingScreen({
                 onChangeText={setCfGateway}
               />
             </>
+          ) : selectedProvider === OPENAI_CODEX_PROVIDER ? (
+            <Field
+              label="ChatGPT auth.json"
+              value={openaiCodexAuth}
+              onChangeText={setOpenaiCodexAuth}
+              multiline
+              placeholder={PROVIDER_META[OPENAI_CODEX_PROVIDER].placeholder}
+            />
           ) : (
             <Field
               label={`${PROVIDER_META[selectedProvider].label} key`}

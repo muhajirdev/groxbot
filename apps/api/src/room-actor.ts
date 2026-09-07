@@ -1,11 +1,8 @@
 /** Cloudflare-only. Excluded from `tsc`. One RoomActor class: that person’s own room, or a group. */
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import {
-  gatewayConfigured,
-  gatewayRequestModel,
-  loadGatewayConfig,
   piCompletionsModel,
-  resolvePiAiModel,
+  resolveOfficePiModel,
   resolvePiStreamFn,
   runPiTurn,
 } from "@groxbot/adapters/edge";
@@ -21,6 +18,7 @@ import {
   composePersonDoorSoul,
   emptyPiOfficeView,
   encryptionSecret,
+  persistOpenAiCodexAuth,
   jsonClone,
   mentionFromText,
   officeCanReadSkills,
@@ -500,14 +498,20 @@ export class RoomActor extends RoomHome {
     const streamFn = resolvePiStreamFn(turnEnv, {
       ai: this.env.AI,
       gatewayId: turnEnv.CLOUDFLARE_AI_GATEWAY_ID,
+      modelId: turnModel,
       metadata: {
         workspaceId,
         botId,
       },
+      persistCodexAuth: (auth) =>
+        persistOpenAiCodexAuth(
+          db,
+          { userId: bot.userId, workspaceId },
+          auth,
+          encryptionSecret(source, env.production),
+        ),
     });
-    const model = gatewayConfigured(turnEnv)
-      ? resolvePiAiModel(loadGatewayConfig(turnEnv), turnModel)
-      : piCompletionsModel(gatewayRequestModel(turnModel));
+    const model = resolveOfficePiModel(turnEnv, turnModel);
     return {
       streamFn,
       model,

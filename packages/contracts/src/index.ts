@@ -5,6 +5,7 @@ export * from "./domain.js";
 export * from "./events.js";
 export * from "./ids.js";
 export * from "./models.js";
+export * from "./openai-codex-auth.js";
 export * from "./office-review.js";
 export * from "./office-user.js";
 export * from "./origins.js";

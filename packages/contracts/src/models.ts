@@ -1,13 +1,19 @@
 import * as z from "zod";
 
+import {
+  parseOpenAiCodexAuth,
+} from "./openai-codex-auth.js";
+
 export const ANTHROPIC_PROVIDER = "anthropic" as const;
 export const OPENAI_PROVIDER = "openai" as const;
+export const OPENAI_CODEX_PROVIDER = "openai-codex" as const;
 export const OPENROUTER_PROVIDER = "openrouter" as const;
 export const CLOUDFLARE_PROVIDER = "cloudflare" as const;
 
 export const ModelProvider = z.enum([
   ANTHROPIC_PROVIDER,
   OPENAI_PROVIDER,
+  OPENAI_CODEX_PROVIDER,
   OPENROUTER_PROVIDER,
   CLOUDFLARE_PROVIDER,
 ]);
@@ -18,6 +24,7 @@ export const PROVIDER_ORDER: ModelProvider[] = [
   OPENROUTER_PROVIDER,
   ANTHROPIC_PROVIDER,
   OPENAI_PROVIDER,
+  OPENAI_CODEX_PROVIDER,
   CLOUDFLARE_PROVIDER,
 ];
 
@@ -108,6 +115,12 @@ export const PROVIDER_META: Record<
     docsUrl: "https://platform.openai.com/api-keys",
     hint: "Direct OpenAI models.",
   },
+  [OPENAI_CODEX_PROVIDER]: {
+    label: "ChatGPT (Codex)",
+    placeholder: '{ "tokens": { "refresh_token": "…" } }',
+    docsUrl: "https://developers.openai.com/codex",
+    hint: "ChatGPT Plus or Pro. Log in on your computer, then paste the auth file.",
+  },
   [CLOUDFLARE_PROVIDER]: {
     label: "Cloudflare AI Gateway",
     placeholder: "API token",
@@ -123,7 +136,7 @@ export function catalogGroupLabel(provider: ModelProvider): string {
   return PROVIDER_META[provider].label;
 }
 
-/** Groxbot picker: hide OpenRouter / Anthropic / OpenAI while a Groxbot model is selected. */
+/** Groxbot picker: hide unpaid vendor catalogs while a Groxbot model is selected. Keep keyed providers visible. */
 export function pickerCatalog<T extends { id: string; provider: ModelProvider }>(
   catalog: readonly T[],
   selectedModelId: string,
@@ -133,7 +146,12 @@ export function pickerCatalog<T extends { id: string; provider: ModelProvider }>
   const listed = catalog.find((item) => item.id === selected);
   const provider = listed?.provider ?? providerForModel(selected);
   if (provider !== CLOUDFLARE_PROVIDER) return [...catalog];
-  return catalog.filter((item) => item.provider === CLOUDFLARE_PROVIDER);
+  return catalog.filter((item) => {
+    if (item.provider === CLOUDFLARE_PROVIDER) return true;
+    return (
+      "available" in item && Boolean((item as { available?: boolean }).available)
+    );
+  });
 }
 
 export const MODEL_CATALOG = [
@@ -173,6 +191,26 @@ export const MODEL_CATALOG = [
     provider: OPENAI_PROVIDER,
   },
   {
+    id: "openai-codex/gpt-5.4",
+    label: "GPT-5.4 (ChatGPT)",
+    provider: OPENAI_CODEX_PROVIDER,
+  },
+  {
+    id: "openai-codex/gpt-5.4-mini",
+    label: "GPT-5.4 mini (ChatGPT)",
+    provider: OPENAI_CODEX_PROVIDER,
+  },
+  {
+    id: "openai-codex/gpt-5.5",
+    label: "GPT-5.5 (ChatGPT)",
+    provider: OPENAI_CODEX_PROVIDER,
+  },
+  {
+    id: "openai-codex/gpt-5.3-codex-spark",
+    label: "GPT-5.3 Codex Spark",
+    provider: OPENAI_CODEX_PROVIDER,
+  },
+  {
     id: "cloudflare-ai-gateway/workers-ai/@cf/zai-org/glm-5.3-flash",
     label: "GLM 5.3 Flash",
     provider: CLOUDFLARE_PROVIDER,
@@ -205,6 +243,29 @@ export const MODEL_CATALOG = [
 ] as const;
 
 export type CatalogModelId = (typeof MODEL_CATALOG)[number]["id"];
+
+/** Shown in Settings when a ChatGPT / Codex model is selected. */
+export const OPENAI_CODEX_SETUP_STEPS = [
+  {
+    title: "Log in on your computer",
+    detail:
+      "In a terminal, run npx @openai/codex login. ChatGPT Plus or Pro is required.",
+  },
+  {
+    title: "Copy the auth file",
+    detail:
+      "Open ~/.codex/auth.json. If you signed in with Pi, use the openai-codex entry in ~/.pi/agent/auth.json.",
+  },
+  {
+    title: "Paste it and save",
+    detail:
+      "Paste the whole JSON under ChatGPT (Codex) below. Groxbot stores it encrypted and refreshes the token.",
+  },
+] as const;
+
+export function isOpenAiCodexModel(model: string): boolean {
+  return providerForModel(model) === OPENAI_CODEX_PROVIDER;
+}
 
 export const ModelKeyStatusSchema = z.object({
   provider: ModelProvider,
@@ -249,14 +310,14 @@ export type ModelSettings = z.infer<typeof ModelSettingsSchema>;
 
 export const SaveModelKeyInput = z.object({
   provider: ModelProvider,
-  secret: z.string().max(8000).optional(),
+  secret: z.string().max(120_000).optional(),
   accountId: z.string().max(80).optional(),
   gatewayId: z.string().max(80).optional(),
   clear: z.boolean().optional(),
 });
 
 export const SaveModelSettingsInput = z.object({
-  keys: z.array(SaveModelKeyInput).max(8),
+  keys: z.array(SaveModelKeyInput).max(10),
   defaultModel: z.string().min(1).max(200),
   customModel: z.string().max(200).optional(),
 });
@@ -294,6 +355,7 @@ export function providerForModel(model: string): ModelProvider | undefined {
   const listed = MODEL_CATALOG.find((item) => item.id === trimmed);
   if (listed) return listed.provider;
   if (trimmed.startsWith("anthropic/")) return ANTHROPIC_PROVIDER;
+  if (trimmed.startsWith("openai-codex/")) return OPENAI_CODEX_PROVIDER;
   if (trimmed.startsWith("openai/")) return OPENAI_PROVIDER;
   if (trimmed.startsWith("openrouter/")) return OPENROUTER_PROVIDER;
   if (
@@ -376,6 +438,9 @@ export function missingProviderMessage(model: string): string {
   if (!provider) {
     return "This model id needs a provider key. Paste OpenRouter to cover custom ids.";
   }
+  if (provider === OPENAI_CODEX_PROVIDER) {
+    return `${labelForModel(model)} needs a ChatGPT Plus or Pro login. Paste ~/.codex/auth.json in Settings → Models.`;
+  }
   const label = PROVIDER_META[provider].label;
   const article = /^[aeiou]/i.test(label) ? "an" : "a";
   return `${labelForModel(model)} needs ${article} ${label} key.`;
@@ -408,6 +473,10 @@ export function validateProviderSecret(
     return "Paste a key, or leave the field blank to keep the current one.";
   if (value.includes("•") || value.includes("…")) {
     return "That looks like a hint, not a key. Paste the full secret.";
+  }
+  if (provider === OPENAI_CODEX_PROVIDER) {
+    const parsed = parseOpenAiCodexAuth(value);
+    return parsed.ok ? undefined : parsed.error;
   }
   if (value.length < 12) return "That key is too short.";
   if (PLACEHOLDER_KEYS.has(value.toLowerCase())) {

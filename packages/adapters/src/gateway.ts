@@ -5,6 +5,7 @@ import {
   DEFAULT_AI_GATEWAY_ID,
   HOSTED_AI_ENV,
   HOSTED_STARTER_MODEL,
+  OPENAI_CODEX_AUTH_ENV,
   OPENROUTER_PROVIDER,
 } from "@groxbot/contracts";
 
@@ -43,6 +44,8 @@ export interface GatewayEnv {
   CLOUDFLARE_GATEWAY_ID?: string;
   GROX_GATEWAY_URL?: string;
   GROX_GATEWAY_SECRET?: string;
+  GROXBOT_MODEL?: string;
+  [OPENAI_CODEX_AUTH_ENV]?: string;
   [HOSTED_AI_ENV]?: string;
   OPENROUTER_API_KEY?: string;
   WEB_ORIGIN?: string;
