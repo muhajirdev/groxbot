@@ -78,4 +78,10 @@ describe("humanizeRunError", () => {
       "Could not reach this teammate. Try sending again.",
     );
   });
+
+  it("rewrites empty 401 handshake failures", () => {
+    expect(humanizeRunError("401 status code (no body)")).toBe(
+      "Could not reach this teammate. Reload and try again.",
+    );
+  });
 });

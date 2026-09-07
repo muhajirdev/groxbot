@@ -220,9 +220,10 @@ export function patchMeWorkspace(workspace: {
         workspaceName: workspace.name,
         workspaceSlug: workspace.slug,
         needsWorkspace: false,
-        // Polar customers are per workspace. Do not inherit "trial ended"
-        // from a previous office or from the no-workspace `me` payload.
+        // Polar customers are per workspace. Do not inherit trial/plan from
+        // a previous office or from the no-workspace `me` payload.
         trialAvailable: sameOffice ? prev.trialAvailable : true,
+        needsHostedPlan: sameOffice ? prev.needsHostedPlan : true,
       };
     },
   );

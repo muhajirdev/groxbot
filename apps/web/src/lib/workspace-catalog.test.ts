@@ -216,6 +216,7 @@ describe("patchMeWorkspace", () => {
     expect(queryClient.getQueryData(orpc.me.key())).toMatchObject({
       workspaceId: "ws-new",
       trialAvailable: true,
+      needsHostedPlan: true,
     });
   });
 
@@ -227,11 +228,13 @@ describe("patchMeWorkspace", () => {
       workspaceSlug: "acme",
       needsWorkspace: false,
       trialAvailable: false,
+      needsHostedPlan: false,
     });
     patchMeWorkspace({ id: "ws-1", name: "Acme Co", slug: "acme" });
     expect(queryClient.getQueryData(orpc.me.key())).toMatchObject({
       workspaceName: "Acme Co",
       trialAvailable: false,
+      needsHostedPlan: false,
     });
   });
 });
