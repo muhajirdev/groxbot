@@ -18,6 +18,13 @@ export function SiteHeader(props: { startUrl: string }) {
         Groxbot
       </Link>
       <nav className="nav-links" aria-label="Site">
+        <Link className="nav-hide-sm" to="/use-cases">
+          Use cases
+        </Link>
+        <Link className="nav-hide-sm" to="/templates">
+          Templates
+        </Link>
+        <Link to="/pricing">Pricing</Link>
         <Link className="nav-hide-sm" to="/integrations">
           Integrations
         </Link>
@@ -39,8 +46,15 @@ export function SiteFooter() {
       <nav className="foot-links" aria-label="Footer">
         <Link to="/integrations">Integrations</Link>
         <Link to="/use-cases">Use cases</Link>
+        <Link to="/templates">Templates</Link>
+        <Link to="/pricing">Pricing</Link>
+        <Link to="/enterprise">Enterprise</Link>
         <Link to="/compare">Compare</Link>
         <Link to="/press">Press</Link>
+        <Link to="/changelog">Changelog</Link>
+        <Link to="/contact">Contact</Link>
+        <Link to="/privacy">Privacy</Link>
+        <Link to="/terms">Terms</Link>
         <a href={SOURCE_REPO} target="_blank" rel="noreferrer">
           GitHub
         </a>
