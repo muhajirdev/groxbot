@@ -67,6 +67,7 @@ import {
 } from "../components/ui/tooltip";
 import { KeptRoomThread } from "../components/RoomThread";
 import { SubscribeModal } from "../components/SubscribeModal";
+import { ScheduleDemoButton } from "../components/ScheduleDemoButton";
 import { ThreadList } from "../components/ThreadList";
 import { WorkspaceSwitcher } from "../components/WorkspaceSwitcher";
 import { InviteFriendButton } from "../components/InviteFriendButton";
@@ -2178,6 +2179,7 @@ export function Chat(props: {
                     >
                       {planCopy.cta}
                     </Button>
+                    <ScheduleDemoButton className="btn ghost" />
                   </div>
                 </div>
               ) : null}

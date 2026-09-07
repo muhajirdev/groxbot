@@ -1188,7 +1188,7 @@ html.vt-ready .gate > .gate-steps {
     flex-direction: column;
   }
 
-  .onboard-go {
+  .onboard-actions {
     width: auto;
     align-self: start;
     min-width: 220px;
@@ -1238,13 +1238,18 @@ html.vt-ready .gate > .gate-steps {
   margin: 0;
 }
 
+.onboard-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
 .onboard-go {
   display: flex;
   width: 100%;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  margin-top: 18px;
   border: 0;
   border-radius: 8px;
   background: var(--ink);
@@ -1253,6 +1258,31 @@ html.vt-ready .gate > .gate-steps {
   font-size: 13.5px;
   font-weight: 600;
   letter-spacing: -0.03em;
+}
+
+.onboard-demo {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--ink) 16%, var(--line));
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  padding: 10px 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  text-decoration: none;
+}
+
+.onboard-demo:hover {
+  border-color: color-mix(in srgb, var(--ink) 32%, var(--line));
+}
+
+.onboard-demo:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .onboard-go::after {
@@ -2972,6 +3002,12 @@ html.electron .pane-head {
 
 .billing-usage p {
   margin: 0;
+}
+
+.subscribe-demo {
+  display: flex;
+  justify-content: center;
+  margin: 14px 0 0;
 }
 
 .subscribe-headcount {

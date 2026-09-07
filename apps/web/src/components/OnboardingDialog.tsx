@@ -12,6 +12,7 @@ import { ModalShell } from "../ui";
 import { CloseIcon } from "./Icons";
 import { OfficeColorPicker } from "./OfficeColorPicker";
 import { PersonAvatar } from "./PersonAvatar";
+import { ScheduleDemoButton } from "./ScheduleDemoButton";
 
 export function OnboardingVideo(props: { className?: string }) {
   const [ok, setOk] = useState(true);
@@ -123,9 +124,12 @@ export function OnboardingWelcome(props: {
               onChange={props.onOfficeColor}
             />
           </div>
-          <button className="onboard-go" type="button" onClick={props.onContinue}>
-            {props.continueLabel ?? "OK, let's see my office"}
-          </button>
+          <div className="onboard-actions">
+            <button className="onboard-go" type="button" onClick={props.onContinue}>
+              {props.continueLabel ?? "OK, let's see my office"}
+            </button>
+            <ScheduleDemoButton className="onboard-demo" />
+          </div>
         </div>
       </div>
     </div>

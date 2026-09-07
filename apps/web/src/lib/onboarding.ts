@@ -4,6 +4,7 @@ export const ONBOARDING_VIDEO_SRC = "/onboarding.mp4";
 export const FOUNDER_NAME = "Muhajir";
 export const FOUNDER_EMAIL = "muhammad@muhajir.dev";
 export const FOUNDER_IMAGE = "https://github.com/muhajirdev.png";
+export const GROXBOT_DEMO_URL = "https://cal.com/muhajirdev/groxbot-demo";
 
 export function defaultWorkspaceName(me?: {
   name?: string | null;

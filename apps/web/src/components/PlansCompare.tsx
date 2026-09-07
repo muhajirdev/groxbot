@@ -18,6 +18,7 @@ import {
 } from "../lib/plan-compare";
 import { Button, cn } from "../ui";
 import { CheckIcon } from "./Icons";
+import { ScheduleDemoButton } from "./ScheduleDemoButton";
 
 export type SubscribeCheckoutPlan = Exclude<WorkspacePlan, "none">;
 
@@ -98,6 +99,9 @@ export function PlansCompare(props: {
         </PlanColumn>
       </div>
       {props.error ? <p className="warn mt-3 mb-0">{props.error}</p> : null}
+      <div className="subscribe-demo">
+        <ScheduleDemoButton className="btn ghost" />
+      </div>
       <HeadcountCompare />
     </>
   );

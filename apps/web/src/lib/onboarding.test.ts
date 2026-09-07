@@ -1,9 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
+  GROXBOT_DEMO_URL,
   defaultWorkspaceName,
   onboardingFirstName,
   workspaceNeedsOnboarding,
 } from "./onboarding";
+
+describe("GROXBOT_DEMO_URL", () => {
+  it("points at the founder Cal booking", () => {
+    expect(GROXBOT_DEMO_URL).toBe(
+      "https://cal.com/muhajirdev/groxbot-demo",
+    );
+  });
+});
 
 describe("defaultWorkspaceName", () => {
   it("uses a real name", () => {
