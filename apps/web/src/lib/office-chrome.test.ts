@@ -10,6 +10,10 @@ const threadAui = readFileSync(
   join(root, "../components/assistant-ui/elements/thread.aui.tsx"),
   "utf8",
 );
+const toolFallback = readFileSync(
+  join(root, "../components/assistant-ui/elements/tool-fallback.aui.tsx"),
+  "utf8",
+);
 const chatScreen = readFileSync(join(root, "../screens/Chat.tsx"), "utf8");
 const computerPane = readFileSync(
   join(root, "../components/ComputerPane.tsx"),
@@ -291,7 +295,28 @@ describe("office chrome", () => {
     expect(threadAui).toMatch(
       /case "indicator"[\s\S]*?data-slot="aui_assistant-working"/,
     );
+    expect(threadAui).toContain("assistantTurnHasRunningTool");
+    expect(threadAui).toMatch(
+      /case "indicator"[\s\S]*if \(toolRunning\) return null/,
+    );
     expect(threadAui).not.toContain("AssistantWorkingDots");
+  });
+
+  it("always paints tool rows; args stay behind the flag", () => {
+    expect(threadAui).toMatch(
+      /case "tool-call":[\s\S]*ToolFallbackComponent/,
+    );
+    expect(threadAui).not.toMatch(
+      /case "tool-call":[\s\S]*if \(!showToolCalls\) return null/,
+    );
+    expect(threadAui).toMatch(
+      /case "group-tool":[\s\S]*if \(!showToolCalls\) return children/,
+    );
+    expect(toolFallback).toContain("useShowToolCalls");
+    expect(toolFallback).toContain('data-expandable="false"');
+    expect(toolFallback).toContain("expandable={false}");
+    expect(toolFallback).toContain("toolActivityCopy");
+    expect(toolFallback).not.toContain("Used tool");
   });
 
   it("does not reserve action-bar height when the bar is hidden", () => {
@@ -351,6 +376,12 @@ describe("office chrome", () => {
     expect(css).toMatch(/\.field\s*\{[^}]*min-width:\s*0/s);
     expect(css).toMatch(
       /\.field input,\s*\.field textarea,\s*\.field select\s*\{[^}]*width:\s*100%[^}]*min-width:\s*0/s,
+    );
+    expect(css).toMatch(
+      /\.field \.combobox-field-input\s*\{[^}]*border:\s*0[^}]*padding:\s*0/s,
+    );
+    expect(css).toMatch(
+      /\.settings-main \.field \.combobox-field-input\s*\{[^}]*background:\s*transparent/s,
     );
     expect(css).toMatch(/\.pane-scroll\s*\{[^}]*min-width:\s*0/s);
   });

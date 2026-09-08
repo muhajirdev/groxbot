@@ -45,7 +45,7 @@ export function TimezoneField(props: {
         <Combobox.Input
           aria-label={props["aria-label"] ?? "Timezone"}
           placeholder="Search timezones"
-          className="w-full border-0 bg-transparent p-0 text-[14px] text-ink outline-none placeholder:text-muted"
+          className="combobox-field-input w-full border-0 bg-transparent p-0 text-[14px] text-ink outline-none placeholder:text-muted"
         />
       </Combobox.InputGroup>
       <Combobox.Portal>

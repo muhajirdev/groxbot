@@ -27,7 +27,10 @@ import { officeUserMessageSender } from "@/lib/office-sender";
 import { parseRoomSpeaker } from "@groxbot/core/browser";
 import { isOfficeLearnedMessage } from "@groxbot/contracts";
 import { isVisibleChatMessage } from "@/lib/chat-messages";
-import { isWaitingForAssistantTurn } from "@/lib/thread-waiting";
+import {
+  assistantTurnHasRunningTool,
+  isWaitingForAssistantTurn,
+} from "@/lib/thread-waiting";
 import { messageDaySep } from "@/lib/time";
 import { useShowToolCalls } from "@/lib/show-tool-calls";
 import { cn } from "@/lib/utils";
@@ -393,6 +396,9 @@ const AssistantMessage: FC = () => {
   const speakerName = useAuiState(
     (s) => parseRoomSpeaker(s.message.metadata)?.name ?? "",
   );
+  const toolRunning = useAuiState((s) =>
+    assistantTurnHasRunningTool(s.message),
+  );
   const learned = useAuiState((s) => isOfficeLearnedMessage(s.message));
 
   if (learned) {
@@ -486,7 +492,6 @@ const AssistantMessage: FC = () => {
                 );
               case "tool-call":
                 if (part.toolUI) return part.toolUI;
-                if (!showToolCalls) return null;
                 return <ToolFallbackComponent {...part} />;
               case "data":
                 return part.dataRendererUI;
@@ -503,6 +508,7 @@ const AssistantMessage: FC = () => {
                   </div>
                 );
               case "indicator":
+                if (toolRunning) return null;
                 return (
                   <div data-slot="aui_assistant-working">
                     <AssistantWorkingStatus speaker={speakerName} />

@@ -1,7 +1,11 @@
 export type ThreadWaitingMessage = {
   role?: string;
   status?: { type?: string } | undefined;
-  parts?: ReadonlyArray<{ type: string; text?: string }>;
+  parts?: ReadonlyArray<{
+    type: string;
+    text?: string;
+    status?: { type?: string };
+  }>;
 };
 
 export type ThreadWaitingInput = {
@@ -18,6 +22,19 @@ function partLooksLikeTool(type: string): boolean {
     type === "group-tool" ||
     type === "dynamic-tool" ||
     type.startsWith("tool-")
+  );
+}
+
+/** A tool is the live progress — hide the generic “is working” line. */
+export function assistantTurnHasRunningTool(
+  message: ThreadWaitingMessage | null | undefined,
+): boolean {
+  if (message?.role !== "assistant") return false;
+  return Boolean(
+    message.parts?.some((part) => {
+      if (!partLooksLikeTool(part.type)) return false;
+      return part.status?.type === "running";
+    }),
   );
 }
 

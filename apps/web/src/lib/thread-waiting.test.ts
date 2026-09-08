@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  assistantTurnHasRunningTool,
   assistantTurnHasVisibleWork,
   isOfficeHireWaiting,
   isWaitingForAssistantTurn,
@@ -19,6 +20,10 @@ const assistantTool = {
   role: "assistant",
   parts: [{ type: "tool-call", text: "" }],
 };
+const assistantRunningTool = {
+  role: "assistant",
+  parts: [{ type: "tool-call", text: "", status: { type: "running" } }],
+};
 
 describe("assistantTurnHasVisibleWork", () => {
   it("ignores user, empty, and reasoning-only turns", () => {
@@ -30,6 +35,14 @@ describe("assistantTurnHasVisibleWork", () => {
   it("counts text and tools", () => {
     expect(assistantTurnHasVisibleWork(assistantText)).toBe(true);
     expect(assistantTurnHasVisibleWork(assistantTool)).toBe(true);
+  });
+});
+
+describe("assistantTurnHasRunningTool", () => {
+  it("is only true while a tool part is running", () => {
+    expect(assistantTurnHasRunningTool(assistantTool)).toBe(false);
+    expect(assistantTurnHasRunningTool(assistantRunningTool)).toBe(true);
+    expect(assistantTurnHasRunningTool(assistantText)).toBe(false);
   });
 });
 

@@ -1,13 +1,7 @@
-import type {
-  Me,
-  ModelCatalogItem,
-  ModelProvider,
-  WorkspaceMember,
-} from "@groxbot/contracts";
+import type { Me, ModelProvider, WorkspaceMember } from "@groxbot/contracts";
 import {
   CLOUDFLARE_PROVIDER,
   CUSTOM_MODEL_SENTINEL,
-  catalogGroupLabel,
   DEFAULT_AI_GATEWAY_ID,
   missingProviderMessage,
   OPENAI_CODEX_PROVIDER,
@@ -53,6 +47,7 @@ import { Button, ModalShell } from "../ui";
 import { ChevronDownIcon, CloseIcon } from "./Icons";
 import { OfficeColorPicker } from "./OfficeColorPicker";
 import { PersonAvatar } from "./PersonAvatar";
+import { ModelField } from "./ModelField";
 import { TimezoneField } from "./TimezoneField";
 
 type Tab = "general" | "models" | "billing" | "updates";
@@ -949,12 +944,6 @@ function ModelsTab() {
       ? (settings?.defaultModelId ?? "")
       : selectedModel,
   );
-  const grouped = new Map<ModelProvider, ModelCatalogItem[]>();
-  for (const item of pickerItems) {
-    const list = grouped.get(item.provider) ?? [];
-    list.push(item);
-    grouped.set(item.provider, list);
-  }
   const selectedMeta = settings?.catalog.find(
     (item) => item.id === selectedModel,
   );
@@ -1070,10 +1059,11 @@ function ModelsTab() {
         </p>
         <label className="field">
           <span>Model</span>
-          <select
+          <ModelField
             value={selectedModel}
-            onChange={(e) => {
-              const next = e.target.value;
+            catalog={pickerItems}
+            className="bg-card-2"
+            onChange={(next) => {
               setDefaultModel(next);
               const meta = settings.catalog.find((item) => item.id === next);
               if (
@@ -1086,19 +1076,7 @@ function ModelsTab() {
                 }));
               }
             }}
-          >
-            {[...grouped.entries()].map(([provider, items]) => (
-              <optgroup key={provider} label={catalogGroupLabel(provider)}>
-                {items.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                    {item.available ? "" : " — needs key"}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-            <option value={CUSTOM_MODEL_SENTINEL}>Custom…</option>
-          </select>
+          />
         </label>
         {selectedModel === CUSTOM_MODEL_SENTINEL ? (
           <label className="field">

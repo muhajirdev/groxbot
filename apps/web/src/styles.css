@@ -2402,6 +2402,17 @@ a.btn {
   min-width: 0;
 }
 
+.field .combobox-field-input {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
+.settings-main .field .combobox-field-input {
+  background: transparent;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;

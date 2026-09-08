@@ -72,7 +72,7 @@ Composer:
 - Attach / drag files (they cap ~6 at once).
 - `@` = Bot, group, routine, connector.
 - `/` = saved skill.
-- One corner disc: empty + working = stop; otherwise send. Send while it is working = redirect. Stop = halt (does not undo). “Working” stays up until the first bubble, then again under that bubble while tools keep running (tool traces stay off).
+- One corner disc: empty + working = stop; otherwise send. Send while it is working = redirect. Stop = halt (does not undo). “Working” stays up until the first bubble or activity row. Tool activity stays visible as a short human line (`Set up the desk`, `Worked in code`); args/results expand only with `groxbot.showToolCalls`.
 
 Job-title chips and the office **New bot** name dialog share a curated hire catalog of full bot packages (soul, starter memory, skills) — including roles seeded from public Grok Bot marketplace listings. **New bot** asks for a name first. **Browse bot templates** opens the marketplace — same templates, same `bots.create` path. This is **not** Plugins (Composio connectors), **not** Knowledge skills/playbooks, and **not** a user-published template store (static catalog for now).
 
