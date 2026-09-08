@@ -1,6 +1,7 @@
 import type { Bot } from "@groxbot/contracts";
 import { officePreviewsFromCache } from "./office-messages";
 import { orpc, queryClient } from "./orpc";
+import { withoutPendingBotDeletes } from "./roster-pending";
 
 /**
  * Office chat lives in IndexedDB, not Postgres.
@@ -28,10 +29,12 @@ export function mergeBotList(
 }
 
 export function overlayBotList(server: Bot[]): Bot[] {
-  return mergeBotList(
-    server,
-    queryClient.getQueryData<Bot[]>(orpc.bots.list.queryOptions().queryKey),
-    officePreviewsFromCache(),
+  return withoutPendingBotDeletes(
+    mergeBotList(
+      server,
+      queryClient.getQueryData<Bot[]>(orpc.bots.list.queryOptions().queryKey),
+      officePreviewsFromCache(),
+    ),
   );
 }
 

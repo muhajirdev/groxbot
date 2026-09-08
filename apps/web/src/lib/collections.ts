@@ -14,12 +14,68 @@ import {
 import { overlayBotList } from "./bot-preview";
 import { orpc, queryClient } from "./orpc";
 import { clearRoomMessages, overlayRoomList } from "./room-messages";
+import {
+  clearAllPendingRosterDeletes,
+  clearBotPendingDelete,
+  clearRoomPendingDelete,
+  isBotPendingDelete,
+  isRoomPendingDelete,
+  markBotPendingDelete,
+  markRoomPendingDelete,
+  withoutPendingBotDeletes,
+  withoutPendingRoomDeletes,
+} from "./roster-pending";
 import { client } from "./rpc";
 import { clearOfficeMessages, OFFICE_MESSAGES_GC_TIME } from "./office-messages";
 import { clearPersistedOfficeCache } from "./office-persist";
 import { resetRpcWorkspace } from "./rpc-workspace";
 import { tenantBoundQueryFn } from "./tenant-query";
 import { clearCachedWorkspace } from "./workspace-switcher";
+
+const botsListKey = orpc.bots.list.queryOptions().queryKey;
+const roomsListKey = orpc.rooms.list.queryOptions().queryKey;
+
+function dropIdFromQueryList(key: readonly unknown[], id: string): void {
+  queryClient.setQueryData<{ id: string }[]>(key, (rows) => {
+    if (!rows?.some((row) => row.id === id)) return rows;
+    return rows.filter((row) => row.id !== id);
+  });
+}
+
+let reapingBots = false;
+let reapingRooms = false;
+
+function reapPendingBotDeletes(): void {
+  if (reapingBots) return;
+  const zombies = [...botsCollection.keys()].filter((id) =>
+    isBotPendingDelete(String(id)),
+  );
+  if (zombies.length === 0) return;
+  reapingBots = true;
+  try {
+    botsCollection.utils.writeDelete(zombies);
+  } catch {
+    for (const id of zombies) dropIdFromQueryList(botsListKey, String(id));
+  } finally {
+    reapingBots = false;
+  }
+}
+
+function reapPendingRoomDeletes(): void {
+  if (reapingRooms) return;
+  const zombies = [...roomsCollection.keys()].filter((id) =>
+    isRoomPendingDelete(String(id)),
+  );
+  if (zombies.length === 0) return;
+  reapingRooms = true;
+  try {
+    roomsCollection.utils.writeDelete(zombies);
+  } catch {
+    for (const id of zombies) dropIdFromQueryList(roomsListKey, String(id));
+  } finally {
+    reapingRooms = false;
+  }
+}
 
 export type ThreadMeta = {
   botId: string;
@@ -41,8 +97,8 @@ export const botsCollection = createCollection(
   queryCollectionOptions<Bot>({
     id: "bots",
     queryClient,
-    queryKey: orpc.bots.list.queryOptions().queryKey,
-    queryFn: tenantBoundQueryFn(orpc.bots.list.queryOptions().queryKey, async () =>
+    queryKey: botsListKey,
+    queryFn: tenantBoundQueryFn(botsListKey, async () =>
       overlayBotList(await client.bots.list()),
     ),
     getKey: (bot) => bot.id,
@@ -53,16 +109,22 @@ export const botsCollection = createCollection(
   }),
 );
 
+botsCollection.subscribeChanges((changes) => {
+  if (changes.some((change) => change.type === "insert")) {
+    reapPendingBotDeletes();
+  }
+});
+
 export function peekBots(): Bot[] {
-  return [...botsCollection.values()];
+  return withoutPendingBotDeletes([...botsCollection.values()]);
 }
 
 export const roomsCollection = createCollection(
   queryCollectionOptions<Room>({
     id: "rooms",
     queryClient,
-    queryKey: orpc.rooms.list.queryOptions().queryKey,
-    queryFn: tenantBoundQueryFn(orpc.rooms.list.queryOptions().queryKey, async () =>
+    queryKey: roomsListKey,
+    queryFn: tenantBoundQueryFn(roomsListKey, async () =>
       overlayRoomList(await client.rooms.list()),
     ),
     getKey: (room) => room.id,
@@ -73,8 +135,14 @@ export const roomsCollection = createCollection(
   }),
 );
 
+roomsCollection.subscribeChanges((changes) => {
+  if (changes.some((change) => change.type === "insert")) {
+    reapPendingRoomDeletes();
+  }
+});
+
 export function peekRooms(): Room[] {
-  return [...roomsCollection.values()];
+  return withoutPendingRoomDeletes([...roomsCollection.values()]);
 }
 
 export const sectionsCollection = createCollection(
@@ -146,10 +214,12 @@ export const pluginsCollection = createCollection(
 );
 
 export function upsertBot(bot: Bot): void {
+  clearBotPendingDelete(bot.id);
   botsCollection.utils.writeUpsert(bot);
 }
 
 export function upsertRoom(room: Room): void {
+  clearRoomPendingDelete(room.id);
   roomsCollection.utils.writeUpsert(room);
 }
 
@@ -187,20 +257,32 @@ export function replaceSyncedRows<T extends { id: string }>(
 }
 
 export function removeBot(id: string): void {
-  if (!botsCollection.has(id)) return;
-  try {
-    botsCollection.utils.writeDelete([id]);
-  } catch {
-    // Query sync never started; there is nothing durable to drop.
+  markBotPendingDelete(id);
+  // Cancel in-flight list fetches so a pre-delete response cannot land after
+  // writeDelete and resurrect the row (common on mobile when a refetch is slow).
+  void queryClient.cancelQueries({ queryKey: botsListKey });
+  if (botsCollection.has(id)) {
+    try {
+      botsCollection.utils.writeDelete([id]);
+    } catch {
+      dropIdFromQueryList(botsListKey, id);
+    }
+  } else {
+    dropIdFromQueryList(botsListKey, id);
   }
 }
 
 export function removeRoom(id: string): void {
-  if (!roomsCollection.has(id)) return;
-  try {
-    roomsCollection.utils.writeDelete([id]);
-  } catch {
-    // Query sync never started; there is nothing durable to drop.
+  markRoomPendingDelete(id);
+  void queryClient.cancelQueries({ queryKey: roomsListKey });
+  if (roomsCollection.has(id)) {
+    try {
+      roomsCollection.utils.writeDelete([id]);
+    } catch {
+      dropIdFromQueryList(roomsListKey, id);
+    }
+  } else {
+    dropIdFromQueryList(roomsListKey, id);
   }
 }
 
@@ -243,6 +325,7 @@ export function clearThreadStore(): void {
   clearRoomMessages();
   clearCachedWorkspace();
   resetRpcWorkspace();
+  clearAllPendingRosterDeletes();
   void clearPersistedOfficeCache();
   const metaKeys = [...threadMetaCollection.keys()];
   if (metaKeys.length > 0) threadMetaCollection.delete(metaKeys);

@@ -5,6 +5,7 @@ import {
   projectPiBoundMessages,
 } from "@groxbot/core/browser";
 import { orpc, queryClient } from "./orpc";
+import { withoutPendingRoomDeletes } from "./roster-pending";
 
 export const ROOM_MESSAGES_ROOT = "room-messages" as const;
 const ROOM_MESSAGES_KEY = [ROOM_MESSAGES_ROOT] as const;
@@ -80,7 +81,7 @@ export function overlayRoomList(server: Room[]): Room[] {
     changed = true;
     return { ...room, lastPreview };
   });
-  return changed ? next : server;
+  return withoutPendingRoomDeletes(changed ? next : server);
 }
 
 export function hydrateRoomPreviews(): void {
