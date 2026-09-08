@@ -21,8 +21,8 @@ import {
 } from "../lib/marketplace";
 import { client } from "../lib/rpc";
 import {
-  skillsStoreCards,
   skillsStoreCategories,
+  useSkillsStoreSearch,
 } from "../lib/skills-store";
 import { Button, Field, Input, ModalShell, cn } from "../ui";
 import { AvatarMark } from "./Avatar";
@@ -500,14 +500,17 @@ function SkillsMarketplacePane(props: {
       ).slice(0, 4),
     [],
   );
-  const visible = useMemo(
-    () =>
-      skillsStoreCards({
-        query,
-        category: featuredOnly ? null : category,
-      }).filter((row) => (featuredOnly ? featured.some((f) => f.id === row.id) : true)),
-    [category, featured, featuredOnly, query],
+  const featuredIds = useMemo(
+    () => new Set(featured.map((row) => row.id)),
+    [featured],
   );
+  const { skills: visible, loading } = useSkillsStoreSearch({
+    open: props.open,
+    query,
+    category,
+    featuredOnly,
+    featuredIds,
+  });
   const sections = useMemo(
     () =>
       marketplaceBrowseSections({
@@ -572,6 +575,7 @@ function SkillsMarketplacePane(props: {
             </button>
           ) : null}
         </div>
+        {query.trim().length < 2 ? (
         <div className="market-chips">
           <button
             type="button"
@@ -650,8 +654,9 @@ function SkillsMarketplacePane(props: {
             </div>
           ) : null}
         </div>
+        ) : null}
       </div>
-      {error || notice ? (
+      {error || notice || loading ? (
         <p
           className={cn(
             "m-0 shrink-0 border-b border-line px-[18px] py-2 text-[12px]",
@@ -659,15 +664,17 @@ function SkillsMarketplacePane(props: {
           )}
           aria-live="polite"
         >
-          {error || notice}
+          {error || notice || (loading ? "Searching…" : "")}
         </p>
       ) : null}
       <div className="min-h-0 flex-1 overflow-auto px-[18px] pt-3 pb-4">
         {sections.length === 0 ? (
           <p className="muted py-10 text-center">
-            {query.trim()
-              ? `No skills match “${query.trim()}”.`
-              : "No skills in this category."}
+            {loading
+              ? "Searching…"
+              : query.trim()
+                ? `No skills match “${query.trim()}”.`
+                : "No skills in this category."}
           </p>
         ) : (
           sections.map((section) => (

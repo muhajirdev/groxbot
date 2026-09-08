@@ -1,15 +1,16 @@
-/** Cloudflare-only. Excluded from `tsc`. Curated Skills store as a Code Mode connector. */
+/** Cloudflare-only. Excluded from `tsc`. Skills store as a Code Mode connector. */
 import { CodemodeConnector, type ConnectorTools } from "@cloudflare/codemode";
 import {
-  SKILLS_STORE_CATALOG,
-  filterSkillsStore,
-  getSkillsStoreListing,
+  SKILLS_STORE_CATEGORIES,
+  type SkillsStoreListing,
 } from "@groxbot/contracts";
 import {
   connectorString,
   createSkillImportHttp,
   importOfficeSkills,
   KnowledgePathError,
+  resolveSkillsStoreListing,
+  searchSkillsStore,
   type KnowledgeDisk,
 } from "@groxbot/core";
 
@@ -29,8 +30,9 @@ export class SkillsStoreConnector extends CodemodeConnector {
 
   protected override instructions() {
     return [
-      "Curated Agent Skills store (trusted GitHub / skills.sh packages).",
-      "Search with skills_store.search, then install with skills_store.install({ id }) — install needs approval.",
+      "Agent Skills store — featured skills plus a searchable open directory.",
+      "Search with skills_store.search({ query }), then install with skills_store.install({ id }) — install needs approval.",
+      "Ids from search are either featured (anthropic-pdf) or owner/repo/skill paths (anthropics/skills/pdf).",
       "Installed skills land in office knowledge as skills/<name>/SKILL.md and show up in <available_skills> on the next turn.",
       "Not Plugins. Hire a teammate with bots.search / bots.hire, not this store. Prefer the store over inventing a playbook when a listing already fits.",
     ].join(" ");
@@ -40,12 +42,13 @@ export class SkillsStoreConnector extends CodemodeConnector {
     return {
       search: {
         description:
-          "Search the curated Skills store. Call skills_store.search({ query }) or pass a query string. Optional category. Returns id, name, blurb, category, trust, source — then install by id.",
+          "Search the Skills store. Empty or short query returns featured skills. Longer queries search the open directory. Optional owner (GitHub org) and category (featured only). Returns id, name, blurb, category, trust, source — then install by id.",
         inputSchema: {
           type: "object",
           properties: {
             query: { type: "string", maxLength: 200 },
             category: { type: "string", maxLength: 80 },
+            owner: { type: "string", maxLength: 80 },
             limit: { type: "integer", minimum: 1, maximum: 20 },
           },
         },
@@ -53,25 +56,18 @@ export class SkillsStoreConnector extends CodemodeConnector {
         execute: async (args) => {
           const query = optionalString(args, "query", true) ?? "";
           const category = optionalString(args, "category") || null;
+          const owner = optionalString(args, "owner");
           const limit = numberArg(args, "limit") ?? 12;
-          const hits = filterSkillsStore(
-            SKILLS_STORE_CATALOG,
-            query,
+          const found = await searchSkillsStore(query, {
+            limit,
+            owner,
             category,
-          ).slice(0, limit);
+          });
           return {
-            count: hits.length,
-            categories: [
-              ...new Set(SKILLS_STORE_CATALOG.map((row) => row.category)),
-            ],
-            skills: hits.map((row) => ({
-              id: row.id,
-              name: row.name,
-              blurb: row.blurb,
-              category: row.category,
-              trust: row.trust,
-              source: row.source,
-            })),
+            count: found.skills.length,
+            source: found.source,
+            categories: [...SKILLS_STORE_CATEGORIES],
+            skills: found.skills.map(skillRow),
           };
         },
       },
@@ -81,14 +77,14 @@ export class SkillsStoreConnector extends CodemodeConnector {
         inputSchema: {
           type: "object",
           properties: {
-            id: { type: "string", minLength: 1, maxLength: 80 },
+            id: { type: "string", minLength: 1, maxLength: 240 },
           },
           required: ["id"],
         },
         requiresApproval: true,
         execute: async (args) => {
           const id = stringArg(args, "id", true);
-          const listing = getSkillsStoreListing(id);
+          const listing = resolveSkillsStoreListing(id);
           if (!listing) {
             throw new KnowledgePathError(`Unknown store skill: ${id}`);
           }
@@ -115,6 +111,17 @@ export class SkillsStoreConnector extends CodemodeConnector {
   }
 }
 
+function skillRow(row: SkillsStoreListing) {
+  return {
+    id: row.id,
+    name: row.name,
+    blurb: row.blurb,
+    category: row.category,
+    trust: row.trust,
+    source: row.source,
+  };
+}
+
 function stringArg(args: unknown, key: string, positional = false): string {
   const value = optionalString(args, key, positional);
   if (!value) throw new KnowledgePathError();
@@ -134,5 +141,7 @@ function optionalString(
 function numberArg(args: unknown, key: string): number | undefined {
   if (!args || typeof args !== "object" || Array.isArray(args)) return undefined;
   const value = (args as Record<string, unknown>)[key];
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
 }

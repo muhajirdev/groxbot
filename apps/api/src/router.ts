@@ -35,6 +35,7 @@ import {
   revokeKnowledgeSharesForPrefix,
   SkillImportError,
   saveModelSettings,
+  searchSkillsStore,
   sleep,
   toBotDto,
   updateWorkspaceOnDemand,
@@ -805,6 +806,25 @@ export const appRouter = os.router({
           input.query,
           input.limit,
         );
+      } catch (error) {
+        throwKnowledgeError(error);
+      }
+    }),
+    searchSkills: os.knowledge.searchSkills.handler(async ({ context, input }) => {
+      await requireActor(context);
+      try {
+        if (!context.knowledge) {
+          return searchSkillsStore(input.query ?? "", {
+            limit: input.limit,
+            owner: input.owner,
+            category: input.category,
+          });
+        }
+        return await context.knowledge.searchSkills(input.query ?? "", {
+          limit: input.limit,
+          owner: input.owner,
+          category: input.category,
+        });
       } catch (error) {
         throwKnowledgeError(error);
       }

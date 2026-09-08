@@ -57,6 +57,7 @@ export * from "./run-state.js";
 export * from "./secret-box.js";
 export * from "./sidebar-sections.js";
 export * from "./skill-import.js";
+export * from "./skills-sh.js";
 export * from "./skills.js";
 export * from "./soul.js";
 export * from "./threads.js";

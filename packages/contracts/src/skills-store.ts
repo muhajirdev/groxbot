@@ -1,23 +1,32 @@
-/** Curated Agent Skills store — install into office knowledge via `knowledge.importSkill`. */
+/** Skills store listings — curated seed + live directory search. Install via `knowledge.importSkill`. */
 
-export type SkillsStoreTrust = "official" | "trusted" | "community";
+import * as z from "zod";
 
-export type SkillsStoreListing = {
-  id: string;
-  name: string;
-  blurb: string;
-  category: string;
-  /** GitHub `owner/repo`, `owner/repo/skill-name`, or skills.sh / GitHub URL for import. */
-  source: string;
-  trust: SkillsStoreTrust;
-  /** Optional upstream homepage (skills.sh / GitHub). */
-  homepage?: string;
-};
+export const SkillsStoreTrust = z.enum(["official", "trusted", "community"]);
+export type SkillsStoreTrust = z.infer<typeof SkillsStoreTrust>;
+
+export const SkillsStoreListingSchema = z.object({
+  id: z.string().min(1).max(240),
+  name: z.string().min(1).max(120),
+  blurb: z.string().max(200),
+  category: z.string().min(1).max(80),
+  /** GitHub `owner/repo`, `owner/repo/skill-name`, or GitHub URL for import. */
+  source: z.string().min(1).max(500),
+  trust: SkillsStoreTrust,
+  /** Optional upstream homepage. */
+  homepage: z.string().max(500).optional(),
+});
+export type SkillsStoreListing = z.infer<typeof SkillsStoreListingSchema>;
+
+export const SkillsStoreSearchSchema = z.object({
+  skills: z.array(SkillsStoreListingSchema),
+  source: z.enum(["curated", "directory"]),
+});
+export type SkillsStoreSearch = z.infer<typeof SkillsStoreSearchSchema>;
 
 /**
- * Seeded from public Agent Skills directories Hermes/OpenAI/Anthropic/Vercel/etc.
- * Not a UGC Postgres catalog — static product config, like the bot hire marketplace.
- * Community ClawHub volume stays out; prefer trusted GitHub / skills.sh packages.
+ * Featured seed when search is empty. Longer queries hit the open skills
+ * directory under the hood; install still copies from GitHub.
  */
 export const SKILLS_STORE_CATALOG: readonly SkillsStoreListing[] = [
   {

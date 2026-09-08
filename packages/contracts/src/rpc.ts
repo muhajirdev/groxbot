@@ -64,6 +64,7 @@ import {
   SaveModelSettingsInput,
   WakeupKind,
 } from "./models.js";
+import { SkillsStoreSearchSchema } from "./skills-store.js";
 import {
   AdminDeleteUserInput,
   AdminDeleteWorkspaceInput,
@@ -296,6 +297,17 @@ export const appContract = oc.router({
         }),
       )
       .output(KnowledgeSearchSchema),
+    /** Skills store search. Empty query returns the featured seed. */
+    searchSkills: oc
+      .input(
+        z.object({
+          query: z.string().max(200).optional(),
+          limit: z.number().int().min(1).max(20).optional(),
+          owner: z.string().max(80).optional(),
+          category: z.string().max(80).optional(),
+        }),
+      )
+      .output(SkillsStoreSearchSchema),
     read: oc
       .input(z.object({ path: z.string().min(1).max(240) }))
       .output(KnowledgeFileSchema),

@@ -7,9 +7,9 @@ import { userFacingError } from "../lib/errors";
 import { skillImportSummary } from "../lib/knowledge-import";
 import { client } from "../lib/rpc";
 import {
-  skillsStoreCards,
   skillsStoreCategories,
   skillsStoreTrustLabel,
+  useSkillsStoreSearch,
 } from "../lib/skills-store";
 import { Button, ModalShell, cn } from "../ui";
 import { CloseIcon, SearchIcon } from "./Icons";
@@ -30,6 +30,11 @@ export function SkillsStoreModal(props: {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const { skills: cards, loading } = useSkillsStoreSearch({
+    open: props.open,
+    query,
+    category,
+  });
 
   useEffect(() => {
     if (!props.open) return;
@@ -39,8 +44,6 @@ export function SkillsStoreModal(props: {
     setError("");
     setNotice("");
   }, [props.open]);
-
-  const cards = props.open ? skillsStoreCards({ query, category }) : [];
 
   async function install(row: SkillsStoreListing) {
     if (busyId) return;
@@ -66,6 +69,11 @@ export function SkillsStoreModal(props: {
     }
   }
 
+  const status =
+    error ||
+    notice ||
+    (loading ? "Searching…" : "");
+
   return (
     <ModalShell
       open={props.open}
@@ -79,8 +87,8 @@ export function SkillsStoreModal(props: {
             Skills store
           </h2>
           <p className="m-0 text-[12px] text-muted">
-            Curated Agent Skills. Install into office knowledge — Pi sees them
-            on the next turn.
+            Featured Agent Skills. Search to find more. Install into office
+            knowledge — Pi sees them on the next turn.
           </p>
         </div>
         <button
@@ -119,24 +127,26 @@ export function SkillsStoreModal(props: {
         ) : null}
       </div>
 
-      <div className="flex flex-wrap gap-1.5 border-b border-line px-[18px] py-2">
-        {CATEGORIES.map((label) => {
-          const active =
-            label === "All" ? category === null : category === label;
-          return (
-            <button
-              key={label}
-              type="button"
-              className={cn("chip", active && "on")}
-              onClick={() => setCategory(label === "All" ? null : label)}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
+      {query.trim().length < 2 ? (
+        <div className="flex flex-wrap gap-1.5 border-b border-line px-[18px] py-2">
+          {CATEGORIES.map((label) => {
+            const active =
+              label === "All" ? category === null : category === label;
+            return (
+              <button
+                key={label}
+                type="button"
+                className={cn("chip", active && "on")}
+                onClick={() => setCategory(label === "All" ? null : label)}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
 
-      {error || notice ? (
+      {status ? (
         <p
           className={cn(
             "m-0 border-b border-line px-[18px] py-2 text-[12px]",
@@ -144,16 +154,18 @@ export function SkillsStoreModal(props: {
           )}
           aria-live="polite"
         >
-          {error || notice}
+          {status}
         </p>
       ) : null}
 
       <div className="min-h-0 flex-1 overflow-auto px-[18px] py-4">
         {cards.length === 0 ? (
           <p className="muted py-10 text-center">
-            {query.trim()
-              ? `No skills match “${query.trim()}”.`
-              : "No skills in this category."}
+            {loading
+              ? "Searching…"
+              : query.trim()
+                ? `No skills match “${query.trim()}”.`
+                : "No skills in this category."}
           </p>
         ) : (
           <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-2.5">

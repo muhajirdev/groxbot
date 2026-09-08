@@ -76,9 +76,9 @@ Composer:
 
 Job-title chips and the office **New bot** name dialog share a curated hire catalog of full bot packages (soul, starter memory, skills) — including roles seeded from public Grok Bot marketplace listings. **New bot** asks for a name first. **Browse bot templates** opens the marketplace — same templates, same `bots.create` path. This is **not** Plugins (Composio connectors), **not** Knowledge skills/playbooks, and **not** a user-published template store (static catalog for now).
 
-Skills (playbooks) have a separate **Skills store** in the Skills library: curated Agent Skills packages. Browse/search/install copies into office knowledge via `knowledge.importSkill`. Pi can `skills_store.search` / `skills_store.install` in Code Mode; installed skills show in `<available_skills>` on the next turn. Still not a UGC skills marketplace and not the bot hire catalog.
+Skills (playbooks) have a separate **Skills store** in the Skills library: featured Agent Skills plus searchable open-directory discovery. Browse/search/install copies into office knowledge via `knowledge.importSkill`. Pi can `skills_store.search` / `skills_store.install` in Code Mode; installed skills show in `<available_skills>` on the next turn. Not ClawHub and not the bot hire catalog.
 
-Skills (playbooks) have their own **Skills store** in the Skills library: curated Agent Skills packages (Anthropic / OpenAI / Vercel / Hugging Face / …). Browse/search/install copies into office knowledge via `knowledge.importSkill`. Pi can `skills_store.search` / `skills_store.install` in Code Mode. Installed skills show in `<available_skills>` on the next turn. Still not a UGC skills marketplace and not the bot hire catalog.
+Skills (playbooks) have their own **Skills store** in the Skills library: featured Agent Skills plus searchable open-directory discovery. Install copies from GitHub into office knowledge via `knowledge.importSkill`. Pi can `skills_store.search` / `skills_store.install` in Code Mode. Installed skills show in `<available_skills>` on the next turn. Not ClawHub and not the bot hire catalog.
 
 Examples: **Talent Scout**, **Expense Manager**, **Bug Reproduction**, **Chief of Staff**. Avoid **General Helper**.
 
