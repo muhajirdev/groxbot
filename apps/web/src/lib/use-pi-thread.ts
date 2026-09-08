@@ -13,6 +13,7 @@ import {
 } from "@groxbot/core/browser";
 import { newWebSocketRpcSession, RpcTarget } from "capnweb";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { appendOfficeDebugLine } from "./office-debug";
 
 export type PiThreadStatus = "ready" | "submitted" | "streaming" | "error";
 
@@ -148,6 +149,16 @@ export function usePiThread(options: {
               snapshot,
             }),
           );
+          return;
+        }
+        if (event.type === "debug_log") {
+          const line =
+            typeof event.line === "string"
+              ? event.line
+              : typeof event.message === "string"
+                ? event.message
+                : "";
+          if (line) appendOfficeDebugLine(event.threadId || options.threadId, line);
           return;
         }
         setView((current) => applyPiOfficeEvent(current, event));

@@ -139,6 +139,8 @@ describe("Computer Worker shell wiring", () => {
     expect(readSrc("bot-browser.ts")).toMatch(/render_screenshot/);
     expect(readSrc("bot-browser.ts")).not.toMatch(/stagehand/i);
     expect(readSrc("bot-actor.ts")).toMatch(/createBrowserAgentTools/);
+    expect(readSrc("bot-actor.ts")).toMatch(/emitOfficeDebug/);
+    expect(readSrc("bot-actor.ts")).toMatch(/debug_log/);
     expect(execute).toMatch(/bindOfficeExecuteTool/);
     expect(readSrc("bot-office-tools.ts")).toMatch(/OFFICE_CODE_TOOL_NAME/);
     expect(readSrc("bot-office-tools.ts")).toMatch(/executeCodeFromInput/);

@@ -21,6 +21,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { billingStatusLabel } from "../lib/billing-format";
 import { BUILD_REVISION, shortRevision } from "../lib/build";
+import { readDebugMode, useDebugMode, writeDebugMode } from "../lib/debug-mode";
 import { userFacingError } from "../lib/errors";
 import type { OfficeColorId } from "../lib/office-color";
 import { workspaceListQueryOptions } from "../lib/office-persist";
@@ -176,6 +177,18 @@ export function AppSettings(props: {
                 </div>
               </section>
               <section className="set-block">
+                <p className="group-label">Developer</p>
+                <div className="set-row">
+                  <div>
+                    <strong>Debug</strong>
+                    <p className="muted">
+                      Turn timing log on this bot&apos;s computer pane
+                    </p>
+                  </div>
+                  <DebugModeToggle />
+                </div>
+              </section>
+              <section className="set-block">
                 <p className="group-label">Timezone</p>
                 <p className="hint set-lede">
                   Wall-clock routines run in this zone.
@@ -232,6 +245,20 @@ export function AppSettings(props: {
         </div>
       </div>
     </ModalShell>
+  );
+}
+
+function DebugModeToggle() {
+  const on = useDebugMode();
+  return (
+    <button
+      className="mini"
+      type="button"
+      aria-pressed={on}
+      onClick={() => writeDebugMode(!readDebugMode())}
+    >
+      {on ? "On" : "Off"}
+    </button>
   );
 }
 

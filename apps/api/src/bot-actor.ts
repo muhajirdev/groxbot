@@ -707,17 +707,23 @@ export class RoomHome extends Agent<WorkerEnv> {
     this.officeTurn = abort;
     this.officeError = "";
     this.officeStatus = "submitted";
+    const turnStartedAt = Date.now();
+    let firstModelEvent = false;
     await this.bumpOfficeGeneration();
     await this.broadcastOfficeStatus();
+    await this.emitOfficeDebug(turnStartedAt, "turn_start");
     await this.ensureBotLoaded();
+    await this.emitOfficeDebug(turnStartedAt, "bot_loaded", this.turnModel);
     if (abort.signal.aborted) return;
     await this.healComputerFiles();
+    await this.emitOfficeDebug(turnStartedAt, "computer_ready");
     const session = await this.ensureOfficeSession();
     const streamFn = this.turnStreamFn();
     if (!streamFn) {
       this.officeStatus = "error";
       this.officeError =
         "Add a model key, or use Groxbot’s included gateway, to talk to teammates.";
+      await this.emitOfficeDebug(turnStartedAt, "error", "no_stream");
       await this.broadcastOfficeError();
       await this.broadcastOfficeStatus();
       return;
@@ -728,7 +734,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     const model = this.turnPiModel();
     const bound = await this.officeBound(session);
     const intro = lastOfficeUserIsIntro(bound);
-    const startedAt = Date.now();
+    const startedAt = turnStartedAt;
     const visible = !intro;
     this.officeTurnTouched = false;
     let computerSeconds = 0;
@@ -744,6 +750,11 @@ export class RoomHome extends Agent<WorkerEnv> {
           error instanceof Error
             ? error.message
             : WORKSPACE_PLAN_REQUIRED_MESSAGE;
+        await this.emitOfficeDebug(
+          turnStartedAt,
+          "error",
+          "plan_blocked",
+        );
         await this.broadcastOfficeError();
         await this.broadcastOfficeStatus();
         return;
@@ -751,14 +762,25 @@ export class RoomHome extends Agent<WorkerEnv> {
         await close();
       }
     }
+    await this.emitOfficeDebug(turnStartedAt, "plan_ok");
     const baseTools = intro
       ? officeIntroTurnTools(await this.officeAgentTools())
       : await this.officeAgentTools();
+    await this.emitOfficeDebug(
+      turnStartedAt,
+      "tools_ready",
+      `${baseTools.length} tools`,
+    );
     const tools = wrapAgentToolsForComputerUsage(baseTools, (seconds) => {
       computerSeconds += seconds;
       this.officeTurnTouched = true;
     });
     const system = await this.officeSystemPrompt(bound, tools);
+    await this.emitOfficeDebug(
+      turnStartedAt,
+      "prompt_ready",
+      `${system.length} chars`,
+    );
     try {
       const runTurn = async () => {
         const context = await session.buildContext();
@@ -774,6 +796,32 @@ export class RoomHome extends Agent<WorkerEnv> {
           getFollowUpMessages: () =>
             intro ? [] : this.officeSteer.drainMessages(),
           onEvent: async (event) => {
+            if (!firstModelEvent) {
+              firstModelEvent = true;
+              await this.emitOfficeDebug(
+                turnStartedAt,
+                "first_model_event",
+                event.type,
+              );
+            }
+            if (event.type === "tool_execution_start") {
+              const name =
+                "toolName" in event && typeof event.toolName === "string"
+                  ? event.toolName
+                  : "tool";
+              await this.emitOfficeDebug(turnStartedAt, "tool_start", name);
+            }
+            if (event.type === "tool_execution_end") {
+              const name =
+                "toolName" in event && typeof event.toolName === "string"
+                  ? event.toolName
+                  : "tool";
+              await this.emitOfficeDebug(
+                turnStartedAt,
+                "tool_end",
+                `${name}${event.isError ? " error" : ""}`,
+              );
+            }
             const incoming =
               "message" in event && event.message ? event.message : null;
             if (
@@ -818,11 +866,13 @@ export class RoomHome extends Agent<WorkerEnv> {
         streamFn,
         signal: abort.signal,
       });
+      await this.emitOfficeDebug(turnStartedAt, "compact_done");
       let result = await runTurn();
       if (
         result.stopReason === "error" &&
         isContextOverflowError(result.errorMessage)
       ) {
+        await this.emitOfficeDebug(turnStartedAt, "compact_retry");
         const compacted = await this.compactOfficeContext(session, {
           model,
           streamFn,
@@ -832,6 +882,7 @@ export class RoomHome extends Agent<WorkerEnv> {
         if (compacted) result = await runTurn();
       }
       if (result.stopReason === "aborted" || abort.signal.aborted) {
+        await this.emitOfficeDebug(turnStartedAt, "turn_aborted");
         this.officeStatus = "ready";
         await this.broadcastOfficeStatus();
         return;
@@ -845,10 +896,20 @@ export class RoomHome extends Agent<WorkerEnv> {
           model: this.turnModel,
           error: this.officeError.slice(0, 180),
         });
+        await this.emitOfficeDebug(
+          turnStartedAt,
+          "turn_error",
+          this.officeError.slice(0, 120),
+        );
         await this.broadcastOfficeError();
         await this.broadcastOfficeStatus();
         return;
       }
+      await this.emitOfficeDebug(
+        turnStartedAt,
+        "turn_done",
+        result.stopReason || "ok",
+      );
       this.officeStatus = "ready";
       await this.broadcastOfficeStatus();
       const after = await this.officeBound(session);
@@ -882,6 +943,7 @@ export class RoomHome extends Agent<WorkerEnv> {
       });
     } catch (error) {
       if (abort.signal.aborted) {
+        await this.emitOfficeDebug(turnStartedAt, "turn_aborted");
         this.officeStatus = "ready";
         await this.broadcastOfficeStatus();
         return;
@@ -889,6 +951,11 @@ export class RoomHome extends Agent<WorkerEnv> {
       this.officeStatus = "error";
       this.officeError =
         error instanceof Error ? error.message : "The model run failed.";
+      await this.emitOfficeDebug(
+        turnStartedAt,
+        "turn_error",
+        this.officeError.slice(0, 120),
+      );
       await this.broadcastOfficeError();
       await this.broadcastOfficeStatus();
     } finally {
@@ -1134,6 +1201,25 @@ export class RoomHome extends Agent<WorkerEnv> {
     });
     if (!payload) return;
     await this.broadcastOffice((sub) => sub.event(payload));
+  }
+
+  /** Cap’n Web + console turn timing (Settings → Debug). */
+  private async emitOfficeDebug(
+    startedAt: number,
+    phase: string,
+    detail?: string,
+  ): Promise<void> {
+    const ms = Math.max(0, Date.now() - startedAt);
+    const line = detail
+      ? `${phase} +${ms}ms ${detail}`
+      : `${phase} +${ms}ms`;
+    console.log("office turn", this.name, line);
+    await this.broadcastOfficeEvent({
+      type: "debug_log",
+      phase,
+      ms,
+      line,
+    });
   }
 
   private broadcastOfficeStatus(): Promise<void> {

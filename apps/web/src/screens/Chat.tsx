@@ -2273,6 +2273,7 @@ export function Chat(props: {
                   <ComputerPane
                     key={bot.id}
                     bot={bot}
+                    roomId={bot.homeRoomId || bot.id}
                     openPath={computerOpenPath}
                     onPreviewClose={() => setComputerFile(null)}
                     onSettings={() => {

@@ -3013,6 +3013,31 @@ html.electron .pane-head {
   flex-direction: column;
 }
 
+.computer-debug {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  margin: 8px 0 4px;
+  flex: 0 1 40%;
+}
+
+.computer-debug-log {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #0a0a0a;
+  color: #b8b8b8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.45;
+  overflow: auto;
+  min-height: 96px;
+  max-height: 220px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .hero-avatar {
   display: grid;
   place-items: center;
