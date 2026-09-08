@@ -178,6 +178,10 @@ describe("Computer Worker shell wiring", () => {
     expect(readSrc("bot-office-tools.ts")).toMatch(/officeShellCommandRefusal/);
     expect(readSrc("bot-actor.ts")).toMatch(/readDocument/);
     expect(readSrc("bot-office-tools.ts")).toMatch(/isFailedToolValue/);
+    expect(readSrc("bot-knowledge.ts")).toMatch(/inbox\/invoice\.pdf/);
+    expect(readSrc("bot-knowledge.ts")).toMatch(/readComputer/);
+    expect(readSrc("bot-actor.ts")).toMatch(/readFileBytes/);
+    expect(readSrc("worker.ts")).toMatch(/bindToMarkdown\(env\.AI\)/);
   });
 
   it("binds ROOM_ACTOR to the provisioned BotActor class", () => {

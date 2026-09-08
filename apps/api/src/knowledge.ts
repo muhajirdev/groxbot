@@ -22,6 +22,7 @@ import {
   removeKnowledge,
   searchKnowledge,
   writeKnowledge,
+  type KnowledgeConvert,
   type KnowledgeDisk,
   type SkillImportHttp,
 } from "@groxbot/core";
@@ -51,18 +52,21 @@ export type KnowledgeAccess = {
 export function knowledgeAccess(
   disk: KnowledgeDisk,
   http?: SkillImportHttp,
+  convert?: KnowledgeConvert,
 ): KnowledgeAccess {
   return {
     list: (workspaceId) => listKnowledge(disk, workspaceId),
     search: (workspaceId, query, limit) =>
       searchKnowledge(disk, workspaceId, query, limit),
-    read: (workspaceId, path) => readKnowledge(disk, workspaceId, path),
+    read: (workspaceId, path) =>
+      readKnowledge(disk, workspaceId, path, { convert }),
     download: (workspaceId, path) => downloadKnowledge(disk, workspaceId, path),
     backlinks: async (workspaceId, path) => ({
       sources: await listKnowledgeBacklinks(disk, workspaceId, path),
     }),
     graph: (workspaceId) => listKnowledgeGraph(disk, workspaceId),
-    write: (workspaceId, input) => writeKnowledge(disk, workspaceId, input),
+    write: (workspaceId, input) =>
+      writeKnowledge(disk, workspaceId, input, { convert }),
     importSkill: (workspaceId, input) => {
       if (!http) {
         throw new SkillImportError("Could not fetch that skill.");

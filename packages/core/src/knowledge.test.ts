@@ -205,6 +205,86 @@ describe("write and read", () => {
     );
   });
 
+  it("files a PDF, indexes converted text, and hides the extract", async () => {
+    const disk = new MemoryKnowledge();
+    const convert = async () => ({
+      data: "# Invoice\nSinemart billed 12 million.",
+    });
+    await writeKnowledge(
+      disk,
+      OFFICE,
+      {
+        path: "clients/sinemart/invoice.pdf",
+        content: encodeComputerBytes(new Uint8Array([37, 80, 68, 70])),
+        encoding: "base64",
+        mediaType: "application/pdf",
+      },
+      { convert },
+    );
+    const listed = await listKnowledge(disk, OFFICE);
+    expect(listed.entries.map((row) => row.path)).toEqual([
+      "clients/sinemart/invoice.pdf",
+    ]);
+    expect(listed.entries[0]).toMatchObject({
+      encoding: "binary",
+      mediaType: "application/pdf",
+    });
+    const file = await readKnowledge(
+      disk,
+      OFFICE,
+      "clients/sinemart/invoice.pdf",
+    );
+    expect(file.encoding).toBe("binary");
+    expect(file.content).toMatch(/Sinemart billed/);
+    const found = await searchKnowledge(disk, OFFICE, "Sinemart billed");
+    expect(found.hits[0]?.path).toBe("clients/sinemart/invoice.pdf");
+    await removeKnowledge(disk, OFFICE, "clients/sinemart/invoice.pdf");
+    expect(
+      [...disk.files.keys()].some((key) => key.includes("/_extract/")),
+    ).toBe(false);
+  });
+
+  it("converts a PDF on first read when the extract is missing", async () => {
+    const disk = new MemoryKnowledge();
+    await disk.put(`${OFFICE}/brief.pdf`, new Uint8Array([37, 80, 68, 70]));
+    const convert = async () => ({ data: "# Brief\nHello from pdf" });
+    const file = await readKnowledge(disk, OFFICE, "brief.pdf", { convert });
+    expect(file.content).toMatch(/Hello from pdf/);
+    expect(
+      [...disk.files.keys()].some((key) =>
+        key.endsWith("/_extract/brief.pdf.md"),
+      ),
+    ).toBe(true);
+    const found = await searchKnowledge(disk, OFFICE, "Hello from pdf");
+    expect(found.hits[0]?.path).toBe("brief.pdf");
+  });
+
+  it("keeps a PDF when conversion fails", async () => {
+    const disk = new MemoryKnowledge();
+    const convert = async () => {
+      throw new Error("toMarkdown down");
+    };
+    await writeKnowledge(
+      disk,
+      OFFICE,
+      {
+        path: "invoice.pdf",
+        content: encodeComputerBytes(new Uint8Array([37, 80, 68, 70])),
+        encoding: "base64",
+        mediaType: "application/pdf",
+      },
+      { convert },
+    );
+    expect(await disk.getBytes(`${OFFICE}/invoice.pdf`)).toEqual(
+      new Uint8Array([37, 80, 68, 70]),
+    );
+    const file = await readKnowledge(disk, OFFICE, "invoice.pdf", {
+      convert,
+    });
+    expect(file.encoding).toBe("binary");
+    expect(file.content).toBe("");
+  });
+
   it("removes a folder prefix", async () => {
     const disk = new MemoryKnowledge();
     await writeKnowledge(disk, OFFICE, {

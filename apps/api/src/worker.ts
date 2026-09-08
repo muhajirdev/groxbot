@@ -28,6 +28,7 @@ import {
   updateBotRoutine,
 } from "./bot-routines.js";
 import { productEnv } from "./env.js";
+import { bindToMarkdown } from "./bot-markdown.js";
 import { knowledgeAccess } from "./knowledge.js";
 import { r2KnowledgeDisk } from "./knowledge-r2.js";
 import { RoomActor } from "./room-actor.js";
@@ -111,7 +112,11 @@ export default {
           ),
       },
       knowledge: knowledgeDisk
-        ? knowledgeAccess(knowledgeDisk, createSkillImportHttp())
+        ? knowledgeAccess(
+            knowledgeDisk,
+            createSkillImportHttp(),
+            bindToMarkdown(env.AI),
+          )
         : undefined,
       knowledgeDisk,
       avatars: knowledgeDisk,

@@ -1994,7 +1994,11 @@ export class RoomHome extends Agent<WorkerEnv> {
           initRoom: (roomId, opts) =>
             initRoomActor(this.env.ROOM_ACTOR, roomId, opts),
           knowledge: disk
-            ? knowledgeAccess(disk, createSkillImportHttp())
+            ? knowledgeAccess(
+                disk,
+                createSkillImportHttp(),
+                bindToMarkdown(this.env.AI),
+              )
             : undefined,
         },
         { userId, workspaceId },
@@ -2370,7 +2374,10 @@ export class RoomHome extends Agent<WorkerEnv> {
     if (this.env.KNOWLEDGE) {
       const disk = r2KnowledgeDisk(this.env.KNOWLEDGE);
       connectors.push(
-        new KnowledgeConnector(this.ctx, this.env, disk, () => this.officeId),
+        new KnowledgeConnector(this.ctx, this.env, disk, () => this.officeId, {
+          convert: bindToMarkdown(this.env.AI),
+          readComputer: (path) => this.workspace.readFileBytes(path),
+        }),
         new SkillsStoreConnector(this.ctx, this.env, disk, () => this.officeId),
       );
     }

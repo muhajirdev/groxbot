@@ -11,6 +11,11 @@ import {
 } from "@groxbot/contracts";
 import { encodeComputerBytes } from "./computer.js";
 import {
+  type MarkdownBytes,
+  mimeTypeForMarkdownName,
+  readMarkdownConversion,
+} from "./markdown.js";
+import {
   dropKnowledgeLinkPrefix,
   dropKnowledgeLinkSource,
   emptyKnowledgeLinkSnapshot,
@@ -65,6 +70,19 @@ export const MAX_KNOWLEDGE_ENTRIES = 800;
 export const MAX_KNOWLEDGE_READ_CHARS = 64_000;
 export const MAX_KNOWLEDGE_NOTE_CHARS = 64_000;
 export const MAX_KNOWLEDGE_PATH = 240;
+
+/** Workers AI `toMarkdown` — same families as computer `read`. */
+const CONVERT_EXT = /\.(pdf|docx|pptx|xlsx)$/i;
+
+export type KnowledgeConvert = (file: MarkdownBytes) => Promise<unknown>;
+
+export type KnowledgeIoOpts = {
+  convert?: KnowledgeConvert;
+};
+
+export function knowledgeConverts(path: string): boolean {
+  return CONVERT_EXT.test(path);
+}
 
 const TEXT_EXTENSIONS = new Set([
   ".bash",
@@ -173,8 +191,25 @@ export function sanitizeKnowledgePath(raw: string | undefined): string {
   return path;
 }
 
+export function isKnowledgeExtractPath(path: string): boolean {
+  return path === "_extract" || path.startsWith("_extract/");
+}
+
 export function isKnowledgeHiddenPath(path: string): boolean {
-  return isKnowledgeLinksPath(path) || isKnowledgeSearchPath(path);
+  return (
+    isKnowledgeLinksPath(path) ||
+    isKnowledgeSearchPath(path) ||
+    isKnowledgeExtractPath(path)
+  );
+}
+
+export function knowledgeExtractObjectKey(
+  workspaceId: string,
+  path: string,
+): string {
+  const office = sanitizeWorkspaceId(workspaceId);
+  const relative = sanitizeKnowledgePath(path);
+  return `${office}/_extract/${relative}.md`;
 }
 
 export function isKnowledgeSkillFile(path: string): boolean {
@@ -227,6 +262,7 @@ export async function readKnowledge(
   disk: KnowledgeDisk,
   workspaceId: string,
   rawPath: string,
+  opts?: KnowledgeIoOpts,
 ): Promise<KnowledgeFile> {
   const path = sanitizeKnowledgePath(rawPath);
   if (!path) throw new KnowledgePathError("Pick a file in the office.");
@@ -234,13 +270,21 @@ export async function readKnowledge(
   const bytes = await disk.getBytes(knowledgeObjectKey(workspaceId, path));
   if (!bytes) throw new KnowledgeFileError();
   const snapshot = await loadKnowledgeLinkSnapshot(disk, workspaceId);
-  return knowledgeFileFromBytes(disk, workspaceId, path, bytes, snapshot);
+  return knowledgeFileFromBytes(
+    disk,
+    workspaceId,
+    path,
+    bytes,
+    snapshot,
+    opts,
+  );
 }
 
 export async function readKnowledgeMany(
   disk: KnowledgeDisk,
   workspaceId: string,
   rawPaths: string[],
+  opts?: KnowledgeIoOpts,
 ): Promise<{ files: KnowledgeFile[]; missing: string[]; truncated: boolean }> {
   const seen = new Set<string>();
   const paths: string[] = [];
@@ -267,10 +311,114 @@ export async function readKnowledgeMany(
       continue;
     }
     files.push(
-      await knowledgeFileFromBytes(disk, workspaceId, path, bytes, snapshot),
+      await knowledgeFileFromBytes(
+        disk,
+        workspaceId,
+        path,
+        bytes,
+        snapshot,
+        opts,
+      ),
     );
   }
   return { files, missing, truncated };
+}
+
+async function knowledgeIndexText(
+  disk: KnowledgeDisk,
+  workspaceId: string,
+  path: string,
+  bytes: Uint8Array,
+  convert?: KnowledgeConvert,
+): Promise<string | null> {
+  if (isTextBytes(path, bytes)) return new TextDecoder().decode(bytes);
+  if (!knowledgeConverts(path)) return null;
+  const extracted = await convertKnowledgeDocument(
+    disk,
+    workspaceId,
+    path,
+    bytes,
+    convert,
+  );
+  if (extracted == null) {
+    await disk.delete(knowledgeExtractObjectKey(workspaceId, path));
+  }
+  return extracted;
+}
+
+async function knowledgeExtractText(
+  disk: KnowledgeDisk,
+  workspaceId: string,
+  path: string,
+  bytes: Uint8Array,
+  convert?: KnowledgeConvert,
+): Promise<string> {
+  if (!knowledgeConverts(path)) return "";
+  const cached = await disk.getText(
+    knowledgeExtractObjectKey(workspaceId, path),
+  );
+  if (cached) return cached;
+  const markdown =
+    (await convertKnowledgeDocument(
+      disk,
+      workspaceId,
+      path,
+      bytes,
+      convert,
+    )) ?? "";
+  if (markdown) {
+    await syncKnowledgeSearch(disk, workspaceId, path, markdown);
+  }
+  return markdown;
+}
+
+async function convertKnowledgeDocument(
+  disk: KnowledgeDisk,
+  workspaceId: string,
+  path: string,
+  bytes: Uint8Array,
+  convert?: KnowledgeConvert,
+): Promise<string | null> {
+  if (!convert) return null;
+  const name = path.split("/").at(-1) ?? path;
+  let raw: unknown;
+  try {
+    raw = await convert({
+      name,
+      mimeType: mimeTypeForMarkdownName(name),
+      bytes,
+    });
+  } catch {
+    return null;
+  }
+  const result = readMarkdownConversion(raw);
+  if (!result.ok) return null;
+  try {
+    await disk.put(
+      knowledgeExtractObjectKey(workspaceId, path),
+      result.markdown,
+      "text/markdown",
+    );
+  } catch {
+    // Disposable cache.
+  }
+  return result.markdown;
+}
+
+async function removeKnowledgeExtract(
+  disk: KnowledgeDisk,
+  workspaceId: string,
+  path: string,
+): Promise<void> {
+  const office = sanitizeWorkspaceId(workspaceId);
+  const relative = sanitizeKnowledgePath(path);
+  if (!relative) return;
+  await disk.delete(knowledgeExtractObjectKey(workspaceId, path));
+  const prefix = `${office}/_extract/${relative}/`;
+  const objects = await disk.list(prefix);
+  for (const object of objects) {
+    if (object.key.startsWith(prefix)) await disk.delete(object.key);
+  }
 }
 
 async function knowledgeFileFromBytes(
@@ -279,18 +427,29 @@ async function knowledgeFileFromBytes(
   path: string,
   bytes: Uint8Array,
   snapshot: KnowledgeLinkSnapshot,
+  opts?: KnowledgeIoOpts,
 ): Promise<KnowledgeFile> {
   const name = path.split("/").at(-1) ?? path;
   const mediaType = mediaTypeForKnowledgePath(path);
   const meta = await fileMeta(disk, sanitizeWorkspaceId(workspaceId), path);
   const backlinks = knowledgeBacklinks(snapshot, path);
   if (!isTextBytes(path, bytes)) {
+    const extracted = await knowledgeExtractText(
+      disk,
+      workspaceId,
+      path,
+      bytes,
+      opts?.convert,
+    );
+    const truncated = extracted.length > MAX_KNOWLEDGE_READ_CHARS;
     return {
       path,
       title: meta.title,
       description: meta.description,
-      content: "",
-      truncated: false,
+      content: truncated
+        ? extracted.slice(0, MAX_KNOWLEDGE_READ_CHARS)
+        : extracted,
+      truncated,
       encoding: "binary",
       mediaType,
       backlinks,
@@ -335,6 +494,7 @@ export async function writeKnowledge(
   disk: KnowledgeDisk,
   workspaceId: string,
   input: KnowledgeWrite,
+  opts?: KnowledgeIoOpts,
 ): Promise<{ path: string }> {
   const path = sanitizeKnowledgePath(input.path);
   if (!path) throw new KnowledgePathError("Name the file.");
@@ -356,7 +516,13 @@ export async function writeKnowledge(
       disk,
       workspaceId,
       path,
-      isTextBytes(path, bytes) ? new TextDecoder().decode(bytes) : null,
+      await knowledgeIndexText(
+        disk,
+        workspaceId,
+        path,
+        bytes,
+        opts?.convert,
+      ),
     );
     return { path };
   }
@@ -389,6 +555,7 @@ export async function removeKnowledge(
   const fileKey = `${office}/${path}`;
   if ((await disk.getBytes(fileKey)) != null) {
     await disk.delete(fileKey);
+    await removeKnowledgeExtract(disk, workspaceId, path);
     await syncKnowledgeLinksRemoved(disk, workspaceId, path);
     await syncKnowledgeSearchRemoved(disk, workspaceId, path);
     return;
@@ -400,6 +567,7 @@ export async function removeKnowledge(
     .filter((key) => key.startsWith(prefix));
   if (keys.length === 0) throw new KnowledgeFileError();
   for (const key of keys) await disk.delete(key);
+  await removeKnowledgeExtract(disk, workspaceId, path);
   await syncKnowledgeLinksRemoved(disk, workspaceId, path);
   await syncKnowledgeSearchRemoved(disk, workspaceId, path);
 }
@@ -603,9 +771,14 @@ async function rebuildKnowledgeSearch(
   let snapshot = emptyKnowledgeSearchSnapshot();
   for (const entry of listed.entries) {
     if (entry.encoding !== "text") {
+      const extracted = knowledgeConverts(entry.path)
+        ? await disk.getText(
+            knowledgeExtractObjectKey(workspaceId, entry.path),
+          )
+        : null;
       snapshot = setKnowledgeSearchDoc(
         snapshot,
-        knowledgeSearchDoc(entry.path, null),
+        knowledgeSearchDoc(entry.path, extracted),
         MAX_KNOWLEDGE_ENTRIES,
       );
       continue;
@@ -1024,6 +1197,8 @@ function globRe(pattern: string): RegExp {
 const MEDIA_TYPES: Record<string, string> = {
   ".css": "text/css",
   ".csv": "text/csv",
+  ".docx":
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ".gif": "image/gif",
   ".htm": "text/html",
   ".html": "text/html",
@@ -1036,6 +1211,8 @@ const MEDIA_TYPES: Record<string, string> = {
   ".mjs": "text/javascript",
   ".pdf": "application/pdf",
   ".png": "image/png",
+  ".pptx":
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   ".py": "text/x-python",
   ".svg": "image/svg+xml",
   ".ts": "text/plain",
@@ -1043,6 +1220,8 @@ const MEDIA_TYPES: Record<string, string> = {
   ".txt": "text/plain",
   ".webp": "image/webp",
   ".xml": "application/xml",
+  ".xlsx":
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   ".yaml": "text/yaml",
   ".yml": "text/yaml",
 };

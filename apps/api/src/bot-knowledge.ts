@@ -2,11 +2,15 @@
 import { CodemodeConnector, type ConnectorTools } from "@cloudflare/codemode";
 import {
   connectorString,
+  encodeComputerBytes,
+  type KnowledgeConvert,
   type KnowledgeDisk,
+  KnowledgeFileError,
   KNOWLEDGE_MARKDOWN_LINK_HINT,
   KnowledgePathError,
   listKnowledge,
   listKnowledgeBacklinks,
+  mediaTypeForKnowledgePath,
   readKnowledge,
   readKnowledgeMany,
   removeKnowledge,
@@ -26,6 +30,10 @@ export class KnowledgeConnector extends CodemodeConnector {
     env: unknown,
     private readonly disk: KnowledgeDisk,
     private readonly officeId: () => string,
+    private readonly opts: {
+      convert?: KnowledgeConvert;
+      readComputer?: (path: string) => Promise<Uint8Array | null>;
+    } = {},
   ) {
     super(ctx, env as never);
   }
@@ -38,6 +46,7 @@ export class KnowledgeConnector extends CodemodeConnector {
     return [
       "Shared office knowledge — not this computer.",
       "Search first, then read. Notes and files that are not skills stay here. Reusable how-to is skill_manage (skills/<name>/SKILL.md), not knowledge.write.",
+      "PDFs and Office docs are allowed. Copy one from this computer with knowledge.write({ path: \"clients/acme/invoice.pdf\", from: \"inbox/invoice.pdf\" }). Search and read use the converted text.",
       "After a real write, mention that path in one short line in the thread. Don't announce a save you didn't make.",
       KNOWLEDGE_MARKDOWN_LINK_HINT,
     ].join(" ");
@@ -94,6 +103,7 @@ export class KnowledgeConnector extends CodemodeConnector {
             this.disk,
             this.workspaceId(),
             stringArg(args, "path", true),
+            { convert: this.opts.convert },
           );
           return {
             path: file.path,
@@ -124,25 +134,67 @@ export class KnowledgeConnector extends CodemodeConnector {
         replay: "reexecute",
         execute: async (args) => {
           const paths = stringArrayArg(args, "paths");
-          return readKnowledgeMany(this.disk, this.workspaceId(), paths);
+          return readKnowledgeMany(this.disk, this.workspaceId(), paths, {
+            convert: this.opts.convert,
+          });
         },
       },
       write: {
         description:
-          `Save a file to the office knowledge base so every teammate can use it. Not this computer. ${KNOWLEDGE_MARKDOWN_LINK_HINT} A folder with SKILL.md (YAML name + description) is a reusable playbook — prefer skills/<name>/. After a successful write, mention that path in one short line in the thread.`,
+          `Save a file to the office knowledge base so every teammate can use it. Not this computer. Markdown notes use content. PDFs and Office docs: copy from this computer with from (inbox/invoice.pdf). ${KNOWLEDGE_MARKDOWN_LINK_HINT} A folder with SKILL.md (YAML name + description) is a reusable playbook — prefer skills/<name>/. After a successful write, mention that path in one short line in the thread.`,
         inputSchema: {
           type: "object",
           properties: {
             path: PATH,
             content: { type: "string", minLength: 1, maxLength: 64_000 },
+            from: {
+              type: "string",
+              minLength: 1,
+              maxLength: 240,
+              description:
+                "Path on this computer to copy into knowledge (PDF, Office, or any file).",
+            },
           },
-          required: ["path", "content"],
+          required: ["path"],
         },
         execute: async (args) => {
-          const saved = await writeKnowledge(this.disk, this.workspaceId(), {
-            path: stringArg(args, "path"),
-            content: stringArg(args, "content"),
-          });
+          const path = stringArg(args, "path");
+          const from = optionalStringArg(args, "from");
+          const content = optionalStringArg(args, "content");
+          const io = { convert: this.opts.convert };
+          if (from) {
+            const bytes = await this.opts.readComputer?.(from);
+            if (!bytes) {
+              throw new KnowledgeFileError(
+                "That file is not on this computer.",
+              );
+            }
+            const saved = await writeKnowledge(
+              this.disk,
+              this.workspaceId(),
+              {
+                path,
+                content: encodeComputerBytes(bytes),
+                encoding: "base64",
+                mediaType:
+                  mediaTypeForKnowledgePath(path) ||
+                  mediaTypeForKnowledgePath(from),
+              },
+              io,
+            );
+            return { path: saved.path };
+          }
+          if (!content) {
+            throw new KnowledgePathError(
+              "Pass content for a note, or from for a computer file.",
+            );
+          }
+          const saved = await writeKnowledge(
+            this.disk,
+            this.workspaceId(),
+            { path, content },
+            io,
+          );
           return { path: saved.path };
         },
       },
@@ -187,6 +239,11 @@ export class KnowledgeConnector extends CodemodeConnector {
     if (!id) throw new KnowledgePathError("Unknown office.");
     return id;
   }
+}
+
+function optionalStringArg(args: unknown, key: string): string | undefined {
+  const value = connectorString(args, key);
+  return value || undefined;
 }
 
 function stringArg(args: unknown, key: string, positional = false): string {
