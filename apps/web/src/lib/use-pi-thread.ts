@@ -3,17 +3,18 @@ import {
   applyPiOfficeEvent,
   emptyPiOfficeView,
   isOfficeChatStatus,
-  parsePiClientEvent,
-  parsePiOfficeSnapshot,
   type PiBoundMessage,
   type PiOfficeView,
-  projectPiOfficeView,
   type PiProjectedMessage,
+  parsePiClientEvent,
+  parsePiOfficeSnapshot,
+  projectPiOfficeView,
   userBoundFromText,
 } from "@groxbot/core/browser";
 import { newWebSocketRpcSession, RpcTarget } from "capnweb";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { appendOfficeDebugLine } from "./office-debug";
+import { textFromAppendMessage } from "./outgoing-user-message";
 
 export type PiThreadStatus = "ready" | "submitted" | "streaming" | "error";
 
@@ -60,20 +61,7 @@ class PiThreadSubscriber extends RpcTarget {
 }
 
 function textFromAppend(message: AppendMessage): string {
-  const row = message as AppendMessage & { text?: unknown };
-  if (typeof row.text === "string" && row.text.trim()) return row.text.trim();
-  const content: unknown = message.content;
-  if (typeof content === "string") return content.trim();
-  if (!Array.isArray(content)) return "";
-  return content
-    .flatMap((part) => {
-      if (!part || typeof part !== "object") return [];
-      const row = part as { type?: unknown; text?: unknown };
-      if (row.type === "text" && typeof row.text === "string") return [row.text];
-      return [];
-    })
-    .join("\n")
-    .trim();
+  return textFromAppendMessage(message);
 }
 
 export function projectedToThreadMessage(
@@ -222,11 +210,7 @@ export function usePiThread(options: {
   }, []);
 
   const send = useCallback(
-    async (input: {
-      content: string;
-      id?: string;
-      metadata?: unknown;
-    }) => {
+    async (input: { content: string; id?: string; metadata?: unknown }) => {
       await waitReady();
       const host = hostRef.current;
       if (!host) {

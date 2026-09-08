@@ -39,12 +39,25 @@ export function textFromOfficeMessage(message: OfficeMessage): string {
     .join("");
 }
 
+function stripComputerFileNotes(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !isComputerFileNote(line))
+    .join("\n");
+}
+
+function hasComputerFileNote(text: string): boolean {
+  return text.split("\n").some((line) => isComputerFileNote(line.trim()));
+}
+
 export function visibleTextFromOfficeMessage(message: OfficeMessage): string {
-  return message.parts
-    .filter(isTextPart)
-    .map((part) => part.text)
-    .filter((text) => !isComputerFileNote(text))
-    .join("");
+  return stripComputerFileNotes(
+    message.parts
+      .filter(isTextPart)
+      .map((part) => part.text)
+      .join("\n"),
+  );
 }
 
 export function usedTools(message: OfficeMessage): boolean {
@@ -55,7 +68,14 @@ export function usedTools(message: OfficeMessage): boolean {
 
 export function isVisibleOfficeMessage(message: OfficeMessage): boolean {
   if (message.role === "user") {
-    return visibleTextFromOfficeMessage(message).trim().length > 0;
+    const joined = message.parts
+      .filter(isTextPart)
+      .map((part) => part.text)
+      .join("\n");
+    return (
+      visibleTextFromOfficeMessage(message).trim().length > 0 ||
+      hasComputerFileNote(joined)
+    );
   }
   return textFromOfficeMessage(message).trim().length > 0 || usedTools(message);
 }

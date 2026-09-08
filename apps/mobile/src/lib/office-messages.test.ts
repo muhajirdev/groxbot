@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   applyOfficeChunk,
   applyOfficeSocketMessage,
+  isVisibleOfficeMessage,
   lastOfficePreview,
-  parseOfficeMessages,
   officeSendBody,
+  parseOfficeMessages,
   userOfficeMessage,
 } from "./office-messages";
 
@@ -20,6 +21,30 @@ describe("parseOfficeMessages", () => {
     ]);
     expect(rows).toHaveLength(1);
     expect(lastOfficePreview(rows)).toBe("hello");
+  });
+
+  it("previews typed text and still shows a file-only bubble", () => {
+    expect(
+      lastOfficePreview([
+        {
+          id: "u1",
+          role: "user",
+          parts: [
+            {
+              type: "text",
+              text: "can you read this pdf\n\nOn this computer: `inbox/a.pdf`",
+            },
+          ],
+        },
+      ]),
+    ).toBe("can you read this pdf");
+    expect(
+      isVisibleOfficeMessage({
+        id: "u2",
+        role: "user",
+        parts: [{ type: "text", text: "On this computer: `inbox/a.pdf`" }],
+      }),
+    ).toBe(true);
   });
 
   it("previews a present card when the assistant has no text", () => {

@@ -171,7 +171,9 @@ describe("projectPiBoundMessages", () => {
       isVisibleProjectedMessage({
         id: "filed",
         role: "assistant",
-        content: [{ type: "text", text: "Saved skills/weekly-update/SKILL.md" }],
+        content: [
+          { type: "text", text: "Saved skills/weekly-update/SKILL.md" },
+        ],
         metadata: { custom: { source: OFFICE_REVIEW_SOURCE } },
       }),
     ).toBe(true);
@@ -193,6 +195,30 @@ describe("projectPiBoundMessages", () => {
         content: [{ type: "text", text: "I'm Hormozi. What's the offer?" }],
       }),
     ).toBe(true);
+  });
+
+  it("shows a user bubble that is only an inbox path note", () => {
+    expect(
+      isVisibleProjectedMessage({
+        id: "u",
+        role: "user",
+        content: [{ type: "text", text: "On this computer: `inbox/a.pdf`" }],
+      }),
+    ).toBe(true);
+    expect(
+      lastProjectedPreview([
+        {
+          id: "u",
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "can you read this pdf\n\nOn this computer: `inbox/a.pdf`",
+            },
+          ],
+        },
+      ]),
+    ).toBe("can you read this pdf");
   });
 
   it("keeps two table speakers in separate bubbles", () => {
