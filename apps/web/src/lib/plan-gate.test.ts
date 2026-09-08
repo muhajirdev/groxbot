@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { onboardingNeedsPlan, planGateCopy } from "./plan-gate";
+import {
+  onboardingNeedsPlan,
+  onboardingPlanReady,
+  planGateCopy,
+} from "./plan-gate";
 
 describe("planGateCopy", () => {
   it("asks for a trial before Polar has billed this workspace", () => {
@@ -16,8 +20,25 @@ describe("planGateCopy", () => {
   });
 });
 
+describe("onboardingPlanReady", () => {
+  it("is not ready before me is known", () => {
+    expect(onboardingPlanReady(undefined, "ws-1")).toBe(false);
+    expect(onboardingPlanReady(null, "ws-1")).toBe(false);
+  });
+
+  it("is not ready when me is still the previous office", () => {
+    expect(onboardingPlanReady({ workspaceId: "ws-old" }, "ws-new")).toBe(
+      false,
+    );
+  });
+
+  it("is ready when me is for this office", () => {
+    expect(onboardingPlanReady({ workspaceId: "ws-1" }, "ws-1")).toBe(true);
+  });
+});
+
 describe("onboardingNeedsPlan", () => {
-  it("offers a trial before me is known", () => {
+  it("stays gated before me is known", () => {
     expect(onboardingNeedsPlan(undefined, "ws-1")).toBe(true);
     expect(onboardingNeedsPlan(null, "ws-1")).toBe(true);
   });

@@ -16,13 +16,14 @@ How that is built, in order:
 4. **Incrementally fill huge lists.** Virtualize. Lazy images. Do not bundle a catalog into the web app so the first JS parse “feels cached.”
 5. **Do not steal boot.** Prefetch on first *open* (or idle after the office is up). Do not `prefetchQuery` a fat catalog during persist restore.
 
-Canonical feel: **Settings**. Cmd+, opens at once. General is `me` already on the client plus localStorage prefs. Updates is the build stamp. Usage & Billing / Models reuse `models.get` — after one fetch in the session, tab switches are cache hits. Same pattern as the roster, a thread reopen, Plugins after the first catalog load.
+Canonical feel: **Settings**. Cmd+, opens at once. General is `me` already on the client plus localStorage prefs. Updates is the build stamp. Usage & Billing uses `billing.status` (hosted percent from grox-gateway). Models uses `models.get`. After one fetch in the session, tab switches are cache hits. Same pattern as the roster, a thread reopen, Plugins after the first catalog load.
 
 | Surface | Instant from | Then |
 |---|---|---|
 | Settings → General | `me` in memory; theme / review / local-computer prefs in localStorage | Members list may fill |
 | Settings → Updates | `BUILD_REVISION` | Nothing |
-| Settings → Usage & Billing, Models | `models.get` Query cache (same session) | Refetch when stale. Not in IndexedDB — payload includes key status |
+| Settings → Usage & Billing | `billing.status` Query cache (same session) | Refetch when stale. Hosted percent from grox-gateway. Not in IndexedDB |
+| Settings → Models | `models.get` Query cache (same session) | Refetch when stale. Not in IndexedDB — payload includes key status |
 | Roster, rooms, workspace name, apps, connectors, knowledge tree, computer trees | IndexedDB restore before first paint | Background refetch |
 | Knowledge / computer text preview | Query + IndexedDB after idle prefetch, Cmd+K, or first open (text, 64k cap) | Background refetch when stale. Not images, PDFs, or `*.download` |
 | Office / room transcripts | IndexedDB bag + keep-alive | Cap’n Web snapshot |

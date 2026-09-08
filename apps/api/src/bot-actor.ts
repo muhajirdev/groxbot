@@ -24,7 +24,7 @@ import {
   type OpenAiCodexAuth,
   type Routine,
   stampIncomingOfficeUser,
-  type UsageBillingKind,
+  WORKSPACE_PLAN_REQUIRED_MESSAGE,
 } from "@groxbot/contracts";
 import {
   applyOfficeReviewTurn,
@@ -96,11 +96,8 @@ import {
   RoutineNotFoundError,
   RoutineScheduleError,
   recordComputerUsage,
-  recordHostedModelUsage,
   resolveRunModel,
-  assertHostedUsageAllowed,
   assertWorkspacePlanAllowed,
-  billingKindForDecision,
   type StoredRoutine,
   searchOfficeHistory,
   shouldArmAwayOfficePing,
@@ -124,8 +121,6 @@ import { AgentContextProvider } from "agents/experimental/memory/session";
 import { and, eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { createBotComputer } from "./bot-computer-workspace.js";
-import { postHostedUsageIngest } from "./billing/ingest-http.js";
-import { createModelPricingPort } from "./billing/model-pricing-kv.js";
 import {
   createBundlingExecutor,
   createOfficeExecuteTool,
@@ -311,7 +306,6 @@ export class RoomHome extends Agent<WorkerEnv> {
   private hireName = "";
   private turnModel = HOSTED_STARTER_MODEL;
   private turnEnv: RuntimeSource = {};
-  private turnHosted = false;
   private botLoaded = false;
   private botLoading: Promise<void> | null = null;
   protected officeId = "";
@@ -728,27 +722,18 @@ export class RoomHome extends Agent<WorkerEnv> {
     const visible = !intro;
     this.officeTurnTouched = false;
     let computerSeconds = 0;
-    let hostedBillingKind: UsageBillingKind | null = null;
     if (this.officeId) {
       const env = productEnv(this.env);
       const source = agentRuntimeSource(env);
       const { db, close } = createNeonHttpDb(env.databaseUrl);
       try {
         await assertWorkspacePlanAllowed(db, this.officeId, source);
-        if (this.turnHosted) {
-          const decision = await assertHostedUsageAllowed(
-            db,
-            this.officeId,
-            source,
-          );
-          hostedBillingKind = billingKindForDecision(decision);
-        }
       } catch (error) {
         this.officeStatus = "error";
         this.officeError =
           error instanceof Error
             ? error.message
-            : "This workspace hit its monthly hosted usage limit.";
+            : WORKSPACE_PLAN_REQUIRED_MESSAGE;
         await this.broadcastOfficeError();
         await this.broadcastOfficeStatus();
         return;
@@ -779,38 +764,6 @@ export class RoomHome extends Agent<WorkerEnv> {
           getFollowUpMessages: () =>
             intro ? [] : this.officeSteer.drainMessages(),
           onEvent: async (event) => {
-            if (
-              hostedBillingKind &&
-              event.type === "turn_end" &&
-              event.message.role === "assistant"
-            ) {
-              const usage = event.message.usage;
-              const promptTokens = usage?.input ?? 0;
-              const completionTokens = usage?.output ?? 0;
-              const totalTokens =
-                usage?.totalTokens ?? promptTokens + completionTokens;
-              if (promptTokens > 0 || completionTokens > 0 || totalTokens > 0) {
-                const userId =
-                  lastOfficeHumanUserId(await this.officeBound(session)) ||
-                  this.ownerUserId ||
-                  "";
-                if (userId && this.officeId && this.personId) {
-                  this.ctx.waitUntil(
-                    this.persistModelUsage({
-                      workspaceId: this.officeId,
-                      userId,
-                      botId: this.personId,
-                      model: this.turnModel,
-                      billingKind: hostedBillingKind,
-                      promptTokens,
-                      completionTokens,
-                      totalTokens,
-                      piCost: usage?.cost,
-                    }),
-                  );
-                }
-              }
-            }
             const incoming =
               "message" in event && event.message ? event.message : null;
             if (
@@ -1452,7 +1405,6 @@ export class RoomHome extends Agent<WorkerEnv> {
     );
     this.turnModel = overlay.model || HOSTED_STARTER_MODEL;
     this.turnEnv = overlay.env;
-    this.turnHosted = overlay.hosted;
     this.soulPrompt = teammatePrompt({
       ...bot,
       modelLabel: labelForModel(this.turnModel),
@@ -1483,51 +1435,6 @@ export class RoomHome extends Agent<WorkerEnv> {
         `[bot ${this.name}] computer usage +${input.seconds}s`,
         error,
       );
-    } finally {
-      await close();
-    }
-  }
-
-  private async persistModelUsage(input: {
-    workspaceId: string;
-    userId: string;
-    botId: string;
-    model: string;
-    billingKind: UsageBillingKind;
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-    piCost?: { input?: number; output?: number; total?: number };
-  }): Promise<void> {
-    const env = productEnv(this.env);
-    const { db, close } = createNeonHttpDb(env.databaseUrl);
-    try {
-      const pricing = createModelPricingPort(this.env.PRODUCT_CACHE, db);
-      const row = await recordHostedModelUsage(db, {
-        workspaceId: input.workspaceId,
-        userId: input.userId,
-        botId: input.botId,
-        model: input.model,
-        billingKind: input.billingKind,
-        promptTokens: input.promptTokens,
-        completionTokens: input.completionTokens,
-        totalTokens: input.totalTokens,
-        piCost: input.piCost,
-        pricing,
-      });
-      if (row) {
-        await postHostedUsageIngest(env.apiUrl ?? env.authUrl, env.authSecret, {
-          usageId: row.id,
-          workspaceId: row.workspaceId,
-          userId: row.userId,
-          model: row.model,
-          costCents: row.costCents,
-          promptTokens: row.promptTokens,
-          completionTokens: row.completionTokens,
-        });
-      }
-    } catch (error) {
-      console.error(`[bot ${this.name}] model usage`, error);
     } finally {
       await close();
     }

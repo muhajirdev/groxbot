@@ -1,9 +1,13 @@
-import type { AgentRuntime, BillingPort, InitApp, ModelPricingPort } from "@groxbot/adapter-kit";
+import type {
+  AgentRuntime,
+  BillingPort,
+  InitApp,
+  ModelPricingPort,
+} from "@groxbot/adapter-kit";
 import {
   labelForModel,
   type MessageBlock,
   type RunStatus,
-  type UsageBillingKind,
   WORKSPACE_PLAN_REQUIRED_MESSAGE,
 } from "@groxbot/contracts";
 import {
@@ -16,8 +20,8 @@ import {
 } from "@groxbot/db";
 import { asc, eq } from "drizzle-orm";
 import { parseAppIntent } from "./app-intent.js";
-import { assertHostedUsageAllowed, assertWorkspacePlanAllowed, billingKindForDecision } from "./billing.js";
 import { stampApp } from "./apps.js";
+import { assertWorkspacePlanAllowed } from "./billing.js";
 import type { GuestHub } from "./guest-hub.js";
 import { GuestAgentRuntime } from "./guest-runtime.js";
 import { newId } from "./ids.js";
@@ -37,9 +41,6 @@ import { listPokeTeammates, pokeBot } from "./poke.js";
 import { assertTransition } from "./run-state.js";
 import { redactSecrets } from "./secret-box.js";
 import { appendEvent, nextSeq } from "./threads.js";
-import {
-  recordHostedModelUsage,
-} from "./usage.js";
 
 type RunRow = typeof runs.$inferSelect;
 type BotRow = typeof bots.$inferSelect;
@@ -52,7 +53,6 @@ export type OfficeTurn = {
   task: TaskRow;
   thread: ThreadRow;
   overlay: ModelOverlay;
-  hostedBillingKind: UsageBillingKind | null;
 };
 
 async function setRunStatus(
@@ -264,37 +264,11 @@ export async function startOfficeRun(opts: {
     await assertWorkspacePlanAllowed(db, run.workspaceId, sourceEnv);
   } catch (error) {
     const message =
-      error instanceof Error
-        ? error.message
-        : WORKSPACE_PLAN_REQUIRED_MESSAGE;
+      error instanceof Error ? error.message : WORKSPACE_PLAN_REQUIRED_MESSAGE;
     await failOfficeRun(db, current, message);
     return null;
   }
-  if (overlay.hosted) {
-    try {
-      const decision = await assertHostedUsageAllowed(
-        db,
-        run.workspaceId,
-        sourceEnv,
-      );
-      return {
-        run: current,
-        bot,
-        task,
-        thread,
-        overlay,
-        hostedBillingKind: billingKindForDecision(decision),
-      };
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "This workspace hit its monthly included model limit.";
-      await failOfficeRun(db, current, message);
-      return null;
-    }
-  }
-  return { run: current, bot, task, thread, overlay, hostedBillingKind: null };
+  return { run: current, bot, task, thread, overlay };
 }
 
 export async function failOfficeRun(
@@ -431,7 +405,7 @@ export async function continueRun(opts: {
     guests,
   });
   if (!started) return;
-  const { bot, task, thread, overlay, hostedBillingKind } = started;
+  const { bot, task, thread, overlay } = started;
   const run = started.run;
   const current = started.run;
   const guestEnabled = bot.guestKind !== "off";
@@ -522,35 +496,6 @@ export async function continueRun(opts: {
       if (event.type === "text" && event.text) reply = event.text;
       if (event.type === "done" && event.text && !reply) reply = event.text;
       if (event.type === "error") throw new Error(event.text);
-      if (event.type === "usage" && overlay.hosted && hostedBillingKind) {
-        const row = await recordHostedModelUsage(db, {
-          workspaceId: run.workspaceId,
-          userId: run.userId,
-          botId: bot.id,
-          runId,
-          model: overlay.model,
-          billingKind: hostedBillingKind,
-          promptTokens: event.promptTokens,
-          completionTokens: event.completionTokens,
-          totalTokens: event.totalTokens,
-          pricing: opts.modelPricing,
-        });
-        if (row) {
-          await opts.billing
-            ?.ingestHostedUsage({
-              usageId: row.id,
-              workspaceId: row.workspaceId,
-              userId: row.userId,
-              model: row.model,
-              costCents: row.costCents,
-              promptTokens: row.promptTokens,
-              completionTokens: row.completionTokens,
-            })
-            .catch((error) => {
-              console.error("polar usage ingest", error);
-            });
-        }
-      }
     }
   } catch (error) {
     await failOfficeRun(

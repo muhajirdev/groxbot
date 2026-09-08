@@ -10,16 +10,16 @@ import {
   CLOUDFLARE_PROVIDER,
   CUSTOM_MODEL_SENTINEL,
   DEFAULT_AI_GATEWAY_ID,
+  GROXBOT_AUTO_MODEL,
+  GROXBOT_FREE_MODEL,
   gatewayModelId,
+  groxHostedGateway,
   HOSTED_AI_ENV,
   HOSTED_AI_FLAG,
   HOSTED_STARTER_MODEL,
   hostedAiEnabled,
   hostedCloudflareGateway,
   hostedStarterModel,
-  groxHostedGateway,
-  GROXBOT_AUTO_MODEL,
-  GROXBOT_FREE_MODEL,
   MODEL_CATALOG,
   missingProviderMessage,
   modelIsRunnable,
@@ -28,11 +28,11 @@ import {
   OPENAI_PROVIDER,
   OPENROUTER_PROVIDER,
   openAiCodexHint,
-  packOpenAiCodexAuth,
-  parseOpenAiCodexAuth,
   PRODUCT_RUNTIME,
   PROVIDER_META,
   PROVIDER_ORDER,
+  packOpenAiCodexAuth,
+  parseOpenAiCodexAuth,
   providerForModel,
   resolveStoredModelId,
   SUGGESTED_STARTER_MODEL,
@@ -43,13 +43,9 @@ import {
 import type { Database } from "@groxbot/db";
 import { secrets, userModelCredentials, workspaceModels } from "@groxbot/db";
 import { eq } from "drizzle-orm";
+import { ensureWorkspaceBilling, utcMonthStartIso } from "./billing.js";
 import { newId } from "./ids.js";
-import {
-  ensureWorkspaceBilling,
-  utcMonthStartIso,
-} from "./billing.js";
 import { decryptSecret, encryptSecret, secretHint } from "./secret-box.js";
-import { workspaceMonthlyModelUsage } from "./usage.js";
 
 const PROVIDERS: ModelProvider[] = [...PROVIDER_ORDER];
 
@@ -324,7 +320,6 @@ export async function loadModelSettings(
     available.length > 0 && !modelIsRunnable(defaultModelId, available)
       ? missingProviderMessage(defaultModelId)
       : null;
-  const usage = await workspaceMonthlyModelUsage(db, actor.workspaceId);
   const billing = await ensureWorkspaceBilling(db, actor.workspaceId);
 
   return {
@@ -338,7 +333,10 @@ export async function loadModelSettings(
     catalog,
     warning,
     usage: {
-      ...usage,
+      requests: 0,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
       periodStart: utcMonthStartIso(),
       monthlyTokenLimit: billing.monthlyTokenLimit,
     },

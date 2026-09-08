@@ -2,14 +2,13 @@ import type { BillingPort, HostedUsageIngestInput } from "@groxbot/adapter-kit";
 import {
   PRO_TRIAL_INTERVAL,
   PRO_TRIAL_INTERVAL_COUNT,
-  USAGE_METER_HOSTED_TOKENS,
   WORKSPACE_PLAN_PRO,
 } from "@groxbot/contracts";
 import {
   applyPolarCustomerState,
   loadBillingPlans,
-  productIdForPlan,
   type PolarCustomerStateSnapshot,
+  productIdForPlan,
 } from "@groxbot/core";
 import type { Database } from "@groxbot/db";
 import { Polar } from "@polar-sh/sdk";
@@ -107,11 +106,7 @@ export class PolarBillingPort implements BillingPort {
       const state = await this.polar.customers.getStateExternal({
         externalId: workspaceId,
       });
-      await applyPolarCustomerState(
-        this.db,
-        workspaceId,
-        toSnapshot(state),
-      );
+      await applyPolarCustomerState(this.db, workspaceId, toSnapshot(state));
       await syncGatewayEntitlement(this.env, workspaceId, state);
     } catch (error) {
       const message =
@@ -121,23 +116,7 @@ export class PolarBillingPort implements BillingPort {
     }
   }
 
-  async ingestHostedUsage(input: HostedUsageIngestInput): Promise<void> {
-    if (!this.enabled()) return;
-    await this.polar.events.ingest({
-      events: [
-        {
-          name: USAGE_METER_HOSTED_TOKENS,
-          externalCustomerId: input.workspaceId,
-          externalId: input.usageId,
-          externalMemberId: input.userId,
-          metadata: {
-            cost_cents: input.costCents,
-            input_tokens: input.promptTokens,
-            output_tokens: input.completionTokens,
-            model: input.model,
-          },
-        },
-      ],
-    });
+  async ingestHostedUsage(_input: HostedUsageIngestInput): Promise<void> {
+    // Hosted usage is the workspace key on grox-gateway, not Polar meters.
   }
 }

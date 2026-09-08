@@ -65,7 +65,7 @@ Email sign-in sends a magic link through the Worker **`EMAIL` binding** (`send_e
 
 Office chats on hosted groxbot.com (and local when `GROX_GATEWAY_URL` is set) go through **grox-gateway** (Polar-gated). Self-host uses the Worker **`AI` binding**. Workspace BYOK still wins. Tests construct `ScriptedAgentRuntime`.
 
-**Cloudflare AI Gateway** also accepts a workspace BYOK key in Settings → Models (account id, API token, gateway id). Hosted usage is counted per workspace. See [Cloudflare’s Pi guide](https://developers.cloudflare.com/ai-gateway/integrations/coding-agents/pi/).
+**Cloudflare AI Gateway** also accepts a workspace BYOK key in Settings → Models (account id, API token, gateway id). Hosted usage is on Settings → Usage & Billing. See [Cloudflare’s Pi guide](https://developers.cloudflare.com/ai-gateway/integrations/coding-agents/pi/).
 
 Landing (marketing site, TanStack Start):
 

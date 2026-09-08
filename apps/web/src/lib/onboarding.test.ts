@@ -62,6 +62,12 @@ describe("onboardingFirstName", () => {
 });
 
 describe("founder letter chrome", () => {
+  it("waits on the continue button until plan state is known", () => {
+    expect(dialog).toMatch(/continueWaiting/);
+    expect(css).toMatch(/\.onboard-go\.is-waiting::after/);
+    expect(css).toMatch(/@keyframes onboard-spin/);
+  });
+
   it("scrolls the note instead of clipping it on a short screen", () => {
     expect(dialog).toMatch(/onboard-dialog[^"\n]*overflow-auto/);
     expect(dialog).not.toMatch(/onboard-dialog[^"\n]*overflow-hidden/);
