@@ -6,6 +6,8 @@ import { patchBot } from "../lib/collections";
 import { AVATAR_COLORS, AVATAR_SHAPES } from "../lib/jobs";
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
+import { isPinnedBot } from "../lib/sidebar";
+import { Button } from "../ui";
 import { AvatarMark, ShapePicks } from "./Avatar";
 import { CloseIcon } from "./Icons";
 import { ModelField } from "./ModelField";
@@ -15,6 +17,9 @@ export function BotSettingsPane(props: {
   pending?: boolean;
   onCollapse: () => void;
   onSaved: () => Promise<void>;
+  onPin?: (bot: Bot) => void;
+  onArchive?: (bot: Bot) => void;
+  onDelete?: (botId: string) => void;
 }) {
   const bot = props.bot;
   const pending = Boolean(props.pending);
@@ -22,7 +27,10 @@ export function BotSettingsPane(props: {
   const [color, setColor] = useState(bot.avatarColor);
   const [shape, setShape] = useState(bot.avatarShape);
   const [advancedOpen, setAdvancedOpen] = useState(Boolean(bot.model));
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const modelsQuery = useQuery(orpc.models.get.queryOptions());
+  const pinned = isPinnedBot(bot);
   const fullCatalog = modelsQuery.data?.catalog ?? [];
   const catalog = pickerCatalog(
     fullCatalog,
@@ -192,6 +200,69 @@ export function BotSettingsPane(props: {
                   }}
                 />
               </label>
+            ) : null}
+          </div>
+        ) : null}
+        {!pending &&
+        (props.onPin || props.onArchive || props.onDelete) ? (
+          <div className="set-divide grid gap-1">
+            {props.onPin ? (
+              <button
+                className="text-btn"
+                type="button"
+                onClick={() => props.onPin?.(bot)}
+              >
+                {pinned ? "Unpin" : "Pin"}
+              </button>
+            ) : null}
+            {props.onArchive ? (
+              <button
+                className="text-btn"
+                type="button"
+                onClick={() => props.onArchive?.(bot)}
+              >
+                {bot.archivedAt ? "Unarchive" : "Archive"}
+              </button>
+            ) : null}
+            {props.onDelete ? (
+              confirmDelete ? (
+                <div className="grid gap-2 pt-1">
+                  <p className="m-0 text-[13px] text-muted">
+                    Delete {bot.name}? This cannot be undone.
+                  </p>
+                  <div className="row">
+                    <button
+                      className="mini"
+                      type="button"
+                      disabled={deleting}
+                      onClick={() => setConfirmDelete(false)}
+                    >
+                      Cancel
+                    </button>
+                    <Button
+                      className="border-0 bg-danger px-3 py-1.5 text-[13px] text-white"
+                      type="button"
+                      disabled={deleting}
+                      onClick={() => {
+                        setDeleting(true);
+                        void Promise.resolve(props.onDelete?.(bot.id)).finally(
+                          () => setDeleting(false),
+                        );
+                      }}
+                    >
+                      {deleting ? "Deleting…" : `Delete ${bot.name}`}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  className="text-btn danger"
+                  type="button"
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  Delete teammate
+                </button>
+              )
             ) : null}
           </div>
         ) : null}
