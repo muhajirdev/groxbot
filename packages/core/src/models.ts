@@ -406,89 +406,69 @@ export async function saveModelSettings(
   }
 
   const now = new Date();
-  await db.transaction(async (tx) => {
-    const existingCreds = await tx
-      .select()
-      .from(userModelCredentials)
-      .where(eq(userModelCredentials.workspaceId, actor.workspaceId));
-    const existingSecrets = await tx
-      .select()
-      .from(secrets)
-      .where(eq(secrets.workspaceId, actor.workspaceId));
-    const credByProvider = new Map(
-      existingCreds.map((row) => [row.provider, row]),
-    );
-    const secretByKind = new Map(existingSecrets.map((row) => [row.kind, row]));
+  const existingCreds = await db
+    .select()
+    .from(userModelCredentials)
+    .where(eq(userModelCredentials.workspaceId, actor.workspaceId));
+  const existingSecrets = await db
+    .select()
+    .from(secrets)
+    .where(eq(secrets.workspaceId, actor.workspaceId));
+  const credByProvider = new Map(
+    existingCreds.map((row) => [row.provider, row]),
+  );
+  const secretByKind = new Map(existingSecrets.map((row) => [row.kind, row]));
 
-    for (const item of input.keys) {
-      const kind = `model:${item.provider}`;
-      if (item.clear) {
-        const cred = credByProvider.get(item.provider);
-        if (cred) {
-          await tx
-            .delete(userModelCredentials)
-            .where(eq(userModelCredentials.id, cred.id));
+  for (const item of input.keys) {
+    const kind = `model:${item.provider}`;
+    if (item.clear) {
+      const cred = credByProvider.get(item.provider);
+      if (cred) {
+        await db
+          .delete(userModelCredentials)
+          .where(eq(userModelCredentials.id, cred.id));
+      }
+      const row = secretByKind.get(kind);
+      if (row) await db.delete(secrets).where(eq(secrets.id, row.id));
+      continue;
+    }
+    const incoming = item.secret?.trim();
+    if (item.provider === CLOUDFLARE_PROVIDER) {
+      const token = incoming;
+      const accountId = item.accountId?.trim();
+      if (!token && !accountId && !item.gatewayId?.trim()) continue;
+      const previous = secretByKind.get(kind);
+      let parsed: {
+        accountId?: string;
+        apiToken?: string;
+        gatewayId?: string;
+      } = {};
+      if (previous) {
+        try {
+          parsed = parseCloudflareSecret(
+            decryptSecret(previous.ciphertext, secret),
+          );
+        } catch {
+          parsed = {};
         }
-        const row = secretByKind.get(kind);
-        if (row) await tx.delete(secrets).where(eq(secrets.id, row.id));
+      }
+      const next = {
+        accountId: accountId || parsed.accountId || "",
+        apiToken: token || parsed.apiToken || "",
+        gatewayId:
+          item.gatewayId?.trim() || parsed.gatewayId || DEFAULT_AI_GATEWAY_ID,
+      };
+      if (!next.accountId || !next.apiToken) {
+        if (token || accountId) {
+          throw new ModelSettingsError(
+            "Cloudflare needs both an account id and an API token.",
+          );
+        }
         continue;
       }
-      const incoming = item.secret?.trim();
-      if (item.provider === CLOUDFLARE_PROVIDER) {
-        const token = incoming;
-        const accountId = item.accountId?.trim();
-        if (!token && !accountId && !item.gatewayId?.trim()) continue;
-        const previous = secretByKind.get(kind);
-        let parsed: {
-          accountId?: string;
-          apiToken?: string;
-          gatewayId?: string;
-        } = {};
-        if (previous) {
-          try {
-            parsed = parseCloudflareSecret(
-              decryptSecret(previous.ciphertext, secret),
-            );
-          } catch {
-            parsed = {};
-          }
-        }
-        const next = {
-          accountId: accountId || parsed.accountId || "",
-          apiToken: token || parsed.apiToken || "",
-          gatewayId:
-            item.gatewayId?.trim() || parsed.gatewayId || DEFAULT_AI_GATEWAY_ID,
-        };
-        if (!next.accountId || !next.apiToken) {
-          if (token || accountId) {
-            throw new ModelSettingsError(
-              "Cloudflare needs both an account id and an API token.",
-            );
-          }
-          continue;
-        }
-        await upsertSecret(tx, actor, kind, JSON.stringify(next), secret, now);
-        await upsertCredential(
-          tx,
-          actor,
-          item.provider,
-          kind,
-          defaultModel,
-          now,
-          credByProvider.get(item.provider),
-        );
-        continue;
-      }
-      if (!incoming) continue;
-      let stored = incoming;
-      if (item.provider === OPENAI_CODEX_PROVIDER) {
-        const parsed = parseOpenAiCodexAuth(incoming);
-        if (!parsed.ok) throw new ModelSettingsError(parsed.error);
-        stored = packOpenAiCodexAuth(parsed.auth);
-      }
-      await upsertSecret(tx, actor, kind, stored, secret, now);
+      await upsertSecret(db, actor, kind, JSON.stringify(next), secret, now);
       await upsertCredential(
-        tx,
+        db,
         actor,
         item.provider,
         kind,
@@ -496,51 +476,69 @@ export async function saveModelSettings(
         now,
         credByProvider.get(item.provider),
       );
+      continue;
     }
+    if (!incoming) continue;
+    let stored = incoming;
+    if (item.provider === OPENAI_CODEX_PROVIDER) {
+      const parsed = parseOpenAiCodexAuth(incoming);
+      if (!parsed.ok) throw new ModelSettingsError(parsed.error);
+      stored = packOpenAiCodexAuth(parsed.auth);
+    }
+    await upsertSecret(db, actor, kind, stored, secret, now);
+    await upsertCredential(
+      db,
+      actor,
+      item.provider,
+      kind,
+      defaultModel,
+      now,
+      credByProvider.get(item.provider),
+    );
+  }
 
-    const [existingWorkspace] = await tx
-      .select()
-      .from(workspaceModels)
-      .where(eq(workspaceModels.workspaceId, actor.workspaceId))
-      .limit(1);
-    if (existingWorkspace) {
-      await tx
-        .update(workspaceModels)
-        .set({
-          defaultModel,
-          updatedBy: actor.userId,
-          updatedAt: now,
-        })
-        .where(eq(workspaceModels.workspaceId, actor.workspaceId));
-    } else {
-      await tx.insert(workspaceModels).values({
-        workspaceId: actor.workspaceId,
+  const [existingWorkspace] = await db
+    .select()
+    .from(workspaceModels)
+    .where(eq(workspaceModels.workspaceId, actor.workspaceId))
+    .limit(1);
+  if (existingWorkspace) {
+    await db
+      .update(workspaceModels)
+      .set({
         defaultModel,
         updatedBy: actor.userId,
         updatedAt: now,
-      });
-    }
+      })
+      .where(eq(workspaceModels.workspaceId, actor.workspaceId));
+  } else {
+    await db.insert(workspaceModels).values({
+      workspaceId: actor.workspaceId,
+      defaultModel,
+      updatedBy: actor.userId,
+      updatedAt: now,
+    });
+  }
 
-    const creds = await tx
-      .select()
-      .from(userModelCredentials)
-      .where(eq(userModelCredentials.workspaceId, actor.workspaceId));
-    for (const row of creds) {
-      await tx
-        .update(userModelCredentials)
-        .set({
-          defaultModel,
-          isDefault: providerForModel(defaultModel) === row.provider,
-          updatedAt: now,
-        })
-        .where(eq(userModelCredentials.id, row.id));
-    }
+  const creds = await db
+    .select()
+    .from(userModelCredentials)
+    .where(eq(userModelCredentials.workspaceId, actor.workspaceId));
+  for (const row of creds) {
+    await db
+      .update(userModelCredentials)
+      .set({
+        defaultModel,
+        isDefault: providerForModel(defaultModel) === row.provider,
+        updatedAt: now,
+      })
+      .where(eq(userModelCredentials.id, row.id));
+  }
 
-    const staleChoice = secretByKind.get("model:choice");
-    if (staleChoice) {
-      await tx.delete(secrets).where(eq(secrets.id, staleChoice.id));
-    }
-  });
+  const staleChoice = secretByKind.get("model:choice");
+  if (staleChoice) {
+    await db.delete(secrets).where(eq(secrets.id, staleChoice.id));
+  }
 
   return loadModelSettings(db, actor, env, secret);
 }
