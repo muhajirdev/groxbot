@@ -43,7 +43,9 @@ export const OFFICE_TOOL_PROMPT: Record<string, OfficeToolPromptContribution> =
       ],
     },
     list: { snippet: "List files on this computer." },
-    read: { snippet: "Read a file on this computer." },
+    read: {
+      snippet: "Read a text file on this computer. PDFs and images: to_markdown.",
+    },
     write: { snippet: "Write a file on this computer." },
     edit: { snippet: "Patch a file on this computer." },
     delete: { snippet: "Delete a file on this computer." },
@@ -58,7 +60,8 @@ export const OFFICE_TOOL_PROMPT: Record<string, OfficeToolPromptContribution> =
     },
     fetch_url: { snippet: "Read a public URL (TinyFish)." },
     to_markdown: {
-      snippet: "Convert HTML or a computer file (PDF/doc) to Markdown.",
+      snippet:
+        "Convert HTML or a computer file (PDF/doc) to Markdown. Pass path or html, not both — omit empty html.",
     },
     render_pdf: {
       snippet: "Render HTML or a URL to a PDF on this computer.",
@@ -194,7 +197,7 @@ export function buildOfficeSystemPrompt(opts: {
   );
   if (names.some((name) => COMPUTER_FS_TOOLS.has(name))) {
     add(
-      "list / read / write / edit / grep / find / delete are this computer. The office library is knowledge inside code.",
+      "list / read / write / edit / grep / find / delete are this computer. Paths like inbox/file.pdf or /inbox/file.pdf — inbox is not under /workspace. PDFs and images: to_markdown, not read. find: pass path `/` for the whole disk. The office library is knowledge inside code.",
     );
   }
   for (const name of names) {

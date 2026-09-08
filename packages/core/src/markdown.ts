@@ -110,14 +110,19 @@ export function readMarkdownConversion(result: unknown): ToMarkdownResult {
   };
 }
 
+function presentString(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 export async function runToMarkdown(opts: {
   input: ToMarkdownInput;
   workspace: MarkdownDisk;
   convert?: (file: MarkdownBytes) => Promise<unknown>;
   sanitizePath: (path: string) => string;
 }): Promise<ToMarkdownResult> {
-  const html = opts.input.html;
-  const path = opts.input.path?.trim();
+  const html = presentString(opts.input.html);
+  const path = presentString(opts.input.path);
   if (html != null && path) {
     return { ok: false, message: "Pass html or a path, not both." };
   }
@@ -128,7 +133,7 @@ export async function runToMarkdown(opts: {
     };
   }
 
-  const name = markdownFileName(opts.input);
+  const name = markdownFileName({ ...opts.input, html, path });
   try {
     if (path && isMarkdownName(name)) {
       const filePath = opts.sanitizePath(path);

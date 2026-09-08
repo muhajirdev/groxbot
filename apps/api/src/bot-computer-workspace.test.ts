@@ -162,7 +162,9 @@ describe("Computer Worker shell wiring", () => {
     expect(readSrc("worker.ts")).toMatch(
       /export \{ WorkspaceServiceProxy \} from "@cloudflare\/computer"/,
     );
-    expect(readSrc("bot-office-tools.ts")).toMatch(/resolveAiSdkToolResult/);
+    expect(readSrc("bot-office-tools.ts")).toMatch(/rewriteComputerToolArgs/);
+    expect(readSrc("bot-office-tools.ts")).toMatch(/binaryComputerReadRefusal/);
+    expect(readSrc("bot-office-tools.ts")).toMatch(/isFailedToolValue/);
   });
 
   it("binds ROOM_ACTOR to the provisioned BotActor class", () => {

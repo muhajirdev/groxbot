@@ -128,6 +128,20 @@ describe("buildOfficeSystemPrompt", () => {
     expect(prompt).toMatch(/- calendar_list: List upcoming events\./);
     expect(prompt).not.toMatch(/Paginate with cursor/);
   });
+
+  it("tells computer tools that inbox is not under /workspace", () => {
+    const prompt = buildOfficeSystemPrompt({
+      identity,
+      tools: [
+        { name: "read" },
+        { name: "list" },
+        { name: "to_markdown" },
+      ],
+    });
+    expect(prompt).toMatch(/inbox is not under \/workspace/);
+    expect(prompt).toMatch(/to_markdown, not read/);
+    expect(prompt).toMatch(/omit empty html/);
+  });
 });
 
 describe("officeCanReadSkills", () => {

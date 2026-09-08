@@ -19,7 +19,7 @@ describe("browser-render", () => {
       resolveBrowserPage(workspace, { url: "https://example.com/" }),
     ).resolves.toEqual({ ok: true, url: "https://example.com/" });
     await expect(
-      resolveBrowserPage(workspace, { path: "draft.html" }),
+      resolveBrowserPage(workspace, { html: "", path: "draft.html" }),
     ).resolves.toEqual({ ok: true, html: "<h1>hi</h1>" });
     await expect(resolveBrowserPage(workspace, {})).resolves.toMatchObject({
       ok: false,

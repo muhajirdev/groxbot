@@ -32,7 +32,7 @@ export const FETCH_URL_DESCRIPTION =
   "Read a public http(s) URL (TinyFish). Loopback and private nets are blocked. Returns clean Markdown when TinyFish is set; otherwise a plain GET. Large bodies land in inbox/fetch on this computer. Do not open a browser just to read a page.";
 
 export const TO_MARKDOWN_DESCRIPTION =
-  "Convert HTML, a PDF, or a file on this computer to Markdown. Use fetch_url first for a public page, then pass the HTML body here. Pass a workspace path for a file already on this computer. Do not use the browser just to read a page.";
+  "Convert HTML, a PDF, or a file on this computer to Markdown. Use fetch_url first for a public page, then pass the HTML body here. For a file already on this computer, pass path only (inbox/spec.pdf or /inbox/spec.pdf) — omit html. Inbox is not under /workspace. Do not use the browser just to read a page.";
 
 export const webSearchParameters = z.object({
   query: z.string().min(1).describe("What to search the public web for."),
@@ -54,7 +54,7 @@ export const toMarkdownParameters = z.object({
   path: z
     .string()
     .optional()
-    .describe("Path on this computer, e.g. inbox/spec.pdf."),
+    .describe("Path on this computer, e.g. inbox/spec.pdf or /inbox/spec.pdf. Inbox is not under /workspace."),
   name: z
     .string()
     .optional()

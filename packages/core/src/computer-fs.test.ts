@@ -4,12 +4,14 @@ import {
   COMPUTER_SHELL_BACKEND,
   COMPUTER_VFS_ROOT,
   type ComputerFs,
+  binaryComputerReadRefusal,
   computerAbsolutePath,
   computerRelativePath,
   computerVfsPaths,
   computerWorkerShell,
   diskFromComputerFs,
   ensureComputerHome,
+  rewriteComputerToolArgs,
   withComputerOfficeTools,
 } from "./computer-fs.js";
 
@@ -175,6 +177,56 @@ describe("computerAbsolutePath", () => {
   });
 });
 
+describe("rewriteComputerToolArgs", () => {
+  it("makes relative inbox paths absolute and unwraps /workspace/inbox", () => {
+    expect(
+      rewriteComputerToolArgs("read", { path: "inbox/a.pdf" }),
+    ).toEqual({ path: "/inbox/a.pdf" });
+    expect(
+      rewriteComputerToolArgs("read", {
+        path: "/workspace/inbox/a.pdf",
+      }),
+    ).toEqual({ path: "/inbox/a.pdf" });
+    expect(
+      rewriteComputerToolArgs("write", { path: "invoice.html" }),
+    ).toEqual({ path: "/workspace/invoice.html" });
+  });
+
+  it("defaults find and list to the VFS root", () => {
+    expect(rewriteComputerToolArgs("find", { pattern: "**/*.pdf" })).toEqual({
+      pattern: "**/*.pdf",
+      path: "/",
+    });
+    expect(rewriteComputerToolArgs("list", {})).toEqual({ path: "/" });
+  });
+});
+
+describe("binaryComputerReadRefusal", () => {
+  it("refuses a base64 PDF dump", () => {
+    expect(
+      binaryComputerReadRefusal({
+        kind: "file",
+        path: "/inbox/scope.pdf",
+        mediaType: "application/pdf",
+        data: "JVBERi0xLjQK",
+      }),
+    ).toEqual({
+      ok: false,
+      message: expect.stringMatching(/to_markdown\(\{ path: "inbox\/scope.pdf" \}\)/),
+    });
+  });
+
+  it("lets text files through", () => {
+    expect(
+      binaryComputerReadRefusal({
+        path: "/workspace/notes.md",
+        mediaType: "text/markdown",
+        data: "# hi",
+      }),
+    ).toBeNull();
+  });
+});
+
 describe("diskFromComputerFs", () => {
   it("reads and writes relative office paths onto an absolute VFS", async () => {
     const fs = new MemoryComputerFs();
@@ -207,6 +259,16 @@ describe("diskFromComputerFs", () => {
     });
     const hits = await disk.glob("skills/*/SKILL.md");
     expect(hits.map((row) => row.path)).toEqual(["skills/demo/SKILL.md"]);
+  });
+
+  it("glob does not crash when find returns undefined", async () => {
+    const fs = new MemoryComputerFs();
+    await fs.writeFile("/inbox/a.pdf", "x");
+    fs.find = async () => undefined as unknown as [];
+    const disk = diskFromComputerFs(fs);
+    await expect(disk.glob("**/*.pdf")).resolves.toEqual([
+      expect.objectContaining({ path: "inbox/a.pdf" }),
+    ]);
   });
 
   it("returns null for a missing file instead of throwing", async () => {

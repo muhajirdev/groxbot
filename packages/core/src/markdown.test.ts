@@ -120,6 +120,13 @@ describe("runToMarkdown", () => {
     ).toMatchObject({ ok: false, message: /not both/ });
     expect(
       await runToMarkdown({
+        input: { html: "", path: "notes.md" },
+        workspace: new MemoryDisk({ "notes.md": "# Saved" }),
+        sanitizePath: (path) => path,
+      }),
+    ).toMatchObject({ ok: true, markdown: "# Saved" });
+    expect(
+      await runToMarkdown({
         input: {},
         workspace,
         sanitizePath: (path) => path,

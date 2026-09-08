@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   capToolPayload,
+  failedToolMessage,
+  isFailedToolValue,
   persistToolPayload,
   slimPluginResult,
   stringifyToolPayload,
@@ -78,8 +80,53 @@ describe("persistToolPayload", () => {
       bytes: stringifyToolPayload(value).length,
     });
     expect(persisted.text).toMatch(/^Result truncated at 24 of /);
-    expect(persisted.text).toMatch(/Return a smaller object from code/);
+    expect(persisted.text).not.toMatch(/from code/);
     expect(persisted.text.length).toBeGreaterThan(24);
     expect(persisted.text.length).toBeLessThan(stringifyToolPayload(value).length);
+  });
+
+  it("strips connector calls so a small code result is not truncated", () => {
+    const markdown = "m".repeat(20_000);
+    const persisted = persistToolPayload({
+      status: "completed",
+      executionId: "exec_1",
+      result: { page: "keep me" },
+      calls: [
+        {
+          seq: 0,
+          connector: "tools",
+          method: "to_markdown",
+          args: { path: "/inbox/a.pdf" },
+          result: { ok: true, markdown },
+        },
+      ],
+    });
+    expect(persisted.details).toMatchObject({
+      status: "completed",
+      result: { page: "keep me" },
+      calls: [
+        {
+          seq: 0,
+          connector: "tools",
+          method: "to_markdown",
+          result: { omitted: true, keys: ["ok", "markdown"] },
+        },
+      ],
+    });
+    expect(persisted.text).toContain("keep me");
+    expect(persisted.text).not.toContain(markdown);
+    expect(persisted.text).not.toMatch(/^Result truncated/);
+  });
+});
+
+describe("isFailedToolValue", () => {
+  it("treats ok:false, status error, and CF error strings as failures", () => {
+    expect(isFailedToolValue({ ok: false, message: "nope" })).toBe(true);
+    expect(isFailedToolValue({ status: "error", error: "boom" })).toBe(true);
+    expect(isFailedToolValue({ error: "File not found: /x" })).toBe(true);
+    expect(isFailedToolValue({ ok: true, markdown: "x" })).toBe(false);
+    expect(failedToolMessage({ ok: false, message: "Pass html or a path, not both." })).toBe(
+      "Pass html or a path, not both.",
+    );
   });
 });

@@ -22,17 +22,93 @@ export function stringifyToolPayload(value: unknown): string {
   return stringifyToolOutput(value);
 }
 
+/**
+ * Code Mode attaches `calls[].result` with the full connector payload.
+ * Models shrink `result` and still blow the 8k cap. Drop those bodies.
+ */
+export function slimCodeModeCalls(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const row = value as Record<string, unknown>;
+  if (!Array.isArray(row.calls)) return value;
+  return {
+    ...row,
+    calls: row.calls.map((call) => slimCodeModeCall(call)),
+  };
+}
+
+function slimCodeModeCall(call: unknown): unknown {
+  if (!call || typeof call !== "object" || Array.isArray(call)) return call;
+  const row = call as Record<string, unknown>;
+  const result = row.result;
+  const keys =
+    result && typeof result === "object" && !Array.isArray(result)
+      ? Object.keys(result)
+      : [];
+  return {
+    ...(typeof row.seq === "number" ? { seq: row.seq } : {}),
+    ...(typeof row.connector === "string" ? { connector: row.connector } : {}),
+    ...(typeof row.method === "string" ? { method: row.method } : {}),
+    result: {
+      omitted: true,
+      ...(keys.length ? { keys } : {}),
+    },
+  };
+}
+
 export function persistToolPayload(
   value: unknown,
   maxChars = TOOL_PAYLOAD_MAX_CHARS,
 ): { text: string; details: unknown } {
-  const text = stringifyToolPayload(value);
-  if (text.length <= maxChars) return { text, details: value };
+  const prepared = slimCodeModeCalls(value);
+  const text = stringifyToolPayload(prepared);
+  if (text.length <= maxChars) return { text, details: prepared };
   const preview = text.slice(0, maxChars);
+  const hint = isCodeModeResult(prepared)
+    ? " Return a smaller `result` from code — connector `calls` are already stripped."
+    : "";
   return {
-    text: `Result truncated at ${preview.length} of ${text.length} chars. Return a smaller object from code.\n${preview}`,
+    text: `Result truncated at ${preview.length} of ${text.length} chars.${hint}\n${preview}`,
     details: { truncated: true, bytes: text.length },
   };
+}
+
+function isCodeModeResult(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const row = value as Record<string, unknown>;
+  return (
+    Array.isArray(row.calls) ||
+    typeof row.executionId === "string" ||
+    row.status === "completed" ||
+    row.status === "error"
+  );
+}
+
+/** Soft `{ ok: false }` / Code Mode `{ status: "error" }` / CF `{ error }` dumps. */
+export function isFailedToolValue(value: unknown): boolean {
+  if (typeof value === "string") return looksLikeToolCrash(value);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const row = value as Record<string, unknown>;
+  if (row.ok === false) return true;
+  if (row.status === "error") return true;
+  if (typeof row.error === "string" && row.error.trim()) return true;
+  return false;
+}
+
+export function failedToolMessage(value: unknown): string {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return "Tool failed.";
+  }
+  const row = value as Record<string, unknown>;
+  for (const key of ["message", "error"] as const) {
+    const text = row[key];
+    if (typeof text === "string" && text.trim()) return text.trim();
+  }
+  return stringifyToolPayload(value).slice(0, 500) || "Tool failed.";
+}
+
+export function looksLikeToolCrash(text: string): boolean {
+  return /cannot read propert(?:y|ies) of undefined/i.test(text);
 }
 
 /** Drop MIME/body dumps so the sandbox can map from/subject/date. */

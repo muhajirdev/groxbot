@@ -2,12 +2,18 @@
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { openObjectParameters } from "@groxbot/adapters/edge";
 import {
+  binaryComputerReadRefusal,
+  COMPUTER_PATH_TOOLS,
   executeCodeFromInput,
+  failedToolMessage,
   isComputerMeterTool,
+  isFailedToolValue,
   jsonClone,
+  looksLikeToolCrash,
   OFFICE_CODE_TOOL_NAME,
   persistToolPayload,
   resolveAiSdkToolResult,
+  rewriteComputerToolArgs,
 } from "@groxbot/core";
 import { z } from "zod";
 
@@ -40,12 +46,25 @@ export function officeAgentTool(opts: {
       const result = jsonClone(
         await opts.execute(objectArgs(params), { toolCallId, signal }),
       );
-      const persisted = persistToolPayload(result);
-      return {
-        content: [{ type: "text", text: persisted.text }],
-        details: persisted.details,
-      };
+      return finishOfficeTool(result);
     },
+  };
+}
+
+function finishOfficeTool(result: unknown): {
+  content: [{ type: "text"; text: string }];
+  details: unknown;
+} {
+  const persisted = persistToolPayload(result);
+  if (
+    isFailedToolValue(result) ||
+    looksLikeToolCrash(persisted.text)
+  ) {
+    throw new Error(failedToolMessage(result));
+  }
+  return {
+    content: [{ type: "text", text: persisted.text }],
+    details: persisted.details,
   };
 }
 
@@ -76,11 +95,7 @@ export function bindOfficeExecuteTool(raw: OfficeExecuteRaw): AgentTool {
     ) => {
       const code = executeCodeFromInput(input);
       if (!code) {
-        return {
-          status: "error",
-          executionId: "",
-          error: MISSING_EXECUTE_CODE,
-        };
+        throw new Error(MISSING_EXECUTE_CODE);
       }
       return execute({ code }, options);
     },
@@ -136,18 +151,30 @@ export function aiToolToPi(name: string, raw: unknown): AgentTool | null {
     parameters: jsonSchemaParameters(tool),
     prepareArguments: objectArgs,
     execute: async (toolCallId, params, signal) => {
-      const result = await resolveAiSdkToolResult(
-        execute(params, {
-          toolCallId,
-          abortSignal: signal,
-        }),
-        signal,
-      );
-      const persisted = persistToolPayload(result);
-      return {
-        content: [{ type: "text", text: persisted.text }],
-        details: persisted.details,
-      };
+      const args = COMPUTER_PATH_TOOLS.has(name)
+        ? rewriteComputerToolArgs(name, objectArgs(params))
+        : objectArgs(params);
+      let result: unknown;
+      try {
+        result = await resolveAiSdkToolResult(
+          execute(args, {
+            toolCallId,
+            abortSignal: signal,
+          }),
+          signal,
+        );
+      } catch (caught) {
+        const message =
+          caught instanceof Error && caught.message.trim()
+            ? caught.message.trim()
+            : String(caught);
+        throw new Error(message);
+      }
+      if (name === "read") {
+        const refused = binaryComputerReadRefusal(result);
+        if (refused) result = refused;
+      }
+      return finishOfficeTool(result);
     },
   };
 }

@@ -138,6 +138,114 @@ export function computerVfsPaths(path: string): string[] {
   return [abs, `${COMPUTER_VFS_ROOT}${abs}`];
 }
 
+const COMPUTER_PATH_ARG_KEYS = ["path", "cwd", "out", "directory"] as const;
+
+export const COMPUTER_PATH_TOOLS = new Set([
+  "list",
+  "read",
+  "write",
+  "edit",
+  "delete",
+  "find",
+  "grep",
+  "shell",
+]);
+
+/**
+ * Inbox is a sibling of `/workspace`, not inside it. Models prefix chips with
+ * `/workspace` because shell cwd is `/workspace`. Relative files (not inbox)
+ * land in that cwd.
+ */
+export function computerToolAbsolutePath(raw: string | undefined): string {
+  const trimmed = (raw ?? "").trim();
+  if (!trimmed || trimmed === "." || trimmed === "/") return "/";
+  let abs = computerAbsolutePath(trimmed);
+  if (
+    abs === `${COMPUTER_VFS_ROOT}/inbox` ||
+    abs.startsWith(`${COMPUTER_VFS_ROOT}/inbox/`)
+  ) {
+    abs = abs.slice(COMPUTER_VFS_ROOT.length) || "/";
+  }
+  const relative = !trimmed.startsWith("/");
+  if (
+    relative &&
+    abs !== COMPUTER_VFS_ROOT &&
+    !abs.startsWith(`${COMPUTER_VFS_ROOT}/`) &&
+    abs !== "/inbox" &&
+    !abs.startsWith("/inbox/")
+  ) {
+    return `${COMPUTER_VFS_ROOT}${abs}`;
+  }
+  return abs;
+}
+
+/** CF `createAITools` requires absolute paths and crashes if `find` has no path. */
+export function rewriteComputerToolArgs(
+  name: string,
+  params: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!COMPUTER_PATH_TOOLS.has(name)) return params;
+  const next: Record<string, unknown> = { ...params };
+  for (const key of COMPUTER_PATH_ARG_KEYS) {
+    if (typeof next[key] === "string") {
+      next[key] = computerToolAbsolutePath(next[key] as string);
+    }
+  }
+  if (name === "find") {
+    const path = typeof next.path === "string" ? next.path : "";
+    if (!path || path === "/") next.path = "/";
+  }
+  if (name === "list") {
+    if (typeof next.path !== "string" || !next.path.trim()) next.path = "/";
+  }
+  if (name === "shell") {
+    if (typeof next.cwd !== "string" || !next.cwd.trim()) {
+      next.cwd = COMPUTER_VFS_ROOT;
+    }
+  }
+  return next;
+}
+
+const BINARY_READ_EXT =
+  /\.(pdf|png|jpe?g|gif|webp|bmp|zip|docx|pptx|xlsx|mp3|mp4|wav|webm)$/i;
+
+/**
+ * CF `read` dumps PDF/PNG as base64 `data`. Point the model at `to_markdown`.
+ */
+export function binaryComputerReadRefusal(
+  result: unknown,
+): { ok: false; message: string } | null {
+  if (!result || typeof result !== "object" || Array.isArray(result)) return null;
+  const row = result as Record<string, unknown>;
+  const path = typeof row.path === "string" ? row.path : typeof row.name === "string" ? row.name : "";
+  const media =
+    typeof row.mediaType === "string"
+      ? row.mediaType
+      : typeof row.mimeType === "string"
+        ? row.mimeType
+        : "";
+  const data = typeof row.data === "string" ? row.data : "";
+  if (!data) return null;
+  const looksBinary =
+    BINARY_READ_EXT.test(path) ||
+    /^(application\/pdf|image\/|audio\/|video\/|application\/octet-stream|application\/zip)/i.test(
+      media,
+    ) ||
+    data.startsWith("JVBERi") ||
+    data.startsWith("iVBORw0") ||
+    data.startsWith("/9j/");
+  if (!looksBinary) return null;
+  if (media.startsWith("text/") || media.includes("json") || media.includes("xml")) {
+    return null;
+  }
+  const rel = computerRelativePath(computerAbsolutePath(path)) || path || "that file";
+  const kind = media || (path.match(BINARY_READ_EXT)?.[1] ?? "binary");
+  return {
+    ok: false,
+    message: `That file is binary (${kind}). Use to_markdown({ path: "${rel}" }) — do not read() PDFs or images.`,
+  };
+}
+
 /** Computer `list` / `shell` cwd is `/workspace`. Create it on the VFS. */
 export async function ensureComputerHome(
   fs: Pick<ComputerFs, "mkdir">,
@@ -232,6 +340,7 @@ export function diskFromComputerFs(fs: ComputerFs): ComputerWorkspaceDisk {
       }
       try {
         const found = await fs.find(directory, relativePattern);
+        if (!found) return matchByWalk(this, pattern);
         return found.map((row) => {
           const path = computerRelativePath(row.path);
           return toInfo({

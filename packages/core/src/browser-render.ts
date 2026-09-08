@@ -44,11 +44,14 @@ export async function resolveBrowserPage(
   workspace: BrowserRenderDisk,
   input: BrowserRenderSource,
 ): Promise<ResolvedBrowserPage> {
-  const html = typeof input.html === "string" ? input.html : undefined;
+  const html =
+    typeof input.html === "string" && input.html.trim()
+      ? input.html
+      : undefined;
   const url = typeof input.url === "string" ? input.url.trim() : "";
   const path = typeof input.path === "string" ? input.path.trim() : "";
 
-  if (html != null && html.length > 0) {
+  if (html != null) {
     return { ok: true, html };
   }
   if (url) {
