@@ -1,0 +1,9 @@
+Groxbot for Mac (Apple Silicon)
+
+1. Drag Groxbot into Applications.
+2. This build is not signed. In Finder, right-click Groxbot and choose Open.
+   macOS will warn. Click Open. You only do this once.
+3. Sign in with the same account as https://app.groxbot.com
+
+Intel Macs are not in this file.
+Help: https://groxbot.com/download

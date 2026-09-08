@@ -5,15 +5,58 @@
   "private": true,
   "type": "module",
   "main": "src/main.ts",
+  "description": "Groxbot desktop — the hosted office in a Mac window.",
+  "author": "Groxbot",
   "scripts": {
     "dev": "env -u ELECTRON_RUN_AS_NODE electron --experimental-strip-types src/main.ts",
-    "check": "tsc --noEmit -p tsconfig.json"
-  },
-  "dependencies": {
-    "electron": "^37.2.0"
+    "check": "tsc --noEmit -p tsconfig.json",
+    "compile": "tsc -p tsconfig.build.json",
+    "dist": "pnpm compile && electron-builder --mac --arm64"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
+    "electron": "^37.2.0",
+    "electron-builder": "^26.15.3",
     "typescript": "^5.9.2"
+  },
+  "build": {
+    "appId": "com.groxbot.desktop",
+    "productName": "Groxbot",
+    "copyright": "Copyright © Groxbot",
+    "extraMetadata": {
+      "main": "dist/main.js"
+    },
+    "files": [
+      "dist/**/*"
+    ],
+    "directories": {
+      "buildResources": "build",
+      "output": "release"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png",
+      "target": [
+        "dir",
+        "dmg"
+      ],
+      "identity": null,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "title": "Groxbot",
+      "artifactName": "${productName}-mac-${arch}.${ext}",
+      "contents": [
+        { "x": 130, "y": 150 },
+        { "x": 410, "y": 150, "type": "link", "path": "/Applications" },
+        {
+          "x": 270,
+          "y": 370,
+          "type": "file",
+          "path": "build/How to open.txt"
+        }
+      ]
+    },
+    "npmRebuild": false
   }
 }

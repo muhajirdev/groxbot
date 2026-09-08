@@ -86,6 +86,7 @@ ${comparisons}
 - [Pricing](${canonicalUrl("/pricing")})
 - [Enterprise / self-host](${canonicalUrl("/enterprise")})
 - [Changelog](${canonicalUrl("/changelog")})
+- [Download Mac app](${canonicalUrl("/download")})
 - [Contact](${canonicalUrl("/contact")})
 - [Privacy](${canonicalUrl("/privacy")})
 - [Terms](${canonicalUrl("/terms")})

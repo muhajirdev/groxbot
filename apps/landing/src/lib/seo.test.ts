@@ -152,6 +152,7 @@ describe("sitemap", () => {
     expect(paths).toContain("/pricing");
     expect(paths).toContain("/enterprise");
     expect(paths).toContain("/changelog");
+    expect(paths).toContain("/download");
     expect(paths).toContain("/contact");
     expect(paths).toContain("/privacy");
     expect(paths).toContain("/terms");

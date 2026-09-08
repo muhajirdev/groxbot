@@ -22,6 +22,7 @@ export const SITEMAP_HUB_PATHS = [
   "/compare",
   "/press",
   "/changelog",
+  "/download",
   "/contact",
   "/privacy",
   "/terms",
@@ -38,7 +39,10 @@ export function sitemapEntries(): SitemapEntry[] {
         ? "1.0"
         : path === "/privacy" || path === "/terms"
           ? "0.4"
-          : path === "/press" || path === "/changelog" || path === "/contact"
+          : path === "/press" ||
+              path === "/changelog" ||
+              path === "/download" ||
+              path === "/contact"
             ? "0.6"
             : "0.9",
   }));

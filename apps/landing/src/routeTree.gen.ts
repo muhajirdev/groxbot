@@ -16,6 +16,7 @@ import { Route as BrandDottxtRouteImport } from './routes/brand[.]txt'
 import { Route as ChangelogRouteImport } from './routes/changelog'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as DeveloperAiDottxtRouteImport } from './routes/developer-ai[.]txt'
+import { Route as DownloadRouteImport } from './routes/download'
 import { Route as EnterpriseRouteImport } from './routes/enterprise'
 import { Route as FaqAiDottxtRouteImport } from './routes/faq-ai[.]txt'
 import { Route as FaviconDotsvgRouteImport } from './routes/favicon[.]svg'
@@ -87,6 +88,11 @@ const ContactRoute = ContactRouteImport.update({
 const DeveloperAiDottxtRoute = DeveloperAiDottxtRouteImport.update({
   id: '/developer-ai.txt',
   path: '/developer-ai.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DownloadRoute = DownloadRouteImport.update({
+  id: '/download',
+  path: '/download',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EnterpriseRoute = EnterpriseRouteImport.update({
@@ -285,6 +291,7 @@ export interface FileRoutesByFullPath {
   '/changelog': typeof ChangelogRoute
   '/contact': typeof ContactRoute
   '/developer-ai.txt': typeof DeveloperAiDottxtRoute
+  '/download': typeof DownloadRoute
   '/enterprise': typeof EnterpriseRoute
   '/faq-ai.txt': typeof FaqAiDottxtRoute
   '/favicon.svg': typeof FaviconDotsvgRoute
@@ -331,6 +338,7 @@ export interface FileRoutesByTo {
   '/changelog': typeof ChangelogRoute
   '/contact': typeof ContactRoute
   '/developer-ai.txt': typeof DeveloperAiDottxtRoute
+  '/download': typeof DownloadRoute
   '/enterprise': typeof EnterpriseRoute
   '/faq-ai.txt': typeof FaqAiDottxtRoute
   '/favicon.svg': typeof FaviconDotsvgRoute
@@ -378,6 +386,7 @@ export interface FileRoutesById {
   '/changelog': typeof ChangelogRoute
   '/contact': typeof ContactRoute
   '/developer-ai.txt': typeof DeveloperAiDottxtRoute
+  '/download': typeof DownloadRoute
   '/enterprise': typeof EnterpriseRoute
   '/faq-ai.txt': typeof FaqAiDottxtRoute
   '/favicon.svg': typeof FaviconDotsvgRoute
@@ -426,6 +435,7 @@ export interface FileRouteTypes {
     | '/changelog'
     | '/contact'
     | '/developer-ai.txt'
+    | '/download'
     | '/enterprise'
     | '/faq-ai.txt'
     | '/favicon.svg'
@@ -472,6 +482,7 @@ export interface FileRouteTypes {
     | '/changelog'
     | '/contact'
     | '/developer-ai.txt'
+    | '/download'
     | '/enterprise'
     | '/faq-ai.txt'
     | '/favicon.svg'
@@ -518,6 +529,7 @@ export interface FileRouteTypes {
     | '/changelog'
     | '/contact'
     | '/developer-ai.txt'
+    | '/download'
     | '/enterprise'
     | '/faq-ai.txt'
     | '/favicon.svg'
@@ -565,6 +577,7 @@ export interface RootRouteChildren {
   ChangelogRoute: typeof ChangelogRoute
   ContactRoute: typeof ContactRoute
   DeveloperAiDottxtRoute: typeof DeveloperAiDottxtRoute
+  DownloadRoute: typeof DownloadRoute
   EnterpriseRoute: typeof EnterpriseRoute
   FaqAiDottxtRoute: typeof FaqAiDottxtRoute
   FaviconDotsvgRoute: typeof FaviconDotsvgRoute
@@ -652,6 +665,13 @@ declare module '@tanstack/react-router' {
       path: '/developer-ai.txt'
       fullPath: '/developer-ai.txt'
       preLoaderRoute: typeof DeveloperAiDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/download': {
+      id: '/download'
+      path: '/download'
+      fullPath: '/download'
+      preLoaderRoute: typeof DownloadRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/enterprise': {
@@ -936,6 +956,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChangelogRoute: ChangelogRoute,
   ContactRoute: ContactRoute,
   DeveloperAiDottxtRoute: DeveloperAiDottxtRoute,
+  DownloadRoute: DownloadRoute,
   EnterpriseRoute: EnterpriseRoute,
   FaqAiDottxtRoute: FaqAiDottxtRoute,
   FaviconDotsvgRoute: FaviconDotsvgRoute,

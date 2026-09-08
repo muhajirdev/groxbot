@@ -22,5 +22,6 @@ apps/mobile/.expo
 apps/mobile/ios
 apps/mobile/android
 apps/mobile/dist
+apps/desktop/release
 .wrangler
 .gstack/

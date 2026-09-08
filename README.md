@@ -92,9 +92,10 @@ Desktop (same web UI in a window):
 
 ```bash
 pnpm dev:desktop
+pnpm dist:desktop   # Groxbot.app in apps/desktop/release (opens https://app.groxbot.com)
 ```
 
-That loads local Vite + wrangler. A **packaged** desktop build opens **https://app.groxbot.com**, which talks to **https://api.groxbot.com**. The marketing site is **https://groxbot.com**.
+That loads local Vite + wrangler. A **packaged** desktop build opens **https://app.groxbot.com**, which talks to **https://api.groxbot.com**. Public download: **https://groxbot.com/download** (Apple Silicon; first open is right-click → Open). The marketing site is **https://groxbot.com**.
 
 OAuth callbacks (hosted staging until groxbot.com is attached):
 
