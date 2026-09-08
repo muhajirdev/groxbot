@@ -199,7 +199,7 @@ function ReasoningTrigger({
           active && "shimmer motion-reduce:animate-none",
         )}
       >
-        Reasoning
+        {active ? "Thinking" : "Thought"}
         {durationText}
       </span>
       <ChevronDownIcon

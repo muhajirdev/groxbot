@@ -49,7 +49,7 @@ import { Button, Chip, cn, Field, Input } from "../ui";
 const SECTIONS = [
   { id: "onboarding", label: "Onboarding" },
   { id: "thinking", label: "Thinking" },
-  { id: "reasoning", label: "Reasoning" },
+  { id: "reasoning", label: "Thought" },
   { id: "tools", label: "Tools" },
   { id: "present", label: "Present" },
   { id: "mascot", label: "Mascot" },
@@ -279,8 +279,8 @@ export function Design() {
 
           <Section
             id="reasoning"
-            title="Reasoning"
-            lede="Flat disclosure like tool rows. Streaming holds the panel open; done collapses to Reasoning."
+            title="Thought"
+            lede="Flat disclosure like tool rows. Streaming holds the panel open; done collapses to Thought."
           >
             <Specimen label="Streaming" hint="active shimmer">
               <ReasoningRoot variant="ghost" streaming defaultOpen>
@@ -290,7 +290,7 @@ export function Design() {
                 </ReasoningContent>
               </ReasoningRoot>
             </Specimen>
-            <Specimen label="Done" hint="Reasoning + duration">
+            <Specimen label="Done" hint="Thought + duration">
               <ReasoningRoot variant="ghost" defaultOpen>
                 <ReasoningTrigger duration={4} />
                 <ReasoningContent>
@@ -333,7 +333,7 @@ export function Design() {
             <Specimen label="Cancelled">
               <ToolRow toolName="write" status="cancelled" />
             </Specimen>
-            <Specimen label="Group" hint="3 tool calls">
+            <Specimen label="Group" hint="3 steps">
               <ToolGroupRow count={3} active />
               <ToolGroupRow count={3} />
             </Specimen>
@@ -845,7 +845,7 @@ function ToolGroupRow(props: { count: number; active?: boolean }) {
           props.active && "shimmer motion-reduce:animate-none",
         )}
       >
-        {props.count} tool calls
+        {props.count} {props.count === 1 ? "step" : "steps"}
       </span>
       <ChevronDownIcon className="size-3 shrink-0 -rotate-90 opacity-50" />
     </div>

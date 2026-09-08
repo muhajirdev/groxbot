@@ -81,4 +81,8 @@ describe("office debug lines", () => {
     appendOfficeDebugLine("room-1", "turn_start +0ms");
     expect(readOfficeDebugLines("room-1")).toEqual([]);
   });
+
+  it("returns a stable empty snapshot for useSyncExternalStore", () => {
+    expect(readOfficeDebugLines("missing")).toBe(readOfficeDebugLines("missing"));
+  });
 });

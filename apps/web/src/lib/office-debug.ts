@@ -32,7 +32,7 @@ export function clearOfficeDebugLines(threadId: string): void {
 }
 
 export function readOfficeDebugLines(threadId: string): string[] {
-  return linesByThread.get(threadId.trim()) ?? [];
+  return linesByThread.get(threadId.trim()) ?? EMPTY;
 }
 
 export function subscribeOfficeDebug(onStoreChange: () => void): () => void {
