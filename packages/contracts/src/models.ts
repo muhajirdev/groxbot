@@ -161,8 +161,8 @@ export function catalogGroupLabel(provider: ModelProvider): string {
 }
 
 /** Groxbot picker: hide unpaid vendor catalogs while a Groxbot model is selected.
- * OpenRouter stays listed (BYOK) so hosted Settings can browse the live catalog.
- * Other vendors stay behind a configured key. */
+ * Keep keyed providers visible. OpenRouter only appears when that provider is
+ * selected (or has a key) — on hosted, OpenRouter models are listed under Groxbot. */
 export function pickerCatalog<T extends { id: string; provider: ModelProvider }>(
   catalog: readonly T[],
   selectedModelId: string,
@@ -174,7 +174,6 @@ export function pickerCatalog<T extends { id: string; provider: ModelProvider }>
   if (provider !== CLOUDFLARE_PROVIDER) return [...catalog];
   return catalog.filter((item) => {
     if (item.provider === CLOUDFLARE_PROVIDER) return true;
-    if (item.provider === OPENROUTER_PROVIDER) return true;
     return (
       "available" in item && Boolean((item as { available?: boolean }).available)
     );
@@ -472,12 +471,22 @@ export function modelsForProviders(
 export function modelIsRunnable(
   model: string,
   configured: ReadonlySet<ModelProvider> | readonly ModelProvider[],
+  opts?: { hostedGateway?: boolean },
 ): boolean {
   const set = configured instanceof Set ? configured : new Set(configured);
   if (set.size === 0) return false;
   const provider = providerForModel(model);
   if (!provider) return set.size > 0;
-  return set.has(provider);
+  if (set.has(provider)) return true;
+  // grox-gateway proxies OpenRouter — no customer OpenRouter key required.
+  if (
+    opts?.hostedGateway &&
+    provider === OPENROUTER_PROVIDER &&
+    set.has(CLOUDFLARE_PROVIDER)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 export function missingProviderMessage(model: string): string {

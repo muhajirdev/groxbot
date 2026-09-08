@@ -200,12 +200,15 @@ export function fallbackRunnableModel(
   hostedStarter = HOSTED_STARTER_MODEL,
 ): string {
   const current = gatewayModelId(model);
-  if (current && modelIsRunnable(current, providers)) return current;
-  if (hosted && modelIsRunnable(hostedStarter, providers)) {
+  const runnableOpts = { hostedGateway: hosted };
+  if (current && modelIsRunnable(current, providers, runnableOpts)) {
+    return current;
+  }
+  if (hosted && modelIsRunnable(hostedStarter, providers, runnableOpts)) {
     return gatewayModelId(hostedStarter);
   }
   const fromCatalog = MODEL_CATALOG.find((item) =>
-    modelIsRunnable(item.id, providers),
+    modelIsRunnable(item.id, providers, runnableOpts),
   )?.id;
   return gatewayModelId(fromCatalog || SUGGESTED_STARTER_MODEL);
 }
@@ -311,22 +314,39 @@ export async function loadModelSettings(
   );
   const listedStatic = MODEL_CATALOG.some((item) => item.id === defaultModelId);
   const groxGateway = Boolean(groxHostedGateway(env));
+  const runnableOpts = { hostedGateway: groxGateway };
   const staticCatalog = MODEL_CATALOG.filter((item) => {
     if (groxGateway) return true;
     return item.id !== GROXBOT_AUTO_MODEL && item.id !== GROXBOT_FREE_MODEL;
-  }).map((item) => ({
-    id: item.id,
-    label: item.label,
-    provider: item.provider,
-    available: modelIsRunnable(item.id, available),
-  }));
-  const openRouterLive = await fetchOpenRouterCatalog({
-    available: available.includes(OPENROUTER_PROVIDER),
+  }).map((item) => {
+    const viaGateway =
+      groxGateway && item.provider === OPENROUTER_PROVIDER;
+    return {
+      id: item.id,
+      label: item.label,
+      // Hosted grox-gateway: OpenRouter models sit under Groxbot, not a separate key.
+      provider: viaGateway ? CLOUDFLARE_PROVIDER : item.provider,
+      available: viaGateway
+        ? true
+        : modelIsRunnable(item.id, available, runnableOpts),
+    };
   });
-  const catalog = mergeOpenRouterIntoCatalog(staticCatalog, openRouterLive);
-  const listed = listedStatic || catalog.some((item) => item.id === defaultModelId);
+  const openRouterLive = await fetchOpenRouterCatalog({
+    available: groxGateway || available.includes(OPENROUTER_PROVIDER),
+  });
+  const openRouterRows = groxGateway
+    ? openRouterLive.map((row) => ({
+        ...row,
+        provider: CLOUDFLARE_PROVIDER,
+        available: true,
+      }))
+    : openRouterLive;
+  const catalog = mergeOpenRouterIntoCatalog(staticCatalog, openRouterRows);
+  const listed =
+    listedStatic || catalog.some((item) => item.id === defaultModelId);
   const warning =
-    available.length > 0 && !modelIsRunnable(defaultModelId, available)
+    available.length > 0 &&
+    !modelIsRunnable(defaultModelId, available, runnableOpts)
       ? missingProviderMessage(defaultModelId)
       : null;
   const billing = await ensureWorkspaceBilling(db, actor.workspaceId);
@@ -629,7 +649,9 @@ export async function resolveRunModel(
     hostedStarterModel(baseEnv),
   );
   if (model) env.GROXBOT_MODEL = model;
-  const configured = modelIsRunnable(model, providers);
+  const configured = modelIsRunnable(model, providers, {
+    hostedGateway: Boolean(groxHostedGateway(baseEnv)),
+  });
   return {
     env,
     model,

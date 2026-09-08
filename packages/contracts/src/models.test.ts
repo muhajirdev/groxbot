@@ -151,15 +151,11 @@ describe("model catalog", () => {
       "groxbot/auto",
     );
     expect(
-      groxOnly.every(
-        (item) =>
-          item.provider === CLOUDFLARE_PROVIDER ||
-          item.provider === OPENROUTER_PROVIDER,
-      ),
+      groxOnly.every((item) => item.provider === CLOUDFLARE_PROVIDER),
     ).toBe(true);
     expect(
       groxOnly.some((item) => item.provider === OPENROUTER_PROVIDER),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       groxOnly.some((item) => item.provider === ANTHROPIC_PROVIDER),
     ).toBe(false);
@@ -189,6 +185,18 @@ describe("model catalog", () => {
       ]),
     ).toBe(true);
     expect(modelIsRunnable("vendor/custom", [OPENROUTER_PROVIDER])).toBe(true);
+    expect(
+      modelIsRunnable("openrouter/deepseek/deepseek-v4-flash", [
+        CLOUDFLARE_PROVIDER,
+      ]),
+    ).toBe(false);
+    expect(
+      modelIsRunnable(
+        "openrouter/deepseek/deepseek-v4-flash",
+        [CLOUDFLARE_PROVIDER],
+        { hostedGateway: true },
+      ),
+    ).toBe(true);
   });
 
   it("validates provider secrets", () => {
