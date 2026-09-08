@@ -117,6 +117,8 @@ import {
   forgetOfficeMessages,
   setOfficeMessages,
 } from "../lib/office-messages";
+import { officeRpcUrl } from "../lib/office-chat-rpc";
+import { ensurePiThread, forgetPiThread } from "../lib/pi-thread-session";
 import {
   OFFICE_TO,
   officeKnowledgeHref,
@@ -189,7 +191,6 @@ import { openCrispChat } from "../lib/support-chat";
 import {
   dropThreadMeta,
   ensureThreadMeta,
-  OFFICE_WORKING,
   patchThreadMeta,
   readCursor,
   readThreadMeta,
@@ -927,6 +928,7 @@ export function Chat(props: {
       await client.bots.delete({ botId });
       dropThreadMeta(botId);
       forgetOfficeMessages(snapshot.homeRoomId || botId);
+      forgetPiThread(snapshot.homeRoomId || botId);
       void appsCollection.utils.refetch();
       await leave;
     } catch (caught: unknown) {
@@ -1123,7 +1125,12 @@ export function Chat(props: {
       try {
         await cacheCreatedBot(draft);
         setOfficeMessages(homeRoomId, []);
-        patchThreadMeta(id, { opening: true, working: OFFICE_WORKING });
+        ensurePiThread({
+          threadId: homeRoomId,
+          rpcUrl: officeRpcUrl(homeRoomId),
+          seed: [],
+        });
+        patchThreadMeta(id, { opening: true });
         void goToBot(id, deskClosed());
         await whenWorkspaceReady(props.workspace.id);
         const created = await client.bots.create({
@@ -1995,7 +2002,7 @@ export function Chat(props: {
                             name={bot.name}
                             color={bot.avatarColor}
                             shape={bot.avatarShape}
-                            mood={hiringThis || working ? "working" : "idle"}
+                            mood={working ? "working" : "idle"}
                             size="sm"
                             hero
                           />
@@ -2175,7 +2182,7 @@ export function Chat(props: {
                               ? planCopy.cta
                               : me?.needsModel
                                 ? "Add a model key to send"
-                                : `Message ${item.name}`
+                                : `Job description or first task for ${item.name}`
                           }
                           error={itemError}
                           onNeedsModel={onNeedsModel}

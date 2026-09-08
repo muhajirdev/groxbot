@@ -41,6 +41,21 @@ describe("resolvePiAiModel", () => {
     expect(model.baseUrl).toBe("https://grox-gateway.example.com/v1");
   });
 
+  it("keeps hosted OpenRouter catalog ids as groxbot/ for grox-gateway", () => {
+    const model = resolvePiAiModel(
+      loadGatewayConfig({
+        GROX_GATEWAY_URL: "https://grox-gateway.example.com",
+        GROX_GATEWAY_SECRET: "gw-secret",
+      }),
+      "groxbot/openai/gpt-5.6-luna",
+    );
+    expect(model.provider).toBe("grox-gateway");
+    expect(model.id).toBe("groxbot/openai/gpt-5.6-luna");
+    expect(piAiGatewayModelId("groxbot/openai/gpt-5.6-luna")).toBe(
+      "groxbot/openai/gpt-5.6-luna",
+    );
+  });
+
   it("clones a catalog Workers AI model when GLM 5.3 Flash is missing", () => {
     const model = resolvePiAiModel(
       loadGatewayConfig({

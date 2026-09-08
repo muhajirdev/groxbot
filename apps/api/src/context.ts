@@ -36,6 +36,11 @@ export interface RpcContext {
   enqueue: EnqueueJob;
   initApp: InitApp;
   initRoom?: InitRoom;
+  /** Refresh home RoomActor brain after Settings → Model (optional compact). */
+  reloadBrain?: (
+    homeRoomId: string,
+    opts?: { compact?: boolean },
+  ) => Promise<void>;
   guests: GuestHub;
   computer?: ComputerAccess;
   knowledge?: KnowledgeAccess;

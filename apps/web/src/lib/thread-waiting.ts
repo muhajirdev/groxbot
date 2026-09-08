@@ -68,14 +68,16 @@ export function isWaitingForAssistantTurn(input: ThreadWaitingInput): boolean {
   return Boolean(input.pending || input.isRunning);
 }
 
-/** Hire: keep the working state through create + the first socket snapshot. */
-export function isOfficeHireWaiting(input: {
+/**
+ * Hire create used to drive “is working” until the socket connected.
+ * That raced create (404) and hid the empty-desk suggestion. Opening now
+ * only pauses the socket; the desk stays empty with no hire spinner.
+ */
+export function isOfficeHireWaiting(_input: {
   opening: boolean;
   hired: boolean;
   connected: boolean;
   failed?: boolean;
 }): boolean {
-  if (input.failed) return false;
-  if (input.opening) return true;
-  return input.hired && !input.connected;
+  return false;
 }

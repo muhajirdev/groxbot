@@ -31,7 +31,7 @@ import { productEnv } from "./env.js";
 import { knowledgeAccess } from "./knowledge.js";
 import { r2KnowledgeDisk } from "./knowledge-r2.js";
 import { RoomActor } from "./room-actor.js";
-import { connectRoom, initRoomActor } from "./room-rpc.js";
+import { connectRoom, initRoomActor, reloadRoomBrain } from "./room-rpc.js";
 import { actorForAgentBot, requireActor } from "./session.js";
 
 export { CodemodeRuntime } from "@cloudflare/codemode";
@@ -92,6 +92,8 @@ export default {
       connectRoom: (roomId, request, workspaceId) =>
         connectRoom(env.ROOM_ACTOR, roomId, request, workspaceId),
       initRoom: (roomId, opts) => initRoomActor(env.ROOM_ACTOR, roomId, opts),
+      reloadBrain: (homeRoomId, opts) =>
+        reloadRoomBrain(env.ROOM_ACTOR, homeRoomId, opts),
       computer: {
         list: async (botId, path) =>
           listBotComputer(env.ROOM_ACTOR, await onHome(botId), path),

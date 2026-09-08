@@ -86,6 +86,33 @@ export function isGroxbotRouterModel(model: string): boolean {
   );
 }
 
+/**
+ * Hosted grox-gateway catalog ids. OpenRouter-sourced models become
+ * `groxbot/openai/…` (not `openrouter/…`) so the product prefix matches the host.
+ * Routers stay `groxbot/auto` / `groxbot/free`.
+ */
+export function asHostedGroxbotModelId(model: string): string {
+  const trimmed = model.trim();
+  if (!trimmed) return "";
+  if (isGroxbotRouterModel(trimmed)) {
+    return trimmed.startsWith("groxbot/") ? trimmed : `groxbot/${trimmed}`;
+  }
+  if (trimmed.startsWith("groxbot/")) return trimmed;
+  if (trimmed.startsWith("openrouter/")) {
+    return `groxbot/${trimmed.slice("openrouter/".length)}`;
+  }
+  return `groxbot/${trimmed}`;
+}
+
+/** Reverse of {@link asHostedGroxbotModelId} for OpenRouter-shaped wire ids. */
+export function openRouterIdFromHostedGroxbot(model: string): string {
+  const trimmed = model.trim();
+  if (!trimmed.startsWith("groxbot/") || isGroxbotRouterModel(trimmed)) {
+    return trimmed;
+  }
+  return `openrouter/${trimmed.slice("groxbot/".length)}`;
+}
+
 /** Settings sentinel: user typed a model id that is not in the catalog. */
 export const CUSTOM_MODEL_SENTINEL = "custom" as const;
 

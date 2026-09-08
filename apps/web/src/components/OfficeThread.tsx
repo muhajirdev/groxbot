@@ -28,7 +28,6 @@ import { orpc, queryClient } from "../lib/orpc";
 import { client } from "../lib/rpc";
 import { OFFICE_WORKING, patchThreadMeta } from "../lib/thread-cache";
 import { createImmediateSteerQueue } from "../lib/thread-steer-queue";
-import { isOfficeHireWaiting } from "../lib/thread-waiting";
 import { useOfficeChat } from "../lib/use-office-chat";
 import { projectedToThreadMessage } from "../lib/use-pi-thread";
 import { cn } from "../lib/utils";
@@ -45,8 +44,8 @@ function rememberPreview(botId: string, roomId: string, messages: PiBoundMessage
 function OfficeWelcome() {
   return (
     <p className="px-1 text-left text-[13px] leading-normal text-muted-foreground">
-      First message is a real task. A good handoff has an outcome, sources, and
-      when to stop.
+      Empty desk. Tell them what to own — a job description or a few bullets —
+      then send.
     </p>
   );
 }
@@ -171,6 +170,7 @@ export function OfficeThread(props: {
         userName={props.userName}
         userImage={props.userImage}
         opening={props.opening}
+        active={active}
         onError={props.onError}
         onNeedsModel={props.onNeedsModel}
         onNeedsHostedPlan={props.onNeedsHostedPlan}
@@ -210,6 +210,7 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
   userName?: string;
   userImage?: string;
   opening?: boolean;
+  active?: boolean;
   onError: (error: string) => void;
   onNeedsModel: () => void;
   onNeedsHostedPlan?: () => void;
@@ -242,7 +243,6 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
 
   const chat = useOfficeChat({
     botId: chatId,
-    enabled: !opening,
     seed,
   });
   const {
@@ -258,19 +258,11 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
   } = chat;
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
-  const hiredRef = useRef(opening);
-  hiredRef.current = hiredRef.current || opening;
-  const hireWarm = isOfficeHireWaiting({
-    opening,
-    hired: hiredRef.current,
-    connected,
-    failed: Boolean(connectionError),
-  });
   const busy = status === "submitted" || status === "streaming" || isStreaming;
   const wasBusy = useRef(false);
   const [pending, setPending] = useState(false);
   const abortSendRef = useRef<AbortController | null>(null);
-  const inFlight = busy || pending || hireWarm;
+  const inFlight = busy || pending;
 
   const send = useCallback(
     async (message: Parameters<typeof onNew>[0]) => {
@@ -399,9 +391,10 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
   const banner = composerBannerError({
     inFlight,
     agentError: error?.message || "",
-    connectionError: opening ? "" : connectionError?.message || "",
+    connectionError: connectionError?.message || "",
     persisted: props.error,
     needsModel: props.needsModel,
+    warming: opening || !connected,
   });
   useEffect(() => {
     if (banner === props.error) return;
@@ -420,7 +413,7 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
             viewerUserId={props.userId}
             viewerImage={props.userImage}
             botName={props.botName}
-            pending={pending || hireWarm}
+            pending={pending}
             components={THREAD_COMPONENTS}
           />
         </div>

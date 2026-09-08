@@ -368,14 +368,19 @@ export class RoomHome extends Agent<WorkerEnv> {
       this.officeId = stored;
     }
     this.sql`DROP TABLE IF EXISTS groxbot_routines`;
+    this.ensureOfficeChatTable();
+    await this.ensureOfficeSession();
+    await this.healComputerFiles();
+    console.log(`[bot ${this.name}] onStart`);
+  }
+
+  /** Legacy flat log — must exist before any `ensureOfficeSession` (init can beat onStart). */
+  private ensureOfficeChatTable(): void {
     this.sql`CREATE TABLE IF NOT EXISTS office_chat (
       seq INTEGER PRIMARY KEY AUTOINCREMENT,
       id TEXT NOT NULL UNIQUE,
       payload TEXT NOT NULL
     )`;
-    await this.ensureOfficeSession();
-    await this.healComputerFiles();
-    console.log(`[bot ${this.name}] onStart`);
   }
 
   private catalogMcpBot() {
@@ -539,6 +544,9 @@ export class RoomHome extends Agent<WorkerEnv> {
     if (request.method === "POST" && url.pathname === "/routines/suspend") {
       return this.handleRoutinesSuspend(request);
     }
+    if (request.method === "POST" && url.pathname === "/reload-brain") {
+      return this.handleReloadBrain(request);
+    }
     if (request.method === "POST" && url.pathname === "/destroy") {
       return this.handleDestroy();
     }
@@ -559,7 +567,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     const generation =
       (await this.ctx.storage.get<number>(OFFICE_GENERATION_STORAGE)) ?? 0;
     await live.streamGeneration(generation);
-    // No hidden hire turn — empty desk until the human writes (felt slow).
+    // No hidden hire turn — empty desk until the human writes.
     await this.ctx.storage.put(OFFICE_INTRO_STORAGE, true);
     const snapshot = jsonClone(await this.officeSnapshot());
     if (snapshot) {
@@ -719,7 +727,12 @@ export class RoomHome extends Agent<WorkerEnv> {
     await this.healComputerFiles();
     await this.emitOfficeDebug(turnStartedAt, "computer_ready");
     const session = await this.ensureOfficeSession();
-    const streamFn = this.turnStreamFn();
+    let streamFn = this.turnStreamFn();
+    if (!streamFn) {
+      // Early subscribe may have missed the roster row; reload once.
+      await this.ensureBotLoaded({ refresh: true });
+      streamFn = this.turnStreamFn();
+    }
     if (!streamFn) {
       this.officeStatus = "error";
       this.officeError =
@@ -1152,6 +1165,7 @@ export class RoomHome extends Agent<WorkerEnv> {
   }
 
   private readLegacyOfficeChat(): OfficeChatMessage[] {
+    this.ensureOfficeChatTable();
     const rows = this.sql<{ payload: string }>`
       SELECT payload FROM office_chat ORDER BY seq ASC
     `;
@@ -1168,6 +1182,7 @@ export class RoomHome extends Agent<WorkerEnv> {
 
   private async ensureOfficeSession(): Promise<Session> {
     if (this.officeSession) return this.officeSession;
+    this.ensureOfficeChatTable();
     const storage = new DurableSessionStorage(
       sqliteSessionStore(this.ctx.storage.sql as never, {
         id: this.name,
@@ -1396,15 +1411,34 @@ export class RoomHome extends Agent<WorkerEnv> {
     await this.ensureBotLoaded();
   }
 
-  protected async ensureBotLoaded(): Promise<void> {
+  /**
+   * Load roster/soul/model from Postgres into this DO.
+   * Pass `refresh` after Settings → Model so the next turn uses the new id
+   * without waiting for a cold start.
+   */
+  protected async ensureBotLoaded(opts?: { refresh?: boolean }): Promise<void> {
+    if (opts?.refresh) {
+      if (this.botLoading) await this.botLoading;
+      this.botLoaded = false;
+    }
     if (this.botLoaded) return;
     if (!this.botLoading) {
       const t0 = Date.now();
       console.log(`[bot ${this.name}] loadBot begin`);
       this.botLoading = this.loadBot()
         .then(() => {
-          this.botLoaded = true;
-          console.log(`[bot ${this.name}] loadBot done +${Date.now() - t0}ms`);
+          // Hire can wake this DO before Postgres has the bot row. Do not
+          // freeze an empty brain — retry on the next ensureBotLoaded.
+          if (this.personId) {
+            this.botLoaded = true;
+            console.log(
+              `[bot ${this.name}] loadBot done +${Date.now() - t0}ms`,
+            );
+          } else {
+            console.log(
+              `[bot ${this.name}] loadBot miss +${Date.now() - t0}ms (not created yet)`,
+            );
+          }
         })
         .catch((error) => {
           console.error("bot actor start", this.name, error);
@@ -1414,6 +1448,36 @@ export class RoomHome extends Agent<WorkerEnv> {
         });
     }
     await this.botLoading;
+  }
+
+  /**
+   * Settings saved a new model (or name). Refresh turnModel / soul; optionally
+   * force-compact so Gemini/Claude do not reject prior tool turns.
+   */
+  async reloadOfficeBrain(opts?: { compact?: boolean }): Promise<void> {
+    await this.ensureBotLoaded({ refresh: true });
+    if (!opts?.compact) return;
+    const streamFn = this.turnStreamFn();
+    if (!streamFn) return;
+    const session = await this.ensureOfficeSession();
+    await this.compactOfficeContext(session, {
+      model: this.turnPiModel(),
+      streamFn,
+      force: true,
+    });
+  }
+
+  private async handleReloadBrain(request: Request): Promise<Response> {
+    const body = (await request.json().catch(() => ({}))) as {
+      compact?: unknown;
+    };
+    await this.reloadOfficeBrain({
+      compact: body.compact === true,
+    });
+    return Response.json({
+      ok: true,
+      model: this.turnModel,
+    });
   }
 
   /** Person iff this instance is someone’s `homeRoomId` (or stored `botId`). No stored kind. */

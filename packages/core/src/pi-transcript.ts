@@ -411,6 +411,26 @@ export function applyPiOfficeEvent(
         ? parsePiOfficeSnapshot(event.snapshot)
         : null;
       if (!snapshot) return next;
+      // Empty→empty: keep message identity so the hire Welcome does not blink.
+      if (
+        snapshot.messages.length === 0 &&
+        view.messages.length === 0 &&
+        !snapshot.lastError &&
+        !view.streaming &&
+        snapshot.metadata.status !== "failed" &&
+        snapshot.metadata.status !== "running"
+      ) {
+        return {
+          ...view,
+          threadId: event.threadId || view.threadId,
+          seq: event.seq,
+          streaming: null,
+          toolExecutions: view.toolExecutions,
+          error: "",
+          floorBotId: snapshot.floorBotId ?? view.floorBotId,
+          status: "ready",
+        };
+      }
       next.messages = snapshot.messages;
       next.streaming = null;
       next.toolExecutions = {};

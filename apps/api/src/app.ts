@@ -41,6 +41,10 @@ export function createApp(
     enqueue: EnqueueJob;
     initApp: InitApp;
     initRoom?: InitRoom;
+    reloadBrain?: (
+      homeRoomId: string,
+      opts?: { compact?: boolean },
+    ) => Promise<void>;
     email?: SendEmailBinding;
     connectApp?: (
       appId: string,
@@ -101,6 +105,7 @@ export function createApp(
     enqueue: opts.enqueue,
     initApp: opts.initApp,
     initRoom: opts.initRoom,
+    reloadBrain: opts.reloadBrain,
     guests,
     env,
     computer: opts.computer,

@@ -12,6 +12,7 @@ import {
   DEFAULT_AI_GATEWAY_ID,
   GROXBOT_AUTO_MODEL,
   GROXBOT_FREE_MODEL,
+  asHostedGroxbotModelId,
   gatewayModelId,
   groxHostedGateway,
   HOSTED_AI_ENV,
@@ -301,11 +302,15 @@ export async function loadModelSettings(
       ? ([CLOUDFLARE_PROVIDER] as const)
       : []),
   ];
-  const stored =
+  const storedRaw =
     workspace?.defaultModel.trim() ||
     legacyChoice ||
     creds.find((row) => row.isDefault)?.defaultModel?.trim() ||
     "";
+  const stored =
+    groxHostedGateway(env) && storedRaw.startsWith("openrouter/")
+      ? asHostedGroxbotModelId(storedRaw)
+      : storedRaw;
   const defaultModelId = fallbackRunnableModel(
     stored || (hosted ? hostedStarterModel(env) : SUGGESTED_STARTER_MODEL),
     available,
@@ -322,7 +327,7 @@ export async function loadModelSettings(
     const viaGateway =
       groxGateway && item.provider === OPENROUTER_PROVIDER;
     return {
-      id: item.id,
+      id: viaGateway ? asHostedGroxbotModelId(item.id) : item.id,
       label: item.label,
       // Hosted grox-gateway: OpenRouter models sit under Groxbot, not a separate key.
       provider: viaGateway ? CLOUDFLARE_PROVIDER : item.provider,
@@ -337,6 +342,7 @@ export async function loadModelSettings(
   const openRouterRows = groxGateway
     ? openRouterLive.map((row) => ({
         ...row,
+        id: asHostedGroxbotModelId(row.id),
         provider: CLOUDFLARE_PROVIDER,
         available: true,
       }))

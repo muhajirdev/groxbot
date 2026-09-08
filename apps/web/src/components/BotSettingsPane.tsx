@@ -43,6 +43,7 @@ export function BotSettingsPane(props: {
         avatarColor?: string;
         avatarShape?: typeof shape;
         model?: string;
+        compactOffice?: boolean;
       }
     | null
   >(null);
@@ -59,6 +60,7 @@ export function BotSettingsPane(props: {
     avatarColor?: string;
     avatarShape?: typeof shape;
     model?: string;
+    compactOffice?: boolean;
   }) {
     if (pending) {
       queued.current = { ...queued.current, ...patch };
@@ -165,8 +167,11 @@ export function BotSettingsPane(props: {
                 inherit={{ label: defaultLabel }}
                 onChange={(next) => {
                   setModel(next);
-                  if (next !== CUSTOM_MODEL_SENTINEL)
-                    void save({ model: next });
+                  if (next === CUSTOM_MODEL_SENTINEL) return;
+                  const compactOffice = window.confirm(
+                    "Compact this desk for the new model?\n\nOK — compact (recommended when switching models)\nCancel — switch without compacting",
+                  );
+                  void save({ model: next, compactOffice });
                 }}
               />
             </label>
@@ -179,7 +184,11 @@ export function BotSettingsPane(props: {
                   onChange={(e) => setCustomModel(e.target.value)}
                   onBlur={() => {
                     const next = customModel.trim();
-                    if (next && next !== bot.model) void save({ model: next });
+                    if (!next || next === bot.model) return;
+                    const compactOffice = window.confirm(
+                      "Compact this desk for the new model?\n\nOK — compact (recommended when switching models)\nCancel — switch without compacting",
+                    );
+                    void save({ model: next, compactOffice });
                   }}
                 />
               </label>

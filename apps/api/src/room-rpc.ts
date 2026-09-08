@@ -90,6 +90,25 @@ export async function initRoomActor(
   }
 }
 
+/** Settings → Model: refresh turnModel / soul; optionally force-compact Pi. */
+export async function reloadRoomBrain(
+  ns: RoomNamespace,
+  homeRoomId: string,
+  opts?: { compact?: boolean },
+): Promise<void> {
+  const stub = await getAgentByName(ns, homeRoomId);
+  const response = await stub.fetch(
+    new Request("https://groxbot.internal/reload-brain", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ compact: Boolean(opts?.compact) }),
+    }),
+  );
+  if (!response.ok) {
+    throw new Error(`room reload-brain ${response.status}`);
+  }
+}
+
 export async function connectRoom(
   ns: RoomNamespace,
   roomId: string,

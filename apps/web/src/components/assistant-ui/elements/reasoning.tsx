@@ -221,8 +221,6 @@ function ReasoningContent({
   children,
   ...props
 }: React.ComponentProps<typeof CollapsibleContent>) {
-  const isPreview = useContext(ReasoningPreviewContext);
-
   return (
     <CollapsibleContent
       data-slot="reasoning-content"
@@ -239,7 +237,6 @@ function ReasoningContent({
       {...props}
     >
       {children}
-      {isPreview ? <ReasoningFade /> : null}
     </CollapsibleContent>
   );
 }

@@ -69,7 +69,9 @@ function cloneCompletions(
   };
 }
 
-/** Unified AI Gateway `/compat` model id (`workers-ai/@cf/...`). Groxbot routers stay opaque. */
+/** Unified AI Gateway `/compat` model id (`workers-ai/@cf/...`).
+ * Groxbot routers and hosted concrete ids (`groxbot/openai/…`) stay opaque —
+ * grox-gateway strips `groxbot/` and maps upstream. */
 export function piAiGatewayModelId(model: string): string {
   const trimmed = model.trim();
   if (isGroxbotRouterModel(trimmed) || trimmed.startsWith("groxbot/")) {

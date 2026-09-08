@@ -312,10 +312,12 @@ export async function updateBot(
     avatarColor?: string;
     avatarShape?: string;
     model?: string;
+    compactOffice?: boolean;
     visibility?: "private" | "shared";
   },
 ): Promise<Bot> {
   const { bot, thread } = await getBotThread(context, actor, input.botId);
+  const previousModel = bot.model;
   const model = input.model !== undefined ? input.model.trim() : bot.model;
   if (input.model !== undefined && model) {
     const problem = validateModelId(model);
@@ -372,6 +374,17 @@ export async function updateBot(
     .where(eq(bots.id, bot.id))
     .limit(1);
   if (!updated) throw new ORPCError("NOT_FOUND", { message: "Bot not found" });
+  const modelChanged =
+    input.model !== undefined && updated.model !== previousModel;
+  if (modelChanged && context.reloadBrain) {
+    try {
+      await context.reloadBrain(updated.homeRoomId, {
+        compact: Boolean(input.compactOffice),
+      });
+    } catch (error) {
+      console.error("bot reload brain", updated.id, error);
+    }
+  }
   return toBotDto(updated, thread.id);
 }
 

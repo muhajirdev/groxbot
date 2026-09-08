@@ -1,4 +1,5 @@
 import {
+  asHostedGroxbotModelId,
   CLOUDFLARE_PROVIDER,
   DEFAULT_AI_GATEWAY_ID,
   HOSTED_AI_ENV,
@@ -76,6 +77,13 @@ describe("hosted Cloudflare overlay", () => {
         true,
       ),
     ).toBe("openrouter/deepseek/deepseek-v4-flash");
+    expect(
+      fallbackRunnableModel(
+        asHostedGroxbotModelId("openrouter/openai/gpt-5.6-luna"),
+        [CLOUDFLARE_PROVIDER],
+        true,
+      ),
+    ).toBe("groxbot/openai/gpt-5.6-luna");
     expect(emptyModelUsage.requests).toBe(0);
   });
 

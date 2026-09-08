@@ -96,6 +96,23 @@ describe("parse Pi wire", () => {
 });
 
 describe("applyPiOfficeEvent", () => {
+  it("keeps empty-desk message identity across an empty snapshot", () => {
+    const empty = emptyPiOfficeView("room-1");
+    const kept = empty.messages;
+    const next = applyPiOfficeEvent(empty, {
+      threadId: "room-1",
+      seq: 1,
+      type: "snapshot",
+      snapshot: {
+        metadata: { id: "room-1", status: "idle" },
+        messages: [],
+      },
+    });
+    expect(next.messages).toBe(kept);
+    expect(next.seq).toBe(1);
+    expect(next.status).toBe("ready");
+  });
+
   it("replaces on snapshot and streams then commits", () => {
     let view = emptyPiOfficeView("room-1");
     view = applyPiOfficeEvent(view, {

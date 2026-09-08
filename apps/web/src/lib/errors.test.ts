@@ -50,6 +50,44 @@ describe("composerBannerError", () => {
     ).toBe("");
   });
 
+  it("ignores a hire-race model error when the workspace already has a gateway", () => {
+    const message =
+      "Add a model key, or use Groxbot’s included gateway, to talk to teammates.";
+    expect(
+      composerBannerError({
+        inFlight: false,
+        agentError: message,
+        connectionError: "",
+        persisted: "",
+        needsModel: false,
+      }),
+    ).toBe("");
+    expect(
+      composerBannerError({
+        inFlight: false,
+        agentError: message,
+        connectionError: "WebSocket connection failed.",
+        persisted: message,
+        needsModel: false,
+        warming: true,
+      }),
+    ).toBe("");
+  });
+
+  it("hides socket and model-key noise while the room session is warming", () => {
+    const message =
+      "Add a model key, or use Groxbot’s included gateway, to talk to teammates.";
+    expect(
+      composerBannerError({
+        inFlight: false,
+        agentError: message,
+        connectionError: "WebSocket connection failed.",
+        persisted: message,
+        warming: true,
+      }),
+    ).toBe("");
+  });
+
   it("hides hosted-plan errors so the subscribe popup can own them", () => {
     const message = "Subscribe to Pro to use this workspace.";
     expect(isHostedPlanError(message)).toBe(true);

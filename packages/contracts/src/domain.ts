@@ -69,6 +69,8 @@ export const UpdateBotInput = z.object({
   avatarColor: z.string().max(32).optional(),
   avatarShape: AvatarShape.optional(),
   model: z.string().max(200).optional(),
+  /** After a model change: force-compact the live Pi window for a clean handoff. */
+  compactOffice: z.boolean().optional(),
   visibility: Visibility.optional(),
 });
 

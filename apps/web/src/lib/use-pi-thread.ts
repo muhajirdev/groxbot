@@ -1,68 +1,14 @@
 import type { AppendMessage, ThreadMessageLike } from "@assistant-ui/react";
 import {
-  applyPiOfficeEvent,
-  emptyPiOfficeView,
-  isOfficeChatStatus,
   type PiBoundMessage,
-  type PiOfficeView,
   type PiProjectedMessage,
-  parsePiClientEvent,
-  parsePiOfficeSnapshot,
   projectPiOfficeView,
-  userBoundFromText,
 } from "@groxbot/core/browser";
-import { newWebSocketRpcSession, RpcTarget } from "capnweb";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { appendOfficeDebugLine } from "./office-debug";
+import { useCallback, useMemo, useSyncExternalStore } from "react";
+import { ensurePiThread } from "./pi-thread-session";
 import { textFromAppendMessage } from "./outgoing-user-message";
 
 export type PiThreadStatus = "ready" | "submitted" | "streaming" | "error";
-
-type PiHost = {
-  snapshot?(): Promise<unknown>;
-  subscribe(subscriber: PiThreadSubscriber): Promise<void>;
-  send(input: {
-    content: string;
-    id?: string;
-    metadata?: unknown;
-    targetBotId?: string;
-  }): Promise<void>;
-  stop(): Promise<void>;
-  [Symbol.dispose]?: () => void;
-};
-
-type SubscriberHooks = {
-  onGeneration: (generation: number) => void;
-  onEvent: (event: unknown) => void;
-  onStatus: (status: string) => void;
-  onError: (message: string) => void;
-};
-
-class PiThreadSubscriber extends RpcTarget {
-  constructor(private readonly hooks: SubscriberHooks) {
-    super();
-  }
-
-  streamGeneration(generation: number) {
-    this.hooks.onGeneration(generation);
-  }
-
-  event(ev: unknown) {
-    this.hooks.onEvent(ev);
-  }
-
-  status(status: string) {
-    this.hooks.onStatus(status);
-  }
-
-  error(message: string) {
-    this.hooks.onError(message);
-  }
-}
-
-function textFromAppend(message: AppendMessage): string {
-  return textFromAppendMessage(message);
-}
 
 export function projectedToThreadMessage(
   message: PiProjectedMessage,
@@ -80,6 +26,7 @@ export function projectedToThreadMessage(
   };
 }
 
+/** React view of the process-wide office session. Unmount does not drop the socket. */
 export function usePiThread(options: {
   threadId: string;
   rpcUrl: string;
@@ -87,191 +34,55 @@ export function usePiThread(options: {
   seed?: PiBoundMessage[];
   targetBotId?: string;
 }) {
-  const enabled = options.enabled !== false;
-  const [view, setView] = useState<PiOfficeView>(() => ({
-    ...emptyPiOfficeView(options.threadId),
-    messages: options.seed ?? [],
-  }));
-  const [error, setError] = useState<Error | undefined>(undefined);
-  const [connectionError, setConnectionError] = useState<Error | undefined>(
-    undefined,
+  const session = ensurePiThread({
+    threadId: options.threadId,
+    rpcUrl: options.rpcUrl,
+    seed: options.seed,
+    targetBotId: options.targetBotId,
+  });
+  if (options.enabled !== false) {
+    session.setTarget(options.targetBotId);
+    session.connect();
+  }
+  const snap = useSyncExternalStore(
+    session.subscribe,
+    session.getSnapshot,
+    session.getSnapshot,
   );
-  const [connected, setConnected] = useState(false);
-  const readyRef = useRef(false);
-  const viewRef = useRef(view);
-  viewRef.current = view;
-  const hostRef = useRef<PiHost | null>(null);
-  const readyWaiters = useRef<Array<() => void>>([]);
-  const targetRef = useRef(options.targetBotId);
-  targetRef.current = options.targetBotId;
-
-  useEffect(() => {
-    if (!enabled) {
-      setConnected(false);
-      return;
-    }
-    let cancelled = false;
-    readyRef.current = false;
-    const host = newWebSocketRpcSession<PiHost>(options.rpcUrl);
-    hostRef.current = host as PiHost;
-    const subscriber = new PiThreadSubscriber({
-      onGeneration: () => {
-        // Snapshot-first subscribe already has the log; a generation bump
-        // must not wipe the live turn.
-      },
-      onEvent: (raw) => {
-        if (cancelled) return;
-        const event = parsePiClientEvent(raw);
-        if (!event) {
-          const snapshot = parsePiOfficeSnapshot(
-            raw && typeof raw === "object"
-              ? (raw as { snapshot?: unknown }).snapshot
-              : null,
-          );
-          if (!snapshot) return;
-          setView((current) =>
-            applyPiOfficeEvent(current, {
-              threadId: options.threadId,
-              seq: current.seq + 1,
-              type: "snapshot",
-              snapshot,
-            }),
-          );
-          return;
-        }
-        if (event.type === "debug_log") {
-          const line =
-            typeof event.line === "string"
-              ? event.line
-              : typeof event.message === "string"
-                ? event.message
-                : "";
-          if (line) appendOfficeDebugLine(event.threadId || options.threadId, line);
-          return;
-        }
-        setView((current) => applyPiOfficeEvent(current, event));
-      },
-      onStatus: (next) => {
-        if (cancelled || !isOfficeChatStatus(next)) return;
-        setView((current) => ({ ...current, status: next }));
-      },
-      onError: (message) => {
-        if (cancelled || !message) return;
-        setError(new Error(message));
-        setView((current) => ({ ...current, error: message, status: "error" }));
-      },
-    });
-    host
-      .subscribe(subscriber)
-      .then(() => {
-        if (cancelled) return;
-        readyRef.current = true;
-        setConnected(true);
-        setConnectionError(undefined);
-        for (const resolve of readyWaiters.current) resolve();
-        readyWaiters.current = [];
-      })
-      .catch((caught: unknown) => {
-        if (cancelled) return;
-        const err =
-          caught instanceof Error
-            ? caught
-            : new Error("Could not reach this teammate. Try sending again.");
-        setConnectionError(err);
-      });
-    return () => {
-      cancelled = true;
-      hostRef.current = null;
-      readyRef.current = false;
-      setConnected(false);
-      try {
-        host[Symbol.dispose]?.();
-      } catch {
-        // already closed
-      }
-    };
-  }, [enabled, options.rpcUrl, options.threadId]);
-
-  const waitReady = useCallback(async () => {
-    if (readyRef.current) return;
-    await new Promise<void>((resolve, reject) => {
-      if (readyRef.current) {
-        resolve();
-        return;
-      }
-      const timer = setTimeout(() => {
-        reject(new Error("Could not reach this teammate. Try sending again."));
-      }, 20_000);
-      readyWaiters.current.push(() => {
-        clearTimeout(timer);
-        resolve();
-      });
-    });
-  }, []);
+  const view = snap.view;
+  const projected = useMemo(() => projectPiOfficeView(view), [view]);
+  const status = view.status;
+  const busy = status === "submitted" || status === "streaming";
 
   const send = useCallback(
     async (input: { content: string; id?: string; metadata?: unknown }) => {
-      await waitReady();
-      const host = hostRef.current;
-      if (!host) {
-        throw new Error("Could not reach this teammate. Try sending again.");
-      }
-      const id = input.id?.trim() || crypto.randomUUID();
-      await host.send({
-        content: input.content,
-        id,
-        metadata: input.metadata,
-        ...(targetRef.current ? { targetBotId: targetRef.current } : {}),
-      });
+      await session.send(input);
     },
-    [waitReady],
+    [session],
   );
 
   const onNew = useCallback(
     async (message: AppendMessage, metadata?: unknown) => {
-      const content = textFromAppend(message);
-      const id = crypto.randomUUID();
-      const optimistic = userBoundFromText({
-        id,
-        content,
+      await session.onNew({
+        content: textFromAppendMessage(message),
         metadata,
       });
-      setView((current) => ({
-        ...current,
-        messages: current.messages.some((row) => row.id === id)
-          ? current.messages
-          : [...current.messages, optimistic],
-        status: current.status === "streaming" ? "streaming" : "submitted",
-      }));
-      try {
-        await send({ content, id, metadata });
-      } catch (caught) {
-        setView((current) => ({
-          ...current,
-          messages: current.messages.filter((row) => row.id !== id),
-        }));
-        throw caught;
-      }
     },
-    [send],
+    [session],
   );
 
   const stop = useCallback(async () => {
-    await hostRef.current?.stop();
-  }, []);
-
-  const projected = useMemo(() => projectPiOfficeView(view), [view]);
-  const status = view.status;
-  const busy = status === "submitted" || status === "streaming";
+    await session.stop();
+  }, [session]);
 
   return {
     view,
     messages: view.messages,
     projected,
     status,
-    error,
-    connectionError,
-    connected,
+    error: snap.error,
+    connectionError: snap.connectionError,
+    connected: snap.connected,
     isStreaming: status === "streaming",
     busy,
     floorBotId: view.floorBotId,

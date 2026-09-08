@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ANTHROPIC_PROVIDER,
+  asHostedGroxbotModelId,
   CLOUDFLARE_PROVIDER,
   CUSTOM_MODEL_SENTINEL,
   DEFAULT_AI_GATEWAY_ID,
@@ -15,6 +16,7 @@ import {
   missingProviderMessage,
   modelIsRunnable,
   OPENROUTER_PROVIDER,
+  openRouterIdFromHostedGroxbot,
   PRODUCT_RUNTIME,
   catalogGroupLabel,
   pickerCatalog,
@@ -129,6 +131,9 @@ describe("model catalog", () => {
     expect(gatewayRequestModel("groxbot/auto")).toBe("groxbot/auto");
     expect(gatewayRequestModel("auto")).toBe("groxbot/auto");
     expect(gatewayRequestModel("free")).toBe("groxbot/free");
+    expect(gatewayRequestModel("groxbot/openai/gpt-5.6-luna")).toBe(
+      "groxbot/openai/gpt-5.6-luna",
+    );
     expect(
       hostedStarterModel({
         GROX_GATEWAY_URL: "https://gateway.groxbot.com",
@@ -138,6 +143,27 @@ describe("model catalog", () => {
     expect(hostedStarterModel({})).toBe(
       "cloudflare-ai-gateway/workers-ai/@cf/zai-org/glm-5.3-flash",
     );
+  });
+
+  it("remaps hosted OpenRouter catalog ids onto groxbot/", () => {
+    expect(asHostedGroxbotModelId("openrouter/openai/gpt-5.6-luna")).toBe(
+      "groxbot/openai/gpt-5.6-luna",
+    );
+    expect(asHostedGroxbotModelId("groxbot/auto")).toBe("groxbot/auto");
+    expect(asHostedGroxbotModelId("auto")).toBe("groxbot/auto");
+    expect(asHostedGroxbotModelId("groxbot/openai/gpt-5.6-luna")).toBe(
+      "groxbot/openai/gpt-5.6-luna",
+    );
+    expect(openRouterIdFromHostedGroxbot("groxbot/openai/gpt-5.6-luna")).toBe(
+      "openrouter/openai/gpt-5.6-luna",
+    );
+    expect(openRouterIdFromHostedGroxbot("groxbot/auto")).toBe("groxbot/auto");
+    expect(providerForModel("groxbot/openai/gpt-5.6-luna")).toBe(
+      CLOUDFLARE_PROVIDER,
+    );
+    expect(
+      modelIsRunnable("groxbot/openai/gpt-5.6-luna", [CLOUDFLARE_PROVIDER]),
+    ).toBe(true);
   });
 
   it("lists Cloudflare models", () => {

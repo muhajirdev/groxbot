@@ -61,15 +61,21 @@ export function composerBannerError(input: {
   connectionError: string;
   persisted: string;
   needsModel?: boolean;
+  /** Hire/create still racing the room — keep the empty desk quiet. */
+  warming?: boolean;
 }): string {
-  if (input.inFlight) return "";
+  if (input.inFlight || input.warming) return "";
   if (
     isHostedPlanError(input.agentError) ||
     isHostedPlanError(input.persisted)
   ) {
     return "";
   }
-  if (input.agentError) return humanizeRunError(input.agentError);
+  if (input.agentError) {
+    const agent = humanizeRunError(input.agentError);
+    if (isModelSetupError(agent) && input.needsModel === false) return "";
+    return agent;
+  }
   if (input.connectionError) return humanizeRunError(input.connectionError);
   if (isModelSetupError(input.persisted) && input.needsModel !== false) {
     return input.persisted;

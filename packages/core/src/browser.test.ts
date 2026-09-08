@@ -33,6 +33,7 @@ describe("browser entry", () => {
       "room-target.ts",
       "routine-clock.ts",
       "sidebar-roster.ts",
+      "visibility.ts",
     ]);
     for (const [name, src] of files) {
       expect(src, name).not.toMatch(/from "node:/);

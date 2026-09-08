@@ -64,6 +64,8 @@ describe("Computer Worker shell wiring", () => {
     expect(home).toMatch(/mcpExecuteConnectors/);
     expect(home).toMatch(/pluginExecuteConnectors/);
     expect(home).toMatch(/compactOfficeSession/);
+    expect(home).toMatch(/reloadOfficeBrain/);
+    expect(home).toMatch(/\/reload-brain/);
     expect(home).toMatch(/isContextOverflowError/);
     expect(home).toMatch(/isContextOverflowError\(result\.errorMessage\)/);
     expect(home).toMatch(/isThoughtSignatureError/);
@@ -103,6 +105,8 @@ describe("Computer Worker shell wiring", () => {
     expect(actor).toMatch(/buildOfficeSystemPrompt/);
     expect(actor).toMatch(/officeIntroTurnTools/);
     expect(actor).toMatch(/lastOfficeUserIsIntro/);
+    expect(actor).toMatch(/ensureOfficeChatTable/);
+    expect(actor).toMatch(/loadBot miss/);
     expect(actor).toMatch(/runOfficeReviewTurn/);
     expect(actor).toMatch(/officeReviewAnnounce/);
     expect(actor).toMatch(/appendOfficeAssistantText/);
