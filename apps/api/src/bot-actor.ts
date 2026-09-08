@@ -19,7 +19,6 @@ import {
 import {
   HOSTED_STARTER_MODEL,
   labelForModel,
-  OFFICE_INTRO_SOURCE,
   officeUserFromHeaders,
   type OpenAiCodexAuth,
   type Routine,
@@ -69,7 +68,6 @@ import {
   type OfficeHistorySearch,
   officeCanReadSkills,
   officeIntroTurnTools,
-  officeIntroUserText,
   officeModelContextWindow,
   officeReviewAnnounce,
   officeReviewDue,
@@ -103,7 +101,6 @@ import {
   searchOfficeHistory,
   shouldArmAwayOfficePing,
   shouldEnqueueOfficeReview,
-  shouldRunOfficeIntro,
   shouldSendAwayOfficePing,
   soulOverlayFromWrite,
   TinyfishKeyPool,
@@ -562,7 +559,8 @@ export class RoomHome extends Agent<WorkerEnv> {
     const generation =
       (await this.ctx.storage.get<number>(OFFICE_GENERATION_STORAGE)) ?? 0;
     await live.streamGeneration(generation);
-    const startIntro = await this.prepareOfficeIntro();
+    // No hidden hire turn — empty desk until the human writes (felt slow).
+    await this.ctx.storage.put(OFFICE_INTRO_STORAGE, true);
     const snapshot = jsonClone(await this.officeSnapshot());
     if (snapshot) {
       await live.event({
@@ -574,7 +572,6 @@ export class RoomHome extends Agent<WorkerEnv> {
     }
     if (this.officeError) await live.error(this.officeError);
     await live.status(this.officeStatus);
-    if (startIntro) this.ctx.waitUntil(this.enqueueOfficeTurn());
   }
 
   async officeSnapshot(): Promise<PiOfficeSnapshot> {
@@ -1543,55 +1540,6 @@ export class RoomHome extends Agent<WorkerEnv> {
     continuation?: boolean;
   }): void {
     this.ctx.waitUntil(this.maybeRunOfficeReview(result));
-  }
-
-  /**
-   * First open after hire: become the named person/role, write soul, greet.
-   * Stamp the hidden user and mark submitted before the snapshot so the
-   * client never paints an idle empty desk first.
-   */
-  private async prepareOfficeIntro(): Promise<boolean> {
-    if (!(await this.isPersonRoom())) return false;
-    if (await this.ctx.storage.get(OFFICE_INTRO_STORAGE)) return false;
-    await this.ensureBotLoaded();
-    if (!this.hireName.trim()) return false;
-    if (!this.turnStreamFn()) return false;
-    if (this.officeId) {
-      const env = productEnv(this.env);
-      const source = agentRuntimeSource(env);
-      const { db, close } = createNeonHttpDb(env.databaseUrl);
-      try {
-        await assertWorkspacePlanAllowed(db, this.officeId, source);
-      } catch {
-        return false;
-      } finally {
-        await close();
-      }
-    }
-    const session = await this.ensureOfficeSession();
-    const bound = await this.officeBound(session);
-    if (!shouldRunOfficeIntro(bound)) {
-      await this.ctx.storage.put(OFFICE_INTRO_STORAGE, true);
-      return false;
-    }
-    try {
-      await appendOfficeUserText(session, {
-        id: crypto.randomUUID(),
-        content: officeIntroUserText({
-          name: this.hireName,
-        }),
-        metadata: {
-          source: OFFICE_INTRO_SOURCE,
-          custom: { source: OFFICE_INTRO_SOURCE },
-        },
-      });
-      await this.ctx.storage.put(OFFICE_INTRO_STORAGE, true);
-      this.officeStatus = "submitted";
-      return true;
-    } catch (error) {
-      console.error("bot actor office intro", this.name, error);
-      return false;
-    }
   }
 
   private async maybeRunOfficeReview(result: {
