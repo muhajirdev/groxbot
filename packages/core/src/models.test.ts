@@ -76,7 +76,7 @@ describe("hosted Cloudflare overlay", () => {
         [CLOUDFLARE_PROVIDER],
         true,
       ),
-    ).toBe("openrouter/deepseek/deepseek-v4-flash");
+    ).toBe("groxbot/deepseek/deepseek-v4-flash");
     expect(
       fallbackRunnableModel(
         asHostedGroxbotModelId("openrouter/openai/gpt-5.6-luna"),

@@ -312,7 +312,6 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
         if (archivedRef.current) {
           throw new Error("Archived");
         }
-        setPending(false);
         return await onNew(message, stamped.metadata);
       } finally {
         if (abortSendRef.current === abort) abortSendRef.current = null;

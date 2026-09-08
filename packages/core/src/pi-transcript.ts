@@ -394,6 +394,17 @@ export function takePiAssistantDraft(
   return id;
 }
 
+/** Keep optimistic rows when the first socket snapshot is still empty. */
+export function mergeSnapshotMessages(
+  current: readonly PiBoundMessage[],
+  incoming: readonly PiBoundMessage[],
+): PiBoundMessage[] {
+  if (incoming.length === 0) return current as PiBoundMessage[];
+  const seen = new Set(incoming.map((row) => row.id));
+  const extras = current.filter((row) => !seen.has(row.id));
+  return extras.length === 0 ? [...incoming] : [...incoming, ...extras];
+}
+
 export function applyPiOfficeEvent(
   view: PiOfficeView,
   event: PiClientEvent,
@@ -411,39 +422,28 @@ export function applyPiOfficeEvent(
         ? parsePiOfficeSnapshot(event.snapshot)
         : null;
       if (!snapshot) return next;
-      // Empty→empty: keep message identity so the hire Welcome does not blink.
-      if (
-        snapshot.messages.length === 0 &&
-        view.messages.length === 0 &&
-        !snapshot.lastError &&
-        !view.streaming &&
-        snapshot.metadata.status !== "failed" &&
-        snapshot.metadata.status !== "running"
-      ) {
-        return {
-          ...view,
-          threadId: event.threadId || view.threadId,
-          seq: event.seq,
-          streaming: null,
-          toolExecutions: view.toolExecutions,
-          error: "",
-          floorBotId: snapshot.floorBotId ?? view.floorBotId,
-          status: "ready",
-        };
-      }
-      next.messages = snapshot.messages;
-      next.streaming = null;
-      next.toolExecutions = {};
+      next.messages = mergeSnapshotMessages(
+        view.messages,
+        snapshot.messages,
+      );
+      const keptLocal =
+        snapshot.messages.length === 0 && view.messages.length > 0;
+      next.streaming = keptLocal ? view.streaming : null;
+      next.toolExecutions = keptLocal ? view.toolExecutions : {};
       next.error = snapshot.lastError ?? "";
-      next.floorBotId = snapshot.floorBotId ?? "";
+      next.floorBotId = snapshot.floorBotId ?? view.floorBotId;
+      const inFlight =
+        view.status === "submitted" || view.status === "streaming";
       next.status =
         snapshot.metadata.status === "failed"
           ? "error"
           : snapshot.metadata.status === "running"
-            ? next.status === "ready"
+            ? view.status === "ready"
               ? "submitted"
-              : next.status
-            : "ready";
+              : view.status
+            : inFlight
+              ? view.status
+              : "ready";
       return next;
     }
     case "message_update": {

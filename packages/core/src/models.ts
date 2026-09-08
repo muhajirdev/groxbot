@@ -203,7 +203,9 @@ export function fallbackRunnableModel(
   const current = gatewayModelId(model);
   const runnableOpts = { hostedGateway: hosted };
   if (current && modelIsRunnable(current, providers, runnableOpts)) {
-    return current;
+    return hosted && current.startsWith("openrouter/")
+      ? asHostedGroxbotModelId(current)
+      : current;
   }
   if (hosted && modelIsRunnable(hostedStarter, providers, runnableOpts)) {
     return gatewayModelId(hostedStarter);
@@ -211,7 +213,10 @@ export function fallbackRunnableModel(
   const fromCatalog = MODEL_CATALOG.find((item) =>
     modelIsRunnable(item.id, providers, runnableOpts),
   )?.id;
-  return gatewayModelId(fromCatalog || SUGGESTED_STARTER_MODEL);
+  const fallback = gatewayModelId(fromCatalog || SUGGESTED_STARTER_MODEL);
+  return hosted && fallback.startsWith("openrouter/")
+    ? asHostedGroxbotModelId(fallback)
+    : fallback;
 }
 
 function configuredProviders(keys: ModelKeyStatus[]): ModelProvider[] {
@@ -652,15 +657,19 @@ export async function resolveRunModel(
     usedHosted,
     hostedStarterModel(baseEnv),
   );
-  if (model) env.GROXBOT_MODEL = model;
-  const configured = modelIsRunnable(model, providers, {
+  const runModel =
+    groxHostedGateway(baseEnv) && model.startsWith("openrouter/")
+      ? asHostedGroxbotModelId(model)
+      : model;
+  if (runModel) env.GROXBOT_MODEL = runModel;
+  const configured = modelIsRunnable(runModel, providers, {
     hostedGateway: Boolean(groxHostedGateway(baseEnv)),
   });
   return {
     env,
-    model,
+    model: runModel,
     configured,
-    hosted: usedHosted && providerForModel(model) === CLOUDFLARE_PROVIDER,
+    hosted: usedHosted && providerForModel(runModel) === CLOUDFLARE_PROVIDER,
   };
 }
 

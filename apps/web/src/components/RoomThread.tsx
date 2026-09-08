@@ -242,7 +242,6 @@ const RoomThreadRuntime = memo(function RoomThreadRuntime(props: {
       patchThreadMeta(roomIdRef.current, { working: OFFICE_WORKING });
 
       try {
-        setPending(false);
         return await onNew(message, stamped.metadata);
       } finally {
         if (abortSendRef.current === abort) abortSendRef.current = null;
