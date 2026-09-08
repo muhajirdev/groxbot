@@ -150,9 +150,19 @@ describe("model catalog", () => {
       MODEL_CATALOG,
       "groxbot/auto",
     );
-    expect(groxOnly.every((item) => item.provider === CLOUDFLARE_PROVIDER)).toBe(
-      true,
-    );
+    expect(
+      groxOnly.every(
+        (item) =>
+          item.provider === CLOUDFLARE_PROVIDER ||
+          item.provider === OPENROUTER_PROVIDER,
+      ),
+    ).toBe(true);
+    expect(
+      groxOnly.some((item) => item.provider === OPENROUTER_PROVIDER),
+    ).toBe(true);
+    expect(
+      groxOnly.some((item) => item.provider === ANTHROPIC_PROVIDER),
+    ).toBe(false);
     expect(
       pickerCatalog(MODEL_CATALOG, "openrouter/deepseek/deepseek-v4-flash"),
     ).toHaveLength(MODEL_CATALOG.length);

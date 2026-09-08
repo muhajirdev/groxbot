@@ -160,7 +160,9 @@ export function catalogGroupLabel(provider: ModelProvider): string {
   return PROVIDER_META[provider].label;
 }
 
-/** Groxbot picker: hide unpaid vendor catalogs while a Groxbot model is selected. Keep keyed providers visible. */
+/** Groxbot picker: hide unpaid vendor catalogs while a Groxbot model is selected.
+ * OpenRouter stays listed (BYOK) so hosted Settings can browse the live catalog.
+ * Other vendors stay behind a configured key. */
 export function pickerCatalog<T extends { id: string; provider: ModelProvider }>(
   catalog: readonly T[],
   selectedModelId: string,
@@ -172,6 +174,7 @@ export function pickerCatalog<T extends { id: string; provider: ModelProvider }>
   if (provider !== CLOUDFLARE_PROVIDER) return [...catalog];
   return catalog.filter((item) => {
     if (item.provider === CLOUDFLARE_PROVIDER) return true;
+    if (item.provider === OPENROUTER_PROVIDER) return true;
     return (
       "available" in item && Boolean((item as { available?: boolean }).available)
     );
