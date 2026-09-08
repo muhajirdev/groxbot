@@ -9,6 +9,7 @@ import {
   TemplateId,
   Visibility,
 } from "./ids.js";
+import { ThinkingEffort } from "./models.js";
 
 export { Visibility };
 
@@ -30,6 +31,8 @@ export const BotSchema = z.object({
   guestOnline: z.boolean(),
   /** Empty = workspace default model. */
   model: z.string(),
+  /** Empty = workspace default effort. Cached bots without this field inherit. */
+  effort: z.string().default(""),
   lastPreview: z.string(),
   lastAt: z.string(),
   archivedAt: z.string().nullable(),
@@ -69,6 +72,8 @@ export const UpdateBotInput = z.object({
   avatarColor: z.string().max(32).optional(),
   avatarShape: AvatarShape.optional(),
   model: z.string().max(200).optional(),
+  /** Empty = inherit workspace effort. */
+  effort: z.union([z.literal(""), ThinkingEffort]).optional(),
   /** After a model change: force-compact the live Pi window for a clean handoff. */
   compactOffice: z.boolean().optional(),
   visibility: Visibility.optional(),

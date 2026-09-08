@@ -14,6 +14,7 @@ import {
 
 describe("clampSideWidth", () => {
   it("keeps a width inside the roster range", () => {
+    expect(SIDE_WIDTH_DEFAULT).toBe(240);
     expect(clampSideWidth(240)).toBe(240);
     expect(clampSideWidth(SIDE_WIDTH_MIN)).toBe(SIDE_WIDTH_MIN);
     expect(clampSideWidth(SIDE_WIDTH_MAX)).toBe(SIDE_WIDTH_MAX);

@@ -6,12 +6,16 @@ import {
   COMPUTER_VFS_ROOT,
   type ComputerFs,
   binaryComputerReadRefusal,
+  computerImageFromRead,
+  computerReadConverts,
+  computerReadShowsImage,
   computerAbsolutePath,
   computerRelativePath,
   computerVfsPaths,
   computerWorkerShell,
   diskFromComputerFs,
   ensureComputerHome,
+  officeImageToolResult,
   rewriteComputerToolArgs,
   withComputerOfficeTools,
 } from "./computer-fs.js";
@@ -206,8 +210,97 @@ describe("rewriteComputerToolArgs", () => {
   });
 });
 
+describe("computerReadConverts", () => {
+  it("converts PDFs and Office docs, not raster images", () => {
+    expect(computerReadConverts("inbox/scope.pdf")).toBe(true);
+    expect(computerReadConverts("/inbox/photo.PNG")).toBe(false);
+    expect(computerReadConverts("draft.docx")).toBe(true);
+    expect(computerReadConverts("notes.md")).toBe(false);
+    expect(computerReadConverts("invoice.html")).toBe(false);
+    expect(computerReadConverts("archive.zip")).toBe(false);
+  });
+});
+
+describe("computerReadShowsImage", () => {
+  it("shows PNG, JPEG, GIF, and WebP", () => {
+    expect(computerReadShowsImage("/workspace/invoice.png")).toBe(true);
+    expect(computerReadShowsImage("inbox/photo.JPEG")).toBe(true);
+    expect(computerReadShowsImage("inbox/scope.pdf")).toBe(false);
+    expect(computerReadShowsImage("notes.md")).toBe(false);
+  });
+});
+
+describe("computerImageFromRead", () => {
+  const png =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+  it("attaches a PNG dump as an image part", () => {
+    const result = computerImageFromRead(
+      {
+        kind: "file",
+        path: "/workspace/invoice.png",
+        mediaType: "image/png",
+        data: png,
+      },
+      "/workspace/invoice.png",
+    );
+    expect(result).toMatchObject({
+      details: { path: "workspace/invoice.png", mediaType: "image/png" },
+    });
+    expect(result && "content" in result && result.content[1]).toEqual({
+      type: "image",
+      data: png,
+      mimeType: "image/png",
+    });
+  });
+
+  it("strips a data URL prefix", () => {
+    const result = computerImageFromRead(
+      {
+        path: "shot.png",
+        mediaType: "image/png",
+        data: `data:image/png;base64,${png}`,
+      },
+      "shot.png",
+    );
+    expect(result && "content" in result && result.content[1]).toMatchObject({
+      type: "image",
+      data: png,
+    });
+  });
+
+  it("does not treat a PDF dump as an image", () => {
+    expect(
+      computerImageFromRead(
+        {
+          path: "/inbox/scope.pdf",
+          mediaType: "application/pdf",
+          data: "JVBERi0xLjQK",
+        },
+        "/inbox/scope.pdf",
+      ),
+    ).toBeNull();
+  });
+});
+
+describe("officeImageToolResult", () => {
+  it("does not put the image bytes in details", () => {
+    const row = officeImageToolResult({
+      path: "/workspace/a.png",
+      data: "abc",
+      mimeType: "image/png",
+    });
+    expect(row.details).toEqual({
+      path: "workspace/a.png",
+      mediaType: "image/png",
+      bytes: expect.any(Number),
+    });
+    expect(JSON.stringify(row.details)).not.toContain("abc");
+  });
+});
+
 describe("binaryComputerReadRefusal", () => {
-  it("refuses a base64 PDF dump", () => {
+  it("refuses a base64 PDF dump when conversion is not wired", () => {
     expect(
       binaryComputerReadRefusal({
         kind: "file",
@@ -297,13 +390,13 @@ describe("withComputerOfficeTools", () => {
     expect(withComputerOfficeTools({ ls, exec })).not.toHaveProperty("ls");
   });
 
-  it("rewrites the read description to mention offset and to_markdown", () => {
+  it("rewrites the read description to mention offset and PDF conversion", () => {
     const read = { description: "Read a workspace file.", execute: () => {} };
     expect(withComputerOfficeTools({ read }).read).toMatchObject({
       description: expect.stringMatching(/offset/),
     });
     expect(withComputerOfficeTools({ read }).read).toMatchObject({
-      description: expect.stringMatching(/to_markdown/),
+      description: expect.stringMatching(/convert to markdown/),
     });
   });
 });

@@ -1,4 +1,4 @@
-import type { Me, ModelProvider, WorkspaceMember } from "@groxbot/contracts";
+import type { Me, ModelProvider, ThinkingEffort, WorkspaceMember } from "@groxbot/contracts";
 import {
   CLOUDFLARE_PROVIDER,
   CUSTOM_MODEL_SENTINEL,
@@ -11,6 +11,7 @@ import {
   PROVIDER_META,
   PROVIDER_ORDER,
   pickerCatalog,
+  parseThinkingEffort,
   WORKSPACE_PLAN_BELIEVERS,
   WORKSPACE_PLAN_PLUS,
   WORKSPACE_PLAN_PRO,
@@ -46,12 +47,25 @@ import {
 } from "../lib/workspace-switcher";
 import { Button, ModalShell } from "../ui";
 import { ChevronDownIcon, CloseIcon } from "./Icons";
-import { OfficeColorPicker } from "./OfficeColorPicker";
+import { OfficeLookList } from "./OfficeColorPicker";
 import { PersonAvatar } from "./PersonAvatar";
+import { EffortField } from "./EffortField";
 import { ModelField } from "./ModelField";
 import { TimezoneField } from "./TimezoneField";
 
-type Tab = "general" | "models" | "billing" | "updates";
+type Tab = "general" | "appearance" | "models" | "billing" | "updates";
+
+export type SettingsTab = Tab;
+
+export const DEFAULT_SETTINGS_TAB: Tab = "appearance";
+
+const TAB_LABEL: Record<Tab, string> = {
+  appearance: "Appearance",
+  general: "General",
+  models: "Models",
+  billing: "Usage & Billing",
+  updates: "Updates",
+};
 
 export function AppSettings(props: {
   open: boolean;
@@ -63,9 +77,9 @@ export function AppSettings(props: {
   onSupport: () => void;
   initialTab?: Tab;
 }) {
-  const [tab, setTab] = useState<Tab>(props.initialTab ?? "general");
+  const [tab, setTab] = useState<Tab>(props.initialTab ?? DEFAULT_SETTINGS_TAB);
   const [seen, setSeen] = useState<Partial<Record<Tab, boolean>>>({
-    general: true,
+    appearance: true,
   });
   const [timezone, setTimezone] = useState(readTimezonePref);
 
@@ -76,7 +90,7 @@ export function AppSettings(props: {
 
   useEffect(() => {
     if (props.open) {
-      const next = props.initialTab ?? "general";
+      const next = props.initialTab ?? DEFAULT_SETTINGS_TAB;
       setTab(next);
       setSeen((prev) => (prev[next] ? prev : { ...prev, [next]: true }));
       setTimezone(readTimezonePref());
@@ -94,6 +108,7 @@ export function AppSettings(props: {
         <nav className="settings-nav">
           {(
             [
+              ["appearance", "Appearance"],
               ["general", "General"],
               ["models", "Models"],
               ["billing", "Usage & Billing"],
@@ -112,15 +127,7 @@ export function AppSettings(props: {
         </nav>
         <div className="settings-main">
           <div className="modal-head">
-            <h2>
-              {tab === "general"
-                ? "General"
-                : tab === "models"
-                  ? "Models"
-                  : tab === "billing"
-                    ? "Usage & Billing"
-                    : "Updates"}
-            </h2>
+            <h2>{TAB_LABEL[tab]}</h2>
             <button
               className="icon-btn"
               type="button"
@@ -162,19 +169,6 @@ export function AppSettings(props: {
                   me={props.me}
                   onClose={props.onClose}
                 />
-              </section>
-              <section className="set-block">
-                <p className="group-label">Appearance</p>
-                <div className="set-row">
-                  <div>
-                    <strong>Office color</strong>
-                    <p className="muted">Sidebar and chrome</p>
-                  </div>
-                  <OfficeColorPicker
-                    value={props.officeColor}
-                    onChange={props.onOfficeColor}
-                  />
-                </div>
               </section>
               <section className="set-block">
                 <p className="group-label">Developer</p>
@@ -223,6 +217,20 @@ export function AppSettings(props: {
                 <BuildStamp />
               </section>
             </div>
+            {seen.appearance ? (
+              <div className="settings-pane" hidden={tab !== "appearance"}>
+                <section className="set-block">
+                  <p className="group-label">Look</p>
+                  <p className="hint set-lede">
+                    Sidebar and chrome. The thread sits on this.
+                  </p>
+                  <OfficeLookList
+                    value={props.officeColor}
+                    onChange={props.onOfficeColor}
+                  />
+                </section>
+              </div>
+            ) : null}
             {seen.models ? (
               <div className="settings-pane" hidden={tab !== "models"}>
                 <ModelsTab />
@@ -950,6 +958,7 @@ function ModelsTab() {
   const [gatewayId, setGatewayId] = useState<string>();
   const [defaultModel, setDefaultModel] = useState<string>();
   const [customModel, setCustomModel] = useState<string>();
+  const [effort, setEffort] = useState<ThinkingEffort>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -959,6 +968,7 @@ function ModelsTab() {
 
   const selectedModel = defaultModel ?? settings?.defaultModel ?? "";
   const custom = customModel ?? settings?.customModel ?? "";
+  const selectedEffort = effort ?? settings?.effort ?? "off";
   const cf = settings?.keys.find(
     (item) => item.provider === CLOUDFLARE_PROVIDER,
   );
@@ -1016,6 +1026,7 @@ function ModelsTab() {
       const next = await client.models.save({
         defaultModel: selectedModel || CUSTOM_MODEL_SENTINEL,
         customModel: custom,
+        effort: selectedEffort,
         keys: providers.map((provider) => ({
           provider,
           secret: drafts[provider]?.trim() || undefined,
@@ -1105,6 +1116,15 @@ function ModelsTab() {
             }}
           />
         </label>
+        <label className="field">
+          <span>Effort</span>
+          <EffortField
+            value={selectedEffort}
+            className="bg-card-2"
+            onChange={(next) => setEffort(parseThinkingEffort(next))}
+          />
+        </label>
+        <p className="hint">How hard the model thinks. Off skips reasoning.</p>
         {selectedModel === CUSTOM_MODEL_SENTINEL ? (
           <label className="field">
             <span>Model id</span>

@@ -1,5 +1,10 @@
 import type { Bot } from "@groxbot/contracts";
-import { CUSTOM_MODEL_SENTINEL, pickerCatalog } from "@groxbot/contracts";
+import {
+  CUSTOM_MODEL_SENTINEL,
+  parseBotEffort,
+  pickerCatalog,
+  thinkingEffortLabel,
+} from "@groxbot/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { patchBot } from "../lib/collections";
@@ -17,6 +22,7 @@ import { isPinnedBot } from "../lib/sidebar";
 import { Button } from "../ui";
 import { AvatarMark, ShapePicks } from "./Avatar";
 import { CloseIcon } from "./Icons";
+import { EffortField } from "./EffortField";
 import { ModelField } from "./ModelField";
 
 export function BotSettingsPane(props: {
@@ -33,7 +39,9 @@ export function BotSettingsPane(props: {
   const [name, setName] = useState(bot.name);
   const [color, setColor] = useState(bot.avatarColor);
   const [shape, setShape] = useState(bot.avatarShape);
-  const [advancedOpen, setAdvancedOpen] = useState(Boolean(bot.model));
+  const [advancedOpen, setAdvancedOpen] = useState(
+    Boolean(bot.model || bot.effort),
+  );
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -54,12 +62,14 @@ export function BotSettingsPane(props: {
     listed || !bot.model ? bot.model : CUSTOM_MODEL_SENTINEL,
   );
   const [customModel, setCustomModel] = useState(listed ? "" : bot.model);
+  const [effort, setEffort] = useState(parseBotEffort(bot.effort));
   const queued = useRef<
     | {
         name?: string;
         avatarColor?: string;
         avatarShape?: typeof shape;
         model?: string;
+        effort?: ReturnType<typeof parseBotEffort>;
         compactOffice?: boolean;
       }
     | null
@@ -70,13 +80,15 @@ export function BotSettingsPane(props: {
     const inCatalog = ids.some((item) => item.id === bot.model);
     setModel(inCatalog || !bot.model ? bot.model : CUSTOM_MODEL_SENTINEL);
     setCustomModel(inCatalog ? "" : bot.model);
-  }, [bot.model, modelsQuery.data]);
+    setEffort(parseBotEffort(bot.effort));
+  }, [bot.effort, bot.model, modelsQuery.data]);
 
   async function save(patch: {
     name?: string;
     avatarColor?: string;
     avatarShape?: typeof shape;
     model?: string;
+    effort?: ReturnType<typeof parseBotEffort>;
     compactOffice?: boolean;
   }) {
     if (pending) {
@@ -90,6 +102,7 @@ export function BotSettingsPane(props: {
           ? { avatarShape: patch.avatarShape }
           : {}),
         ...(patch.model !== undefined ? { model: patch.model } : {}),
+        ...(patch.effort !== undefined ? { effort: patch.effort } : {}),
       });
       return;
     }
@@ -189,41 +202,25 @@ export function BotSettingsPane(props: {
             }}
           />
         </label>
-        <button
-          className="text-btn"
-          type="button"
-          onClick={() => setAdvancedOpen((open) => !open)}
-        >
-          {advancedOpen ? "Hide advanced" : "Advanced"}
-        </button>
-        {advancedOpen ? (
-          <div className="advanced">
-            <label className="field">
-              <span>Model</span>
-              <ModelField
-                value={model}
-                catalog={catalog}
-                inherit={{ label: defaultLabel }}
-                onChange={(next) => {
-                  setModel(next);
-                  if (next === CUSTOM_MODEL_SENTINEL) return;
-                  const compactOffice = window.confirm(
-                    "Compact this desk for the new model?\n\nOK — compact (recommended when switching models)\nCancel — switch without compacting",
-                  );
-                  void save({ model: next, compactOffice });
-                }}
-              />
-            </label>
-            {model === CUSTOM_MODEL_SENTINEL ? (
+        <div className="bot-set-extra">
+          <button
+            className="text-btn"
+            type="button"
+            onClick={() => setAdvancedOpen((open) => !open)}
+          >
+            {advancedOpen ? "Hide advanced" : "Advanced"}
+          </button>
+          {advancedOpen ? (
+            <div className="advanced">
               <label className="field">
-                <span>Model id</span>
-                <input
-                  value={customModel}
-                  placeholder="anthropic/claude-sonnet-4-6"
-                  onChange={(e) => setCustomModel(e.target.value)}
-                  onBlur={() => {
-                    const next = customModel.trim();
-                    if (!next || next === bot.model) return;
+                <span>Model</span>
+                <ModelField
+                  value={model}
+                  catalog={catalog}
+                  inherit={{ label: defaultLabel }}
+                  onChange={(next) => {
+                    setModel(next);
+                    if (next === CUSTOM_MODEL_SENTINEL) return;
                     const compactOffice = window.confirm(
                       "Compact this desk for the new model?\n\nOK — compact (recommended when switching models)\nCancel — switch without compacting",
                     );
@@ -231,24 +228,60 @@ export function BotSettingsPane(props: {
                   }}
                 />
               </label>
+              <label className="field">
+                <span>Effort</span>
+                <EffortField
+                  value={effort}
+                  inherit={{
+                    label: thinkingEffortLabel(
+                      modelsQuery.data?.effort ?? "off",
+                    ),
+                  }}
+                  onChange={(next) => {
+                    const value = parseBotEffort(next);
+                    setEffort(value);
+                    void save({ effort: value });
+                  }}
+                />
+              </label>
+              {model === CUSTOM_MODEL_SENTINEL ? (
+                <label className="field">
+                  <span>Model id</span>
+                  <input
+                    value={customModel}
+                    placeholder="anthropic/claude-sonnet-4-6"
+                    onChange={(e) => setCustomModel(e.target.value)}
+                    onBlur={() => {
+                      const next = customModel.trim();
+                      if (!next || next === bot.model) return;
+                      const compactOffice = window.confirm(
+                        "Compact this desk for the new model?\n\nOK — compact (recommended when switching models)\nCancel — switch without compacting",
+                      );
+                      void save({ model: next, compactOffice });
+                    }}
+                  />
+                </label>
+              ) : null}
+            </div>
+          ) : null}
+          <div className="bot-set-export">
+            <button
+              className="text-btn"
+              type="button"
+              disabled={exporting}
+              onClick={() => void exportHarness()}
+            >
+              {exporting ? "Exporting…" : "Export conversation"}
+            </button>
+            <p className="muted m-0 text-[12px]">
+              JSON dump of this desk — full log with tool calls, computer files,
+              and routines.
+            </p>
+            {exportError ? (
+              <p className="m-0 text-[13px] text-danger">{exportError}</p>
             ) : null}
           </div>
-        ) : null}
-        <button
-          className="text-btn"
-          type="button"
-          disabled={exporting}
-          onClick={() => void exportHarness()}
-        >
-          {exporting ? "Exporting…" : "Export conversation"}
-        </button>
-        <p className="muted m-0 text-[12px]">
-          JSON dump of this desk — full log with tool calls, computer files, and
-          routines.
-        </p>
-        {exportError ? (
-          <p className="m-0 text-[13px] text-danger">{exportError}</p>
-        ) : null}
+        </div>
         {!pending &&
         (props.onPin || props.onArchive || props.onDelete) ? (
           <div className="set-divide grid gap-1">

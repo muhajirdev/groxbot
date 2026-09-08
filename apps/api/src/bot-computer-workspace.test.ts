@@ -165,7 +165,10 @@ describe("Computer Worker shell wiring", () => {
       /export \{ WorkspaceServiceProxy \} from "@cloudflare\/computer"/,
     );
     expect(readSrc("bot-office-tools.ts")).toMatch(/rewriteComputerToolArgs/);
+    expect(readSrc("bot-office-tools.ts")).toMatch(/computerReadConverts/);
+    expect(readSrc("bot-office-tools.ts")).toMatch(/computerImageFromRead/);
     expect(readSrc("bot-office-tools.ts")).toMatch(/binaryComputerReadRefusal/);
+    expect(readSrc("bot-actor.ts")).toMatch(/readDocument/);
     expect(readSrc("bot-office-tools.ts")).toMatch(/isFailedToolValue/);
   });
 

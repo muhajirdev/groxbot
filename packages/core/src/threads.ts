@@ -67,6 +67,7 @@ export function toBotDto(
     guestKind: guestKind.success ? guestKind.data : "off",
     guestOnline: extras?.online ?? false,
     model: bot.model ?? "",
+    effort: bot.effort ?? "",
     lastPreview: extras?.lastPreview ?? "",
     lastAt,
     archivedAt: iso(bot.archivedAt),

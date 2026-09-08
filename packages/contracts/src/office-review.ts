@@ -47,7 +47,7 @@ export function isHiddenOfficeUserMessage(message: {
   );
 }
 
-/** Visible "filed" line after a review that actually wrote something. */
+/** Visible "learned" line after a review that actually wrote something. */
 export function isOfficeLearnedMessage(message: {
   role?: string;
   metadata?: unknown;

@@ -35,7 +35,7 @@ function rememberPreview(roomId: string, messages: PiBoundMessage[]) {
 
 function RoomWelcome() {
   return (
-    <p className="px-1 text-left text-[13px] leading-normal text-muted-foreground">
+    <p className="px-1 text-left text-[14px] leading-relaxed text-muted-foreground">
       This log is the table. Say something and everyone answers. @name
       someone to talk to one person.
     </p>
@@ -149,7 +149,7 @@ export function RoomThread(props: {
         stopHolder={stopHolder}
       />
       {active && props.error ? (
-        <div className="px-5 pt-2 pb-[18px]">
+        <div className="px-5 pt-2 pb-4">
           <p className="mb-2 text-[13px] text-danger">{props.error}</p>
         </div>
       ) : null}

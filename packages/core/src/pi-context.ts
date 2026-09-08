@@ -1,6 +1,6 @@
 /** Live-window prune. The Pi session stays whole; only the LLM call sees less. */
 
-import { COMPUTER_SHAPE_TOOLS } from "./computer-fs.js";
+import { COMPUTER_SHAPE_TOOLS, liveToolResultHasImage } from "./computer-fs.js";
 import { TOOL_PAYLOAD_MAX_CHARS } from "./tool-payload.js";
 import { clipKeepTail, TOOL_TRUNCATE_MAX_BYTES } from "./tool-truncate.js";
 
@@ -10,7 +10,7 @@ export const LIVE_TOOL_RESULT_STALE_CHARS = 800;
 /**
  * Source dumps the model must keep using after the next grep/list/shell.
  * Stubbing these on the same user turn is what made invoice runs re-read
- * a PDF that `to_markdown` already returned.
+ * a PDF that `read` / `to_markdown` already returned.
  */
 const LIVE_TURN_FILE_TOOLS = new Set([
   "read",
@@ -40,6 +40,16 @@ export function pruneLiveToolResults<M extends { role: string }>(
     const text = liveToolResultText(row);
     const priorTurn = index <= lastUser;
     const staleOnTurn = index < lastTool;
+    if (
+      liveToolResultHasImage(row.content) &&
+      (priorTurn || hasLaterImage(messages, index, lastUser))
+    ) {
+      return stubLiveToolResult(row, text, {
+        stale: true,
+        budget: staleChars,
+        image: true,
+      });
+    }
     const budget = liveResultBudget(row, {
       priorTurn,
       staleOnTurn,
@@ -105,22 +115,43 @@ export function liveToolResultText(message: LiveContextMessage): string {
 function stubLiveToolResult<M extends LiveContextMessage>(
   message: M,
   text: string,
-  opts: { stale: boolean; budget: number },
+  opts: { stale: boolean; budget: number; image?: boolean },
 ): M {
   const name =
     typeof message.toolName === "string" && message.toolName.trim()
       ? message.toolName.trim()
       : "tool";
-  const stub = opts.stale
-    ? `Omitted from the live window (${text.length} chars, ${name}).`
-    : name === "shell"
-      ? `${text.slice(Math.max(0, text.length - opts.budget))}\n… (${text.length} chars, truncated)`
-      : `${clipKeepTail(text, opts.budget)}\n… (${text.length} chars, truncated)`;
+  const stub = opts.image
+    ? `Omitted from the live window (image, ${name}).`
+    : opts.stale
+      ? `Omitted from the live window (${text.length} chars, ${name}).`
+      : name === "shell"
+        ? `${text.slice(Math.max(0, text.length - opts.budget))}\n… (${text.length} chars, truncated)`
+        : `${clipKeepTail(text, opts.budget)}\n… (${text.length} chars, truncated)`;
   return {
     ...message,
     content: [{ type: "text", text: stub }],
-    details: { omitted: true, bytes: text.length },
+    details: {
+      omitted: true,
+      bytes: text.length,
+      ...(opts.image ? { image: true } : {}),
+    },
   } as M;
+}
+
+function hasLaterImage<M extends { role: string }>(
+  messages: readonly M[],
+  index: number,
+  lastUser: number,
+): boolean {
+  for (let i = index + 1; i < messages.length; i++) {
+    if (i <= lastUser) continue;
+    const row = messages[i] as LiveContextMessage;
+    if (row.role === "toolResult" && liveToolResultHasImage(row.content)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function contentText(content: unknown): string {

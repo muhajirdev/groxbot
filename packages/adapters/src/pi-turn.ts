@@ -15,6 +15,7 @@ import type {
   Message,
   Model,
   StopReason,
+  ThinkingLevel,
   ToolCall,
   Usage,
 } from "@earendil-works/pi-ai";
@@ -220,6 +221,7 @@ export async function runPiTurn(input: {
   getSteeringMessages?: () => Promise<AgentMessage[]> | AgentMessage[];
   getFollowUpMessages?: () => Promise<AgentMessage[]> | AgentMessage[];
   stripThoughtReplay?: boolean;
+  reasoning?: ThinkingLevel;
 }): Promise<PiTurnResult> {
   let text = "";
   let usage: Usage | null = null;
@@ -244,6 +246,7 @@ export async function runPiTurn(input: {
       convertToLlm,
       transformContext,
       toolExecution: "sequential",
+      ...(input.reasoning ? { reasoning: input.reasoning } : {}),
       getSteeringMessages: () => safePiQueue(input.getSteeringMessages),
       getFollowUpMessages: () => safePiQueue(input.getFollowUpMessages),
     },
@@ -272,6 +275,7 @@ export async function runOwnedPiTurn(
     getSteeringMessages?: () => Promise<AgentMessage[]> | AgentMessage[];
     getFollowUpMessages?: () => Promise<AgentMessage[]> | AgentMessage[];
     stripThoughtReplay?: boolean;
+    reasoning?: ThinkingLevel;
   },
 ): Promise<PiTurnResult> {
   return runPiTurn(input);

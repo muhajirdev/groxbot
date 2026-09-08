@@ -21,7 +21,7 @@ import {
   useState,
 } from "react";
 import { AppPane } from "../components/AppPane";
-import { AppSettings } from "../components/AppSettings";
+import { AppSettings, DEFAULT_SETTINGS_TAB, type SettingsTab } from "../components/AppSettings";
 import { AvatarMark, MemberStack, PresenceDot } from "../components/Avatar";
 import { BotContextMenu } from "../components/BotContextMenu";
 import { BotSettingsPane } from "../components/BotSettingsPane";
@@ -273,7 +273,7 @@ const BotRow = memo(function BotRow(props: {
         preload="intent"
         preloadDelay={300}
         className={cn(
-          "chat-conv grid min-w-0 grid-cols-[44px_minmax(0,1fr)] items-center gap-2.5 rounded-[12px] border-0 bg-transparent px-2 py-2.5 text-left text-inherit no-underline",
+          "chat-conv grid min-w-0 grid-cols-[44px_minmax(0,1fr)] items-center gap-2.5 rounded-[14px] border-0 bg-transparent px-2 py-2.5 text-left text-inherit no-underline",
           props.selected && "bg-selected",
           props.muted && "opacity-70",
         )}
@@ -367,7 +367,7 @@ const RoomRow = memo(function RoomRow(props: {
         }}
         aria-label={props.working ? `${item.name}, working` : item.name}
         className={cn(
-          "chat-conv grid min-w-0 grid-cols-[44px_minmax(0,1fr)] items-center gap-2.5 rounded-[12px] border-0 bg-transparent px-2 py-2.5 text-left text-inherit no-underline",
+          "chat-conv grid min-w-0 grid-cols-[44px_minmax(0,1fr)] items-center gap-2.5 rounded-[14px] border-0 bg-transparent px-2 py-2.5 text-left text-inherit no-underline",
           props.selected && "bg-selected",
         )}
       >
@@ -412,7 +412,7 @@ const AppRow = memo(function AppRow(props: {
     <button
       type="button"
       className={cn(
-        "chat-conv grid min-w-0 grid-cols-[44px_minmax(0,1fr)] items-center gap-2.5 rounded-[12px] border-0 bg-transparent px-2 py-2.5 text-left text-inherit",
+        "chat-conv grid min-w-0 grid-cols-[44px_minmax(0,1fr)] items-center gap-2.5 rounded-[14px] border-0 bg-transparent px-2 py-2.5 text-left text-inherit",
         props.selected && "bg-selected",
       )}
       onClick={props.onOpen}
@@ -451,7 +451,7 @@ const SectionHeader = memo(function SectionHeader(props: {
     <div className="group/section relative">
       <button
         type="button"
-        className="flex w-full items-center gap-1.5 rounded-[10px] border-0 bg-transparent px-1.5 py-1 text-left text-[11px] text-muted hover:bg-hover"
+        className="flex w-full items-center gap-1.5 rounded-[10px] border-0 bg-transparent px-2 py-1.5 text-left text-[11px] text-muted hover:bg-hover"
         aria-expanded={!props.collapsed}
         onClick={props.onToggle}
         onContextMenu={(event) => {
@@ -537,9 +537,9 @@ export function Chat(props: {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const knowledgeListQuery = useQuery(knowledgeListQueryOptions());
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<
-    "general" | "models" | "billing"
-  >("general");
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>(
+    DEFAULT_SETTINGS_TAB,
+  );
   const [subscribeOpen, setSubscribeOpen] = useState(false);
   const [marketplaceOpen, setMarketplaceOpen] = useState(false);
   const [marketplaceTab, setMarketplaceTab] =
@@ -1483,7 +1483,7 @@ export function Chat(props: {
       hotkey: "Mod+,",
       callback: () => {
         setPaletteOpen(false);
-        setSettingsTab("general");
+        setSettingsTab(DEFAULT_SETTINGS_TAB);
         setSettingsOpen(true);
       },
       options: {
@@ -1722,7 +1722,7 @@ export function Chat(props: {
               aria-label="Teammates"
               inert={narrow && !rosterOpen ? true : undefined}
             >
-              <div className="flex flex-col gap-1.5 px-0.5 pt-1 pb-2">
+              <div className="flex flex-col gap-2 px-0.5 pt-1.5 pb-2">
                 <div className="side-chrome drag flex min-h-8 items-center gap-1">
                   <div className="no-drag min-w-0 flex-1">
                     <WorkspaceSwitcher
@@ -1771,7 +1771,7 @@ export function Chat(props: {
                   }}
                 />
               </div>
-              <div className="grid flex-1 content-start gap-0.5 overflow-auto px-1">
+              <div className="grid flex-1 content-start gap-1 overflow-auto px-1">
                 {ungroupedLive.map((row) =>
                   row.kind === "bot" ? (
                     <BotRow
@@ -1897,7 +1897,7 @@ export function Chat(props: {
                   </div>
                 ) : null}
               </div>
-              <div className="chat-foot mt-auto border-t border-line px-1 pt-1.5 pb-1">
+              <div className="chat-foot mt-auto">
                 <nav className="chat-dock" aria-label="Office">
                   <button
                     className="chat-dock-item"
@@ -1951,7 +1951,7 @@ export function Chat(props: {
                     className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border-0 bg-transparent px-1.5 py-1.5 text-left text-inherit hover:bg-hover"
                     type="button"
                     onClick={() => {
-                      setSettingsTab("general");
+                      setSettingsTab(DEFAULT_SETTINGS_TAB);
                       setSettingsOpen(true);
                     }}
                   >
@@ -1995,7 +1995,7 @@ export function Chat(props: {
                 className="chat-thread relative flex min-h-0 min-w-0 flex-col bg-bg-thread"
                 inert={narrow && rosterOpen ? true : undefined}
               >
-                <div className="thread-head drag flex items-center justify-between gap-2 border-b border-line px-3.5 py-2">
+                <div className="thread-head drag flex items-center justify-between gap-2 border-b border-line px-4 py-2">
                   {pokeView ? (
                     <button
                       className="no-drag flex min-w-0 items-center gap-2 border-0 bg-transparent p-0 text-inherit"
@@ -2003,7 +2003,7 @@ export function Chat(props: {
                       onClick={() => setPokeView(null)}
                     >
                       <ChevronLeftIcon />
-                      <strong className="truncate text-[13px] font-semibold tracking-tight">
+                      <strong className="truncate text-[14px] font-semibold tracking-tight">
                         {bot?.name ?? "—"} · {pokeView.peerName}
                       </strong>
                     </button>
@@ -2036,7 +2036,7 @@ export function Chat(props: {
                             hero
                           />
                         ) : null}
-                        <strong className="truncate text-[13px] font-semibold tracking-tight">
+                        <strong className="truncate text-[14px] font-semibold tracking-tight">
                           {isRoom
                             ? (room?.name ?? "Room")
                             : (bot?.name ?? props.workspace.name)}
@@ -2122,7 +2122,7 @@ export function Chat(props: {
                         onOpenApp={openDocument}
                       />
                     </div>
-                    <div className="px-5 pt-2 pb-[18px]">
+                    <div className="px-5 pt-2 pb-4">
                       {error ? (
                         <p className="mb-2 text-[13px] text-danger">{error}</p>
                       ) : null}
@@ -2224,7 +2224,7 @@ export function Chat(props: {
                   </div>
                 ) : (
                   <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6">
-                    <p className="m-0 text-[15px] font-semibold tracking-tight">
+                    <p className="m-0 text-[15px] font-semibold tracking-tight text-ink">
                       No bots yet
                     </p>
                     <p className="m-0 max-w-[32ch] text-center text-[13px] text-muted">
@@ -2390,11 +2390,11 @@ export function Chat(props: {
             }}
             onClose={() => {
               setSettingsOpen(false);
-              setSettingsTab("general");
+              setSettingsTab(DEFAULT_SETTINGS_TAB);
             }}
             onSupport={() => {
               setSettingsOpen(false);
-              setSettingsTab("general");
+              setSettingsTab(DEFAULT_SETTINGS_TAB);
               openCrispChat({ email: me?.email, name: me?.name });
             }}
             onSignOut={() => {

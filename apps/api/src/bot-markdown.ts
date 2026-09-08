@@ -33,7 +33,7 @@ export const FETCH_URL_DESCRIPTION =
   "Read a public http(s) URL (TinyFish). Loopback and private nets are blocked. Returns clean Markdown when TinyFish is set; otherwise a plain GET. Large bodies land in inbox/fetch on this computer. Do not open a browser just to read a page.";
 
 export const TO_MARKDOWN_DESCRIPTION =
-  "Convert HTML, a PDF, or a file on this computer to Markdown. Use fetch_url first for a public page, then pass the HTML body here. For a file already on this computer, pass path only (inbox/spec.pdf or /inbox/spec.pdf) — omit html. Inbox is not under /workspace. Convert each PDF once. If the result already has the markdown, use it — do not cat, grep, or read the spill. Only continue with offset or read() when the result says to; do not convert again. Do not use the browser just to read a page.";
+  "Convert HTML from fetch_url, or a computer file, to Markdown. Prefer read() for PDFs already on this computer. Prefer read() to see an image. Use fetch_url first for a public page, then pass the HTML body here. For a file, pass path only (inbox/spec.pdf or /inbox/spec.pdf) — omit html. Inbox is not under /workspace. Convert each file once. If the result already has the markdown, use it — do not cat, grep, or read the spill. Only continue with offset or read() when the result says to; do not convert again. Do not use the browser just to read a page.";
 
 export const webSearchParameters = z.object({
   query: z.string().min(1).describe("What to search the public web for."),

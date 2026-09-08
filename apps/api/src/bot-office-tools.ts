@@ -3,12 +3,15 @@ import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { openObjectParameters } from "@groxbot/adapters/edge";
 import {
   binaryComputerReadRefusal,
+  computerImageFromRead,
+  computerReadConverts,
   COMPUTER_PATH_TOOLS,
   COMPUTER_SHAPE_TOOLS,
   executeCodeFromInput,
   failedToolMessage,
   isComputerMeterTool,
   isFailedToolValue,
+  isOfficeImageToolResult,
   jsonClone,
   looksLikeToolCrash,
   OFFICE_CODE_TOOL_NAME,
@@ -67,9 +70,15 @@ function finishOfficeTool(
   result: unknown,
   opts?: { maxChars?: number; retain?: TruncationRetain },
 ): {
-  content: [{ type: "text"; text: string }];
+  content: Array<
+    | { type: "text"; text: string }
+    | { type: "image"; data: string; mimeType: string }
+  >;
   details: unknown;
 } {
+  if (isOfficeImageToolResult(result)) {
+    return result;
+  }
   const persisted = persistToolPayload(result, opts?.maxChars, {
     retain: opts?.retain,
   });
@@ -145,6 +154,11 @@ export function wrapAgentToolsForComputerUsage(
 
 export type OfficeToolWrapOptions = {
   spill?: ComputerToolSpill;
+  /** Convert PDFs/Office inside `read` (Workers AI), like Pi+markit. Images attach. */
+  readDocument?: (input: {
+    path: string;
+    offset?: number;
+  }) => Promise<unknown>;
 };
 
 /** Wrap `@cloudflare/computer/tools` `createAITools` (and Code Mode `runtime.tool()`). */
@@ -182,6 +196,21 @@ export function aiToolToPi(
       const args = COMPUTER_PATH_TOOLS.has(name)
         ? rewriteComputerToolArgs(name, objectArgs(params))
         : objectArgs(params);
+      const readOffset =
+        typeof args.offset === "number" && Number.isFinite(args.offset)
+          ? args.offset
+          : undefined;
+      const readPath = typeof args.path === "string" ? args.path : "";
+      if (name === "read" && opts?.readDocument && computerReadConverts(readPath)) {
+        const converted = await opts.readDocument({
+          path: readPath,
+          offset: readOffset,
+        });
+        return finishOfficeTool(converted, {
+          maxChars: TOOL_FILE_MAX_CHARS,
+          retain: "head",
+        });
+      }
       let result: unknown;
       try {
         result = await resolveAiSdkToolResult(
@@ -199,6 +228,8 @@ export function aiToolToPi(
         throw new Error(message);
       }
       if (name === "read") {
+        const image = computerImageFromRead(result, readPath);
+        if (image) return finishOfficeTool(image);
         const refused = binaryComputerReadRefusal(result);
         if (refused) result = refused;
       }

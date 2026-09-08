@@ -89,6 +89,22 @@ describe("runOwnedPiTurn", () => {
     expect(result.text).toBe("");
   });
 
+  it("passes reasoning through to the stream", async () => {
+    let seen: string | undefined;
+    const result = await runPiTurn({
+      systemPrompt: "You are Piper.",
+      messages: [{ role: "user", content: "think" }],
+      model,
+      reasoning: "high",
+      streamFn: (called, context, options) => {
+        seen = options?.reasoning;
+        return scriptedPiStreamFn("ok")(called, context, options);
+      },
+    });
+    expect(seen).toBe("high");
+    expect(result.text).toBe("ok");
+  });
+
   it("executes AgentTools and continues with the tool result", async () => {
     const seen: string[] = [];
     let executed = "";

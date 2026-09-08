@@ -88,14 +88,14 @@ function itemContent(
   return (
     <div className="px-5 pb-2">
       {showDay ? (
-        <div className="my-2.5 mb-1 text-center text-xs text-muted">
+        <div className="my-3 mb-1.5 text-center text-xs text-muted">
           {formatDaySep(message.createdAt)}
         </div>
       ) : null}
       {text || pokeRef ? (
         <div
           className={cn(
-            "max-w-[72%] rounded-[14px] px-3 py-1.5 text-[14px] leading-snug",
+            "max-w-[72%] rounded-[14px] px-3.5 py-1.5 text-[14px] leading-[1.5]",
             human
               ? "ml-auto bg-card-2 light:border light:border-line light:bg-white"
               : fromOther

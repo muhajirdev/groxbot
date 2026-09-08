@@ -49,20 +49,20 @@ export type MarkdownWriteDisk = MarkdownDisk & {
 
 export function toMarkdownSpillPath(name: string): string {
   const file = name.split(/[/\\]/u).pop() || "document";
-  const stem = file.replace(/\.[^.]+$/u, "") || file;
   const safe =
-    stem.replace(/[^\w.-]+/gu, "-").replace(/^-+|-+$/gu, "") || "document";
+    file.replace(/[^\w.-]+/gu, "-").replace(/^-+|-+$/gu, "") || "document";
   return `${TO_MARKDOWN_SPILL_DIR}/${safe}.md`;
 }
 
 export function presentToMarkdown(
   result: ToMarkdownOk,
-  opts?: { offset?: number; spillPath?: string },
+  opts?: { offset?: number; spillPath?: string; continuePath?: string },
 ): string {
   const lines = splitMarkdownLines(result.markdown);
   const startLine = Math.max(1, Math.floor(opts?.offset ?? 1));
+  const continuePath = opts?.continuePath ?? opts?.spillPath;
   if (lines.length > 0 && startLine > lines.length) {
-    return `Offset ${startLine} is beyond end of markdown (${lines.length} lines). Full text: ${opts?.spillPath ?? "re-run to_markdown"}.`;
+    return `Offset ${startLine} is beyond end of markdown (${lines.length} lines). Full text: ${opts?.spillPath ?? continuePath ?? "re-run read"}.`;
   }
   const selected = lines.slice(startLine - 1).join("\n");
   const head = truncateHead(selected, {
@@ -79,8 +79,8 @@ export function presentToMarkdown(
   // model re-reads a document it already has.
   const more = head.firstLineExceedsLimit || head.truncated;
   const saved =
-    more && opts?.spillPath
-      ? `Saved full markdown (${result.markdown.length} chars, ${lines.length} lines) to ${opts.spillPath}. Continue with read({ path: "${opts.spillPath}", offset: ${next} }) — do not convert again.\n\n`
+    more && continuePath
+      ? `Saved full markdown (${result.markdown.length} chars, ${lines.length} lines) to ${opts?.spillPath ?? continuePath}. Continue with read({ path: "${continuePath}", offset: ${next} }) — do not convert again.\n\n`
       : "";
   let body = head.firstLineExceedsLimit
     ? selected.slice(0, TO_MARKDOWN_PAGE_BYTES)
@@ -254,6 +254,7 @@ export async function persistToMarkdownPage(
     offset?: number;
     workspace?: MarkdownWriteDisk;
     spillPath?: string;
+    continuePath?: string;
   },
 ): Promise<ToMarkdownResult | string> {
   if (!result.ok) return result;
@@ -271,6 +272,7 @@ export async function persistToMarkdownPage(
   return presentToMarkdown(result, {
     offset: opts?.offset,
     spillPath,
+    continuePath: opts?.continuePath,
   });
 }
 
@@ -295,6 +297,7 @@ export async function runToMarkdownPaged(opts: {
   const path = presentString(opts.input.path);
   const name = markdownFileName({ ...opts.input, html, path });
   const spillPath = toMarkdownSpillPath(name);
+  const continuePath = path ? opts.sanitizePath(path) : undefined;
   const spilled = await opts.workspace.readFile(spillPath);
   if (
     typeof spilled === "string" &&
@@ -308,7 +311,7 @@ export async function runToMarkdownPaged(opts: {
         mimeType: mimeTypeForMarkdownName(name, html),
         markdown: spilled,
       },
-      { offset: opts.input.offset, spillPath },
+      { offset: opts.input.offset, spillPath, continuePath },
     );
   }
   const result = await runToMarkdown(opts);
@@ -316,6 +319,7 @@ export async function runToMarkdownPaged(opts: {
     offset: opts.input.offset,
     workspace: opts.workspace,
     spillPath,
+    continuePath,
   });
 }
 

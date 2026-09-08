@@ -45,7 +45,7 @@ export const OFFICE_TOOL_PROMPT: Record<string, OfficeToolPromptContribution> =
     list: { snippet: "List files on this computer. offset pages." },
     read: {
       snippet:
-        "Read a text file on this computer. offset continues. PDFs and images: to_markdown.",
+        "Read a file on this computer. offset continues. PDFs and Office docs convert to markdown. Images are shown in this result — you see the picture, not a caption.",
     },
     write: { snippet: "Write a file on this computer." },
     edit: { snippet: "Patch a file on this computer." },
@@ -62,7 +62,7 @@ export const OFFICE_TOOL_PROMPT: Record<string, OfficeToolPromptContribution> =
     fetch_url: { snippet: "Read a public URL (TinyFish)." },
     to_markdown: {
       snippet:
-        "Convert HTML or a computer file (PDF/doc) to Markdown. Pass path or html, not both — omit empty html. Convert each PDF once. If the result already has the markdown, use it — do not cat, grep, or read the spill. Only continue with offset or read() when the result says to; do not convert again.",
+        "Convert HTML from fetch_url, or a computer file, to Markdown. Prefer read() for PDFs already on this computer. Prefer read() to see an image. Pass path or html, not both — omit empty html. Convert each file once. If the result already has the markdown, use it — do not cat, grep, or read the spill. Only continue with offset or read() when the result says to; do not convert again.",
     },
     render_pdf: {
       snippet: "Render HTML or a URL to a PDF on this computer.",
@@ -71,7 +71,11 @@ export const OFFICE_TOOL_PROMPT: Record<string, OfficeToolPromptContribution> =
       ],
     },
     render_screenshot: {
-      snippet: "Capture a PNG of HTML or a URL on this computer.",
+      snippet:
+        "Capture a PNG of HTML or a URL on this computer. The result includes the image so you can check layout — do not read the PNG to see it.",
+      guidelines: [
+        "render_screenshot includes the image. Check layout from that result. Do not read the PNG to see it.",
+      ],
     },
     [PRESENT_TOOL_NAME]: {
       snippet:
@@ -198,7 +202,7 @@ export function buildOfficeSystemPrompt(opts: {
   );
   if (names.some((name) => COMPUTER_FS_TOOLS.has(name))) {
     add(
-      "list / read / write / edit / grep / find / delete are this computer. Paths like inbox/file.pdf or /inbox/file.pdf — inbox is not under /workspace. PDFs and images: to_markdown, not read. Long files: read again with offset. find: pass path `/` for the whole disk. The office library is knowledge inside code.",
+      "list / read / write / edit / grep / find / delete are this computer. Paths like inbox/file.pdf or /inbox/file.pdf — inbox is not under /workspace. PDFs and Office docs: read converts them to markdown. Images: read shows the picture. Long files: read again with offset. find: pass path `/` for the whole disk. The office library is knowledge inside code.",
     );
   }
   for (const name of names) {

@@ -7,17 +7,34 @@ import {
 function toolResult(
   id: string,
   text: string,
-  extra?: { details?: unknown; toolName?: string },
+  extra?: {
+    details?: unknown;
+    toolName?: string;
+    content?: Array<
+      | { type: "text"; text: string }
+      | { type: "image"; data: string; mimeType: string }
+    >;
+  },
 ) {
   return {
     role: "toolResult" as const,
     toolCallId: id,
     toolName: extra?.toolName ?? "code",
-    content: [{ type: "text" as const, text }],
+    content: extra?.content ?? [{ type: "text" as const, text }],
     details: extra?.details,
     isError: false,
     timestamp: 1,
   };
+}
+
+function imageResult(id: string, data = "abc") {
+  return toolResult(id, `Read image file [image/png] shot.png`, {
+    toolName: "read",
+    content: [
+      { type: "text", text: `Read image file [image/png] shot.png` },
+      { type: "image", data, mimeType: "image/png" },
+    ],
+  });
 }
 
 describe("pruneLiveToolResults", () => {
@@ -150,5 +167,57 @@ describe("pruneLiveToolResults", () => {
     expect(liveToolResultText(pruned[1]!)).toMatch(/^Omitted from the live window/);
     expect(liveToolResultText(pruned[1]!)).not.toMatch(/in code/);
     expect(liveToolResultText(pruned[3]!)).toBe("ok");
+  });
+
+  it("stubs a prior-turn image after the next user message", () => {
+    const pruned = pruneLiveToolResults(
+      [
+        { role: "user", content: "check layout", timestamp: 1 },
+        imageResult("shot-1"),
+        { role: "user", content: "now invoice", timestamp: 2 },
+        toolResult("g-1", "ok", { toolName: "grep" }),
+      ],
+      { maxChars: 100, staleChars: 10 },
+    );
+    expect(liveToolResultText(pruned[1]!)).toMatch(
+      /^Omitted from the live window \(image/,
+    );
+    expect(pruned[1]).toMatchObject({
+      details: { omitted: true, image: true },
+    });
+    expect(pruned[1]?.content).toEqual([
+      { type: "text", text: expect.stringMatching(/image/) },
+    ]);
+    expect(liveToolResultText(pruned[3]!)).toBe("ok");
+  });
+
+  it("keeps this turn's latest image after a later grep", () => {
+    const pruned = pruneLiveToolResults(
+      [
+        { role: "user", content: "invoice", timestamp: 1 },
+        imageResult("shot-1"),
+        toolResult("g-1", "hit", { toolName: "grep" }),
+      ],
+      { maxChars: 100, staleChars: 10 },
+    );
+    expect(pruned[1]?.content).toEqual(
+      imageResult("shot-1").content,
+    );
+    expect(liveToolResultText(pruned[2]!)).toBe("hit");
+  });
+
+  it("stubs an older image when a newer image lands on the same turn", () => {
+    const pruned = pruneLiveToolResults(
+      [
+        { role: "user", content: "invoice", timestamp: 1 },
+        imageResult("shot-1", "old"),
+        imageResult("shot-2", "new"),
+      ],
+      { maxChars: 100, staleChars: 10 },
+    );
+    expect(liveToolResultText(pruned[1]!)).toMatch(
+      /^Omitted from the live window \(image/,
+    );
+    expect(pruned[2]?.content).toEqual(imageResult("shot-2", "new").content);
   });
 });

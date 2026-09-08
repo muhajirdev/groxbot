@@ -523,7 +523,7 @@ export function Design() {
           >
             <Specimen label="Messages">
               <div className="design-thread">
-                <div className="my-2.5 mb-1 text-center text-xs text-muted">
+                <div className="my-3 mb-1.5 text-center text-xs text-muted">
                   Today
                 </div>
                 <div className="ml-auto max-w-[72%]">
@@ -533,11 +533,11 @@ export function Design() {
                       You
                     </span>
                   </div>
-                  <div className="rounded-[14px] bg-card-2 px-3 py-1.5 text-[14px] leading-snug light:border light:border-line light:bg-white">
+                  <div className="rounded-[14px] bg-card-2 px-3.5 py-1.5 text-[14px] leading-[1.5] light:border light:border-line light:bg-white">
                     <ChatMarkdown text="Source a shortlist from the brief. Don’t email anyone." />
                   </div>
                 </div>
-                <div className="mr-auto max-w-[72%] rounded-[14px] bg-card px-3 py-1.5 text-[14px] leading-snug light:bg-card-2">
+                <div className="mr-auto max-w-[72%] rounded-[14px] bg-card px-3.5 py-1.5 text-[14px] leading-[1.5] light:bg-card-2">
                   <ChatMarkdown text="I’ll stay in the notes and stop with names plus why." />
                 </div>
                 <ThinkingStatus name="Chief" />
@@ -863,7 +863,7 @@ function BotRow(props: {
   return (
     <div
       className={cn(
-        "grid min-w-0 grid-cols-[44px_minmax(0,1fr)] items-center gap-2.5 rounded-[12px] px-2 py-2.5",
+        "grid min-w-0 grid-cols-[44px_minmax(0,1fr)] items-center gap-2.5 rounded-[14px] px-2 py-2.5",
         props.selected && "bg-selected",
       )}
     >
@@ -893,10 +893,10 @@ function BotRow(props: {
 function ComposerMock(props: { running: boolean }) {
   return (
     <div
-      className="flex w-full flex-col gap-1 rounded-2xl border border-line bg-card p-1.5"
+      className="flex w-full flex-col gap-1 rounded-2xl border border-line bg-card p-2"
       style={{ ["--composer-radius" as string]: "1rem" }}
     >
-      <p className="min-h-8 px-2 py-0.5 text-[14px] leading-5 text-muted">
+      <p className="min-h-9 px-2 py-1 text-[14px] leading-[1.5] text-muted">
         Message Chief
       </p>
       <div className="flex items-center justify-end gap-1.5">
@@ -907,7 +907,7 @@ function ComposerMock(props: { running: boolean }) {
             type="button"
             variant="default"
             size="icon"
-            className="size-8 rounded-full bg-ink text-[var(--bg)] hover:bg-ink"
+            className="size-8 rounded-full bg-ink text-on-ink hover:bg-ink"
             aria-label="Stop now"
           >
             <SquareIcon className="size-3.5 fill-current" />
@@ -919,7 +919,7 @@ function ComposerMock(props: { running: boolean }) {
             type="button"
             variant="default"
             size="icon"
-            className="size-8 rounded-full bg-ink text-[var(--bg)] hover:bg-ink disabled:bg-ink/35 disabled:text-[var(--bg)] disabled:opacity-100"
+            className="size-8 rounded-full bg-ink text-on-ink hover:bg-ink disabled:bg-ink/35 disabled:text-on-ink disabled:opacity-100"
             aria-label="Send message"
           >
             <ArrowUpIcon className="size-4" />

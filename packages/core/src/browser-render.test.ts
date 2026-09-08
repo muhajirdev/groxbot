@@ -60,4 +60,30 @@ describe("browser-render", () => {
       html: "<html></html>",
     });
   });
+
+  it("attaches screenshot bytes as base64 for the model", async () => {
+    const workspace = {
+      readFile: async () => null,
+      writeFileBytes: async () => {},
+      mkdir: async () => {},
+    };
+    const browser = {
+      quickAction: vi.fn(async () =>
+        new Response(new Uint8Array([1, 2, 3]), { status: 200 }),
+      ),
+    };
+    const result = await runBrowserQuickAction(
+      browser,
+      workspace,
+      "screenshot",
+      { html: "<html></html>", out: "workspace/shot.png" },
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      path: "workspace/shot.png",
+      bytes: 3,
+      mediaType: "image/png",
+    });
+    expect(result.ok && result.data).toBeTruthy();
+  });
 });

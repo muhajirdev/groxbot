@@ -10,6 +10,7 @@ import {
   HOSTED_STARTER_MODEL,
   labelForModel,
   officeUserFromHeaders,
+  reasoningFromEffort,
   stampIncomingOfficeUser,
 } from "@groxbot/contracts";
 import {
@@ -387,6 +388,7 @@ export class RoomActor extends RoomHome {
           tools,
           signal: abort.signal,
           stripThoughtReplay,
+          reasoning: brain.reasoning,
           getSteeringMessages: () => this.roomSteer.drainMessages(),
           getFollowUpMessages: () => this.roomSteer.drainMessages(),
           onEvent: async (event) => {
@@ -500,6 +502,7 @@ export class RoomActor extends RoomHome {
       return {
         streamFn: null,
         model: piCompletionsModel(HOSTED_STARTER_MODEL),
+        reasoning: undefined,
         soulPrompt: "",
       };
     }
@@ -531,6 +534,7 @@ export class RoomActor extends RoomHome {
     return {
       streamFn,
       model,
+      reasoning: reasoningFromEffort(overlay.effort),
       soulPrompt: teammatePrompt({
         ...bot,
         modelLabel: labelForModel(turnModel),

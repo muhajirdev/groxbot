@@ -374,13 +374,16 @@ export async function updateBot(
     avatarColor?: string;
     avatarShape?: string;
     model?: string;
+    effort?: string;
     compactOffice?: boolean;
     visibility?: "private" | "shared";
   },
 ): Promise<Bot> {
   const { bot, thread } = await getBotThread(context, actor, input.botId);
   const previousModel = bot.model;
+  const previousEffort = bot.effort;
   const model = input.model !== undefined ? input.model.trim() : bot.model;
+  const effort = input.effort !== undefined ? input.effort.trim() : bot.effort;
   if (input.model !== undefined && model) {
     const problem = validateModelId(model);
     if (problem) throw new ORPCError("BAD_REQUEST", { message: problem });
@@ -426,6 +429,7 @@ export async function updateBot(
       avatarColor: input.avatarColor ?? bot.avatarColor,
       avatarShape: input.avatarShape ?? bot.avatarShape,
       model,
+      effort,
       visibility,
       updatedAt: new Date(),
     })
@@ -438,10 +442,12 @@ export async function updateBot(
   if (!updated) throw new ORPCError("NOT_FOUND", { message: "Bot not found" });
   const modelChanged =
     input.model !== undefined && updated.model !== previousModel;
-  if (modelChanged && context.reloadBrain) {
+  const effortChanged =
+    input.effort !== undefined && updated.effort !== previousEffort;
+  if ((modelChanged || effortChanged) && context.reloadBrain) {
     try {
       await context.reloadBrain(updated.homeRoomId, {
-        compact: Boolean(input.compactOffice),
+        compact: Boolean(modelChanged && input.compactOffice),
       });
     } catch (error) {
       console.error("bot reload brain", updated.id, error);

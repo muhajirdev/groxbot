@@ -33,6 +33,8 @@ export const bots = pgTable(
     guestKind: text("guest_kind").notNull().default("off"),
     /** Empty = workspace default model from user_model_credentials. */
     model: text("model").notNull().default(""),
+    /** Empty = workspace default effort. off | low | medium | high | xhigh. */
+    effort: text("effort").notNull().default(""),
     /**
      * private = owner’s teammate. shared = office contact.
      * New hires insert shared unless the create form opts into private.
@@ -434,6 +436,8 @@ export const workspaceModels = pgTable("workspace_models", {
     .primaryKey()
     .references(() => organization.id, { onDelete: "cascade" }),
   defaultModel: text("default_model").notNull(),
+  /** off | low | medium | high | xhigh. */
+  effort: text("effort").notNull().default("off"),
   updatedBy: text("updated_by")
     .notNull()
     .references(() => user.id),

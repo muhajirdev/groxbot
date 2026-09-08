@@ -1,4 +1,4 @@
-import type { ModelProvider } from "@groxbot/contracts";
+import type { ModelProvider, ThinkingEffort } from "@groxbot/contracts";
 import {
   CLOUDFLARE_PROVIDER,
   CUSTOM_MODEL_SENTINEL,
@@ -8,6 +8,7 @@ import {
   PROVIDER_META,
   PROVIDER_ORDER,
   pickerCatalog,
+  THINKING_EFFORT_OPTIONS,
 } from "@groxbot/contracts";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -42,6 +43,7 @@ export function YouScreen({ navigation }: Props) {
   const [cfGateway, setCfGateway] = useState<string>(DEFAULT_AI_GATEWAY_ID);
   const [defaultModel, setDefaultModel] = useState("");
   const [customModel, setCustomModel] = useState("");
+  const [effort, setEffort] = useState<ThinkingEffort>("off");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -63,6 +65,7 @@ export function YouScreen({ navigation }: Props) {
         : CUSTOM_MODEL_SENTINEL,
     );
     setCustomModel(listed ? "" : settings.defaultModelId);
+    setEffort(settings.effort);
     if (settings.keys.find((item) => item.provider === CLOUDFLARE_PROVIDER)) {
       const cf = settings.keys.find(
         (item) => item.provider === CLOUDFLARE_PROVIDER,
@@ -132,6 +135,7 @@ export function YouScreen({ navigation }: Props) {
           defaultModel === CUSTOM_MODEL_SENTINEL
             ? customModel.trim()
             : undefined,
+        effort,
         keys: keys.length > 0 ? keys : [{ provider: "openrouter" }],
       });
       queryClient.setQueryData(orpc.models.get.queryOptions().queryKey, next);
@@ -218,6 +222,21 @@ export function YouScreen({ navigation }: Props) {
           onChangeText={setCustomModel}
         />
       ) : null}
+      <Text style={styles.section}>Effort</Text>
+      <Text style={styles.body}>
+        How hard the model thinks. Off skips reasoning.
+      </Text>
+      {THINKING_EFFORT_OPTIONS.map((item) => (
+        <Pressable
+          key={item.value}
+          onPress={() => setEffort(item.value)}
+          style={styles.option}
+        >
+          <Text style={effort === item.value ? styles.on : styles.body}>
+            {item.label}
+          </Text>
+        </Pressable>
+      ))}
       <Text style={styles.section}>Keys</Text>
       {PROVIDER_ORDER.map((provider) => {
         const status = modelsQuery.data?.keys.find(

@@ -4,6 +4,7 @@ import type {
   ModelSettings,
   OpenAiCodexAuth,
   SaveModelSettingsInput,
+  ThinkingEffort,
 } from "@groxbot/contracts";
 import {
   ANTHROPIC_PROVIDER,
@@ -29,6 +30,7 @@ import {
   OPENAI_PROVIDER,
   OPENROUTER_PROVIDER,
   openAiCodexHint,
+  parseThinkingEffort,
   PRODUCT_RUNTIME,
   PROVIDER_META,
   PROVIDER_ORDER,
@@ -36,6 +38,7 @@ import {
   parseOpenAiCodexAuth,
   providerForModel,
   resolveStoredModelId,
+  resolveTurnEffort,
   SUGGESTED_STARTER_MODEL,
   validateCloudflareAccountId,
   validateModelId,
@@ -89,6 +92,7 @@ const PROCESS_MODEL_ENV = [
 export interface ModelOverlay {
   env: NodeJS.ProcessEnv;
   model: string;
+  effort: ThinkingEffort;
   configured: boolean;
   /** True when this turn uses Groxbot’s included Cloudflare AI Gateway. */
   hosted: boolean;
@@ -367,6 +371,7 @@ export async function loadModelSettings(
     defaultModel: listed ? defaultModelId : CUSTOM_MODEL_SENTINEL,
     customModel: listed ? "" : defaultModelId,
     defaultModelId,
+    effort: parseThinkingEffort(workspace?.effort),
     fromEnv: Boolean(hosted),
     hostedGateway: Boolean(hosted),
     runtime,
@@ -518,6 +523,7 @@ export async function saveModelSettings(
       .update(workspaceModels)
       .set({
         defaultModel,
+        ...(input.effort !== undefined ? { effort: input.effort } : {}),
         updatedBy: actor.userId,
         updatedAt: now,
       })
@@ -526,6 +532,7 @@ export async function saveModelSettings(
     await db.insert(workspaceModels).values({
       workspaceId: actor.workspaceId,
       defaultModel,
+      effort: input.effort ?? "off",
       updatedBy: actor.userId,
       updatedAt: now,
     });
@@ -638,7 +645,12 @@ async function upsertCredential(
 
 export async function resolveRunModel(
   db: Database,
-  bot: { userId: string; workspaceId: string; model?: string | null },
+  bot: {
+    userId: string;
+    workspaceId: string;
+    model?: string | null;
+    effort?: string | null;
+  },
   baseEnv: NodeJS.ProcessEnv,
   secret: string,
 ): Promise<ModelOverlay> {
@@ -668,6 +680,7 @@ export async function resolveRunModel(
   return {
     env,
     model: runModel,
+    effort: resolveTurnEffort(bot.effort, settings.effort),
     configured,
     hosted: usedHosted && providerForModel(runModel) === CLOUDFLARE_PROVIDER,
   };
@@ -677,7 +690,7 @@ async function loadStoredEnv(
   db: Database,
   workspaceId: string,
   secret: string,
-): Promise<{ env: NodeJS.ProcessEnv; defaultModel: string }> {
+): Promise<{ env: NodeJS.ProcessEnv; defaultModel: string; effort: ThinkingEffort }> {
   const creds = await db
     .select()
     .from(userModelCredentials)
@@ -742,7 +755,7 @@ async function loadStoredEnv(
     }
     if (!defaultModel && row.defaultModel) defaultModel = row.defaultModel;
   }
-  return { env, defaultModel };
+  return { env, defaultModel, effort: parseThinkingEffort(workspace?.effort) };
 }
 
 export async function persistOpenAiCodexAuth(

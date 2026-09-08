@@ -80,6 +80,7 @@ describe("model pickers", () => {
       const source = readFileSync(join(root, file), "utf8");
       expect(source).toContain("<ModelField");
       expect(source).not.toMatch(/<select\b/);
+      expect(source).toContain("<EffortField");
     }
   });
 });

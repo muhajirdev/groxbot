@@ -51,6 +51,8 @@ describe("draftCreatedBot", () => {
     expect(bot.archivedAt).toBeNull();
     expect(bot.pinnedAt).toBeNull();
     expect(bot.sectionId).toBeNull();
+    expect(bot.model).toBe("");
+    expect(bot.effort).toBe("");
   });
 
   it("can draft a private teammate", () => {

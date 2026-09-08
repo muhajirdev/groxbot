@@ -3,6 +3,9 @@ import {
   catalogGroupLabel,
   PROVIDER_ORDER,
   pickerCatalog,
+  THINKING_EFFORT_OPTIONS,
+  thinkingEffortLabel,
+  parseBotEffort,
 } from "@groxbot/contracts";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -35,6 +38,7 @@ export function BotSettingsScreen({ navigation, route }: Props) {
   const [shape, setShape] = useState<(typeof AVATAR_SHAPES)[number]>("circle");
   const [model, setModel] = useState("");
   const [customModel, setCustomModel] = useState("");
+  const [effort, setEffort] = useState<ReturnType<typeof parseBotEffort>>("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -48,6 +52,7 @@ export function BotSettingsScreen({ navigation, route }: Props) {
     );
     setModel(listed || !bot.model ? bot.model : CUSTOM_MODEL_SENTINEL);
     setCustomModel(listed ? "" : bot.model);
+    setEffort(parseBotEffort(bot.effort));
   }, [bot, modelsQuery.data]);
 
   if (!bot) {
@@ -77,6 +82,7 @@ export function BotSettingsScreen({ navigation, route }: Props) {
         avatarColor: color,
         avatarShape: shape,
         model: nextModel,
+        effort,
       });
       await queryClient.invalidateQueries({ queryKey: orpc.bots.get.key() });
       await queryClient.invalidateQueries({ queryKey: orpc.bots.list.key() });
@@ -204,6 +210,24 @@ export function BotSettingsScreen({ navigation, route }: Props) {
           onChangeText={setCustomModel}
         />
       ) : null}
+      <Text style={styles.section}>Effort</Text>
+      <Pressable onPress={() => setEffort("")} style={styles.option}>
+        <Text style={effort === "" ? styles.on : styles.body}>
+          Workspace default (
+          {thinkingEffortLabel(modelsQuery.data?.effort ?? "off")})
+        </Text>
+      </Pressable>
+      {THINKING_EFFORT_OPTIONS.map((item) => (
+        <Pressable
+          key={item.value}
+          onPress={() => setEffort(item.value)}
+          style={styles.option}
+        >
+          <Text style={effort === item.value ? styles.on : styles.body}>
+            {item.label}
+          </Text>
+        </Pressable>
+      ))}
       <Button label="Save" onPress={() => void save()} busy={busy} />
       <Button
         label={pinned ? "Unpin" : "Pin"}

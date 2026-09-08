@@ -1,11 +1,11 @@
 export const OFFICE_COLOR_KEY = "groxbot.officeColor";
 
 export const OFFICE_COLORS = [
-  { id: "linear", label: "Linear", swatch: "#0f1011", theme: "dark" },
-  { id: "night", label: "Night", swatch: "#0c152c", theme: "dark" },
-  { id: "snow", label: "Snow", swatch: "#ffffff", theme: "light" },
-  { id: "paper", label: "Paper", swatch: "#f7f0e4", theme: "light" },
-  { id: "blush", label: "Blush", swatch: "#f3c2d2", theme: "light" },
+  { id: "linear", label: "Linear", blurb: "Charcoal, quiet chrome", swatch: "#131315", rail: "#0d0d0e", theme: "dark" },
+  { id: "night", label: "Night", blurb: "Navy desk", swatch: "#0c152c", rail: "#060a18", theme: "dark" },
+  { id: "snow", label: "Snow", blurb: "Dark rail, white pane", swatch: "#ffffff", rail: "#0d0d0e", theme: "light" },
+  { id: "paper", label: "Paper", blurb: "Kraft and cream", swatch: "#f7f0e4", rail: "#d4c4ae", theme: "light" },
+  { id: "blush", label: "Blush", blurb: "Rose", swatch: "#f3c2d2", rail: "#e89ab4", theme: "light" },
 ] as const;
 
 export type OfficeColorId = (typeof OFFICE_COLORS)[number]["id"];

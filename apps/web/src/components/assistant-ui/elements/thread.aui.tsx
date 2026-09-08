@@ -204,7 +204,7 @@ const ThreadRoot: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
         ["--thread-max-width" as string]: "100%",
         ["--composer-bg" as string]: "var(--color-card)",
         ["--composer-radius" as string]: "1rem",
-        ["--composer-padding" as string]: "6px",
+        ["--composer-padding" as string]: "8px",
       }}
     >
       <ComposerPrimitive.AttachmentDropzone
@@ -216,7 +216,7 @@ const ThreadRoot: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
         data-slot="aui_thread-viewport"
         className="relative flex flex-1 flex-col overflow-x-hidden overflow-y-auto scroll-smooth"
       >
-        <div className="mx-auto flex min-h-full w-full max-w-(--thread-max-width) flex-1 flex-col px-3 pt-2 min-[721px]:px-5 min-[721px]:pt-3">
+        <div className="mx-auto flex min-h-full w-full max-w-(--thread-max-width) flex-1 flex-col px-4 pt-2.5 min-[721px]:px-5 min-[721px]:pt-3">
           <AuiIf condition={isHistoryLoadingView}>
             <ThreadHistorySkeleton />
           </AuiIf>
@@ -310,7 +310,7 @@ const MessageDaySep: FC = () => {
   return (
     <div
       data-slot="aui_message-day"
-      className="my-2.5 mb-1 text-center text-xs text-muted-foreground"
+      className="my-3 mb-1.5 text-center text-xs text-muted-foreground"
     >
       {label}
     </div>
@@ -348,7 +348,7 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
         <ComposerAttachments />
         <ComposerPrimitive.Input
           placeholder={placeholder}
-          className="aui-composer-input caret-primary placeholder:text-muted-foreground/60 max-h-40 min-h-8 w-full resize-none bg-transparent px-2 py-0.5 text-base leading-5 outline-none min-[721px]:text-[14px]"
+          className="aui-composer-input caret-primary text-ink placeholder:text-muted-foreground/60 max-h-40 min-h-9 w-full resize-none bg-transparent px-2 py-1 text-base leading-[1.5] outline-none min-[721px]:text-[14px]"
           rows={1}
           autoFocus={autoFocus}
           enterKeyHint="send"
@@ -364,7 +364,7 @@ const composerSlotIsStop = (pending: boolean) => (s: AssistantState) =>
   (s.thread.isRunning || pending) && !s.composer.text.trim();
 
 const COMPOSER_PRIMARY_BTN =
-  "size-8 rounded-full bg-ink text-[var(--bg)] hover:bg-ink disabled:bg-ink/35 disabled:text-[var(--bg)] disabled:opacity-100";
+  "size-8 rounded-full bg-ink text-on-ink hover:bg-ink disabled:bg-ink/35 disabled:text-on-ink disabled:opacity-100";
 
 const ComposerAction: FC = () => {
   const { pending } = useContext(ThreadChromeContext);
@@ -435,7 +435,7 @@ const AssistantMessage: FC = () => {
         className="fade-in slide-in-from-bottom-1 animate-in relative duration-150"
       >
         <div className="office-learned px-2 py-2">
-          <span className="office-learned-kicker">Filed</span>
+          <span className="office-learned-kicker">Learned</span>
           <MessagePrimitive.Parts>
             {({ part }) =>
               part.type === "text" ? (
@@ -458,7 +458,7 @@ const AssistantMessage: FC = () => {
     >
       <div
         data-slot="aui_assistant-message-content"
-        className="text-foreground flex flex-col items-start gap-2 px-2 leading-snug wrap-break-word"
+        className="text-foreground flex flex-col items-start gap-2 px-2 leading-[1.5] wrap-break-word"
       >
         {speakerName ? (
           <div
@@ -555,7 +555,7 @@ const AssistantMessage: FC = () => {
                 return (
                   <div
                     data-slot="aui_assistant-message-bubble"
-                    className="aui-assistant-message-bubble w-fit max-w-[min(92%,36rem)] rounded-[14px] bg-card px-3 py-1.5 text-[14px] leading-snug wrap-break-word empty:hidden min-[721px]:max-w-[min(72%,36rem)] light:bg-card-2 [&_.aui-md-p]:my-1"
+                    className="aui-assistant-message-bubble w-fit max-w-[min(92%,36rem)] rounded-[14px] bg-card px-3.5 py-1.5 text-[14px] leading-[1.5] wrap-break-word empty:hidden min-[721px]:max-w-[min(72%,36rem)] light:bg-card-2 [&_.aui-md-p]:my-1"
                   >
                     <MarkdownText />
                   </div>
@@ -651,7 +651,7 @@ const UserMessage: FC = () => {
             </span>
           </div>
         ) : null}
-        <div className="aui-user-message-content rounded-[14px] bg-card-2 px-3 py-1.5 text-[14px] leading-snug text-foreground wrap-break-word empty:hidden light:border light:border-line light:bg-white">
+        <div className="aui-user-message-content rounded-[14px] bg-card-2 px-3.5 py-1.5 text-[14px] leading-[1.5] text-foreground wrap-break-word empty:hidden light:border light:border-line light:bg-white">
           <MessagePrimitive.Parts
             components={{
               File: () => null,

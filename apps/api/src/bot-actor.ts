@@ -21,8 +21,10 @@ import {
   labelForModel,
   officeUserFromHeaders,
   type OpenAiCodexAuth,
+  reasoningFromEffort,
   type Routine,
   stampIncomingOfficeUser,
+  type ThinkingEffort,
   WORKSPACE_PLAN_REQUIRED_MESSAGE,
 } from "@groxbot/contracts";
 import {
@@ -130,7 +132,7 @@ import { HistoryConnector } from "./bot-history.js";
 import { KnowledgeConnector } from "./bot-knowledge.js";
 import { SkillsStoreConnector } from "./bot-skills-store.js";
 import { createBrowserAgentTools } from "./bot-browser.js";
-import { bindToMarkdown, createPageAgentTools } from "./bot-markdown.js";
+import { bindToMarkdown, createPageAgentTools, runToMarkdownTool } from "./bot-markdown.js";
 import { WorkspaceMcpConnector } from "./bot-mcp-connector.js";
 import {
   type OfficeChatSubscriber,
@@ -312,6 +314,7 @@ export class RoomHome extends Agent<WorkerEnv> {
   private soulPrompt = "You are a helpful teammate.";
   private hireName = "";
   private turnModel = HOSTED_STARTER_MODEL;
+  private turnEffort: ThinkingEffort = "off";
   private turnEnv: RuntimeSource = {};
   private botLoaded = false;
   private botLoading: Promise<void> | null = null;
@@ -449,6 +452,8 @@ export class RoomHome extends Agent<WorkerEnv> {
               new TextEncoder().encode(content),
             );
           },
+          readDocument: async ({ path, offset }) =>
+            runToMarkdownTool(page, { path, offset }),
         },
       ),
       ...createPageAgentTools(page),
@@ -828,6 +833,7 @@ export class RoomHome extends Agent<WorkerEnv> {
             intro ? [] : this.officeSteer.drainMessages(),
           getFollowUpMessages: () =>
             intro ? [] : this.officeSteer.drainMessages(),
+          reasoning: reasoningFromEffort(this.turnEffort),
           onEvent: async (event) => {
             if (!firstModelEvent) {
               firstModelEvent = true;
@@ -1592,6 +1598,7 @@ export class RoomHome extends Agent<WorkerEnv> {
       encryptionSecret(source, env.production),
     );
     this.turnModel = overlay.model || HOSTED_STARTER_MODEL;
+    this.turnEffort = overlay.effort;
     this.turnEnv = overlay.env;
     this.soulPrompt = teammatePrompt({
       ...bot,
@@ -1710,7 +1717,7 @@ export class RoomHome extends Agent<WorkerEnv> {
 
   /**
    * After enough tool work, file on an idle snapshot turn. The kick stays off
-   * the office log; a real write shows one Filed line in the thread.
+   * the office log; a real write shows one Learned line in the thread.
    */
   private enqueueOfficeReview(result: {
     status: string;
@@ -1812,6 +1819,7 @@ export class RoomHome extends Agent<WorkerEnv> {
         streamFn,
         tools,
         signal: abort.signal,
+        reasoning: reasoningFromEffort(this.turnEffort),
       });
       if (result.stopReason === "aborted" || abort.signal.aborted) {
         await this.ctx.storage.put(OFFICE_REVIEW_STORAGE, counters);

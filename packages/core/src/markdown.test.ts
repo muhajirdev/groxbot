@@ -165,6 +165,17 @@ describe("runToMarkdown", () => {
   });
 });
 
+describe("toMarkdownSpillPath", () => {
+  it("keeps PDF and PNG spills distinct when they share a stem", () => {
+    expect(toMarkdownSpillPath("invoice-sinemart-2026-001.pdf")).toBe(
+      "/workspace/.tool-output/invoice-sinemart-2026-001.pdf.md",
+    );
+    expect(toMarkdownSpillPath("invoice-sinemart-2026-001.png")).toBe(
+      "/workspace/.tool-output/invoice-sinemart-2026-001.png.md",
+    );
+  });
+});
+
 describe("presentToMarkdown", () => {
   it("returns a ~19k conversion in one page", () => {
     const markdown = "n".repeat(19_662);
@@ -217,10 +228,15 @@ describe("presentToMarkdown", () => {
         mimeType: "application/pdf",
         markdown,
       },
-      { spillPath: spill },
+      { spillPath: spill, continuePath: "inbox/scope-sinemart-finance-ops.pdf" },
     );
-    expect(spill).toBe("/workspace/.tool-output/scope-sinemart-finance-ops.md");
+    expect(spill).toBe(
+      "/workspace/.tool-output/scope-sinemart-finance-ops.pdf.md",
+    );
     expect(text).toContain(spill);
+    expect(text).toContain(
+      'read({ path: "inbox/scope-sinemart-finance-ops.pdf"',
+    );
     expect(text).toMatch(/Use offset=\d+ to continue/);
     expect(text).toContain("do not convert again");
     expect(text.length).toBeLessThan(markdown.length);
@@ -266,7 +282,7 @@ describe("persistToMarkdownPage", () => {
       },
     );
     expect(page).toBe(markdown);
-    expect(files.get("/workspace/.tool-output/scope.md")).toBe(markdown);
+    expect(files.get("/workspace/.tool-output/scope.pdf.md")).toBe(markdown);
   });
 });
 
@@ -291,7 +307,9 @@ describe("runToMarkdownPaged", () => {
       sanitizePath: (path) => path,
     });
     expect(first).toBe("hello from pdf");
-    expect(disk.get("/workspace/.tool-output/scope.md")).toBe("hello from pdf");
+    expect(disk.get("/workspace/.tool-output/scope.pdf.md")).toBe(
+      "hello from pdf",
+    );
     expect(converts).toBe(1);
 
     const again = await runToMarkdownPaged({

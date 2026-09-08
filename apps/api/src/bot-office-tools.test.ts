@@ -159,6 +159,28 @@ describe("officeAgentTool", () => {
     await expect(tool.execute("call_1", {})).rejects.toThrow(/not both/);
   });
 
+  it("does not stringify an image tool result into the text dump", async () => {
+    const png = "abc";
+    const tool = officeAgentTool({
+      name: "render_screenshot",
+      description: "shot",
+      parameters: z.object({}),
+      execute: async () => ({
+        content: [
+          { type: "text" as const, text: "Screenshot saved to workspace/a.png (3 bytes)." },
+          { type: "image" as const, data: png, mimeType: "image/png" },
+        ],
+        details: { path: "workspace/a.png", mediaType: "image/png", bytes: 3 },
+      }),
+    });
+    const result = await tool.execute("call_1", {});
+    expect(result.content).toEqual([
+      { type: "text", text: "Screenshot saved to workspace/a.png (3 bytes)." },
+      { type: "image", data: png, mimeType: "image/png" },
+    ]);
+    expect(JSON.stringify(result.details)).not.toContain(png);
+  });
+
   it("does not 8k-cap a 19k to_markdown page", async () => {
     const body = "n".repeat(19_662);
     const tool = officeAgentTool({
@@ -201,7 +223,7 @@ describe("aiToolToPi", () => {
     );
   });
 
-  it("refuses a base64 PDF from read", async () => {
+  it("refuses a base64 PDF from read when conversion is not wired", async () => {
     const tool = aiToolToPi("read", {
       execute: async () => ({
         kind: "file",
@@ -213,6 +235,80 @@ describe("aiToolToPi", () => {
     await expect(
       tool!.execute("call_1", { path: "/inbox/scope.pdf" }),
     ).rejects.toThrow(/to_markdown/);
+  });
+
+  it("converts a PDF inside read and skips the computer dump", async () => {
+    const execute = vi.fn(async () => ({
+      kind: "file",
+      path: "/inbox/scope.pdf",
+      mediaType: "application/pdf",
+      data: "JVBERi0xLjQK",
+    }));
+    const readDocument = vi.fn(async () => "# Scope\n\nHello from pdf");
+    const tool = aiToolToPi(
+      "read",
+      { execute },
+      { readDocument },
+    );
+    const result = await tool!.execute("call_1", {
+      path: "inbox/scope.pdf",
+      offset: 1,
+    });
+    expect(execute).not.toHaveBeenCalled();
+    expect(readDocument).toHaveBeenCalledWith({
+      path: "/inbox/scope.pdf",
+      offset: 1,
+    });
+    const text = result.content[0];
+    expect(text?.type).toBe("text");
+    if (text?.type === "text") {
+      expect(text.text).toContain("# Scope");
+      expect(text.text).toContain("Hello from pdf");
+    }
+  });
+
+  it("does not convert a PNG through readDocument — it attaches the image", async () => {
+    const png =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+    const execute = vi.fn(async () => ({
+      kind: "file",
+      path: "/workspace/invoice.png",
+      mediaType: "image/png",
+      data: png,
+    }));
+    const readDocument = vi.fn(async () => "# caption");
+    const tool = aiToolToPi("read", { execute }, { readDocument });
+    const result = await tool!.execute("call_1", {
+      path: "/workspace/invoice.png",
+    });
+    expect(readDocument).not.toHaveBeenCalled();
+    expect(execute).toHaveBeenCalled();
+    expect(result.content).toEqual([
+      {
+        type: "text",
+        text: "Read image file [image/png] workspace/invoice.png",
+      },
+      { type: "image", data: png, mimeType: "image/png" },
+    ]);
+  });
+
+  it("does not convert a text file through readDocument", async () => {
+    const execute = vi.fn(async () => ({
+      path: "/workspace/notes.md",
+      content: "# hi",
+      startLine: 1,
+      endLine: 1,
+    }));
+    const readDocument = vi.fn(async () => "converted");
+    const tool = aiToolToPi("read", { execute }, { readDocument });
+    const result = await tool!.execute("call_1", { path: "notes.md" });
+    expect(readDocument).not.toHaveBeenCalled();
+    expect(execute).toHaveBeenCalled();
+    const text = result.content[0];
+    expect(text?.type).toBe("text");
+    if (text?.type === "text") {
+      expect(text.text).toContain("# hi");
+    }
   });
 
   it("returns read text with an offset footer, not a JSON blob", async () => {

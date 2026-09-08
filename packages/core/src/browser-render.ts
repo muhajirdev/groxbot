@@ -1,6 +1,6 @@
 /** Resolve HTML/URL/path and write Browser Run PDF/PNG onto the computer. */
 
-import { sanitizeComputerPath } from "./computer.js";
+import { encodeComputerBytes, sanitizeComputerPath } from "./computer.js";
 
 export type BrowserRenderDisk = {
   readFile(path: string): Promise<string | null>;
@@ -30,6 +30,8 @@ export type BrowserRenderOk = {
   path: string;
   bytes: number;
   mediaType: string;
+  /** Base64 PNG when this is a screenshot, so the model can see it. */
+  data?: string;
 };
 
 export type BrowserRenderErr = { ok: false; message: string };
@@ -158,5 +160,8 @@ export async function runBrowserQuickAction(
     path: out,
     bytes: bytes.length,
     mediaType: action === "pdf" ? "application/pdf" : "image/png",
+    ...(action === "screenshot"
+      ? { data: encodeComputerBytes(bytes) }
+      : {}),
   };
 }

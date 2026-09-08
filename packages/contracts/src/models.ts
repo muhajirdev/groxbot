@@ -348,11 +348,76 @@ export const ModelCatalogItemSchema = z.object({
 });
 export type ModelCatalogItem = z.infer<typeof ModelCatalogItemSchema>;
 
+/**
+ * How hard the model thinks. `off` skips reasoning tokens.
+ * Subset of Pi `ThinkingLevel` (no minimal/max).
+ */
+export const ThinkingEffort = z.enum(["off", "low", "medium", "high", "xhigh"]);
+export type ThinkingEffort = z.infer<typeof ThinkingEffort>;
+
+export const THINKING_EFFORT_LABELS: Record<ThinkingEffort, string> = {
+  off: "Off",
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  xhigh: "Extra high",
+};
+
+export const THINKING_EFFORT_OPTIONS: Array<{
+  value: ThinkingEffort;
+  label: string;
+}> = ThinkingEffort.options.map((value) => ({
+  value,
+  label: THINKING_EFFORT_LABELS[value],
+}));
+
+export function thinkingEffortLabel(effort: string): string {
+  const parsed = ThinkingEffort.safeParse(effort);
+  return parsed.success ? THINKING_EFFORT_LABELS[parsed.data] : "Off";
+}
+
+export function parseThinkingEffort(
+  value: string | null | undefined,
+): ThinkingEffort {
+  const parsed = ThinkingEffort.safeParse(value?.trim());
+  return parsed.success ? parsed.data : "off";
+}
+
+/** Empty = inherit the workspace default. */
+export function parseBotEffort(
+  value: string | null | undefined,
+): "" | ThinkingEffort {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return "";
+  return parseThinkingEffort(trimmed);
+}
+
+export function resolveTurnEffort(
+  botEffort?: string | null,
+  workspaceEffort?: string | null,
+): ThinkingEffort {
+  const override = botEffort?.trim() ?? "";
+  if (override) {
+    const parsed = ThinkingEffort.safeParse(override);
+    if (parsed.success) return parsed.data;
+  }
+  return parseThinkingEffort(workspaceEffort);
+}
+
+/** Pi `SimpleStreamOptions.reasoning` has no `off`. */
+export function reasoningFromEffort(
+  effort: ThinkingEffort,
+): Exclude<ThinkingEffort, "off"> | undefined {
+  return effort === "off" ? undefined : effort;
+}
+
 export const ModelSettingsSchema = z.object({
   keys: z.array(ModelKeyStatusSchema),
   defaultModel: z.string(),
   customModel: z.string(),
   defaultModelId: z.string(),
+  /** Workspace default. Cached settings without this field parse as off. */
+  effort: ThinkingEffort.default("off"),
   fromEnv: z.boolean(),
   hostedGateway: z.boolean(),
   runtime: z.literal(PRODUCT_RUNTIME),
@@ -383,6 +448,8 @@ export const SaveModelSettingsInput = z.object({
   keys: z.array(SaveModelKeyInput).max(10),
   defaultModel: z.string().min(1).max(200),
   customModel: z.string().max(200).optional(),
+  /** Omitted keeps the stored workspace effort. */
+  effort: ThinkingEffort.optional(),
 });
 export type SaveModelSettingsInput = z.infer<typeof SaveModelSettingsInput>;
 

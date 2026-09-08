@@ -123,7 +123,7 @@ function fallbackGatewayModel(id: string): Model<"openai-completions"> {
     compat: {
       supportsStore: false,
       supportsDeveloperRole: false,
-      supportsReasoningEffort: false,
+      supportsReasoningEffort: true,
       maxTokensField: "max_tokens",
       supportsStrictMode: false,
       supportsLongCacheRetention: false,
@@ -139,7 +139,7 @@ function fallbackOpenRouterModel(id: string): Model<"openai-completions"> {
     api: "openai-completions",
     provider: OPENROUTER_PROVIDER,
     baseUrl: "https://openrouter.ai/api/v1",
-    reasoning: false,
+    reasoning: true,
     input: ["text"],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: 128_000,
@@ -171,6 +171,7 @@ export function resolvePiAiModel(
     return {
       ...cloneCompletions(template, id),
       provider: GROX_GATEWAY_PROVIDER,
+      input: ["text", "image"],
       baseUrl: baseUrl.endsWith("/v1") || baseUrl.endsWith("/compat")
         ? baseUrl
         : `${baseUrl}/v1`,

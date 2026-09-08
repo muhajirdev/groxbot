@@ -39,5 +39,6 @@ describe("draftCreatedBot", () => {
     expect(bot.homeRoomId).toBe("bot-1");
     expect(bot.guestKind).toBe("off");
     expect(bot.visibility).toBe("shared");
+    expect(bot.effort).toBe("");
   });
 });

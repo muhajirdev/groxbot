@@ -70,5 +70,14 @@ describe("office color", () => {
       "paper",
       "blush",
     ]);
+    expect(OFFICE_COLORS.find((color) => color.id === "linear")?.blurb).toBe(
+      "Charcoal, quiet chrome",
+    );
+    expect(OFFICE_COLORS.find((color) => color.id === "snow")?.blurb).toBe(
+      "Dark rail, white pane",
+    );
+    expect(OFFICE_COLORS.find((color) => color.id === "snow")?.rail).toBe(
+      "#0d0d0e",
+    );
   });
 });

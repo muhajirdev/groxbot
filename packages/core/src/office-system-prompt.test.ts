@@ -136,16 +136,19 @@ describe("buildOfficeSystemPrompt", () => {
         { name: "read" },
         { name: "list" },
         { name: "to_markdown" },
+        { name: "render_screenshot" },
       ],
     });
     expect(prompt).toMatch(/inbox is not under \/workspace/);
-    expect(prompt).toMatch(/to_markdown, not read/);
+    expect(prompt).toMatch(/read converts them to markdown/);
+    expect(prompt).toMatch(/read shows the picture/);
     expect(prompt).toMatch(/omit empty html/);
     expect(prompt).toMatch(/read again with offset/);
     expect(prompt).toMatch(/already has the markdown/);
     expect(prompt).toMatch(/do not cat, grep, or read the spill/);
     expect(prompt).toMatch(/when the result says to/);
     expect(prompt).toMatch(/do not convert again/);
+    expect(prompt).toMatch(/do not read the PNG to see it/);
   });
 });
 

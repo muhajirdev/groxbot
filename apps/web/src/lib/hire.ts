@@ -89,6 +89,7 @@ export function draftCreatedBot(input: {
     guestKind: "off",
     guestOnline: false,
     model: "",
+    effort: "",
     lastPreview: "",
     lastAt: now,
     archivedAt: null,

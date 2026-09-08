@@ -1,6 +1,7 @@
 /** Cloudflare-only. Browser Run Quick Actions → files on this computer. */
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import {
+  officeImageToolResult,
   runBrowserQuickAction,
   type BrowserQuickAction,
   type BrowserRenderDisk,
@@ -13,7 +14,7 @@ export const RENDER_PDF_DESCRIPTION =
   "Render HTML or a public URL to a PDF on this computer (Cloudflare Browser). Pass html, url, or path to an HTML file. Do not use for ordinary page reading — use fetch_url.";
 
 export const RENDER_SCREENSHOT_DESCRIPTION =
-  "Capture a PNG screenshot of HTML or a public URL on this computer (Cloudflare Browser). Pass html, url, or path to an HTML file. Do not use for ordinary page reading — use fetch_url.";
+  "Capture a PNG screenshot of HTML or a public URL on this computer (Cloudflare Browser). The result includes the image so you can check layout — do not read the PNG to see it. Pass html, url, or path to an HTML file. Do not use for ordinary page reading — use fetch_url.";
 
 const pageSourceFields = {
   html: z
@@ -83,8 +84,19 @@ export function createBrowserAgentTools(opts: BrowserToolsOpts): AgentTool[] {
       name: "render_screenshot",
       description: RENDER_SCREENSHOT_DESCRIPTION,
       parameters: renderScreenshotParameters,
-      execute: async (input) =>
-        runRenderScreenshotTool(opts, sourceFromInput(input)),
+      execute: async (input) => {
+        const result = await runRenderScreenshotTool(
+          opts,
+          sourceFromInput(input),
+        );
+        if (!result.ok || !result.data) return result;
+        return officeImageToolResult({
+          path: result.path,
+          data: result.data,
+          mimeType: result.mediaType,
+          text: `Screenshot saved to ${result.path} (${result.bytes} bytes).`,
+        });
+      },
     }),
   ];
 }

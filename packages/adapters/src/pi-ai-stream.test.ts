@@ -39,6 +39,9 @@ describe("resolvePiAiModel", () => {
     expect(model.api).toBe("openai-completions");
     expect(model.id).toBe("groxbot/auto");
     expect(model.baseUrl).toBe("https://grox-gateway.example.com/v1");
+    expect(model.input).toEqual(["text", "image"]);
+    expect(model.reasoning).toBe(true);
+    expect(model.compat?.supportsReasoningEffort).toBe(true);
   });
 
   it("keeps hosted OpenRouter catalog ids as groxbot/ for grox-gateway", () => {

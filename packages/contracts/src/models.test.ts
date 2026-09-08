@@ -21,6 +21,10 @@ import {
   catalogGroupLabel,
   pickerCatalog,
   providerForModel,
+  parseBotEffort,
+  parseThinkingEffort,
+  reasoningFromEffort,
+  resolveTurnEffort,
   OPENAI_CODEX_SETUP_STEPS,
   resolveStoredModelId,
   validateCloudflareAccountId,
@@ -299,5 +303,24 @@ describe("model catalog", () => {
     });
     expect(parsed.hostedGateway).toBe(true);
     expect(parsed.usage.totalTokens).toBe(0);
+    expect(parsed.effort).toBe("off");
+  });
+});
+
+describe("thinking effort", () => {
+  it("defaults missing and unknown values to off", () => {
+    expect(parseThinkingEffort(undefined)).toBe("off");
+    expect(parseThinkingEffort("")).toBe("off");
+    expect(parseThinkingEffort("nope")).toBe("off");
+    expect(parseThinkingEffort("high")).toBe("high");
+  });
+
+  it("lets a bot override inherit the workspace default", () => {
+    expect(resolveTurnEffort("", "medium")).toBe("medium");
+    expect(resolveTurnEffort("high", "off")).toBe("high");
+    expect(parseBotEffort("")).toBe("");
+    expect(parseBotEffort("high")).toBe("high");
+    expect(reasoningFromEffort("off")).toBeUndefined();
+    expect(reasoningFromEffort("xhigh")).toBe("xhigh");
   });
 });

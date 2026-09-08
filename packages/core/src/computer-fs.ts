@@ -1,6 +1,11 @@
 /** Adapt `@cloudflare/computer` `workspace.fs` to the office ComputerDisk. */
 
-import { listComputerEntries } from "./computer.js";
+import {
+  encodeComputerBytes,
+  listComputerEntries,
+  mediaTypeForComputerPath,
+  MAX_COMPUTER_WRITE_BYTES,
+} from "./computer.js";
 
 export const COMPUTER_DISK_FLAG = "computer.disk";
 export const COMPUTER_DISK_DOFS = "dofs";
@@ -21,9 +26,9 @@ export const COMPUTER_SHELL_TOOL_DESCRIPTION = [
   "This is not the JavaScript sandbox — that is `code` (knowledge, routines, history).",
 ].join(" ");
 export const COMPUTER_READ_TOOL_DESCRIPTION = [
-  "Read a text file on this computer. Relative or absolute path.",
+  "Read a file on this computer. Relative or absolute path.",
   "Capped at 2000 lines or 50KB. For more, pass offset (1-indexed line) and optional byteOffset.",
-  "PDFs and images: to_markdown — do not read() them.",
+  "PDFs and Office docs convert to markdown in this result. Images (png, jpeg, gif, webp) are shown — you see the picture, not a caption. Convert each document once. If the result already has the markdown, use it — do not cat or grep the spill. Only continue with offset when the result says to.",
 ].join(" ");
 
 export type ComputerWorkerShell = {
@@ -232,11 +237,146 @@ export function rewriteComputerToolArgs(
   return next;
 }
 
+const MARKDOWN_READ_EXT = /\.(pdf|docx|pptx|xlsx|bmp)$/i;
+const IMAGE_READ_EXT = /\.(png|jpe?g|gif|webp)$/i;
 const BINARY_READ_EXT =
   /\.(pdf|png|jpe?g|gif|webp|bmp|zip|docx|pptx|xlsx|mp3|mp4|wav|webm)$/i;
+const IMAGE_MIME = /^image\/(png|jpeg|jpg|gif|webp)$/i;
+
+/** Workers AI `toMarkdown` for PDFs and Office. Images are attached, not captioned. */
+export function computerReadConverts(path: string): boolean {
+  return MARKDOWN_READ_EXT.test(path);
+}
+
+/** Raster files `read` should show to the model (Pi image tool result). */
+export function computerReadShowsImage(path: string): boolean {
+  return IMAGE_READ_EXT.test(path);
+}
+
+export type OfficeImageToolContent =
+  | { type: "text"; text: string }
+  | { type: "image"; data: string; mimeType: string };
+
+export type OfficeImageToolResult = {
+  content: OfficeImageToolContent[];
+  details: { path?: string; mediaType: string; bytes: number };
+};
+
+export function isOfficeImageToolResult(
+  value: unknown,
+): value is OfficeImageToolResult {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const content = (value as { content?: unknown }).content;
+  if (!Array.isArray(content) || content.length === 0) return false;
+  return content.every((part) => isOfficeToolContentPart(part));
+}
+
+export function liveToolResultHasImage(content: unknown): boolean {
+  if (!Array.isArray(content)) return false;
+  return content.some(
+    (part) =>
+      Boolean(part) &&
+      typeof part === "object" &&
+      (part as { type?: unknown }).type === "image",
+  );
+}
+
+export function officeImageToolResult(opts: {
+  path?: string;
+  data: string;
+  mimeType: string;
+  text?: string;
+}): OfficeImageToolResult {
+  const rel = opts.path
+    ? computerRelativePath(computerAbsolutePath(opts.path)) || opts.path
+    : undefined;
+  const bytes = base64ByteLength(opts.data);
+  const label = rel ? ` ${rel}` : "";
+  return {
+    content: [
+      {
+        type: "text",
+        text: opts.text ?? `Read image file [${opts.mimeType}]${label}`,
+      },
+      { type: "image", data: opts.data, mimeType: opts.mimeType },
+    ],
+    details: {
+      ...(rel ? { path: rel } : {}),
+      mediaType: opts.mimeType,
+      bytes,
+    },
+  };
+}
 
 /**
- * CF `read` dumps PDF/PNG as base64 `data`. Point the model at `to_markdown`.
+ * CF `read` dumps PNG/JPEG as base64 `data`. Attach that dump as an image
+ * part instead of converting to markdown.
+ */
+export function computerImageFromRead(
+  result: unknown,
+  path: string,
+): OfficeImageToolResult | { ok: false; message: string } | null {
+  const mime = imageMimeFromRead(result, path);
+  if (!mime && !computerReadShowsImage(path)) return null;
+  const rel =
+    computerRelativePath(computerAbsolutePath(path)) || path || "that file";
+  const data = imageDataFromRead(result);
+  if (!mime) {
+    return {
+      ok: false,
+      message: `That file is an image. read() shows PNG, JPEG, GIF, and WebP (${rel}).`,
+    };
+  }
+  if (!data) {
+    return {
+      ok: false,
+      message: `Could not attach that image (${rel}).`,
+    };
+  }
+  if (base64ByteLength(data) > MAX_COMPUTER_WRITE_BYTES) {
+    return {
+      ok: false,
+      message: `That image is too large to attach (${rel}). It is on this computer — present a File chip.`,
+    };
+  }
+  return officeImageToolResult({ path, data, mimeType: mime });
+}
+
+export function officeImageFromBytes(opts: {
+  path?: string;
+  bytes: Uint8Array;
+  mimeType?: string;
+  text?: string;
+}): OfficeImageToolResult | { ok: false; message: string } {
+  const mime =
+    opts.mimeType && IMAGE_MIME.test(opts.mimeType)
+      ? normalizeImageMime(opts.mimeType)
+      : opts.path
+        ? officeImageMime(mediaTypeForComputerPath(opts.path))
+        : undefined;
+  if (!mime) {
+    return { ok: false, message: "That file is not a PNG, JPEG, GIF, or WebP." };
+  }
+  if (opts.bytes.byteLength > MAX_COMPUTER_WRITE_BYTES) {
+    const rel = opts.path
+      ? computerRelativePath(computerAbsolutePath(opts.path)) || opts.path
+      : "that file";
+    return {
+      ok: false,
+      message: `That image is too large to attach (${rel}). It is on this computer — present a File chip.`,
+    };
+  }
+  return officeImageToolResult({
+    path: opts.path,
+    data: encodeComputerBytes(opts.bytes),
+    mimeType: mime,
+    text: opts.text,
+  });
+}
+
+/**
+ * CF `read` dumps PDF/PNG as base64 `data`. Convert PDFs/Office in `read` when
+ * wired; attach images; otherwise refuse so the dump never reaches the model.
  */
 export function binaryComputerReadRefusal(
   result: unknown,
@@ -266,10 +406,71 @@ export function binaryComputerReadRefusal(
   }
   const rel = computerRelativePath(computerAbsolutePath(path)) || path || "that file";
   const kind = media || (path.match(BINARY_READ_EXT)?.[1] ?? "binary");
+  if (computerReadShowsImage(path) || computerReadShowsImage(rel) || IMAGE_MIME.test(media)) {
+    return {
+      ok: false,
+      message: `That file is an image (${kind}). read() shows PNG, JPEG, GIF, and WebP.`,
+    };
+  }
+  if (computerReadConverts(path) || computerReadConverts(rel)) {
+    return {
+      ok: false,
+      message: `That file is binary (${kind}). read() converts PDFs and Office docs when conversion is available. Use to_markdown({ path: "${rel}" }) if that tool is listed.`,
+    };
+  }
   return {
     ok: false,
-    message: `That file is binary (${kind}). Use to_markdown({ path: "${rel}" }) — do not read() PDFs or images.`,
+    message: `That file is binary (${kind}). read() converts PDFs and Office docs, and shows PNG/JPEG/GIF/WebP — not this type.`,
   };
+}
+
+function isOfficeToolContentPart(part: unknown): boolean {
+  if (!part || typeof part !== "object" || Array.isArray(part)) return false;
+  const row = part as { type?: unknown; text?: unknown; data?: unknown; mimeType?: unknown };
+  if (row.type === "text") return typeof row.text === "string";
+  if (row.type === "image") {
+    return typeof row.data === "string" && typeof row.mimeType === "string";
+  }
+  return false;
+}
+
+function imageMimeFromRead(result: unknown, path: string): string | undefined {
+  const row =
+    result && typeof result === "object" && !Array.isArray(result)
+      ? (result as Record<string, unknown>)
+      : null;
+  return (
+    officeImageMime(typeof row?.mediaType === "string" ? row.mediaType : "") ||
+    officeImageMime(typeof row?.mimeType === "string" ? row.mimeType : "") ||
+    officeImageMime(mediaTypeForComputerPath(path))
+  );
+}
+
+function imageDataFromRead(result: unknown): string {
+  if (!result || typeof result !== "object" || Array.isArray(result)) return "";
+  const data = (result as { data?: unknown }).data;
+  if (typeof data !== "string" || !data.trim()) return "";
+  const trimmed = data.trim();
+  const comma = trimmed.indexOf(",");
+  if (/^data:/i.test(trimmed) && comma >= 0) return trimmed.slice(comma + 1);
+  return trimmed;
+}
+
+function officeImageMime(media: string): string | undefined {
+  const trimmed = media.trim().toLowerCase();
+  if (!trimmed) return undefined;
+  if (trimmed === "image/jpg") return "image/jpeg";
+  return IMAGE_MIME.test(trimmed) ? normalizeImageMime(trimmed) : undefined;
+}
+
+function normalizeImageMime(media: string): string {
+  const trimmed = media.trim().toLowerCase();
+  return trimmed === "image/jpg" ? "image/jpeg" : trimmed;
+}
+
+function base64ByteLength(data: string): number {
+  const payload = data.replace(/\s/g, "").replace(/=+$/u, "");
+  return Math.floor((payload.length * 3) / 4);
 }
 
 /** Computer `list` / `shell` cwd is `/workspace`. Create it on the VFS. */

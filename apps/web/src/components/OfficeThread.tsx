@@ -43,7 +43,7 @@ function rememberPreview(botId: string, roomId: string, messages: PiBoundMessage
 
 function OfficeWelcome() {
   return (
-    <p className="px-1 text-left text-[13px] leading-normal text-muted-foreground">
+    <p className="px-1 text-left text-[14px] leading-relaxed text-muted-foreground">
       Empty desk. Tell them what to own — a job description or a few bullets —
       then send.
     </p>
@@ -177,7 +177,7 @@ export function OfficeThread(props: {
         stopHolder={stopHolder}
       />
       {active && (props.error || props.archived) ? (
-        <div className="px-5 pt-2 pb-[18px]">
+        <div className="px-5 pt-2 pb-4">
           {props.error ? (
             <p className="mb-2 text-[13px] text-danger">{props.error}</p>
           ) : null}
