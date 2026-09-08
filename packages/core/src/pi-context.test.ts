@@ -105,4 +105,50 @@ describe("pruneLiveToolResults", () => {
     );
     expect(liveToolResultText(pruned[1]!)).toBe(body);
   });
+
+  it("keeps this turn's to_markdown after a later grep", () => {
+    const body = "n".repeat(19_662);
+    const pruned = pruneLiveToolResults(
+      [
+        { role: "user", content: "invoice", timestamp: 1 },
+        toolResult("md-1", body, { toolName: "to_markdown" }),
+        toolResult("md-2", "agreement body", { toolName: "to_markdown" }),
+        toolResult("g-1", "Rp 35,000,000", { toolName: "grep" }),
+      ],
+      { maxChars: 100, staleChars: 10 },
+    );
+    expect(liveToolResultText(pruned[1]!)).toBe(body);
+    expect(liveToolResultText(pruned[2]!)).toBe("agreement body");
+    expect(liveToolResultText(pruned[3]!)).toBe("Rp 35,000,000");
+  });
+
+  it("keeps this turn's read after a later grep", () => {
+    const body = "line\n".repeat(4_000);
+    const pruned = pruneLiveToolResults(
+      [
+        { role: "user", content: "read it", timestamp: 1 },
+        toolResult("read-1", body, { toolName: "read" }),
+        toolResult("g-1", "hit", { toolName: "grep" }),
+      ],
+      { maxChars: 100, staleChars: 10 },
+    );
+    expect(liveToolResultText(pruned[1]!)).toBe(body);
+    expect(liveToolResultText(pruned[2]!)).toBe("hit");
+  });
+
+  it("stubs a prior-turn to_markdown after the next user message", () => {
+    const body = "n".repeat(19_662);
+    const pruned = pruneLiveToolResults(
+      [
+        { role: "user", content: "convert", timestamp: 1 },
+        toolResult("md-1", body, { toolName: "to_markdown" }),
+        { role: "user", content: "now invoice", timestamp: 2 },
+        toolResult("g-1", "ok", { toolName: "grep" }),
+      ],
+      { maxChars: 100, staleChars: 10 },
+    );
+    expect(liveToolResultText(pruned[1]!)).toMatch(/^Omitted from the live window/);
+    expect(liveToolResultText(pruned[1]!)).not.toMatch(/in code/);
+    expect(liveToolResultText(pruned[3]!)).toBe("ok");
+  });
 });

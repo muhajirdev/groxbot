@@ -62,7 +62,7 @@ export const OFFICE_TOOL_PROMPT: Record<string, OfficeToolPromptContribution> =
     fetch_url: { snippet: "Read a public URL (TinyFish)." },
     to_markdown: {
       snippet:
-        "Convert HTML or a computer file (PDF/doc) to Markdown. Pass path or html, not both — omit empty html. Convert each PDF once. Long output is saved under /workspace/.tool-output and paged like read (50KB); continue with offset or read(), do not convert again.",
+        "Convert HTML or a computer file (PDF/doc) to Markdown. Pass path or html, not both — omit empty html. Convert each PDF once. If the result already has the markdown, use it — do not cat, grep, or read the spill. Only continue with offset or read() when the result says to; do not convert again.",
     },
     render_pdf: {
       snippet: "Render HTML or a URL to a PDF on this computer.",

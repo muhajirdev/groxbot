@@ -183,6 +183,27 @@ describe("presentToMarkdown", () => {
     expect(text).not.toMatch(/^Result truncated/);
   });
 
+  it("does not page a short conversion that ends with a blank line", () => {
+    const markdown = `${Array.from(
+      { length: 128 },
+      (_, i) => `line-${i + 1} agreement body`,
+    ).join("\n")}\n\n`;
+    const spill = toMarkdownSpillPath("agreement-sinemart-2026.pdf");
+    const text = presentToMarkdown(
+      {
+        ok: true,
+        name: "agreement-sinemart-2026.pdf",
+        mimeType: "application/pdf",
+        markdown,
+      },
+      { spillPath: spill },
+    );
+    expect(text).toBe(markdown.replace(/\n$/, ""));
+    expect(text).not.toMatch(/Saved full markdown/);
+    expect(text).not.toMatch(/Continue with read/);
+    expect(text).not.toMatch(/Use offset=/);
+  });
+
   it("pages a conversion over the 50KB read window and points at the spilled file", () => {
     const markdown = Array.from(
       { length: 2_100 },

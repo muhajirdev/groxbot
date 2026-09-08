@@ -74,10 +74,10 @@ export function presentToMarkdown(
     : head.outputLines;
   const shownEnd = startLine + Math.max(outputLines, 1) - 1;
   const next = shownEnd + 1;
-  const more =
-    head.firstLineExceedsLimit ||
-    head.truncated ||
-    next <= lines.length;
+  // truncateHead drops a trailing empty line that splitMarkdownLines keeps
+  // (`foo\n\n`). `next <= lines.length` then looks like another page and the
+  // model re-reads a document it already has.
+  const more = head.firstLineExceedsLimit || head.truncated;
   const saved =
     more && opts?.spillPath
       ? `Saved full markdown (${result.markdown.length} chars, ${lines.length} lines) to ${opts.spillPath}. Continue with read({ path: "${opts.spillPath}", offset: ${next} }) — do not convert again.\n\n`

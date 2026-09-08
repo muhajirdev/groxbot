@@ -7,6 +7,17 @@ import { clipKeepTail, TOOL_TRUNCATE_MAX_BYTES } from "./tool-truncate.js";
 export const LIVE_TOOL_RESULT_MAX_CHARS = TOOL_PAYLOAD_MAX_CHARS;
 export const LIVE_TOOL_RESULT_STALE_CHARS = 800;
 
+/**
+ * Source dumps the model must keep using after the next grep/list/shell.
+ * Stubbing these on the same user turn is what made invoice runs re-read
+ * a PDF that `to_markdown` already returned.
+ */
+const LIVE_TURN_FILE_TOOLS = new Set([
+  "read",
+  "to_markdown",
+  "fetch_url",
+]);
+
 export type LiveContextMessage = {
   role: string;
   content?: unknown;
@@ -27,10 +38,19 @@ export function pruneLiveToolResults<M extends { role: string }>(
     if (message.role !== "toolResult") return message;
     const row = message as M & LiveContextMessage;
     const text = liveToolResultText(row);
-    const stale = index <= lastUser || index < lastTool;
-    const budget = liveResultBudget(row, { stale, maxChars, staleChars });
+    const priorTurn = index <= lastUser;
+    const staleOnTurn = index < lastTool;
+    const budget = liveResultBudget(row, {
+      priorTurn,
+      staleOnTurn,
+      maxChars,
+      staleChars,
+    });
     if (text.length <= budget) return message;
-    return stubLiveToolResult(row, text, { stale, budget });
+    return stubLiveToolResult(row, text, {
+      stale: priorTurn || staleOnTurn,
+      budget,
+    });
   });
 }
 
@@ -50,14 +70,30 @@ function lastToolResultIndex(messages: readonly { role: string }[]): number {
 
 function liveResultBudget(
   row: LiveContextMessage,
-  opts: { stale: boolean; maxChars: number; staleChars: number },
+  opts: {
+    priorTurn: boolean;
+    staleOnTurn: boolean;
+    maxChars: number;
+    staleChars: number;
+  },
 ): number {
-  if (opts.stale) return opts.staleChars;
   const name = typeof row.toolName === "string" ? row.toolName : "";
-  if (COMPUTER_SHAPE_TOOLS.has(name) || name === "to_markdown") {
+  if (opts.priorTurn) return opts.staleChars;
+  if (opts.staleOnTurn && !LIVE_TURN_FILE_TOOLS.has(name)) {
+    return opts.staleChars;
+  }
+  if (isLiveFilePageTool(name)) {
     return Math.max(opts.maxChars, TOOL_TRUNCATE_MAX_BYTES);
   }
   return opts.maxChars;
+}
+
+function isLiveFilePageTool(name: string): boolean {
+  return (
+    COMPUTER_SHAPE_TOOLS.has(name) ||
+    name === "to_markdown" ||
+    name === "fetch_url"
+  );
 }
 
 export function liveToolResultText(message: LiveContextMessage): string {
@@ -76,7 +112,7 @@ function stubLiveToolResult<M extends LiveContextMessage>(
       ? message.toolName.trim()
       : "tool";
   const stub = opts.stale
-    ? `Omitted from the live window (${text.length} chars, ${name}). Re-run the tool in code.`
+    ? `Omitted from the live window (${text.length} chars, ${name}).`
     : name === "shell"
       ? `${text.slice(Math.max(0, text.length - opts.budget))}\n… (${text.length} chars, truncated)`
       : `${clipKeepTail(text, opts.budget)}\n… (${text.length} chars, truncated)`;
