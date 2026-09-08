@@ -109,11 +109,16 @@ export const botsCollection = createCollection(
   }),
 );
 
-botsCollection.subscribeChanges((changes) => {
-  if (changes.some((change) => change.type === "insert")) {
-    reapPendingBotDeletes();
-  }
-});
+let botDeleteReaperInstalled = false;
+function ensureBotDeleteReaper(): void {
+  if (botDeleteReaperInstalled) return;
+  botDeleteReaperInstalled = true;
+  botsCollection.subscribeChanges((changes) => {
+    if (changes.some((change) => change.type === "insert")) {
+      reapPendingBotDeletes();
+    }
+  });
+}
 
 export function peekBots(): Bot[] {
   return withoutPendingBotDeletes([...botsCollection.values()]);
@@ -135,11 +140,16 @@ export const roomsCollection = createCollection(
   }),
 );
 
-roomsCollection.subscribeChanges((changes) => {
-  if (changes.some((change) => change.type === "insert")) {
-    reapPendingRoomDeletes();
-  }
-});
+let roomDeleteReaperInstalled = false;
+function ensureRoomDeleteReaper(): void {
+  if (roomDeleteReaperInstalled) return;
+  roomDeleteReaperInstalled = true;
+  roomsCollection.subscribeChanges((changes) => {
+    if (changes.some((change) => change.type === "insert")) {
+      reapPendingRoomDeletes();
+    }
+  });
+}
 
 export function peekRooms(): Room[] {
   return withoutPendingRoomDeletes([...roomsCollection.values()]);
@@ -258,6 +268,7 @@ export function replaceSyncedRows<T extends { id: string }>(
 
 export function removeBot(id: string): void {
   markBotPendingDelete(id);
+  ensureBotDeleteReaper();
   // Cancel in-flight list fetches so a pre-delete response cannot land after
   // writeDelete and resurrect the row (common on mobile when a refetch is slow).
   void queryClient.cancelQueries({ queryKey: botsListKey });
@@ -274,6 +285,7 @@ export function removeBot(id: string): void {
 
 export function removeRoom(id: string): void {
   markRoomPendingDelete(id);
+  ensureRoomDeleteReaper();
   void queryClient.cancelQueries({ queryKey: roomsListKey });
   if (roomsCollection.has(id)) {
     try {
