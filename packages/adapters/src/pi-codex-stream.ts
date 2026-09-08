@@ -20,6 +20,7 @@ import {
   type OpenAiCodexAuth,
 } from "@groxbot/contracts";
 import type { GatewayEnv } from "./gateway.js";
+import { withAssistantUsage } from "./pi-context-usage.js";
 
 const CODEX_PROVIDER = "openai-codex";
 
@@ -191,7 +192,7 @@ export function createCodexStreamFn(options: {
   return (model, context, streamOptions) => {
     try {
       const piModel = resolvePiAiCodexModel(model.id);
-      return models.streamSimple(piModel, context, {
+      return models.streamSimple(piModel, withAssistantUsage(context), {
         ...streamOptions,
         fetch: options.fetch,
         maxRetries: streamOptions?.maxRetries ?? 0,

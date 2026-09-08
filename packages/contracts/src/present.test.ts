@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  PRESENT_EMPTY_MESSAGE,
   PRESENT_TOOL_NAME,
+  PRESENT_TOOL_PARAMETERS,
   presentPreview,
   presentTreeFromToolPart,
   runPresent,
@@ -27,8 +29,11 @@ describe("runPresent", () => {
   it("rejects a missing $type", () => {
     expect(runPresent({ title: "Nope" })).toEqual({
       ok: false,
-      message:
-        'present needs { "$type": "Card", ... } as the argument itself — not wrapped in raw. For a short list, write markdown instead of retrying.',
+      message: PRESENT_EMPTY_MESSAGE,
+    });
+    expect(runPresent({})).toEqual({
+      ok: false,
+      message: PRESENT_EMPTY_MESSAGE,
     });
   });
 
@@ -232,5 +237,17 @@ describe("presentTreeFromToolPart", () => {
         input: { $type: "Card", title: "Nope" },
       }),
     ).toBeNull();
+  });
+});
+
+describe("PRESENT_TOOL_PARAMETERS", () => {
+  it("requires $type without recursing into children", () => {
+    expect(PRESENT_TOOL_PARAMETERS.required).toEqual(["$type"]);
+    expect(PRESENT_TOOL_PARAMETERS.additionalProperties).toBe(true);
+    expect(PRESENT_TOOL_PARAMETERS.properties.$type.type).toBe("string");
+    expect(PRESENT_TOOL_PARAMETERS.properties.children.items).toEqual({
+      type: "object",
+      additionalProperties: true,
+    });
   });
 });

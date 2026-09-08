@@ -286,16 +286,33 @@ describe("office chrome", () => {
     );
   });
 
-  it("keeps Send available while a turn is running", () => {
+  it("keeps working under the last bubble while tools run", () => {
+    expect(threadAui).toMatch(/case "indicator"/);
+    expect(threadAui).toMatch(
+      /case "indicator"[\s\S]*?data-slot="aui_assistant-working"/,
+    );
+    expect(threadAui).not.toContain("AssistantWorkingDots");
+  });
+
+  it("does not reserve action-bar height when the bar is hidden", () => {
+    const footer = threadAui.slice(
+      threadAui.indexOf('data-slot="aui_assistant-message-footer"'),
+      threadAui.indexOf("<BranchPicker />"),
+    );
+    expect(footer).toContain("empty:hidden");
+    expect(footer).not.toContain("min-h-7.5");
+  });
+
+  it("merges Stop and Send into one composer slot", () => {
     const actions = threadAui.slice(
-      threadAui.indexOf("const ComposerAction"),
+      threadAui.indexOf("const composerSlotIsStop"),
       threadAui.indexOf("const MessageError"),
     );
     expect(actions).toContain("ComposerPrimitive.Send");
-    expect(actions).not.toMatch(
-      /AuiIf condition=\{\(s\) => !s\.thread\.isRunning && !pending\}/,
-    );
+    expect(actions).toContain("ComposerPrimitive.Cancel");
     expect(actions).toContain("Stop now");
+    expect(actions).toContain("composerSlotIsStop");
+    expect(actions).toContain("s.composer.text.trim()");
   });
 
   it("keeps halt on the composer, not the thread head", () => {

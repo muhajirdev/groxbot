@@ -115,7 +115,7 @@ export const PALETTE_ACTIONS = [
     id: "support",
     label: "Chat with support",
     shortcut: "",
-    keywords: ["support", "help", "chat", "contact", "discord"],
+    keywords: ["support", "help", "chat", "contact", "crisp"],
   },
 ] as const;
 

@@ -41,12 +41,40 @@ export const PRESENT_MAX_DEPTH = 8;
 export const PRESENT_MAX_NODES = 80;
 
 export const PRESENT_TOOL_DESCRIPTION = [
-  "Show a glanceable UI in this thread. The tool argument IS the tree: `$type` names a component, other keys are props, `children` is an array of objects — never a stringified JSON array, never wrapped in raw/tree/card.",
+  "Show a glanceable UI in this thread. The tool argument IS the tree: `$type` names a component, other keys are props, `children` is an array of objects — never a stringified JSON array, never wrapped in raw/tree/card, never an empty object.",
   `Allowed $type: ${PRESENT_TYPES.join(", ")}.`,
   'Example: { "$type": "Card", "title": "Q3", "children": [{ "$type": "Fact", "label": "Bookings", "value": "$1.2M" }] }.',
   'After you save a file, present File: { "$type": "File", "path": "notes/q3.md", "place": "computer" } or place "knowledge" for the office library. Image src is an http(s) URL only.',
   "Use this for facts, a short table, a chart, a saved file, or a choice. Put long notes and drafts in a file on this computer. Keep the chat reply to one short line. If present fails, write markdown — do not retry the same tree.",
 ].join(" ");
+
+/**
+ * Shallow schema advertised to the model. Execute stays open — a recursive
+ * `$type` schema made TypeBox reject wrapped / aliased trees before runPresent.
+ */
+export const PRESENT_TOOL_PARAMETERS = {
+  type: "object",
+  additionalProperties: true,
+  required: ["$type"],
+  properties: {
+    $type: {
+      type: "string",
+      description: `Component name. Allowed: ${PRESENT_TYPES.join(", ")}.`,
+    },
+    title: { type: "string" },
+    children: {
+      type: "array",
+      items: { type: "object", additionalProperties: true },
+    },
+    path: { type: "string", description: "Office-root path for File." },
+    place: { type: "string", enum: ["computer", "knowledge"] },
+    label: { type: "string" },
+    value: { type: "string" },
+  },
+} as const;
+
+export const PRESENT_EMPTY_MESSAGE =
+  'present needs { "$type": "Card", ... } as the argument itself — not {} and not wrapped in raw. After write, { "$type": "File", "path": "notes/q3.md", "place": "computer" }. For a short list, write markdown instead of retrying.';
 
 export type PresentOk = {
   ok: true;
@@ -84,8 +112,7 @@ export function runPresent(input: unknown): PresentResult {
     }
     return {
       ok: false,
-      message:
-        'present needs { "$type": "Card", ... } as the argument itself — not wrapped in raw. For a short list, write markdown instead of retrying.',
+      message: PRESENT_EMPTY_MESSAGE,
     };
   }
   return {

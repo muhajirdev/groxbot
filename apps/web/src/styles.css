@@ -4496,13 +4496,15 @@ html.electron .pane-head {
   color: var(--ink);
 }
 
-.aui-composer-send {
+.aui-composer-send,
+.aui-composer-cancel {
   background: var(--ink);
   color: var(--bg);
   opacity: 1;
 }
 
-.aui-composer-send:disabled {
+.aui-composer-send:disabled,
+.aui-composer-cancel:disabled {
   background: color-mix(in srgb, var(--ink) 35%, transparent);
   color: var(--bg);
   opacity: 1;

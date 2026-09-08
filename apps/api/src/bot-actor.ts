@@ -53,6 +53,7 @@ import {
   lastOfficeUserIsIntro,
   lastPiAssistantText,
   listComputerEntries,
+  readComputerFile,
   listConnectedPluginAccounts,
   loadOfficeSkillCatalog,
   mcpCatalogForExecute,

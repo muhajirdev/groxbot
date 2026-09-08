@@ -132,15 +132,6 @@ const isHistoryLoadingView = (s: AssistantState) =>
 const lastThreadMessage = (s: AssistantState) =>
   s.thread.messages[s.thread.messages.length - 1];
 
-const messageHasVisibleText = (message: {
-  parts?: ReadonlyArray<{ type: string; text?: string }>;
-}) =>
-  Boolean(
-    message.parts?.some(
-      (part) => part.type === "text" && Boolean(part.text?.trim()),
-    ),
-  );
-
 const isWaitingForAssistantMessage =
   (pending: boolean) => (s: AssistantState) =>
     isWaitingForAssistantTurn({
@@ -339,8 +330,15 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
   );
 };
 
+const composerSlotIsStop = (pending: boolean) => (s: AssistantState) =>
+  (s.thread.isRunning || pending) && !s.composer.text.trim();
+
+const COMPOSER_PRIMARY_BTN =
+  "size-8 rounded-full bg-ink text-[var(--bg)] hover:bg-ink disabled:bg-ink/35 disabled:text-[var(--bg)] disabled:opacity-100";
+
 const ComposerAction: FC = () => {
   const { pending } = useContext(ThreadChromeContext);
+  const stop = composerSlotIsStop(pending);
   return (
     <div className="aui-composer-action-wrapper relative flex items-center justify-between">
       <ComposerAddAttachment />
@@ -353,10 +351,12 @@ const ComposerAction: FC = () => {
             <ComposerPrimitive.StopDictation render={<TooltipIconButton tooltip="Stop dictation" side="bottom" type="button" variant="ghost" size="icon" className="aui-composer-stop-dictation text-destructive size-7 rounded-full" aria-label="Stop voice input" />}><SquareIcon className="aui-composer-stop-dictation-icon size-3.5 animate-pulse fill-current" /></ComposerPrimitive.StopDictation>
           </AuiIf>
         </AuiIf>
-        <AuiIf condition={(s) => s.thread.isRunning || pending}>
-          <ComposerPrimitive.Cancel render={<TooltipIconButton tooltip="Stop now" side="bottom" type="button" variant="ghost" size="icon" className="aui-composer-cancel size-7 rounded-full" aria-label="Stop now" />}><SquareIcon className="aui-composer-cancel-icon size-3.5 fill-current" /></ComposerPrimitive.Cancel>
+        <AuiIf condition={stop}>
+          <ComposerPrimitive.Cancel render={<TooltipIconButton tooltip="Stop now" side="bottom" type="button" variant="default" size="icon" className={`aui-composer-cancel ${COMPOSER_PRIMARY_BTN}`} aria-label="Stop now" />}><SquareIcon className="aui-composer-cancel-icon size-3.5 fill-current" /></ComposerPrimitive.Cancel>
         </AuiIf>
-        <ComposerPrimitive.Send render={<TooltipIconButton tooltip="Send message" side="bottom" type="button" variant="default" size="icon" className="aui-composer-send size-7 rounded-full bg-accent text-white hover:bg-accent/90" aria-label="Send message" />}><ArrowUpIcon className="aui-composer-send-icon size-4" /></ComposerPrimitive.Send>
+        <AuiIf condition={(s) => !stop(s)}>
+          <ComposerPrimitive.Send render={<TooltipIconButton tooltip="Send message" side="bottom" type="button" variant="default" size="icon" className={`aui-composer-send ${COMPOSER_PRIMARY_BTN}`} aria-label="Send message" />}><ArrowUpIcon className="aui-composer-send-icon size-4" /></ComposerPrimitive.Send>
+        </AuiIf>
       </div>
     </div>
   );
@@ -384,18 +384,6 @@ const AssistantWorkingStatus: FC<{ speaker?: string }> = ({ speaker = "" }) => {
   return <ThinkingStatus name={speaker || fromLast || botName} />;
 };
 
-const AssistantWorkingDots: FC = () => {
-  const speaker = useAuiState(
-    (s) => parseRoomSpeaker(s.message.metadata)?.name ?? "",
-  );
-  const show = useAuiState((s) => {
-    if (s.message.status?.type !== "running") return false;
-    return !messageHasVisibleText(s.message);
-  });
-  if (!show) return null;
-  return <AssistantWorkingStatus speaker={speaker} />;
-};
-
 const AssistantMessage: FC = () => {
   const {
     ToolFallback: ToolFallbackComponent = ToolFallback,
@@ -406,10 +394,6 @@ const AssistantMessage: FC = () => {
     (s) => parseRoomSpeaker(s.message.metadata)?.name ?? "",
   );
   const learned = useAuiState((s) => isOfficeLearnedMessage(s.message));
-
-  const ACTION_BAR_PT = "pt-1.5";
-  // Keep the action bar inside the contained root's paint box, then cancel its reserved space in flow.
-  const ACTION_BAR_HEIGHT = `min-h-7.5 ${ACTION_BAR_PT}`;
 
   if (learned) {
     return (
@@ -460,7 +444,6 @@ const AssistantMessage: FC = () => {
             </span>
           </div>
         ) : null}
-        <AssistantWorkingDots />
         <MessagePrimitive.GroupedParts
           groupBy={groupPartByType({
             "tool-call": ["group-chainOfThought", "group-tool"],
@@ -470,7 +453,11 @@ const AssistantMessage: FC = () => {
           {({ part, children }) => {
             switch (part.type) {
               case "group-chainOfThought":
-                return <div data-slot="aui_chain-of-thought">{children}</div>;
+                return (
+                  <div data-slot="aui_chain-of-thought" className="contents">
+                    {children}
+                  </div>
+                );
               case "group-tool":
                 if (!showToolCalls) return children;
                 if (ToolGroup) {
@@ -516,7 +503,11 @@ const AssistantMessage: FC = () => {
                   </div>
                 );
               case "indicator":
-                return null;
+                return (
+                  <div data-slot="aui_assistant-working">
+                    <AssistantWorkingStatus speaker={speakerName} />
+                  </div>
+                );
               default:
                 return null;
             }
@@ -527,7 +518,7 @@ const AssistantMessage: FC = () => {
 
       <div
         data-slot="aui_assistant-message-footer"
-        className={cn("ms-2 flex items-center", ACTION_BAR_HEIGHT)}
+        className="ms-2 flex items-center empty:hidden"
       >
         <BranchPicker />
         <AssistantActionBar />
@@ -541,7 +532,7 @@ const AssistantActionBar: FC = () => {
     <ActionBarPrimitive.Root
       hideWhenRunning
       autohide="not-last"
-      className="aui-assistant-action-bar-root text-muted-foreground animate-in fade-in col-start-3 row-start-2 -ms-1 flex gap-1 duration-200"
+      className={`aui-assistant-action-bar-root text-muted-foreground animate-in fade-in col-start-3 row-start-2 -ms-1 flex min-h-7.5 gap-1 pt-1.5 duration-200`}
     >
       <ActionBarPrimitive.Copy render={<TooltipIconButton tooltip="Copy" />}><AuiIf condition={(s) => s.message.isCopied}>
                       <CheckIcon className="animate-in zoom-in-50 fade-in duration-200 ease-out" />

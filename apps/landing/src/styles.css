@@ -2351,63 +2351,6 @@ img.avatar {
   cursor: pointer;
 }
 
-.support-scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  border: 0;
-  padding: 0;
-  background: rgba(0, 0, 0, 0.55);
-  cursor: pointer;
-}
-
-.support-card {
-  position: fixed;
-  z-index: 41;
-  top: 50%;
-  left: 50%;
-  width: min(380px, calc(100% - 48px));
-  transform: translate(-50%, -50%);
-  padding: 20px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--card);
-  box-shadow: var(--shadow);
-}
-
-.support-card h2 {
-  margin: 0 0 8px;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.support-card p {
-  margin: 0 0 16px;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.45;
-}
-
-.support-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-}
-
-.support-dismiss {
-  border: 0;
-  background: none;
-  padding: 0;
-  font: inherit;
-  color: var(--muted);
-  cursor: pointer;
-}
-
-.support-dismiss:hover {
-  color: var(--ink);
-}
-
 .foot-links {
   display: flex;
   gap: 14px;

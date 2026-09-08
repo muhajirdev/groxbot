@@ -1,4 +1,4 @@
-import { ChatIcon } from "./Icons";
+import { HelpIcon } from "./Icons";
 
 export function SupportChatButton(props: { onClick: () => void }) {
   return (
@@ -9,7 +9,7 @@ export function SupportChatButton(props: { onClick: () => void }) {
       title="Chat with support"
       onClick={props.onClick}
     >
-      <ChatIcon />
+      <HelpIcon />
     </button>
   );
 }

@@ -189,6 +189,12 @@ export function parsePiAgentMessage(value: unknown): PiAgentMessage | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const row = value as Record<string, unknown>;
   if (typeof row.role !== "string" || !row.role) return null;
+  if (
+    row.role === "assistant" &&
+    (row.usage == null || typeof row.usage !== "object")
+  ) {
+    return { ...row, usage: EMPTY_USAGE } as PiAgentMessage;
+  }
   return row as PiAgentMessage;
 }
 

@@ -126,6 +126,7 @@ describe("Computer Worker shell wiring", () => {
     expect(readSrc("bot-present.ts")).not.toMatch(/from "ai"/);
     expect(readSrc("bot-present.ts")).toMatch(/passthrough\(\)/);
     expect(readSrc("bot-present.ts")).not.toMatch(/\$type:\s*z/);
+    expect(readSrc("bot-present.ts")).toMatch(/PRESENT_TOOL_PARAMETERS/);
     expect(readSrc("bot-skill.ts")).not.toMatch(/from "ai"/);
     expect(execute).not.toMatch(/stateConnector/);
     expect(execute).not.toMatch(/createWorkspaceStateBackend/);

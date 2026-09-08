@@ -17,6 +17,7 @@ import {
   isGroxbotRouterModel,
 } from "@groxbot/contracts";
 import type { GatewayConfig, GatewayProvider } from "./gateway.js";
+import { withAssistantUsage } from "./pi-context-usage.js";
 
 const CLOUDFLARE_AI_GATEWAY = "cloudflare-ai-gateway";
 const GROX_GATEWAY_PROVIDER = "grox-gateway";
@@ -242,17 +243,21 @@ export function createGatewayStreamFn(
   return (model, context, options) => {
     try {
       const piModel = resolvePiAiModel(config, model.id || config.model);
-      return getOfficePiModels().streamSimple(piModel, context, {
-        ...options,
-        apiKey: config.apiKey,
-        fetch: config.fetch,
-        env: { ...options?.env, ...piAiStreamEnv(config) },
-        headers: {
-          ...options?.headers,
-          ...piAiStreamHeaders(config, metadata),
+      return getOfficePiModels().streamSimple(
+        piModel,
+        withAssistantUsage(context),
+        {
+          ...options,
+          apiKey: config.apiKey,
+          fetch: config.fetch,
+          env: { ...options?.env, ...piAiStreamEnv(config) },
+          headers: {
+            ...options?.headers,
+            ...piAiStreamHeaders(config, metadata),
+          },
+          maxRetries: options?.maxRetries ?? 0,
         },
-        maxRetries: options?.maxRetries ?? 0,
-      });
+      );
     } catch (error) {
       const stream = createAssistantMessageEventStream();
       const message: AssistantMessage = {

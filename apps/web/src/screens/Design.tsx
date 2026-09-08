@@ -575,7 +575,7 @@ export function Design() {
           <Section
             id="composer"
             title="Composer"
-            lede="Send while it is working redirects. Square stop now halts."
+            lede="Same corner: send, or stop while it works. Type again to redirect."
           >
             <Specimen label="Idle">
               <ComposerMock running={false} />
@@ -893,25 +893,26 @@ function ComposerMock(props: { running: boolean }) {
             tooltip="Stop now"
             side="bottom"
             type="button"
-            variant="ghost"
+            variant="default"
             size="icon"
-            className="size-7 rounded-full"
+            className="size-8 rounded-full bg-ink text-[var(--bg)] hover:bg-ink"
             aria-label="Stop now"
           >
             <SquareIcon className="size-3.5 fill-current" />
           </TooltipIconButton>
-        ) : null}
-        <TooltipIconButton
-          tooltip="Send message"
-          side="bottom"
-          type="button"
-          variant="default"
-          size="icon"
-          className="size-7 rounded-full bg-accent text-white hover:bg-accent/90"
-          aria-label="Send message"
-        >
-          <ArrowUpIcon className="size-4" />
-        </TooltipIconButton>
+        ) : (
+          <TooltipIconButton
+            tooltip="Send message"
+            side="bottom"
+            type="button"
+            variant="default"
+            size="icon"
+            className="size-8 rounded-full bg-ink text-[var(--bg)] hover:bg-ink disabled:bg-ink/35 disabled:text-[var(--bg)] disabled:opacity-100"
+            aria-label="Send message"
+          >
+            <ArrowUpIcon className="size-4" />
+          </TooltipIconButton>
+        )}
       </div>
     </div>
   );

@@ -13,6 +13,7 @@ export function TimezoneField(props: {
   value: string;
   onChange: (value: string) => void;
   "aria-label"?: string;
+  className?: string;
 }) {
   const detected = useMemo(() => defaultRoutineTimezone(), []);
   const items = useMemo(
@@ -36,8 +37,9 @@ export function TimezoneField(props: {
     >
       <Combobox.InputGroup
         className={cn(
-          "flex w-full items-center rounded-lg border border-line bg-card px-3 py-2",
+          "flex w-full items-center rounded-[12px] border border-line bg-card px-3 py-2.5",
           "focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/40",
+          props.className,
         )}
       >
         <Combobox.Input
