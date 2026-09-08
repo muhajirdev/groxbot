@@ -289,10 +289,18 @@ export function Landing(props: { startUrl: string }) {
             playbook skills. Same catalog as New bot in the office. Not plugins.
           </p>
           <div className="cards hire-catalog-cards">
-            {LANDING_HIRE_BOTS.map((bot) => (
+            {LANDING_HIRE_BOTS.slice(0, 9).map((bot) => (
               <article key={bot.id} className="card">
                 <p className="kicker">{bot.category}</p>
-                <h3>{bot.name}</h3>
+                <h3>
+                  <Link
+                    className="no-underline hover:underline"
+                    to="/templates/$slug"
+                    params={{ slug: bot.id }}
+                  >
+                    {bot.name}
+                  </Link>
+                </h3>
                 {bot.kind === "person" && bot.title ? (
                   <p className="hire-catalog-title">{bot.title}</p>
                 ) : null}
@@ -311,6 +319,17 @@ export function Landing(props: { startUrl: string }) {
                 </a>
               </article>
             ))}
+          </div>
+          <div className="row mt-4">
+            <Link className="btn ghost" to="/templates">
+              All templates
+            </Link>
+            <Link className="btn ghost" to="/use-cases">
+              All use cases
+            </Link>
+            <Link className="btn ghost" to="/pricing">
+              Pricing
+            </Link>
           </div>
         </section>
 

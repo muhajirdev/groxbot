@@ -115,15 +115,46 @@ describe("use cases", () => {
       }
     }
   });
+
+  it("covers Gumloop-parity jobs across categories", async () => {
+    const { USE_CASE_CATEGORIES } = await import("../data/use-cases");
+    expect(USE_CASES.length).toBeGreaterThanOrEqual(30);
+    expect(USE_CASES.map((item) => item.slug)).toEqual(
+      expect.arrayContaining([
+        "content-creation",
+        "lead-generation",
+        "seo-automation",
+        "meeting-prep",
+        "support-triage",
+        "shopify-ops",
+        "call-analysis",
+      ]),
+    );
+    for (const category of USE_CASE_CATEGORIES) {
+      expect(
+        USE_CASES.some((item) => item.category === category.id),
+        category.id,
+      ).toBe(true);
+    }
+  });
 });
 
 describe("sitemap", () => {
   it("includes hubs, categories, integrations, use cases, and compare pages", async () => {
     const { COMPARE_PAGES } = await import("../data/compare");
+    const { LANDING_HIRE_BOTS } = await import("./bot-marketplace");
+    const { SITEMAP_HUB_PATHS } = await import("./sitemap");
     const paths = sitemapEntries().map((entry) => entry.path);
     expect(paths).toContain("/");
     expect(paths).toContain("/integrations");
     expect(paths).toContain("/use-cases");
+    expect(paths).toContain("/templates");
+    expect(paths).toContain("/pricing");
+    expect(paths).toContain("/enterprise");
+    expect(paths).toContain("/changelog");
+    expect(paths).toContain("/contact");
+    expect(paths).toContain("/privacy");
+    expect(paths).toContain("/terms");
     expect(paths).toContain("/compare");
     expect(paths).toContain(
       "/compare/grok-bot-vs-hermes-vs-openclaw-vs-paperclip",
@@ -136,6 +167,8 @@ describe("sitemap", () => {
     expect(paths).toContain("/integrations/gmail");
     expect(paths).toContain("/integrations/datafast");
     expect(paths).toContain("/use-cases/indie-stack");
+    expect(paths).toContain("/use-cases/content-creation");
+    expect(paths).toContain("/templates/chief-of-staff");
     expect(
       paths.some((path) => path.startsWith("/integrations/category/")),
     ).toBe(true);
@@ -143,11 +176,12 @@ describe("sitemap", () => {
     expect(paths).toContain("/mcp");
     expect(paths.some((path) => path.startsWith("/s/"))).toBe(false);
     expect(paths.length).toBe(
-      5 +
+      SITEMAP_HUB_PATHS.length +
         DISCOVERY_SITEMAP_PATHS.length +
         integrationCategories().length +
         INTEGRATIONS.length +
         USE_CASES.length +
+        LANDING_HIRE_BOTS.length +
         COMPARE_PAGES.length,
     );
   });
@@ -237,6 +271,8 @@ describe("llms discovery", () => {
     expect(txt).toContain("/mcp");
     expect(txt).toContain("/identity.json");
     expect(txt).toContain("/use-cases/");
+    expect(txt).toContain("/templates/");
+    expect(txt).toContain("/pricing");
     expect(txt).toContain("/compare/");
     expect(txt).toContain("/press");
     expect(txt).toContain("/og.png");

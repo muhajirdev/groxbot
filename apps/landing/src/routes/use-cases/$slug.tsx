@@ -7,7 +7,11 @@ import {
 } from "../../components/DemoThread";
 import { Breadcrumbs, SiteChrome } from "../../components/SiteChrome";
 import { UseCaseApps } from "../../components/UseCaseApps";
-import { getUseCase, relatedUseCases } from "../../data/use-cases";
+import {
+  getUseCase,
+  getUseCaseCategory,
+  relatedUseCases,
+} from "../../data/use-cases";
 import { appLoginUrl } from "../../lib/app-url";
 import { getIntegration } from "../../lib/integrations";
 import { useCaseJsonLd } from "../../lib/json-ld";
@@ -39,6 +43,7 @@ function UseCasePage() {
     .filter((row) => row !== undefined);
   const related = relatedUseCases(item, 4);
   const demo = demoForUseCase(item.slug);
+  const category = getUseCaseCategory(item.category);
 
   return (
     <SiteChrome startUrl={startUrl}>
@@ -47,11 +52,17 @@ function UseCasePage() {
           items={[
             { label: "Home", to: "/" },
             { label: "Use cases", to: "/use-cases" },
+            ...(category
+              ? [{ label: category.label, to: `/use-cases#${category.id}` }]
+              : []),
             { label: item.title },
           ]}
         />
         <section className="hero !py-8 sm:!py-12 sm:!pb-10">
-          <p className="kicker">{item.kicker}</p>
+          <p className="kicker">
+            {category ? `${category.label} · ` : ""}
+            {item.kicker}
+          </p>
           <h1 className="!my-2 !mb-4">{item.title}</h1>
           <p className="lede !mb-3 !text-xl">{item.lede}</p>
           <p className="thesis !mb-7 max-w-xl">{item.problem}</p>
