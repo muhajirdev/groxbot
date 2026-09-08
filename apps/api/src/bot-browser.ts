@@ -1,7 +1,5 @@
 /** Cloudflare-only. Browser Run Quick Actions + Stagehand act. */
 import type { AgentTool } from "@earendil-works/pi-agent-core";
-import { Stagehand } from "@browserbasehq/stagehand";
-import { endpointURLString } from "@cloudflare/playwright";
 import {
   resolveBrowserPage,
   runBrowserQuickAction,
@@ -13,7 +11,6 @@ import {
 } from "@groxbot/core";
 import { z } from "zod";
 import { officeAgentTool } from "./bot-office-tools.js";
-import { WorkersAIClient } from "./workers-ai-client.js";
 
 export const BROWSER_ACT_DESCRIPTION =
   "Drive a real browser with natural-language steps (Cloudflare Stagehand). Pass url, html, or a path to HTML on this computer, then act. Optional screenshot lands in inbox/render. Do not use for ordinary page reading — use fetch_url.";
@@ -88,6 +85,7 @@ export async function runRenderScreenshotTool(
   );
 }
 
+/** Stagehand is heavy — load only when browser_act runs (Worker startup CPU). */
 export async function runBrowserActTool(
   opts: BrowserToolsOpts,
   input: {
@@ -104,6 +102,13 @@ export async function runBrowserActTool(
   }
   const page = await resolveBrowserPage(opts.workspace, input);
   if (!page.ok) return page;
+
+  const [{ Stagehand }, { endpointURLString }, { WorkersAIClient }] =
+    await Promise.all([
+      import("@browserbasehq/stagehand"),
+      import("@cloudflare/playwright"),
+      import("./workers-ai-client.js"),
+    ]);
 
   const acts = Array.isArray(input.act) ? input.act : [input.act];
   const stagehand = new Stagehand({
