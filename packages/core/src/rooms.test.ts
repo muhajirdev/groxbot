@@ -1,7 +1,13 @@
-import { BotSchema } from "@groxbot/contracts";
+import {
+  BotSchema,
+  CreateRoomInput,
+  InviteRoomMembersInput,
+  RoomSchema,
+} from "@groxbot/contracts";
 import { describe, expect, it } from "vitest";
 import {
   assertDeletableGroupRoom,
+  assertRoomSeatCapacity,
   isListedGroupRoom,
   mentionFromText,
   parseRoomTurnPayload,
@@ -112,6 +118,7 @@ describe("roomTurnSystem", () => {
     expect(prompt.startsWith("You are Steve.")).toBe(true);
     expect(prompt).toMatch(/table "Board"/);
     expect(prompt).toMatch(/not your private office/);
+    expect(prompt).toMatch(/present the result/);
     expect(prompt).toMatch(/Hormozi/);
     expect(prompt).not.toMatch(/going around/);
   });
@@ -205,6 +212,60 @@ describe("BotSchema.homeRoomId", () => {
   it("rejects the empty string used when home_room_id is null", () => {
     expect(BotSchema.shape.homeRoomId.safeParse("").success).toBe(false);
     expect(BotSchema.shape.homeRoomId.safeParse("home-1").success).toBe(true);
+  });
+});
+
+describe("RoomSchema.status", () => {
+  it("defaults so cached rooms without status still parse", () => {
+    const parsed = RoomSchema.parse({
+      id: "room-1",
+      workspaceId: "ws-1",
+      name: "Standup",
+      members: [],
+      lastPreview: "",
+      lastAt: "2026-09-01T00:00:00.000Z",
+      createdAt: "2026-09-01T00:00:00.000Z",
+      updatedAt: "2026-09-01T00:00:00.000Z",
+    });
+    expect(parsed.status).toBe("todo");
+    expect(parsed.description).toBe("");
+  });
+});
+
+describe("CreateRoomInput", () => {
+  it("lets a listed table open with no seats", () => {
+    const parsed = CreateRoomInput.parse({
+      name: "Ship the board",
+      description: "Write the Linear-shaped create form.",
+    });
+    expect(parsed.memberBotIds).toEqual([]);
+    expect(parsed.description).toBe("Write the Linear-shaped create form.");
+  });
+});
+
+describe("InviteRoomMembersInput", () => {
+  it("needs at least one teammate to invite", () => {
+    expect(
+      InviteRoomMembersInput.safeParse({
+        roomId: "room-1",
+        memberBotIds: [],
+      }).success,
+    ).toBe(false);
+    expect(
+      InviteRoomMembersInput.parse({
+        roomId: "room-1",
+        memberBotIds: ["bot-1"],
+      }).memberBotIds,
+    ).toEqual(["bot-1"]);
+  });
+});
+
+describe("assertRoomSeatCapacity", () => {
+  it("caps a table at 32 seats, including people already there", () => {
+    expect(() => assertRoomSeatCapacity(0, 32)).not.toThrow();
+    expect(() => assertRoomSeatCapacity(31, 1)).not.toThrow();
+    expect(() => assertRoomSeatCapacity(32, 1)).toThrow(RoomError);
+    expect(() => assertRoomSeatCapacity(30, 3)).toThrow(/at most 32/);
   });
 });
 

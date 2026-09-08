@@ -50,6 +50,7 @@ export * from "./present.js";
 export * from "./public-fetch.js";
 export * from "./routines.js";
 export * from "./rooms.js";
+export * from "./room-work.js";
 export * from "./room-speaker.js";
 export * from "./run-continue.js";
 export * from "./run-state.js";

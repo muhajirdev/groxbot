@@ -993,6 +993,43 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
       name: "Board",
       memberBotIds: [piper.id, scout.id],
     });
+    expect(board.status).toBe("todo");
+    const moved = await rpc.rooms.update({
+      roomId: board.id,
+      status: "in_progress",
+    });
+    expect(moved.status).toBe("in_progress");
+    await expect(
+      rpc.rooms.update({ roomId: piper.homeRoomId, status: "done" }),
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+
+    const empty = await rpc.rooms.create({
+      name: "Empty task",
+      memberBotIds: [],
+    });
+    expect(empty.members).toEqual([]);
+    const seated = await rpc.rooms.invite({
+      roomId: empty.id,
+      memberBotIds: [piper.id],
+    });
+    expect(seated.members.map((row) => row.botId)).toEqual([piper.id]);
+    const both = await rpc.rooms.invite({
+      roomId: empty.id,
+      memberBotIds: [piper.id, scout.id],
+    });
+    expect(both.members.map((row) => row.botId).sort()).toEqual(
+      [piper.id, scout.id].sort(),
+    );
+    await expect(
+      rpc.rooms.invite({
+        roomId: piper.homeRoomId,
+        memberBotIds: [scout.id],
+      }),
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
 
     const gone = await rpc.rooms.delete({ roomId: board.id });
     expect(gone).toEqual({ ok: true });

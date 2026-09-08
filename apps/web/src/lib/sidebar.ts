@@ -4,7 +4,10 @@ import {
   groupSidebarBots,
   isPinnedBot,
   mixSidebarLive,
+  ROOM_WORK_STATUS_LABEL,
+  ROOM_WORK_STATUSES,
   roomSidebarFaces,
+  type RoomWorkStatus,
 } from "@groxbot/core/browser";
 
 export {
@@ -117,14 +120,18 @@ export function sectionMenuBox(phase: SectionMenuPhase): {
     : { width: 168, height: 84 };
 }
 
-export type RoomMenuPhase = "actions" | "confirm-delete";
+export type RoomMenuPhase = "actions" | "status" | "confirm-delete";
 
 export type RoomMenuItem =
+  | { id: "invite"; label: "Invite…" }
+  | { id: "status"; label: "Status" }
+  | { id: "status-to"; status: RoomWorkStatus; label: string }
   | { id: "delete"; label: string; danger: true }
   | { id: "cancel-delete"; label: "Cancel" };
 
 export function roomMenuItems(input: {
   name: string;
+  status?: string;
   phase: RoomMenuPhase;
 }): RoomMenuItem[] {
   if (input.phase === "confirm-delete") {
@@ -133,16 +140,33 @@ export function roomMenuItems(input: {
       { id: "cancel-delete", label: "Cancel" },
     ];
   }
-  return [{ id: "delete", label: "Delete", danger: true }];
+  if (input.phase === "status") {
+    return ROOM_WORK_STATUSES.map((status) => ({
+      id: "status-to" as const,
+      status,
+      label: ROOM_WORK_STATUS_LABEL[status],
+    }));
+  }
+  return [
+    { id: "invite", label: "Invite…" },
+    { id: "status", label: "Status" },
+    { id: "delete", label: "Delete", danger: true },
+  ];
 }
 
-export function roomMenuBox(phase: RoomMenuPhase): {
+export function roomMenuBox(
+  phase: RoomMenuPhase,
+  itemCount?: number,
+): {
   width: number;
   height: number;
 } {
-  return phase === "confirm-delete"
-    ? { width: 196, height: 80 }
-    : { width: 168, height: 48 };
+  if (phase === "confirm-delete") return { width: 196, height: 80 };
+  if (phase === "status") {
+    const n = Math.max(itemCount ?? ROOM_WORK_STATUSES.length, 1);
+    return { width: 168, height: 8 + n * 36 };
+  }
+  return { width: 168, height: 120 };
 }
 
 /** Stay on the open teammate unless that one was deleted. */

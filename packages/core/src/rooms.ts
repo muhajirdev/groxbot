@@ -7,6 +7,11 @@ import type { PiBoundMessage } from "./pi-transcript.js";
 import { parsePiLogMessages, piUserText } from "./pi-transcript.js";
 import { iso } from "./threads.js";
 import { RoomError, type RoomSeat } from "./room-target.js";
+import {
+  DEFAULT_ROOM_WORK_STATUS,
+  parseRoomWorkStatus,
+  type RoomWorkStatus,
+} from "./room-work.js";
 import { parseVisibility } from "./visibility.js";
 
 export {
@@ -17,6 +22,17 @@ export {
   resolveRoomTargets,
   type RoomSeat,
 } from "./room-target.js";
+
+export const ROOM_SEAT_MAX = 32;
+
+export function assertRoomSeatCapacity(
+  seated: number,
+  adding: number,
+): void {
+  if (seated + adding > ROOM_SEAT_MAX) {
+    throw new RoomError("This table seats at most 32 teammates.");
+  }
+}
 
 export const ROOM_TURN_JOB = "room.turn";
 
@@ -43,7 +59,7 @@ export function isListedGroupRoom(
   return true;
 }
 
-/** Home rooms are a person’s office. Delete only listed groups. */
+/** Home rooms are a person’s office. Delete / status only listed groups. */
 export function assertDeletableGroupRoom(
   roomId: string,
   homeRoomIds: Iterable<string | null | undefined>,
@@ -52,6 +68,8 @@ export function assertDeletableGroupRoom(
     throw new RoomError("That's someone's office, not a group.");
   }
 }
+
+export const assertListedGroupRoom = assertDeletableGroupRoom;
 
 export type RoomTurnPayload = {
   roomId: string;
@@ -76,7 +94,7 @@ export function roomTurnSystem(
   return `${soul.trim()}
 
 You are ${room.selfName} at the table "${room.name}". Also here: ${seated || room.selfName}.
-This log is the shared table, not your private office. Speak as yourself. Do not impersonate the others.${around} Papers on the table are this room’s files. Your computer is still yours.`;
+This log is the shared table, not your private office. Speak as yourself. Do not impersonate the others.${around} Papers on the table are this room’s files. Your computer is still yours. Talk here to steer. When the work is done, present the result in this room.`;
 }
 
 export function roomWakeJob(input: {
@@ -157,8 +175,12 @@ export function toRoomDto(
     id: room.id,
     workspaceId: room.workspaceId,
     name: room.name,
+    description: room.description ?? "",
+    status: parseRoomWorkStatus(room.status),
     members,
-    lastPreview: extras?.lastPreview ?? "",
+    lastPreview:
+      extras?.lastPreview ??
+      (room.description?.trim().slice(0, 140) || ""),
     lastAt,
     createdAt: room.createdAt.toISOString(),
     updatedAt: room.updatedAt.toISOString(),
@@ -175,32 +197,41 @@ export async function createRoom(
     id?: string;
     /** Hire: this room is that bot’s own. Listing hides it via `homeRoomId`. */
     own?: boolean;
+    status?: RoomWorkStatus;
+    description?: string;
   },
 ): Promise<Room> {
   const name = input.name.trim();
   if (!name) throw new RoomError("Name this room.");
-  const memberBotIds = [...new Set(input.memberBotIds.map((id) => id.trim()))];
-  if (memberBotIds.length === 0) {
+  const description = (input.description ?? "").trim();
+  const memberBotIds = [
+    ...new Set(input.memberBotIds.map((id) => id.trim()).filter(Boolean)),
+  ];
+  if (input.own && memberBotIds.length === 0) {
     throw new RoomError("Seat at least one teammate.");
   }
-  const seated = await db
-    .select({
-      id: bots.id,
-      name: bots.name,
-      title: bots.title,
-      avatarColor: bots.avatarColor,
-      avatarShape: bots.avatarShape,
-      archivedAt: bots.archivedAt,
-      homeRoomId: bots.homeRoomId,
-      visibility: bots.visibility,
-    })
-    .from(bots)
-    .where(
-      and(
-        eq(bots.workspaceId, input.workspaceId),
-        inArray(bots.id, memberBotIds),
-      ),
-    );
+  if (!input.own) assertRoomSeatCapacity(0, memberBotIds.length);
+  const seated =
+    memberBotIds.length === 0
+      ? []
+      : await db
+          .select({
+            id: bots.id,
+            name: bots.name,
+            title: bots.title,
+            avatarColor: bots.avatarColor,
+            avatarShape: bots.avatarShape,
+            archivedAt: bots.archivedAt,
+            homeRoomId: bots.homeRoomId,
+            visibility: bots.visibility,
+          })
+          .from(bots)
+          .where(
+            and(
+              eq(bots.workspaceId, input.workspaceId),
+              inArray(bots.id, memberBotIds),
+            ),
+          );
   const byId = new Map(seated.map((row) => [row.id, row]));
   for (const id of memberBotIds) {
     const bot = byId.get(id);
@@ -221,17 +252,23 @@ export async function createRoom(
       id,
       workspaceId: input.workspaceId,
       name,
+      description,
+      status: input.own
+        ? DEFAULT_ROOM_WORK_STATUS
+        : parseRoomWorkStatus(input.status),
       createdByUserId: input.userId,
     })
     .returning();
   if (!room) throw new RoomError("Could not create that room.");
-  await db.insert(roomMembers).values(
-    memberBotIds.map((botId) => ({
-      id: newId(),
-      roomId: room.id,
-      botId,
-    })),
-  );
+  if (memberBotIds.length > 0) {
+    await db.insert(roomMembers).values(
+      memberBotIds.map((botId) => ({
+        id: newId(),
+        roomId: room.id,
+        botId,
+      })),
+    );
+  }
   return toRoomDto(
     room,
     memberBotIds.flatMap((botId) => {
@@ -313,6 +350,135 @@ export async function listRooms(
     membersByRoom.set(seat.roomId, list);
   }
   return listed.map((row) => toRoomDto(row, membersByRoom.get(row.id) ?? []));
+}
+
+export async function updateRoom(
+  db: Database,
+  input: {
+    workspaceId: string;
+    roomId: string;
+    name?: string;
+    description?: string;
+    status?: RoomWorkStatus;
+  },
+): Promise<Room> {
+  const [row] = await db
+    .select({ id: rooms.id })
+    .from(rooms)
+    .where(
+      and(eq(rooms.id, input.roomId), eq(rooms.workspaceId, input.workspaceId)),
+    )
+    .limit(1);
+  if (!row) throw new RoomError("That room is missing.");
+  const [home] = await db
+    .select({ id: bots.id })
+    .from(bots)
+    .where(
+      and(
+        eq(bots.homeRoomId, input.roomId),
+        eq(bots.workspaceId, input.workspaceId),
+      ),
+    )
+    .limit(1);
+  assertListedGroupRoom(input.roomId, home ? [input.roomId] : []);
+  const name = input.name?.trim();
+  if (input.name !== undefined && !name) {
+    throw new RoomError("Name this room.");
+  }
+  const patch: {
+    name?: string;
+    description?: string;
+    status?: RoomWorkStatus;
+    updatedAt: Date;
+  } = { updatedAt: new Date() };
+  if (name) patch.name = name;
+  if (input.description !== undefined) {
+    patch.description = input.description.trim();
+  }
+  if (input.status) patch.status = input.status;
+  await db
+    .update(rooms)
+    .set(patch)
+    .where(
+      and(eq(rooms.id, input.roomId), eq(rooms.workspaceId, input.workspaceId)),
+    );
+  const room = await getRoom(db, input.workspaceId, input.roomId);
+  if (!room) throw new RoomError("That room is missing.");
+  return room;
+}
+
+export async function inviteRoomMembers(
+  db: Database,
+  input: {
+    workspaceId: string;
+    roomId: string;
+    memberBotIds: string[];
+  },
+): Promise<Room> {
+  const current = await getRoom(db, input.workspaceId, input.roomId);
+  if (!current) throw new RoomError("That room is missing.");
+  const [home] = await db
+    .select({ id: bots.id })
+    .from(bots)
+    .where(
+      and(
+        eq(bots.homeRoomId, input.roomId),
+        eq(bots.workspaceId, input.workspaceId),
+      ),
+    )
+    .limit(1);
+  assertListedGroupRoom(input.roomId, home ? [input.roomId] : []);
+  const seated = new Set(current.members.map((row) => row.botId));
+  const memberBotIds = [
+    ...new Set(input.memberBotIds.map((id) => id.trim()).filter(Boolean)),
+  ].filter((id) => !seated.has(id));
+  if (memberBotIds.length === 0) return current;
+  assertRoomSeatCapacity(seated.size, memberBotIds.length);
+  const loaded = await db
+    .select({
+      id: bots.id,
+      name: bots.name,
+      title: bots.title,
+      avatarColor: bots.avatarColor,
+      avatarShape: bots.avatarShape,
+      archivedAt: bots.archivedAt,
+      homeRoomId: bots.homeRoomId,
+      visibility: bots.visibility,
+    })
+    .from(bots)
+    .where(
+      and(
+        eq(bots.workspaceId, input.workspaceId),
+        inArray(bots.id, memberBotIds),
+      ),
+    );
+  const byId = new Map(loaded.map((row) => [row.id, row]));
+  for (const id of memberBotIds) {
+    const bot = byId.get(id);
+    if (!bot)
+      throw new RoomError("Every seat must be a teammate in this office.");
+    if (bot.archivedAt) throw new RoomError(`${bot.name} is archived.`);
+    assertInvitableToSharedRoom(bot);
+    if (!bot.homeRoomId) {
+      throw new RoomError(`${bot.name} has no room yet.`);
+    }
+  }
+  await db.insert(roomMembers).values(
+    memberBotIds.map((botId) => ({
+      id: newId(),
+      roomId: current.id,
+      botId,
+    })),
+  );
+  await db
+    .update(rooms)
+    .set({ updatedAt: new Date() })
+    .where(
+      and(eq(rooms.id, input.roomId), eq(rooms.workspaceId, input.workspaceId)),
+    );
+  const room = await getRoom(db, input.workspaceId, input.roomId);
+  if (!room) throw new RoomError("That room is missing.");
+  return room;
 }
 
 export async function deleteRoom(

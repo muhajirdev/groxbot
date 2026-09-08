@@ -1,0 +1,1 @@
+ALTER TABLE "rooms" ADD COLUMN "description" text DEFAULT '' NOT NULL;

@@ -141,6 +141,20 @@
       "when": 1788874064744,
       "tag": "0019_workable_screwball",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1788883716520,
+      "tag": "0020_brainy_korvac",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1788884370266,
+      "tag": "0021_massive_venom",
+      "breakpoints": true
     }
   ]
 }

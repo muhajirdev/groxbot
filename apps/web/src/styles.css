@@ -4591,6 +4591,213 @@ html.electron .pane-head {
   box-shadow: 0 0 0 1.5px var(--selected);
 }
 
+.room-board-wrap {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.room-board {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  min-height: 0;
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 12px 16px 16px;
+}
+
+.room-board-col {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 260px;
+  width: 260px;
+  min-width: 260px;
+  min-height: 0;
+  padding: 8px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: var(--card);
+}
+
+.room-board-col.is-drop {
+  background: var(--card-2);
+  border-color: var(--line);
+}
+
+.room-board-col-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.room-board-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 72px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.room-board-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card-2);
+  color: inherit;
+  text-decoration: none;
+  cursor: grab;
+}
+
+.room-board-card:hover {
+  border-color: color-mix(in srgb, var(--ink) 16%, var(--line));
+}
+
+.room-board-card:active {
+  cursor: grabbing;
+}
+
+.room-board-card-faces {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.room-board-toolbar {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px 0;
+}
+
+.room-board-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+  outline: none;
+}
+
+.room-board-display:hover,
+.room-board-display[data-popup-open] {
+  background: var(--hover);
+}
+
+.room-board-display:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.room-board-status {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 999px;
+}
+
+.room-board-status[data-status="backlog"] {
+  border: 1.5px dashed var(--muted);
+  background: transparent;
+}
+
+.room-board-status[data-status="todo"] {
+  border: 1.5px solid var(--muted);
+  background: transparent;
+}
+
+.room-board-status[data-status="in_progress"] {
+  background: #d4a017;
+}
+
+.room-board-status[data-status="in_review"] {
+  background: var(--ok);
+}
+
+.room-board-status[data-status="done"] {
+  background: var(--accent);
+}
+
+.room-board-status[data-status="blocked"] {
+  background: var(--danger);
+}
+
+.room-board-col-add {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.room-board-col-add:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.room-board-empty {
+  margin: auto 0;
+  padding: 20px 8px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.room-board-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding: 8px 16px 20px;
+}
+
+.room-board-list-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.room-board-list-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 40px 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: inherit;
+  text-decoration: none;
+}
+
+.room-board-list-row:hover {
+  background: var(--card-2);
+}
+
 .member-stack[data-n="2"] .member-stack-face:nth-child(1) {
   left: 0;
   top: 1px;

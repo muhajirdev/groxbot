@@ -1,0 +1,1 @@
+ALTER TABLE "rooms" ADD COLUMN "status" text DEFAULT 'todo' NOT NULL;

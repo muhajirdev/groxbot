@@ -48,7 +48,7 @@ export function SidebarCreateMenu(props: {
               New bot
             </Menu.Item>
             <Menu.Item className={itemClass} onClick={props.onNewRoom}>
-              New room
+              New task
             </Menu.Item>
             <Menu.Item className={itemClass} onClick={props.onNewSection}>
               New section

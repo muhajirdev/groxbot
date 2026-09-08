@@ -6,6 +6,10 @@ import type {
   ThreadMessage,
   WorkspaceApp,
 } from "@groxbot/contracts";
+import {
+  parseRoomWorkStatus,
+  type RoomWorkStatus,
+} from "@groxbot/core/browser";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -31,9 +35,10 @@ import {
 } from "../components/ChatFileLink";
 import { CommandPalette, SearchTrigger } from "../components/CommandPalette";
 import { ComputerPane } from "../components/ComputerPane";
-import { CreateRoomDialog } from "../components/CreateRoomDialog";
+import { CreateRoomDialog, InviteRoomDialog } from "../components/CreateRoomDialog";
 import { HireMarketplaceModal } from "../components/HireMarketplaceModal";
 import {
+  BoardIcon,
   CaretSwapIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
@@ -44,6 +49,7 @@ import {
   LiveAppsIcon,
   MonitorIcon,
   MoreIcon,
+  PeoplePlusIcon,
   PinIcon,
   PlugIcon,
   SkillsIcon,
@@ -54,6 +60,7 @@ import { MarketplaceModal } from "../components/MarketplaceModal";
 import { KeptOfficeThread } from "../components/OfficeThread";
 import { OnboardingDialog } from "../components/OnboardingDialog";
 import { PersonAvatar } from "../components/PersonAvatar";
+import { RoomBoard } from "../components/RoomBoard";
 import {
   ConfirmRoomDeleteDialog,
   RoomContextMenu,
@@ -127,6 +134,7 @@ import {
 import { officeRpcUrl } from "../lib/office-chat-rpc";
 import { ensurePiThread, forgetPiThread } from "../lib/pi-thread-session";
 import {
+  BOARD_TO,
   OFFICE_TO,
   officeKnowledgeHref,
   ROOM_TO,
@@ -491,6 +499,7 @@ const SectionHeader = memo(function SectionHeader(props: {
 export function Chat(props: {
   botId?: string;
   roomId?: string;
+  board?: boolean;
   workspace: { id: string; name: string; slug: string };
   desk: OfficeSearch;
 }) {
@@ -550,6 +559,10 @@ export function Chat(props: {
     workspaceNeedsOnboarding(listedBots()),
   );
   const [roomOpen, setRoomOpen] = useState(false);
+  const [roomDraftStatus, setRoomDraftStatus] = useState<
+    RoomWorkStatus | undefined
+  >();
+  const [roomInvite, setRoomInvite] = useState<Room | null>(null);
   const [roomDelete, setRoomDelete] = useState<Room | null>(null);
   const [sectionOpen, setSectionOpen] = useState(false);
   const [sectionRename, setSectionRename] = useState<SidebarSection | null>(
@@ -738,14 +751,34 @@ export function Chat(props: {
     },
     [desk, navigate, props.workspace.slug],
   );
+  const goToBoard = useCallback(
+    (nextDesk: OfficeSearch = desk) => {
+      setRosterOpen(false);
+      return navigate({
+        to: BOARD_TO,
+        params: { workspaceSlug: props.workspace.slug },
+        search: nextDesk,
+      });
+    },
+    [desk, navigate, props.workspace.slug],
+  );
   const setDesk = useCallback(
     (next: OfficeSearch) => {
       if (props.roomId) {
         return goToRoom(props.roomId, roomDeskSearch(next, focusedBotId));
       }
       if (props.botId) return goToBot(props.botId, next);
+      if (props.board) return goToBoard(next);
     },
-    [focusedBotId, goToBot, goToRoom, props.botId, props.roomId],
+    [
+      focusedBotId,
+      goToBoard,
+      goToBot,
+      goToRoom,
+      props.board,
+      props.botId,
+      props.roomId,
+    ],
   );
 
   useEffect(() => {
@@ -1198,10 +1231,21 @@ export function Chat(props: {
   );
 
   const createRoom = useCallback(
-    async (input: { name: string; memberBotIds: string[] }) => {
+    async (input: {
+      name: string;
+      description?: string;
+      memberBotIds: string[];
+      status?: RoomWorkStatus;
+    }) => {
       setRoomOpen(false);
+      setRoomDraftStatus(undefined);
       try {
-        const created = await client.rooms.create(input);
+        const created = await client.rooms.create({
+          name: input.name,
+          memberBotIds: input.memberBotIds,
+          ...(input.description ? { description: input.description } : {}),
+          ...(input.status ? { status: input.status } : {}),
+        });
         upsertRoom(created);
         void goToRoom(created.id, deskClosed());
       } catch (caught) {
@@ -1213,6 +1257,44 @@ export function Chat(props: {
       }
     },
     [activeId, goToRoom],
+  );
+
+  const inviteRoomMembers = useCallback(
+    async (target: Room, memberBotIds: string[]) => {
+      setRoomInvite(null);
+      try {
+        const saved = await client.rooms.invite({
+          roomId: target.id,
+          memberBotIds,
+        });
+        upsertRoom(saved);
+      } catch (caught) {
+        patchThreadMeta(target.id, {
+          error: userFacingError(caught, "Could not invite teammates"),
+        });
+      }
+    },
+    [],
+  );
+
+  const setRoomStatus = useCallback(
+    async (room: Room, status: RoomWorkStatus) => {
+      const snapshot = peekRooms().find((item) => item.id === room.id) ?? room;
+      if (parseRoomWorkStatus(snapshot.status) === status) return;
+      upsertRoom({ ...snapshot, status });
+      try {
+        const saved = await client.rooms.update({ roomId: room.id, status });
+        upsertRoom(saved);
+      } catch (caught) {
+        upsertRoom(snapshot);
+        if (activeId) {
+          patchThreadMeta(activeId, {
+            error: userFacingError(caught, "Could not update room"),
+          });
+        }
+      }
+    },
+    [activeId],
   );
 
   const createSection = useCallback(
@@ -1372,6 +1454,7 @@ export function Chat(props: {
     onboardOpen ||
     subscribeOpen ||
     roomOpen ||
+    Boolean(roomInvite) ||
     sectionOpen ||
     Boolean(sectionRename) ||
     settingsOpen ||
@@ -1399,7 +1482,12 @@ export function Chat(props: {
         return;
       }
       if (id === "room") {
+        setRoomDraftStatus(undefined);
         setRoomOpen(true);
+        return;
+      }
+      if (id === "board") {
+        void goToBoard(deskClosed());
         return;
       }
       if (id === "delete-room") {
@@ -1442,7 +1530,7 @@ export function Chat(props: {
       }
       setDesk(deskComputer());
     },
-    [desk, me, openMarketplace, room, setDesk],
+    [desk, goToBoard, me, openMarketplace, room, setDesk],
   );
 
   useHotkeys([
@@ -1733,6 +1821,23 @@ export function Chat(props: {
                   </div>
                   <div className="no-drag relative flex shrink-0 items-center gap-0.5">
                     <InviteFriendButton workspaceId={props.workspace.id} />
+                    <Link
+                      to={BOARD_TO}
+                      params={{ workspaceSlug: props.workspace.slug }}
+                      search={deskAwayFromLibrary(desk)}
+                      preload="intent"
+                      preloadDelay={300}
+                      onClick={closeRoster}
+                      aria-label="Board"
+                      aria-current={props.board ? "page" : undefined}
+                      title="Board"
+                      className={cn(
+                        "no-drag grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted outline-none no-underline transition-[background-color,color] duration-[var(--dur-popover)] ease-[var(--ease-dialog)] hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-accent",
+                        props.board && "bg-hover text-ink",
+                      )}
+                    >
+                      <BoardIcon />
+                    </Link>
                     {bot ? (
                       <Button
                         className="hidden max-[720px]:grid"
@@ -1757,7 +1862,10 @@ export function Chat(props: {
                       onNewBot={() => {
                         if (!hiring.current && !isHireInFlight()) setHireOpen(true);
                       }}
-                      onNewRoom={() => setRoomOpen(true)}
+                      onNewRoom={() => {
+                        setRoomDraftStatus(undefined);
+                        setRoomOpen(true);
+                      }}
                       onNewSection={() => setSectionOpen(true)}
                     />
                   </div>
@@ -2023,6 +2131,7 @@ export function Chat(props: {
                         className="flex min-w-0 items-center gap-2 border-0 bg-transparent p-0 text-inherit"
                         type="button"
                         onClick={() => {
+                          if (props.board) return;
                           setDesk(deskSettings());
                         }}
                       >
@@ -2037,14 +2146,39 @@ export function Chat(props: {
                           />
                         ) : null}
                         <strong className="truncate text-[14px] font-semibold tracking-tight">
-                          {isRoom
-                            ? (room?.name ?? "Room")
-                            : (bot?.name ?? props.workspace.name)}
+                          {props.board
+                            ? "Board"
+                            : isRoom
+                              ? (room?.name ?? "Room")
+                              : (bot?.name ?? props.workspace.name)}
                         </strong>
                       </button>
                     </div>
                   )}
                   <div className="no-drag flex shrink-0 items-center gap-1.5">
+                    {props.board && !pokeView ? (
+                      <Button
+                        type="button"
+                        className="px-3 py-1.5 text-[13px]"
+                        onClick={() => {
+                          setRoomDraftStatus(undefined);
+                          setRoomOpen(true);
+                        }}
+                      >
+                        New task
+                      </Button>
+                    ) : null}
+                    {isRoom && room && !pokeView ? (
+                      <Button
+                        variant="icon"
+                        type="button"
+                        aria-label="Invite teammates"
+                        title="Invite"
+                        onClick={() => setRoomInvite(room)}
+                      >
+                        <PeoplePlusIcon />
+                      </Button>
+                    ) : null}
                     {bot && !pokeView ? (
                       <>
                         <Button
@@ -2132,6 +2266,20 @@ export function Chat(props: {
                       </p>
                     </div>
                   </>
+                ) : props.board ? (
+                  <RoomBoard
+                    rooms={rooms}
+                    workspaceSlug={props.workspace.slug}
+                    desk={desk}
+                    workingIds={workingIds}
+                    onStatus={(item, status) => void setRoomStatus(item, status)}
+                    onMenu={openRoomMenu}
+                    onPick={closeRoster}
+                    onNewRoom={(status) => {
+                      setRoomDraftStatus(status);
+                      setRoomOpen(true);
+                    }}
+                  />
                 ) : isRoom && props.roomId && room ? (
                   <div className="relative flex min-h-0 flex-1 flex-col">
                     {mountedRoomIds.map((id) => {
@@ -2169,8 +2317,11 @@ export function Chat(props: {
                               ? planCopy.cta
                               : me?.needsModel
                                 ? "Add a model key to send"
-                                : `Message ${item.name}`
+                                : item.members.length === 0
+                                  ? "Add a note, or assign someone to work it"
+                                  : `Message ${item.name}`
                           }
+                          description={item.description}
                           error={itemError}
                           onNeedsModel={onNeedsModel}
                           onNeedsHostedPlan={onNeedsHostedPlan}
@@ -2468,8 +2619,24 @@ export function Chat(props: {
           <CreateRoomDialog
             open={roomOpen}
             bots={liveBots}
-            onClose={() => setRoomOpen(false)}
-            onCreate={(input) => void createRoom(input)}
+            onClose={() => {
+              setRoomOpen(false);
+              setRoomDraftStatus(undefined);
+            }}
+            onCreate={(input) =>
+              void createRoom({ ...input, status: roomDraftStatus })
+            }
+          />
+          <InviteRoomDialog
+            open={Boolean(roomInvite)}
+            roomName={roomInvite?.name ?? "room"}
+            bots={liveBots}
+            seatedIds={(roomInvite?.members ?? []).map((member) => member.botId)}
+            onClose={() => setRoomInvite(null)}
+            onInvite={(memberBotIds) => {
+              if (!roomInvite) return;
+              void inviteRoomMembers(roomInvite, memberBotIds);
+            }}
           />
           <ConfirmRoomDeleteDialog
             room={roomDelete}
@@ -2513,6 +2680,11 @@ export function Chat(props: {
             menu={roomMenu}
             onClose={() => setRoomMenu(null)}
             onPhase={setRoomMenu}
+            onInvite={(item) => {
+              setRoomMenu(null);
+              setRoomInvite(item);
+            }}
+            onStatus={(item, status) => void setRoomStatus(item, status)}
             onDelete={(room) => {
               setRoomMenu(null);
               void deleteRoom(room);

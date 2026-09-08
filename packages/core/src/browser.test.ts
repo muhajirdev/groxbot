@@ -31,6 +31,7 @@ describe("browser entry", () => {
       "pi-transcript.ts",
       "room-speaker.ts",
       "room-target.ts",
+      "room-work.ts",
       "routine-clock.ts",
       "sidebar-roster.ts",
       "visibility.ts",

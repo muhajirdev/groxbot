@@ -246,9 +246,15 @@ export class RoomActor extends RoomHome {
       return;
     }
     const members = await this.members();
+    const live = members.filter((seat) => !seat.archivedAt);
+    if (live.length === 0) {
+      this.status = "ready";
+      await this.broadcastStatus();
+      return;
+    }
     const mention = mentionFromText(
       piUserText(row.message),
-      members.map((seat) => seat.name),
+      live.map((seat) => seat.name),
     );
     let targets: RoomMemberRow[];
     try {

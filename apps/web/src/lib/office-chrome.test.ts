@@ -27,6 +27,10 @@ const appSettings = readFileSync(
   join(root, "../components/AppSettings.tsx"),
   "utf8",
 );
+const roomBoard = readFileSync(
+  join(root, "../components/RoomBoard.tsx"),
+  "utf8",
+);
 
 function rootBlock(marker: string): string {
   const start = css.indexOf(marker);
@@ -311,6 +315,38 @@ describe("office chrome", () => {
     expect(chatScreen).toMatch(/grid-cols-\[44px_minmax\(0,1fr\)\]/);
     expect(chatScreen).toMatch(/size="md"/);
     expect(css).toMatch(/\.member-stack\s*\{[^}]*width:\s*44px/s);
+  });
+
+  it("scrolls the work board sideways", () => {
+    expect(css).toMatch(/\.room-board\s*\{[^}]*overflow-x:\s*auto/s);
+    expect(css).toMatch(
+      /\.room-board-col\s*\{[^}]*flex:\s*0 0 260px[^}]*background:\s*var\(--card\)/s,
+    );
+    expect(css).toMatch(
+      /\.room-board-card\s*\{[^}]*flex-direction:\s*column/s,
+    );
+    expect(css).not.toMatch(
+      /\.room-board-card\s*\{[^}]*grid-template-columns:\s*44px/s,
+    );
+    expect(chatScreen).toMatch(
+      /InviteFriendButton[\s\S]*?to=\{BOARD_TO\}[\s\S]*?aria-label="Board"/,
+    );
+    expect(chatScreen).not.toMatch(
+      /truncate text-\[14px\] font-semibold">\s*Board/,
+    );
+  });
+
+  it("lets the work place switch board and list", () => {
+    expect(roomBoard).toMatch(/aria-label="Display"/);
+    expect(roomBoard).toMatch(/view === "list"/);
+    expect(roomBoard).toMatch(/>No tasks</);
+    expect(css).toMatch(/\.room-board-list-row\s*\{[^}]*grid-template-columns/s);
+    expect(css).toMatch(/\.room-board-display\s*\{[^}]*border:\s*1px solid var\(--line\)/s);
+  });
+
+  it("lets a group room invite more teammates", () => {
+    expect(chatScreen).toMatch(/aria-label="Invite teammates"/);
+    expect(chatScreen).toMatch(/InviteRoomDialog/);
   });
 
   it("keeps office chrome on an 8px grid", () => {

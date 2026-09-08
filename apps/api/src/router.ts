@@ -99,7 +99,9 @@ import {
   createWorkspaceRoom,
   deleteWorkspaceRoom,
   getWorkspaceRoom,
+  inviteWorkspaceRoomMembers,
   listWorkspaceRooms,
+  updateWorkspaceRoom,
 } from "./rooms.js";
 import {
   createWorkspaceSection,
@@ -530,6 +532,14 @@ export const appRouter = os.router({
     create: os.rooms.create.handler(async ({ context, input }) => {
       const actor = await requireActor(context);
       return createWorkspaceRoom(context, actor, input);
+    }),
+    update: os.rooms.update.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      return updateWorkspaceRoom(context, actor, input);
+    }),
+    invite: os.rooms.invite.handler(async ({ context, input }) => {
+      const actor = await requireActor(context);
+      return inviteWorkspaceRoomMembers(context, actor, input);
     }),
     delete: os.rooms.delete.handler(async ({ context, input }) => {
       const actor = await requireActor(context);

@@ -33,16 +33,21 @@ function rememberPreview(roomId: string, messages: PiBoundMessage[]) {
   setRoomMessages(roomId, messages);
 }
 
-function RoomWelcome() {
+function RoomWelcome(props: { description?: string; empty?: boolean }) {
+  const body = props.description?.trim();
   return (
-    <p className="px-1 text-left text-[14px] leading-relaxed text-muted-foreground">
-      This log is the table. Say something and everyone answers. @name
-      someone to talk to one person.
-    </p>
+    <div className="grid gap-2 px-1 text-left text-[14px] leading-relaxed">
+      {body ? (
+        <p className="m-0 whitespace-pre-wrap text-ink">{body}</p>
+      ) : null}
+      <p className="m-0 text-muted-foreground">
+        {props.empty
+          ? "This log is the table. Assign a teammate when they should answer."
+          : "This log is the table. Say something and everyone answers. @name someone to talk to one person."}
+      </p>
+    </div>
   );
 }
-
-const THREAD_COMPONENTS = { Welcome: RoomWelcome };
 
 export const KeptRoomThread = memo(function KeptRoomThread(props: {
   roomId: string;
@@ -51,6 +56,7 @@ export const KeptRoomThread = memo(function KeptRoomThread(props: {
   needsModel: boolean;
   needsHostedPlan?: boolean;
   placeholder: string;
+  description?: string;
   error: string;
   userId?: string;
   userName?: string;
@@ -72,6 +78,7 @@ export const KeptRoomThread = memo(function KeptRoomThread(props: {
       needsModel={props.needsModel}
       needsHostedPlan={props.needsHostedPlan}
       placeholder={props.placeholder}
+      description={props.description}
       error={props.error}
       userId={props.userId}
       userName={props.userName}
@@ -92,6 +99,7 @@ export function RoomThread(props: {
   needsModel: boolean;
   needsHostedPlan?: boolean;
   placeholder: string;
+  description?: string;
   error: string;
   userId?: string;
   userName?: string;
@@ -139,6 +147,7 @@ export function RoomThread(props: {
         needsModel={props.needsModel}
         needsHostedPlan={props.needsHostedPlan}
         placeholder={props.placeholder}
+        description={props.description}
         error={props.error}
         userId={props.userId}
         userName={props.userName}
@@ -164,6 +173,7 @@ const RoomThreadRuntime = memo(function RoomThreadRuntime(props: {
   needsModel: boolean;
   needsHostedPlan?: boolean;
   placeholder: string;
+  description?: string;
   error: string;
   userId?: string;
   userName?: string;
@@ -317,6 +327,18 @@ const RoomThreadRuntime = memo(function RoomThreadRuntime(props: {
     targetBotId: props.targetBotId,
     floorBotId,
   });
+  const empty = props.members.every((row) => row.archivedAt);
+  const components = useMemo(
+    () => ({
+      Welcome: () => (
+        <RoomWelcome
+          description={props.description}
+          empty={empty}
+        />
+      ),
+    }),
+    [empty, props.description],
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -331,7 +353,7 @@ const RoomThreadRuntime = memo(function RoomThreadRuntime(props: {
             botName={workingName}
             mentionSeats={props.members}
             pending={pending}
-            components={THREAD_COMPONENTS}
+            components={components}
           />
         </div>
       </AssistantRuntimeProvider>

@@ -543,6 +543,12 @@ export const rooms = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    /**
+     * Listed group rooms only. Home offices are hidden from rooms.list.
+     * backlog | todo | in_progress | in_review | done | blocked
+     */
+    status: text("status").notNull().default("todo"),
+    description: text("description").notNull().default(""),
     createdByUserId: text("created_by_user_id")
       .notNull()
       .references(() => user.id),

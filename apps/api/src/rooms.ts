@@ -3,8 +3,10 @@ import {
   createRoom,
   deleteRoom,
   getRoom,
+  inviteRoomMembers,
   listRooms,
   RoomError,
+  updateRoom,
 } from "@groxbot/core";
 import { ORPCError } from "@orpc/server";
 import type { RpcContext } from "./context.js";
@@ -39,7 +41,13 @@ export async function getWorkspaceRoom(
 export async function createWorkspaceRoom(
   context: RpcContext,
   actor: Actor,
-  input: { id?: string; name: string; memberBotIds: string[] },
+  input: {
+    id?: string;
+    name: string;
+    memberBotIds: string[];
+    status?: Room["status"];
+    description?: string;
+  },
 ): Promise<Room> {
   let room: Room;
   try {
@@ -49,8 +57,74 @@ export async function createWorkspaceRoom(
       name: input.name,
       memberBotIds: input.memberBotIds,
       id: input.id,
+      status: input.status,
+      description: input.description,
     });
   } catch (error) {
+    asOrpc(error);
+  }
+  if (context.initRoom) {
+    await context.initRoom(room.id, {
+      workspaceId: room.workspaceId,
+      name: room.name,
+      members: room.members.map((row) => ({
+        id: row.botId,
+        name: row.name,
+        homeRoomId: row.homeRoomId,
+      })),
+    });
+  }
+  return room;
+}
+
+export async function updateWorkspaceRoom(
+  context: RpcContext,
+  actor: Actor,
+  input: {
+    roomId: string;
+    name?: string;
+    description?: string;
+    status?: Room["status"];
+  },
+): Promise<Room> {
+  try {
+    return await updateRoom(context.db, {
+      workspaceId: actor.workspaceId,
+      roomId: input.roomId,
+      name: input.name,
+      description: input.description,
+      status: input.status,
+    });
+  } catch (error) {
+    if (
+      error instanceof RoomError &&
+      error.message === "That room is missing."
+    ) {
+      throw new ORPCError("NOT_FOUND", { message: "Room not found" });
+    }
+    asOrpc(error);
+  }
+}
+
+export async function inviteWorkspaceRoomMembers(
+  context: RpcContext,
+  actor: Actor,
+  input: { roomId: string; memberBotIds: string[] },
+): Promise<Room> {
+  let room: Room;
+  try {
+    room = await inviteRoomMembers(context.db, {
+      workspaceId: actor.workspaceId,
+      roomId: input.roomId,
+      memberBotIds: input.memberBotIds,
+    });
+  } catch (error) {
+    if (
+      error instanceof RoomError &&
+      error.message === "That room is missing."
+    ) {
+      throw new ORPCError("NOT_FOUND", { message: "Room not found" });
+    }
     asOrpc(error);
   }
   if (context.initRoom) {

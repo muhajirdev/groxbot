@@ -114,6 +114,52 @@ const PauseBars: IconSvgElement = [
   ],
 ];
 
+/** Three columns — work board, not the live-apps dashboard square. */
+const KanbanColumns: IconSvgElement = [
+  [
+    "rect",
+    {
+      x: "3.5",
+      y: "4",
+      width: "5",
+      height: "16",
+      rx: "1",
+      stroke: "currentColor",
+      strokeWidth: "1.5",
+      fill: "none",
+      key: "0",
+    },
+  ],
+  [
+    "rect",
+    {
+      x: "9.5",
+      y: "4",
+      width: "5",
+      height: "10",
+      rx: "1",
+      stroke: "currentColor",
+      strokeWidth: "1.5",
+      fill: "none",
+      key: "1",
+    },
+  ],
+  [
+    "rect",
+    {
+      x: "15.5",
+      y: "4",
+      width: "5",
+      height: "13",
+      rx: "1",
+      stroke: "currentColor",
+      strokeWidth: "1.5",
+      fill: "none",
+      key: "2",
+    },
+  ],
+];
+
 export function SearchIcon(props: IconProps) {
   return <Glyph icon={SearchGlyph} {...props} />;
 }
@@ -144,6 +190,48 @@ export function KnowledgeIcon(props: IconProps) {
 
 export function SkillsIcon(props: IconProps) {
   return <Glyph icon={Bookmark01Icon} {...props} />;
+}
+
+export function BoardIcon(props: IconProps) {
+  return <Glyph icon={KanbanColumns} {...props} />;
+}
+
+/** Stacked rows — list view of the same work rooms. */
+const ListRows: IconSvgElement = [
+  [
+    "path",
+    {
+      d: "M4 7h16",
+      stroke: "currentColor",
+      strokeLinecap: "round",
+      strokeWidth: "1.5",
+      key: "0",
+    },
+  ],
+  [
+    "path",
+    {
+      d: "M4 12h16",
+      stroke: "currentColor",
+      strokeLinecap: "round",
+      strokeWidth: "1.5",
+      key: "1",
+    },
+  ],
+  [
+    "path",
+    {
+      d: "M4 17h10",
+      stroke: "currentColor",
+      strokeLinecap: "round",
+      strokeWidth: "1.5",
+      key: "2",
+    },
+  ],
+];
+
+export function ListIcon(props: IconProps) {
+  return <Glyph icon={ListRows} {...props} />;
 }
 
 export function LiveAppsIcon(props: IconProps) {

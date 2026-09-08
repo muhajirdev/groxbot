@@ -9,6 +9,8 @@ import {
   ComputerListSchema,
   CreateBotInput,
   CreateRoomInput,
+  InviteRoomMembersInput,
+  UpdateRoomInput,
   CreateSidebarSectionInput,
   CreateWorkspaceInput,
   GuestConnectSchema,
@@ -166,6 +168,8 @@ export const appContract = oc.router({
     list: oc.output(z.array(RoomSchema)),
     get: oc.input(z.object({ roomId: Id })).output(RoomSchema),
     create: oc.input(CreateRoomInput).output(RoomSchema),
+    update: oc.input(UpdateRoomInput).output(RoomSchema),
+    invite: oc.input(InviteRoomMembersInput).output(RoomSchema),
     delete: oc
       .input(z.object({ roomId: Id }))
       .output(z.object({ ok: z.literal(true) })),

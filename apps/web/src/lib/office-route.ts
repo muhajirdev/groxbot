@@ -3,6 +3,7 @@ import { officeUrl } from "./host";
 
 export const OFFICE_TO = "/$workspaceSlug/room/$roomId" as const;
 export const ROOM_TO = OFFICE_TO;
+export const BOARD_TO = "/$workspaceSlug/board" as const;
 export const WORKSPACE_TO = "/$workspaceSlug" as const;
 
 export function officeParams(workspaceSlug: string, roomId: string) {

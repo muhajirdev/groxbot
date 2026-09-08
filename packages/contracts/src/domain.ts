@@ -90,10 +90,23 @@ export const RoomMemberSchema = z.object({
 });
 export type RoomMember = z.infer<typeof RoomMemberSchema>;
 
+/** Listed group rooms only. Home vs table is still `bots.homeRoomId`. */
+export const RoomWorkStatus = z.enum([
+  "backlog",
+  "todo",
+  "in_progress",
+  "in_review",
+  "done",
+  "blocked",
+]);
+export type RoomWorkStatus = z.infer<typeof RoomWorkStatus>;
+
 export const RoomSchema = z.object({
   id: Id,
   workspaceId: Id,
   name: z.string(),
+  description: z.string().default(""),
+  status: RoomWorkStatus.default("todo"),
   members: z.array(RoomMemberSchema),
   lastPreview: z.string(),
   lastAt: z.string(),
@@ -104,9 +117,33 @@ export type Room = z.infer<typeof RoomSchema>;
 
 export const CreateRoomInput = z.object({
   id: Id.max(64).optional(),
-  name: z.string().min(1).max(80),
+  name: z.string().min(1).max(200),
+  description: z.string().max(8000).optional(),
+  memberBotIds: z.array(Id).max(32).default([]),
+  status: RoomWorkStatus.optional(),
+});
+
+export const InviteRoomMembersInput = z.object({
+  roomId: Id,
   memberBotIds: z.array(Id).min(1).max(32),
 });
+
+export const UpdateRoomInput = z
+  .object({
+    roomId: Id,
+    name: z.string().min(1).max(200).optional(),
+    description: z.string().max(8000).optional(),
+    status: RoomWorkStatus.optional(),
+  })
+  .refine(
+    (row) =>
+      row.status !== undefined ||
+      row.name !== undefined ||
+      row.description !== undefined,
+    {
+      message: "Change the status, name, or description.",
+    },
+  );
 
 /** Named sidebar bucket for people. Not a room. */
 export const SidebarSectionSchema = z.object({
