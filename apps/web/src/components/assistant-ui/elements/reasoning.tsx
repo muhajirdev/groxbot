@@ -24,13 +24,13 @@ export const ANIMATION_DURATION = 200;
 const ReasoningPreviewContext = createContext(false);
 
 const reasoningVariants = cva(
-  "aui-reasoning-root mb-2 w-fit max-w-full self-start outline-none",
+  "aui-reasoning-root mb-1 w-fit max-w-[min(92%,36rem)] self-start outline-none min-[721px]:max-w-[min(72%,36rem)]",
   {
     variants: {
       variant: {
-        outline: "px-0 py-0",
+        outline: "rounded-lg border px-3 py-2",
         ghost: "",
-        muted: "px-0 py-0",
+        muted: "rounded-lg bg-muted/50 px-3 py-2",
       },
     },
     defaultVariants: {
@@ -180,7 +180,7 @@ function ReasoningTrigger({
     <CollapsibleTrigger
       data-slot="reasoning-trigger"
       className={cn(
-        "aui-reasoning-trigger group/trigger flex w-fit origin-left cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 text-[12px] font-normal tracking-normal text-muted-foreground shadow-none outline-none ring-0 appearance-none transition-colors hover:text-foreground focus:outline-none focus-visible:outline-none focus-visible:ring-0 active:scale-[0.99]",
+        "aui-reasoning-trigger group/trigger text-muted-foreground hover:text-foreground flex w-fit origin-left cursor-pointer items-center gap-2 border-0 bg-transparent p-0 py-1.5 text-sm shadow-none outline-none ring-0 appearance-none transition-[color,scale] focus:outline-none focus-visible:outline-none focus-visible:ring-0 active:scale-[0.98]",
         className,
       )}
       {...props}
@@ -188,24 +188,24 @@ function ReasoningTrigger({
       {active ? (
         <SpiralLoader
           data-slot="reasoning-trigger-loader"
-          size={14}
+          size={16}
           className="aui-reasoning-trigger-loader"
         />
       ) : null}
       <span
         data-slot="reasoning-trigger-label"
         className={cn(
-          "aui-reasoning-trigger-label-wrapper inline-block leading-none tabular-nums",
+          "aui-reasoning-trigger-label-wrapper inline-block text-start text-xs leading-none font-medium tabular-nums",
           active && "shimmer motion-reduce:animate-none",
         )}
       >
-        {active ? "Thinking" : "Thought"}
+        Reasoning
         {durationText}
       </span>
       <ChevronDownIcon
         data-slot="reasoning-trigger-chevron"
         className={cn(
-          "aui-reasoning-trigger-chevron size-3 shrink-0 opacity-50",
+          "aui-reasoning-trigger-chevron size-3.5 shrink-0 opacity-50",
           "transition-transform duration-(--animation-duration) ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
           "-rotate-90",
           "group-data-open/trigger:rotate-0",
@@ -227,7 +227,7 @@ function ReasoningContent({
     <CollapsibleContent
       data-slot="reasoning-content"
       className={cn(
-        "aui-reasoning-content relative overflow-hidden text-[13px] leading-relaxed text-muted-foreground outline-none",
+        "aui-reasoning-content text-muted-foreground relative overflow-hidden text-sm outline-none",
         "group/collapsible-content ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:animate-none",
         "data-closed:animate-collapsible-up",
         "data-open:animate-collapsible-down",
@@ -238,7 +238,6 @@ function ReasoningContent({
       )}
       {...props}
     >
-      <ReasoningFade side="top" />
       {children}
       {isPreview ? <ReasoningFade /> : null}
     </CollapsibleContent>
@@ -303,24 +302,15 @@ function ReasoningText({
       ref={scrollRef}
       data-slot="reasoning-text"
       className={cn(
-        "aui-reasoning-text relative z-0 max-h-64 overflow-y-auto border-0 border-l border-solid border-[color-mix(in_srgb,var(--muted)_28%,transparent)] ps-3 pt-1 pb-1.5 leading-relaxed text-pretty",
-        "transform-gpu transition-[transform,opacity] ease-[cubic-bezier(0.32,0.72,0,1)]",
-        "motion-reduce:animate-none",
-        "group-data-open/collapsible-content:animate-in",
-        "group-data-closed/collapsible-content:animate-out",
-        "group-data-open/collapsible-content:fade-in-0",
-        "group-data-closed/collapsible-content:fade-out-0",
-        "group-data-open/collapsible-content:slide-in-from-top-4",
-        "group-data-closed/collapsible-content:slide-out-to-top-4",
-        "group-data-open/collapsible-content:blur-in-[2px]",
-        "group-data-closed/collapsible-content:blur-out-[2px]",
-        "group-data-open/collapsible-content:animation-duration-(--animation-duration)",
-        "group-data-closed/collapsible-content:animation-duration-(--animation-duration)",
+        "aui-reasoning-text relative z-0 max-h-40 overflow-y-auto border-l border-muted-foreground/25 ps-3 pt-1 pb-0.5 text-[13px] leading-snug text-pretty",
         className,
       )}
       {...props}
     >
-      <div ref={contentRef} className="aui-reasoning-text-content space-y-4">
+      <div
+        ref={contentRef}
+        className="aui-reasoning-text-content space-y-1 [&_.aui-md-p]:my-1 [&_.aui-md-p]:leading-snug [&_strong]:font-medium"
+      >
         {children}
       </div>
     </div>

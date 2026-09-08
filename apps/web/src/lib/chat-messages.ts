@@ -108,6 +108,7 @@ export function isVisibleChatMessage(message: {
     text.length > 0 ||
     parts.some(
       (part) =>
+        part.type === "reasoning" ||
         part.type === "tool-call" ||
         part.type === "dynamic-tool" ||
         part.type.startsWith("tool-"),

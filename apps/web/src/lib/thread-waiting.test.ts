@@ -26,14 +26,14 @@ const assistantRunningTool = {
 };
 
 describe("assistantTurnHasVisibleWork", () => {
-  it("ignores user, empty, and reasoning-only turns", () => {
+  it("ignores user and empty turns", () => {
     expect(assistantTurnHasVisibleWork(user)).toBe(false);
     expect(assistantTurnHasVisibleWork(assistantEmpty)).toBe(false);
-    expect(assistantTurnHasVisibleWork(assistantReasoning)).toBe(false);
   });
 
-  it("counts text and tools", () => {
+  it("counts text, reasoning, and tools", () => {
     expect(assistantTurnHasVisibleWork(assistantText)).toBe(true);
+    expect(assistantTurnHasVisibleWork(assistantReasoning)).toBe(true);
     expect(assistantTurnHasVisibleWork(assistantTool)).toBe(true);
   });
 });
@@ -65,19 +65,22 @@ describe("isWaitingForAssistantTurn", () => {
     ).toBe(true);
   });
 
-  it("stays up for an empty or reasoning-only assistant placeholder", () => {
+  it("stays up for an empty assistant placeholder", () => {
     expect(
       isWaitingForAssistantTurn({
         isRunning: true,
         lastMessage: assistantEmpty,
       }),
     ).toBe(true);
+  });
+
+  it("hides once reasoning or other visible work arrives", () => {
     expect(
       isWaitingForAssistantTurn({
         isRunning: true,
         lastMessage: assistantReasoning,
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("hides once the assistant has visible work", () => {

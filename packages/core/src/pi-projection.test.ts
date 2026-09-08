@@ -179,6 +179,16 @@ describe("projectPiBoundMessages", () => {
     ).toBe(true);
   });
 
+  it("keeps reasoning-only assistant turns visible", () => {
+    expect(
+      isVisibleProjectedMessage({
+        id: "think",
+        role: "assistant",
+        content: [{ type: "reasoning", text: "checking the brief" }],
+      }),
+    ).toBe(true);
+  });
+
   it("hides the hire-intro trigger and keeps the greeting", () => {
     expect(
       isVisibleProjectedMessage({

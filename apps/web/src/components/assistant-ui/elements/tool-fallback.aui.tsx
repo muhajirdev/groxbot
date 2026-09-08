@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { useShowToolCalls } from "@/lib/show-tool-calls";
 import { toolActivityCopy, type ToolActivityKind } from "@/lib/tool-copy";
 import { SpiralLoader } from "./spiral-loader";
 
@@ -584,7 +583,6 @@ const ToolFallbackImpl: ToolCallMessagePartComponent = ({
   approval,
   respondToApproval,
 }) => {
-  const expandable = useShowToolCalls();
   const isCancelled =
     status?.type === "incomplete" && status.reason === "cancelled";
   const isRequiresAction = status?.type === "requires-action";
@@ -609,23 +607,6 @@ const ToolFallbackImpl: ToolCallMessagePartComponent = ({
       status={status}
     />
   ) : null;
-
-  if (!expandable) {
-    return (
-      <div
-        data-slot="tool-fallback-root"
-        data-expandable="false"
-        className="aui-tool-fallback-root w-full"
-      >
-        <ToolFallbackTrigger
-          toolName={toolName}
-          status={status}
-          expandable={false}
-        />
-        {approvalRow}
-      </div>
-    );
-  }
 
   return (
     <ToolFallbackRoot open={open} onOpenChange={setOpen}>

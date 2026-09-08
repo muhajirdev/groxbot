@@ -340,7 +340,11 @@ export function isVisibleProjectedMessage(message: PiProjectedMessage): boolean 
       message.content.some((part) => part.type === "image")
     );
   }
-  return projectedText(message).length > 0 || usedProjectedTools(message);
+  return (
+    projectedText(message).length > 0 ||
+    usedProjectedTools(message) ||
+    message.content.some((part) => part.type === "reasoning")
+  );
 }
 
 export function lastProjectedPreview(messages: readonly PiProjectedMessage[]): string {

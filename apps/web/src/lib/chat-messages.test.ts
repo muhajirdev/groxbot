@@ -233,6 +233,16 @@ describe("isVisibleChatMessage", () => {
     ).toBe(true);
   });
 
+  it("keeps reasoning-only assistant turns visible", () => {
+    expect(
+      isVisibleChatMessage({
+        id: "think",
+        role: "assistant",
+        content: [{ type: "reasoning", text: "checking the brief" }],
+      }),
+    ).toBe(true);
+  });
+
   it("shows a user bubble that is only an inbox path note", () => {
     expect(
       isVisibleChatMessage({

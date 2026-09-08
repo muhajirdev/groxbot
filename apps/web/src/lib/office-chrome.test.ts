@@ -302,19 +302,23 @@ describe("office chrome", () => {
     expect(threadAui).not.toContain("AssistantWorkingDots");
   });
 
-  it("always paints tool rows; args stay behind the flag", () => {
+  it("always paints reasoning and expandable tool rows", () => {
     expect(threadAui).toMatch(
       /case "tool-call":[\s\S]*ToolFallbackComponent/,
     );
-    expect(threadAui).not.toMatch(
-      /case "tool-call":[\s\S]*if \(!showToolCalls\) return null/,
-    );
     expect(threadAui).toMatch(
+      /reasoning: \["group-chainOfThought", "group-reasoning"\]/,
+    );
+    expect(threadAui).toMatch(/case "group-reasoning"/);
+    expect(threadAui).toMatch(/case "reasoning":/);
+    expect(threadAui).toContain("ReasoningRoot");
+    expect(threadAui).toContain("ReasoningText");
+    expect(threadAui).not.toMatch(
       /case "group-tool":[\s\S]*if \(!showToolCalls\) return children/,
     );
-    expect(toolFallback).toContain("useShowToolCalls");
-    expect(toolFallback).toContain('data-expandable="false"');
-    expect(toolFallback).toContain("expandable={false}");
+    expect(threadAui).not.toContain("useShowToolCalls");
+    expect(toolFallback).not.toContain("useShowToolCalls");
+    expect(toolFallback).not.toContain('data-expandable="false"');
     expect(toolFallback).toContain("toolActivityCopy");
     expect(toolFallback).not.toContain("Used tool");
   });

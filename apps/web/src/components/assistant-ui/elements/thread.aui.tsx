@@ -16,6 +16,12 @@ import {
 } from "@/components/assistant-ui/elements/tool-group.aui";
 import { TooltipIconButton } from "@/components/assistant-ui/elements/tooltip-icon-button";
 import { ThinkingStatus } from "@/components/assistant-ui/elements/spiral-loader";
+import {
+  ReasoningContent,
+  ReasoningRoot,
+  ReasoningText,
+  ReasoningTrigger,
+} from "@/components/assistant-ui/elements/reasoning.aui";
 import { PersonAvatar } from "@/components/PersonAvatar";
 import { AvatarMark } from "@/components/Avatar";
 import { OfficeSkillSlash } from "@/components/OfficeSkillSlash";
@@ -32,7 +38,6 @@ import {
   isWaitingForAssistantTurn,
 } from "@/lib/thread-waiting";
 import { messageDaySep } from "@/lib/time";
-import { useShowToolCalls } from "@/lib/show-tool-calls";
 import { cn } from "@/lib/utils";
 import {
   AuiIf,
@@ -414,7 +419,6 @@ const AssistantMessage: FC = () => {
     ToolFallback: ToolFallbackComponent = ToolFallback,
     ToolGroup,
   } = useContext(ThreadComponentsContext);
-  const showToolCalls = useShowToolCalls();
   const speakerName = useAuiState(
     (s) => parseRoomSpeaker(s.message.metadata)?.name ?? "",
   );
@@ -474,6 +478,7 @@ const AssistantMessage: FC = () => {
         ) : null}
         <MessagePrimitive.GroupedParts
           groupBy={groupPartByType({
+            reasoning: ["group-chainOfThought", "group-reasoning"],
             "tool-call": ["group-chainOfThought", "group-tool"],
             "standalone-tool-call": [],
           })}
@@ -487,7 +492,6 @@ const AssistantMessage: FC = () => {
                   </div>
                 );
               case "group-tool":
-                if (!showToolCalls) return children;
                 if (ToolGroup) {
                   return <ToolGroup group={part}>{children}</ToolGroup>;
                 }
@@ -500,9 +504,53 @@ const AssistantMessage: FC = () => {
                     <ToolGroupContent>{children}</ToolGroupContent>
                   </ToolGroupRoot>
                 );
-              case "group-reasoning":
+              case "group-reasoning": {
+                const streaming = part.status.type === "running";
+                return (
+                  <ReasoningRoot variant="ghost" streaming={streaming}>
+                    <ReasoningTrigger active={streaming} />
+                    <ReasoningContent aria-busy={streaming}>
+                      <ReasoningText>{children}</ReasoningText>
+                    </ReasoningContent>
+                  </ReasoningRoot>
+                );
+              }
               case "reasoning":
-                return null;
+                return (
+                  <MarkdownText
+                    components={{
+                      h1: ({ children }) => (
+                        <p className="aui-md-p my-1.5 font-medium first:mt-0 last:mb-0">
+                          {children}
+                        </p>
+                      ),
+                      h2: ({ children }) => (
+                        <p className="aui-md-p my-1.5 font-medium first:mt-0 last:mb-0">
+                          {children}
+                        </p>
+                      ),
+                      h3: ({ children }) => (
+                        <p className="aui-md-p my-1.5 font-medium first:mt-0 last:mb-0">
+                          {children}
+                        </p>
+                      ),
+                      h4: ({ children }) => (
+                        <p className="aui-md-p my-1.5 font-medium first:mt-0 last:mb-0">
+                          {children}
+                        </p>
+                      ),
+                      p: ({ className, ...props }) => (
+                        <p
+                          className={cn(
+                            "aui-md-p my-1.5 leading-relaxed first:mt-0 last:mb-0",
+                            className,
+                          )}
+                          {...props}
+                        />
+                      ),
+                    }}
+                  />
+                );
               case "text":
                 return (
                   <div

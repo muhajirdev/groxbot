@@ -280,7 +280,7 @@ export function Design() {
           <Section
             id="reasoning"
             title="Reasoning"
-            lede="The disclosure next to the spiral. Streaming holds the panel open; done collapses to Thought."
+            lede="Flat disclosure like tool rows. Streaming holds the panel open; done collapses to Reasoning."
           >
             <Specimen label="Streaming" hint="active shimmer">
               <ReasoningRoot variant="ghost" streaming defaultOpen>
@@ -290,7 +290,7 @@ export function Design() {
                 </ReasoningContent>
               </ReasoningRoot>
             </Specimen>
-            <Specimen label="Done" hint="Thought + duration">
+            <Specimen label="Done" hint="Reasoning + duration">
               <ReasoningRoot variant="ghost" defaultOpen>
                 <ReasoningTrigger duration={4} />
                 <ReasoningContent>
@@ -311,7 +311,7 @@ export function Design() {
           <Section
             id="tools"
             title="Tools"
-            lede="Short human lines while a call runs. Chevron and args only with groxbot.showToolCalls."
+            lede="Short human lines while a call runs. Expand for args and results."
           >
             <Specimen label="Running">
               <ToolRow toolName="code" status="running" />

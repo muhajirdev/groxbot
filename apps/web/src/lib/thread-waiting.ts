@@ -38,7 +38,7 @@ export function assistantTurnHasRunningTool(
   );
 }
 
-/** Visible assistant work — text, tools, or files. Not reasoning. */
+/** Visible assistant work — text, reasoning, tools, or files. */
 export function assistantTurnHasVisibleWork(
   message: ThreadWaitingMessage | null | undefined,
 ): boolean {
@@ -46,6 +46,9 @@ export function assistantTurnHasVisibleWork(
   return Boolean(
     message.parts?.some((part) => {
       if (part.type === "text") return Boolean(part.text?.trim());
+      if (part.type === "reasoning" || part.type === "group-reasoning") {
+        return true;
+      }
       if (part.type === "file" || part.type === "image") return true;
       return partLooksLikeTool(part.type);
     }),
@@ -55,9 +58,7 @@ export function assistantTurnHasVisibleWork(
 /**
  * Show "{bot} is working" from send until the first visible assistant work.
  *
- * Empty / reasoning-only assistant messages stay hidden in the transcript, so
- * treating `last.role === "assistant"` as "the turn has started" leaves a dead
- * gap. `pending` covers the window after the composer clears and before the
+ * `pending` covers the window after the composer clears and before the
  * socket/chat status flips to submitted.
  */
 export function isWaitingForAssistantTurn(input: ThreadWaitingInput): boolean {
