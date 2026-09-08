@@ -143,7 +143,7 @@ export function ModelField(props: {
           sideOffset={4}
           align="start"
         >
-          <Combobox.Popup className="popover-popup max-h-[min(240px,var(--available-height))] w-[var(--anchor-width)] overflow-auto rounded-[10px] border border-line bg-card py-1 outline-none">
+          <Combobox.Popup className="popover-popup max-h-[min(360px,var(--available-height))] w-[var(--anchor-width)] overflow-auto rounded-[10px] border border-line bg-card py-1 outline-none">
             <Combobox.Empty>
               <div className="px-3 py-2 text-[13px] text-muted">
                 No models match.

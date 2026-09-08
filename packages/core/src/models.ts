@@ -45,6 +45,10 @@ import { secrets, userModelCredentials, workspaceModels } from "@groxbot/db";
 import { eq } from "drizzle-orm";
 import { ensureWorkspaceBilling, utcMonthStartIso } from "./billing.js";
 import { newId } from "./ids.js";
+import {
+  fetchOpenRouterCatalog,
+  mergeOpenRouterIntoCatalog,
+} from "./openrouter-models.js";
 import { decryptSecret, encryptSecret, secretHint } from "./secret-box.js";
 
 const PROVIDERS: ModelProvider[] = [...PROVIDER_ORDER];
@@ -305,9 +309,9 @@ export async function loadModelSettings(
     Boolean(hosted),
     hostedStarterModel(env),
   );
-  const listed = MODEL_CATALOG.some((item) => item.id === defaultModelId);
+  const listedStatic = MODEL_CATALOG.some((item) => item.id === defaultModelId);
   const groxGateway = Boolean(groxHostedGateway(env));
-  const catalog = MODEL_CATALOG.filter((item) => {
+  const staticCatalog = MODEL_CATALOG.filter((item) => {
     if (groxGateway) return true;
     return item.id !== GROXBOT_AUTO_MODEL && item.id !== GROXBOT_FREE_MODEL;
   }).map((item) => ({
@@ -316,6 +320,11 @@ export async function loadModelSettings(
     provider: item.provider,
     available: modelIsRunnable(item.id, available),
   }));
+  const openRouterLive = await fetchOpenRouterCatalog({
+    available: available.includes(OPENROUTER_PROVIDER),
+  });
+  const catalog = mergeOpenRouterIntoCatalog(staticCatalog, openRouterLive);
+  const listed = listedStatic || catalog.some((item) => item.id === defaultModelId);
   const warning =
     available.length > 0 && !modelIsRunnable(defaultModelId, available)
       ? missingProviderMessage(defaultModelId)

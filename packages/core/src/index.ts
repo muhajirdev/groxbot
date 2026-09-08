@@ -34,6 +34,7 @@ export * from "./office-review.js";
 export * from "./office-skill.js";
 export * from "./office-skill-slash.js";
 export * from "./office-system-prompt.js";
+export * from "./openrouter-models.js";
 export * from "./pi-context.js";
 export * from "./pi-projection.js";
 export * from "./pi-steer.js";
