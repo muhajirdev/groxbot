@@ -319,22 +319,12 @@ describe("office chrome", () => {
     expect(toolFallback).not.toContain("Used tool");
   });
 
-  it("does not reserve action-bar height when the bar is hidden", () => {
-    const footer = threadAui.slice(
-      threadAui.indexOf('data-slot="aui_assistant-message-footer"'),
-      threadAui.indexOf("<BranchPicker />"),
-    );
-    expect(footer).toContain("empty:hidden");
-    expect(footer).not.toContain("min-h-7.5");
-  });
-
-  it("floats hover action bars so they do not shift layout", () => {
-    const actionBar = threadAui.slice(
-      threadAui.indexOf("const AssistantActionBar"),
-      threadAui.indexOf("const UserMessage"),
-    );
-    expect(actionBar).toContain('autohideFloat="single-branch"');
-    expect(actionBar).toContain("data-[floating]:absolute");
+  it("keeps chat bubbles free of copy/refresh action bars", () => {
+    expect(threadAui).not.toContain("ActionBarPrimitive");
+    expect(threadAui).not.toContain("AssistantActionBar");
+    expect(threadAui).not.toContain("UserActionBar");
+    expect(threadAui).not.toContain("-mb-7.5");
+    expect(threadAui).not.toContain("pb-7.5");
   });
 
   it("merges Stop and Send into one composer slot", () => {

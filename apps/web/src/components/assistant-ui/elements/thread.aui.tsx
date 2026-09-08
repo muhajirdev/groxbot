@@ -35,8 +35,6 @@ import { messageDaySep } from "@/lib/time";
 import { useShowToolCalls } from "@/lib/show-tool-calls";
 import { cn } from "@/lib/utils";
 import {
-  ActionBarMorePrimitive,
-  ActionBarPrimitive,
   AuiIf,
   type AssistantState,
   BranchPickerPrimitive,
@@ -51,15 +49,9 @@ import {
 import {
   ArrowDownIcon,
   ArrowUpIcon,
-  CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  CopyIcon,
-  DownloadIcon,
   MicIcon,
-  MoreIcon,
-  PencilIcon,
-  ReloadIcon,
   SquareIcon,
 } from "@/components/Icons";
 import {
@@ -428,7 +420,7 @@ const AssistantMessage: FC = () => {
     <MessagePrimitive.Root
       data-slot="aui_assistant-message-root"
       data-role="assistant"
-      className="fade-in slide-in-from-bottom-1 animate-in relative -mb-7.5 pb-7.5 duration-150 [contain-intrinsic-size:auto_200px] [content-visibility:auto]"
+      className="fade-in slide-in-from-bottom-1 animate-in relative duration-150 [contain-intrinsic-size:auto_200px] [content-visibility:auto]"
     >
       <div
         data-slot="aui_assistant-message-content"
@@ -527,39 +519,8 @@ const AssistantMessage: FC = () => {
         className="ms-2 flex items-center empty:hidden"
       >
         <BranchPicker />
-        <AssistantActionBar />
       </div>
     </MessagePrimitive.Root>
-  );
-};
-
-const AssistantActionBar: FC = () => {
-  return (
-    <ActionBarPrimitive.Root
-      hideWhenRunning
-      autohide="not-last"
-      autohideFloat="single-branch"
-      className="aui-assistant-action-bar-root text-muted-foreground animate-in fade-in col-start-3 row-start-2 -ms-1 flex min-h-7.5 gap-1 pt-1.5 duration-200 data-[floating]:absolute data-[floating]:z-10"
-    >
-      <ActionBarPrimitive.Copy render={<TooltipIconButton tooltip="Copy" />}><AuiIf condition={(s) => s.message.isCopied}>
-                      <CheckIcon className="animate-in zoom-in-50 fade-in duration-200 ease-out" />
-                    </AuiIf><AuiIf condition={(s) => !s.message.isCopied}>
-                      <CopyIcon className="animate-in zoom-in-75 fade-in duration-150" />
-                    </AuiIf></ActionBarPrimitive.Copy>
-      <ActionBarPrimitive.Reload render={<TooltipIconButton tooltip="Refresh" />}><ReloadIcon /></ActionBarPrimitive.Reload>
-      <ActionBarMorePrimitive.Root>
-        <ActionBarMorePrimitive.Trigger render={<TooltipIconButton tooltip="More" className="data-[state=open]:bg-accent" />}><MoreIcon /></ActionBarMorePrimitive.Trigger>
-        <ActionBarMorePrimitive.Content
-          side="bottom"
-          align="start"
-          sideOffset={6}
-          className="aui-action-bar-more-content popover-popup z-50 min-w-[8rem] rounded-[10px] border border-line bg-card p-1 text-ink outline-none"
-        >
-          <ActionBarPrimitive.ExportMarkdown render={<ActionBarMorePrimitive.Item className="aui-action-bar-more-item flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-ink outline-none select-none data-[highlighted]:bg-hover hover:bg-hover" />}><DownloadIcon className="size-3.5 text-muted" />Export as Markdown
-                              </ActionBarPrimitive.ExportMarkdown>
-        </ActionBarMorePrimitive.Content>
-      </ActionBarMorePrimitive.Root>
-    </ActionBarPrimitive.Root>
   );
 };
 
@@ -612,7 +573,7 @@ const UserMessage: FC = () => {
             </span>
           </div>
         ) : null}
-        <div className="aui-user-message-content peer rounded-[14px] bg-card-2 px-3 py-1.5 text-[14px] leading-snug text-foreground wrap-break-word empty:hidden light:border light:border-line light:bg-white">
+        <div className="aui-user-message-content rounded-[14px] bg-card-2 px-3 py-1.5 text-[14px] leading-snug text-foreground wrap-break-word empty:hidden light:border light:border-line light:bg-white">
           <MessagePrimitive.Parts
             components={{
               File: () => null,
@@ -621,16 +582,6 @@ const UserMessage: FC = () => {
             }}
           />
         </div>
-        <div
-          className={cn(
-            "aui-user-action-bar-wrapper absolute top-1/2 -translate-y-1/2 peer-empty:hidden",
-            mine
-              ? "start-0 -translate-x-full pe-2 rtl:translate-x-full"
-              : "end-0 translate-x-full ps-2 rtl:-translate-x-full",
-          )}
-        >
-          <UserActionBar />
-        </div>
       </div>
 
       <BranchPicker
@@ -638,18 +589,6 @@ const UserMessage: FC = () => {
         className={mine ? "-me-1" : "-ms-1"}
       />
     </MessagePrimitive.Root>
-  );
-};
-
-const UserActionBar: FC = () => {
-  return (
-    <ActionBarPrimitive.Root
-      hideWhenRunning
-      autohide="not-last"
-      className="aui-user-action-bar-root flex flex-col items-end"
-    >
-      <ActionBarPrimitive.Edit render={<TooltipIconButton tooltip="Edit" className="aui-user-action-edit" />}><PencilIcon /></ActionBarPrimitive.Edit>
-    </ActionBarPrimitive.Root>
   );
 };
 
