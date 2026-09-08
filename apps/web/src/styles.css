@@ -4572,11 +4572,11 @@ html.electron .pane-head {
 }
 
 .chat-conv.bg-selected {
-  background: color-mix(in srgb, var(--accent) 12%, var(--hover));
+  background: var(--selected);
 }
 
 .chat-conv.bg-selected .member-stack-face {
-  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent) 12%, var(--hover));
+  box-shadow: 0 0 0 1.5px var(--selected);
 }
 
 .member-stack[data-n="2"] .member-stack-face:nth-child(1) {
@@ -4639,6 +4639,8 @@ html.electron .pane-head {
   font-size: 12px;
   line-height: 1;
   cursor: pointer;
+  outline: none;
+  border-radius: 10px;
 }
 
 .chat-dock-item span {
@@ -4647,13 +4649,14 @@ html.electron .pane-head {
   white-space: nowrap;
 }
 
-.chat-dock-item:hover {
+.chat-dock-item:hover,
+.chat-dock-item:focus-visible {
   color: var(--ink);
 }
 
 .chat-dock-item[aria-current="page"],
 .chat-dock-item[aria-pressed="true"] {
-  color: var(--accent);
+  color: var(--ink);
 }
 
 .chat-foot {

@@ -241,6 +241,13 @@ describe("office chrome", () => {
     expect(css).not.toMatch(
       /\.chat-panel \.thread-head,\s*\n\s*\.chat-panel \.chat-foot/,
     );
+    expect(css).toMatch(
+      /\.chat-dock-item\[aria-current="page"\],\s*\n\s*\.chat-dock-item\[aria-pressed="true"\]\s*\{[^}]*color:\s*var\(--ink\)/s,
+    );
+    expect(css).not.toMatch(
+      /\.chat-dock-item\[aria-current="page"\][^}]*color:\s*var\(--accent\)/s,
+    );
+    expect(css).toMatch(/\.chat-dock-item\s*\{[^}]*outline:\s*none/s);
   });
 
   it("lets the office pane share one resizable column", () => {
@@ -282,6 +289,12 @@ describe("office chrome", () => {
     );
     expect(css).toMatch(
       /\.command-palette \[role="option"\]\[aria-selected="true"\]\s*\{[^}]*background:\s*var\(--card-2\)/s,
+    );
+    expect(css).toMatch(
+      /\.chat-conv\.bg-selected\s*\{[^}]*background:\s*var\(--selected\)/s,
+    );
+    expect(css).not.toMatch(
+      /\.chat-conv\.bg-selected\s*\{[^}]*color-mix\(in srgb, var\(--accent\)/s,
     );
   });
 
