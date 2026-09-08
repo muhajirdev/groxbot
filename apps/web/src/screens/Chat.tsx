@@ -309,7 +309,7 @@ const BotRow = memo(function BotRow(props: {
         </span>
       </Link>
       <button
-        className="chat-conv-more absolute top-2 right-2 grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted opacity-0 group-hover/bot:opacity-100 hover:bg-hover hover:text-ink focus-visible:opacity-100"
+        className="chat-conv-more absolute top-2 right-2 grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted opacity-0 group-hover/bot:opacity-100 hover:bg-hover hover:text-ink focus-visible:opacity-100 max-[720px]:opacity-100"
         type="button"
         aria-label={`${item.name} actions`}
         onClick={(event) => {
@@ -372,7 +372,7 @@ const RoomRow = memo(function RoomRow(props: {
         </span>
       </Link>
       <button
-        className="chat-conv-more absolute top-2 right-2 grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted opacity-0 group-hover/room:opacity-100 hover:bg-hover hover:text-ink focus-visible:opacity-100"
+        className="chat-conv-more absolute top-2 right-2 grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted opacity-0 group-hover/room:opacity-100 hover:bg-hover hover:text-ink focus-visible:opacity-100 max-[720px]:opacity-100"
         type="button"
         aria-label={`${item.name} actions`}
         onClick={(event) => {
@@ -2274,6 +2274,9 @@ export function Chat(props: {
                     onSaved={async () => {
                       await refreshBots(bot.id);
                     }}
+                    onPin={(item) => void togglePin(item)}
+                    onArchive={(item) => void toggleArchive(item)}
+                    onDelete={(botId) => void deleteTeammate(botId)}
                   />
                 ) : null}
                 {pane.rendered === "computer" && bot ? (

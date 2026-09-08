@@ -19,6 +19,10 @@ const computerPane = readFileSync(
   join(root, "../components/ComputerPane.tsx"),
   "utf8",
 );
+const botSettingsPane = readFileSync(
+  join(root, "../components/BotSettingsPane.tsx"),
+  "utf8",
+);
 
 function rootBlock(marker: string): string {
   const start = css.indexOf(marker);
@@ -387,6 +391,17 @@ describe("office chrome", () => {
       /\.settings-main \.field \.combobox-field-input\s*\{[^}]*background:\s*transparent/s,
     );
     expect(css).toMatch(/\.pane-scroll\s*\{[^}]*min-width:\s*0/s);
+  });
+
+  it("lets phone settings delete a teammate with confirm", () => {
+    expect(botSettingsPane).toContain("Delete teammate");
+    expect(botSettingsPane).toContain("confirmDelete");
+    expect(botSettingsPane).toContain("onDelete");
+    expect(botSettingsPane).toContain("onArchive");
+    expect(chatScreen).toContain("onDelete={(botId) => void deleteTeammate(botId)}");
+    expect(chatScreen).toMatch(
+      /chat-conv-more[^"]*max-\[720px\]:opacity-100/,
+    );
   });
 
   it("aligns the computer bar with the thread head", () => {
