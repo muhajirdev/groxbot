@@ -1,4 +1,8 @@
-import { TOOL_TRUNCATE_MAX_LINES, truncateHead } from "./tool-truncate.js";
+import {
+  TOOL_TRUNCATE_MAX_BYTES,
+  TOOL_TRUNCATE_MAX_LINES,
+  truncateHead,
+} from "./tool-truncate.js";
 
 export type MarkdownBytes = {
   name: string;
@@ -31,8 +35,8 @@ export type ToMarkdownInput = {
   offset?: number;
 };
 
-/** Keep a to_markdown page under the 8k persist cap so the model does not retry. */
-export const TO_MARKDOWN_PAGE_BYTES = 6_000;
+/** Same window as Pi `read` / computer files so a ~19k invoice is one result. */
+export const TO_MARKDOWN_PAGE_BYTES = TOOL_TRUNCATE_MAX_BYTES;
 export const TO_MARKDOWN_SPILL_DIR = "/workspace/.tool-output";
 
 export type MarkdownWriteDisk = MarkdownDisk & {
@@ -74,9 +78,10 @@ export function presentToMarkdown(
     head.firstLineExceedsLimit ||
     head.truncated ||
     next <= lines.length;
-  const saved = opts?.spillPath
-    ? `Saved full markdown (${result.markdown.length} chars, ${lines.length} lines) to ${opts.spillPath}. Continue with read({ path: "${opts.spillPath}", offset: ${more ? next : 1} }) or to_markdown offset=${more ? next : 1}.\n\n`
-    : "";
+  const saved =
+    more && opts?.spillPath
+      ? `Saved full markdown (${result.markdown.length} chars, ${lines.length} lines) to ${opts.spillPath}. Continue with read({ path: "${opts.spillPath}", offset: ${next} }) — do not convert again.\n\n`
+      : "";
   let body = head.firstLineExceedsLimit
     ? selected.slice(0, TO_MARKDOWN_PAGE_BYTES)
     : head.content;
@@ -248,13 +253,14 @@ export async function persistToMarkdownPage(
   opts?: {
     offset?: number;
     workspace?: MarkdownWriteDisk;
+    spillPath?: string;
   },
 ): Promise<ToMarkdownResult | string> {
   if (!result.ok) return result;
   let spillPath: string | undefined;
   const disk = opts?.workspace;
   if (disk?.writeFile) {
-    spillPath = toMarkdownSpillPath(result.name);
+    spillPath = opts?.spillPath ?? toMarkdownSpillPath(result.name);
     try {
       await disk.mkdir?.(TO_MARKDOWN_SPILL_DIR, { recursive: true });
       await disk.writeFile(spillPath, result.markdown);
@@ -264,6 +270,51 @@ export async function persistToMarkdownPage(
   }
   return presentToMarkdown(result, {
     offset: opts?.offset,
+    spillPath,
+  });
+}
+
+function shouldReuseMarkdownSpill(input: ToMarkdownInput): boolean {
+  const html = presentString(input.html);
+  const path = presentString(input.path);
+  if (input.offset != null) return true;
+  return Boolean(path) && html == null;
+}
+
+/**
+ * Convert once, spill the .md, page like Pi `read`. Offset and a repeat
+ * path convert reuse the spill — they do not call Workers AI again.
+ */
+export async function runToMarkdownPaged(opts: {
+  input: ToMarkdownInput;
+  workspace: MarkdownWriteDisk;
+  convert?: (file: MarkdownBytes) => Promise<unknown>;
+  sanitizePath: (path: string) => string;
+}): Promise<ToMarkdownResult | string> {
+  const html = presentString(opts.input.html);
+  const path = presentString(opts.input.path);
+  const name = markdownFileName({ ...opts.input, html, path });
+  const spillPath = toMarkdownSpillPath(name);
+  const spilled = await opts.workspace.readFile(spillPath);
+  if (
+    typeof spilled === "string" &&
+    spilled.length > 0 &&
+    shouldReuseMarkdownSpill(opts.input)
+  ) {
+    return presentToMarkdown(
+      {
+        ok: true,
+        name,
+        mimeType: mimeTypeForMarkdownName(name, html),
+        markdown: spilled,
+      },
+      { offset: opts.input.offset, spillPath },
+    );
+  }
+  const result = await runToMarkdown(opts);
+  return persistToMarkdownPage(result, {
+    offset: opts.input.offset,
+    workspace: opts.workspace,
     spillPath,
   });
 }

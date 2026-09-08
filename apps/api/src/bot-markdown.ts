@@ -2,14 +2,14 @@
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import type { WorkersAiBinding } from "@groxbot/adapters/edge";
 import {
-  persistToMarkdownPage,
   PUBLIC_FETCH_ALLOWLIST,
   runPublicFetch,
   runTinyfishFetch,
   runTinyfishSearch,
-  runToMarkdown,
+  runToMarkdownPaged,
   sanitizeComputerPath,
   tinyfishConfigured,
+  TOOL_FILE_MAX_CHARS,
   type MarkdownBytes,
   type MarkdownDisk,
   type TinyfishKeyPool,
@@ -33,7 +33,7 @@ export const FETCH_URL_DESCRIPTION =
   "Read a public http(s) URL (TinyFish). Loopback and private nets are blocked. Returns clean Markdown when TinyFish is set; otherwise a plain GET. Large bodies land in inbox/fetch on this computer. Do not open a browser just to read a page.";
 
 export const TO_MARKDOWN_DESCRIPTION =
-  "Convert HTML, a PDF, or a file on this computer to Markdown. Use fetch_url first for a public page, then pass the HTML body here. For a file already on this computer, pass path only (inbox/spec.pdf or /inbox/spec.pdf) — omit html. Inbox is not under /workspace. Long output is saved to /workspace/.tool-output and paged — use offset or read() the saved .md, do not convert the same PDF again. Do not use the browser just to read a page.";
+  "Convert HTML, a PDF, or a file on this computer to Markdown. Use fetch_url first for a public page, then pass the HTML body here. For a file already on this computer, pass path only (inbox/spec.pdf or /inbox/spec.pdf) — omit html. Inbox is not under /workspace. Convert each PDF once; the full markdown is saved under /workspace/.tool-output and paged like read (50KB). Continue with offset or read() the saved .md — do not convert again. Do not use the browser just to read a page.";
 
 export const webSearchParameters = z.object({
   query: z.string().min(1).describe("What to search the public web for."),
@@ -136,15 +136,11 @@ export async function runToMarkdownTool(
   },
   input: { html?: string; path?: string; name?: string; offset?: number },
 ): Promise<unknown> {
-  const result = await runToMarkdown({
+  return runToMarkdownPaged({
     input,
     workspace: opts.workspace,
     convert: opts.convert,
     sanitizePath: sanitizeComputerPath,
-  });
-  return persistToMarkdownPage(result, {
-    offset: input.offset,
-    workspace: opts.workspace,
   });
 }
 
@@ -175,6 +171,8 @@ export function createPageAgentTools(opts: PageToolsOpts): AgentTool[] {
       name: "to_markdown",
       description: TO_MARKDOWN_DESCRIPTION,
       parameters: toMarkdownParameters,
+      maxChars: TOOL_FILE_MAX_CHARS,
+      retain: "head",
       execute: async (input) =>
         runToMarkdownTool(opts, {
           html: typeof input.html === "string" ? input.html : undefined,

@@ -93,4 +93,16 @@ describe("pruneLiveToolResults", () => {
     );
     expect(liveToolResultText(pruned[1]!)).toBe(body);
   });
+
+  it("keeps a latest to_markdown page under the 50KB file cap", () => {
+    const body = "n".repeat(19_662);
+    const pruned = pruneLiveToolResults(
+      [
+        { role: "user", content: "convert", timestamp: 1 },
+        toolResult("md-1", body, { toolName: "to_markdown" }),
+      ],
+      { maxChars: 100, staleChars: 10 },
+    );
+    expect(liveToolResultText(pruned[1]!)).toBe(body);
+  });
 });

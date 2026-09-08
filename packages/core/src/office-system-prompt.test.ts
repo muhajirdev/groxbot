@@ -143,6 +143,8 @@ describe("buildOfficeSystemPrompt", () => {
     expect(prompt).toMatch(/omit empty html/);
     expect(prompt).toMatch(/read again with offset/);
     expect(prompt).toMatch(/\.tool-output/);
+    expect(prompt).toMatch(/50KB/);
+    expect(prompt).toMatch(/do not convert again/);
   });
 });
 

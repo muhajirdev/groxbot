@@ -54,7 +54,7 @@ function liveResultBudget(
 ): number {
   if (opts.stale) return opts.staleChars;
   const name = typeof row.toolName === "string" ? row.toolName : "";
-  if (COMPUTER_SHAPE_TOOLS.has(name)) {
+  if (COMPUTER_SHAPE_TOOLS.has(name) || name === "to_markdown") {
     return Math.max(opts.maxChars, TOOL_TRUNCATE_MAX_BYTES);
   }
   return opts.maxChars;

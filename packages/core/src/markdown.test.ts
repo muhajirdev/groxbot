@@ -7,8 +7,10 @@ import {
   presentToMarkdown,
   readMarkdownConversion,
   runToMarkdown,
+  runToMarkdownPaged,
   toMarkdownSpillPath,
   type MarkdownDisk,
+  type MarkdownWriteDisk,
 } from "./markdown.js";
 import { PUBLIC_FETCH_ALLOWLIST } from "./public-fetch.js";
 
@@ -27,6 +29,24 @@ class MemoryDisk implements MarkdownDisk {
     const value = this.files[path];
     if (value == null) return null;
     return typeof value === "string" ? new TextEncoder().encode(value) : value;
+  }
+}
+
+class WritableMemoryDisk implements MarkdownWriteDisk {
+  constructor(private readonly files: Map<string, string> = new Map()) {}
+
+  async readFile(path: string): Promise<string | null> {
+    return this.files.get(path) ?? null;
+  }
+
+  async writeFile(path: string, content: string): Promise<void> {
+    this.files.set(path, content);
+  }
+
+  async mkdir(): Promise<void> {}
+
+  get(path: string): string | undefined {
+    return this.files.get(path);
   }
 }
 
@@ -146,10 +166,28 @@ describe("runToMarkdown", () => {
 });
 
 describe("presentToMarkdown", () => {
-  it("pages a long conversion and points at the spilled file", () => {
-    const markdown = Array.from({ length: 80 }, (_, i) => `line-${i + 1} ${"x".repeat(80)}`).join(
-      "\n",
+  it("returns a ~19k conversion in one page", () => {
+    const markdown = "n".repeat(19_662);
+    const spill = toMarkdownSpillPath("scope-sinemart-finance-ops.pdf");
+    const text = presentToMarkdown(
+      {
+        ok: true,
+        name: "scope-sinemart-finance-ops.pdf",
+        mimeType: "application/pdf",
+        markdown,
+      },
+      { spillPath: spill },
     );
+    expect(text).toBe(markdown);
+    expect(text).not.toMatch(/Use offset=/);
+    expect(text).not.toMatch(/^Result truncated/);
+  });
+
+  it("pages a conversion over the 50KB read window and points at the spilled file", () => {
+    const markdown = Array.from(
+      { length: 2_100 },
+      (_, i) => `line-${i + 1} ${"x".repeat(80)}`,
+    ).join("\n");
     const spill = toMarkdownSpillPath("scope-sinemart-finance-ops.pdf");
     const text = presentToMarkdown(
       {
@@ -163,7 +201,8 @@ describe("presentToMarkdown", () => {
     expect(spill).toBe("/workspace/.tool-output/scope-sinemart-finance-ops.md");
     expect(text).toContain(spill);
     expect(text).toMatch(/Use offset=\d+ to continue/);
-    expect(text.length).toBeLessThan(8_000);
+    expect(text).toContain("do not convert again");
+    expect(text.length).toBeLessThan(markdown.length);
     expect(text).not.toMatch(/^Result truncated/);
   });
 
@@ -185,7 +224,7 @@ describe("presentToMarkdown", () => {
 });
 
 describe("persistToMarkdownPage", () => {
-  it("writes the full markdown then returns a short page", async () => {
+  it("writes the full markdown and returns it when it fits in one page", async () => {
     const files = new Map<string, string>();
     const markdown = "n".repeat(12_000);
     const page = await persistToMarkdownPage(
@@ -205,9 +244,51 @@ describe("persistToMarkdownPage", () => {
         },
       },
     );
-    expect(typeof page).toBe("string");
+    expect(page).toBe(markdown);
     expect(files.get("/workspace/.tool-output/scope.md")).toBe(markdown);
-    expect(String(page).length).toBeLessThan(markdown.length);
-    expect(String(page)).toContain("/workspace/.tool-output/scope.md");
+  });
+});
+
+describe("runToMarkdownPaged", () => {
+  it("converts once and reuses the spill on offset and a repeat path", async () => {
+    const disk = new WritableMemoryDisk(
+      new Map([["inbox/scope.pdf", "%PDF-fake"]]),
+    );
+    let converts = 0;
+    const convert = async () => {
+      converts += 1;
+      return {
+        format: "markdown",
+        data: "hello from pdf",
+        name: "scope.pdf",
+      };
+    };
+    const first = await runToMarkdownPaged({
+      input: { path: "inbox/scope.pdf" },
+      workspace: disk,
+      convert,
+      sanitizePath: (path) => path,
+    });
+    expect(first).toBe("hello from pdf");
+    expect(disk.get("/workspace/.tool-output/scope.md")).toBe("hello from pdf");
+    expect(converts).toBe(1);
+
+    const again = await runToMarkdownPaged({
+      input: { path: "inbox/scope.pdf" },
+      workspace: disk,
+      convert,
+      sanitizePath: (path) => path,
+    });
+    expect(again).toBe("hello from pdf");
+    expect(converts).toBe(1);
+
+    const paged = await runToMarkdownPaged({
+      input: { path: "inbox/scope.pdf", offset: 1 },
+      workspace: disk,
+      convert,
+      sanitizePath: (path) => path,
+    });
+    expect(paged).toBe("hello from pdf");
+    expect(converts).toBe(1);
   });
 });

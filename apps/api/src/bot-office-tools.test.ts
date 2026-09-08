@@ -1,3 +1,4 @@
+import { TOOL_FILE_MAX_CHARS } from "@groxbot/core";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import {
@@ -156,6 +157,25 @@ describe("officeAgentTool", () => {
       }),
     });
     await expect(tool.execute("call_1", {})).rejects.toThrow(/not both/);
+  });
+
+  it("does not 8k-cap a 19k to_markdown page", async () => {
+    const body = "n".repeat(19_662);
+    const tool = officeAgentTool({
+      name: "to_markdown",
+      description: "convert",
+      parameters: z.object({}),
+      maxChars: TOOL_FILE_MAX_CHARS,
+      retain: "head",
+      execute: async () => body,
+    });
+    const result = await tool.execute("call_1", {});
+    const text = result.content[0];
+    expect(text?.type).toBe("text");
+    if (text?.type === "text") {
+      expect(text.text).toBe(body);
+      expect(text.text).not.toMatch(/Result truncated/);
+    }
   });
 });
 

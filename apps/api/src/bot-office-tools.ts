@@ -40,6 +40,8 @@ export function officeAgentTool(opts: {
     params: Record<string, unknown>,
     ctx: { toolCallId: string; signal?: AbortSignal },
   ) => Promise<unknown>;
+  maxChars?: number;
+  retain?: TruncationRetain;
 }): AgentTool {
   return {
     name: opts.name,
@@ -51,7 +53,12 @@ export function officeAgentTool(opts: {
       const result = jsonClone(
         await opts.execute(objectArgs(params), { toolCallId, signal }),
       );
-      return finishOfficeTool(result);
+      return finishOfficeTool(
+        result,
+        opts.maxChars != null || opts.retain
+          ? { maxChars: opts.maxChars, retain: opts.retain }
+          : undefined,
+      );
     },
   };
 }
