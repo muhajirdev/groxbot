@@ -167,7 +167,7 @@ describe("Computer Worker shell wiring", () => {
     expect(readSrc("bot-office-tools.ts")).toMatch(/rewriteComputerToolArgs/);
     expect(readSrc("bot-office-tools.ts")).toMatch(/computerReadConverts/);
     expect(readSrc("bot-office-tools.ts")).toMatch(/computerImageFromRead/);
-    expect(readSrc("bot-office-tools.ts")).toMatch(/binaryComputerReadRefusal/);
+    expect(readSrc("bot-office-tools.ts")).toMatch(/officeShellCommandRefusal/);
     expect(readSrc("bot-actor.ts")).toMatch(/readDocument/);
     expect(readSrc("bot-office-tools.ts")).toMatch(/isFailedToolValue/);
   });

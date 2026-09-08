@@ -14,14 +14,16 @@ export const COMPUTER_SHELL_BACKEND = "worker-shell";
 /** Computer tools and Worker shell cwd. VFS schema only creates `/`. */
 export const COMPUTER_VFS_ROOT = "/workspace";
 export const COMPUTER_SHELL_DESCRIPTION =
-  "Fast Worker shell (just-bash) on this bot’s computer. Core text commands only — no Linux container.";
+  "Fast Worker shell (just-bash) on this bot’s computer. Core text commands only — not a Linux container. No pdfinfo/pdftotext.";
 /** Pi-facing bash tool. Computer ships this as `exec` — do not leave both names. */
 export const COMPUTER_SHELL_TOOL_NAME = "shell";
 /** Capture more than the live window so we can tail-truncate like Pi. */
 export const COMPUTER_SHELL_CAPTURE_BYTES = 256 * 1024;
 export const COMPUTER_SHELL_SPILL_PATH = "/workspace/.tool-output/shell.txt";
 export const COMPUTER_SHELL_TOOL_DESCRIPTION = [
-  "Bash on this computer (just-bash). Argument is `command`. cwd is /workspace.",
+  "just-bash on this computer (not Linux). Argument is `command`. cwd is /workspace.",
+  "Core text commands only (ls, cat, sed, mkdir). No pdfinfo, pdftotext, apt, or GNU date -I.",
+  "PDFs: use read() — it already converted them. Do not extract with shell.",
   "Output is the last 2000 lines or 50KB. Overflow is saved to /workspace/.tool-output/shell.txt.",
   "This is not the JavaScript sandbox — that is `code` (knowledge, routines, history).",
 ].join(" ");
@@ -235,6 +237,23 @@ export function rewriteComputerToolArgs(
     }
   }
   return next;
+}
+
+/** Linux PDF/date tools that just-bash does not have. Skip the DO round-trip. */
+const OFFICE_SHELL_LINUX_DOC =
+  /\b(pdfinfo|pdftotext|pdftoppm|pdftocairo|pdftohtml|pdftops|mutool|qpdf|ocrmypdf|tesseract)\b/;
+const OFFICE_SHELL_GNU_DATE = /\bdate\s+(?:-I|--iso)/;
+
+export function officeShellCommandRefusal(command: string): string | null {
+  const text = command.trim();
+  if (!text) return null;
+  if (OFFICE_SHELL_LINUX_DOC.test(text)) {
+    return "This shell is just-bash (core text commands), not Linux. No pdfinfo/pdftotext. PDFs: use read() — it already converted them.";
+  }
+  if (OFFICE_SHELL_GNU_DATE.test(text)) {
+    return "just-bash date is POSIX. Use date '+%Y-%m-%d %H:%M:%S %Z' — not date -I.";
+  }
+  return null;
 }
 
 const MARKDOWN_READ_EXT = /\.(pdf|docx|pptx|xlsx|bmp)$/i;

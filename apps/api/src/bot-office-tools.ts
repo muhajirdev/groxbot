@@ -14,6 +14,7 @@ import {
   isOfficeImageToolResult,
   jsonClone,
   looksLikeToolCrash,
+  officeShellCommandRefusal,
   OFFICE_CODE_TOOL_NAME,
   persistToolPayload,
   resolveAiSdkToolResult,
@@ -210,6 +211,11 @@ export function aiToolToPi(
           maxChars: TOOL_FILE_MAX_CHARS,
           retain: "head",
         });
+      }
+      if (name === "shell") {
+        const command = typeof args.command === "string" ? args.command : "";
+        const refused = officeShellCommandRefusal(command);
+        if (refused) throw new Error(refused);
       }
       let result: unknown;
       try {

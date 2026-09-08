@@ -346,6 +346,18 @@ describe("aiToolToPi", () => {
     );
   });
 
+  it("refuses pdfinfo before the Worker shell runs", async () => {
+    const execute = vi.fn();
+    const tool = aiToolToPi("shell", { execute });
+    await expect(
+      tool!.execute("call_1", {
+        command:
+          "pdfinfo inbox/agreement-sinemart-2026.pdf | sed -n '1,20p'",
+      }),
+    ).rejects.toThrow(/read\(\)/);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it("defaults grep path to /", async () => {
     const execute = vi.fn(async (input: unknown) => input);
     const tool = aiToolToPi("grep", { execute });

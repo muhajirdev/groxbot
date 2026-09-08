@@ -37,9 +37,9 @@ export const OFFICE_TOOL_PROMPT: Record<string, OfficeToolPromptContribution> =
     },
     [COMPUTER_SHELL_TOOL_NAME]: {
       snippet:
-        "Bash on this computer (just-bash). Argument is `command`. cwd is /workspace. Long output is the tail; full dump at /workspace/.tool-output/shell.txt.",
+        "just-bash on this computer (not Linux). Argument is `command`. cwd is /workspace. No pdfinfo/pdftotext — read() converts PDFs. Long output is the tail; full dump at /workspace/.tool-output/shell.txt.",
       guidelines: [
-        "Use shell for bash on this computer. Do not use code for bash. Long shell output is the last 2000 lines or 50KB; read /workspace/.tool-output/shell.txt for the rest.",
+        "Use shell for just-bash on this computer — core text commands (ls, cat, sed, mkdir). Not a Linux container: no pdfinfo, pdftotext, apt, or GNU date -I. PDFs: use read(); it already converted them. Do not use code for bash. Long shell output is the last 2000 lines or 50KB; read /workspace/.tool-output/shell.txt for the rest.",
       ],
     },
     list: { snippet: "List files on this computer. offset pages." },
@@ -202,7 +202,7 @@ export function buildOfficeSystemPrompt(opts: {
   );
   if (names.some((name) => COMPUTER_FS_TOOLS.has(name))) {
     add(
-      "list / read / write / edit / grep / find / delete are this computer. Paths like inbox/file.pdf or /inbox/file.pdf — inbox is not under /workspace. PDFs and Office docs: read converts them to markdown. Images: read shows the picture. Long files: read again with offset. find: pass path `/` for the whole disk. The office library is knowledge inside code.",
+      "list / read / write / edit / grep / find / delete are this computer. Paths like inbox/file.pdf or /inbox/file.pdf — inbox is not under /workspace. PDFs and Office docs: read converts them to markdown — do not pdfinfo or pdftotext in shell. Images: read shows the picture. Long files: read again with offset. find: pass path `/` for the whole disk. The office library is knowledge inside code.",
     );
   }
   for (const name of names) {

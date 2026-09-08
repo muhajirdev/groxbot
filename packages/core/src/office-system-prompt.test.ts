@@ -135,6 +135,7 @@ describe("buildOfficeSystemPrompt", () => {
       tools: [
         { name: "read" },
         { name: "list" },
+        { name: "shell" },
         { name: "to_markdown" },
         { name: "render_screenshot" },
       ],
@@ -148,7 +149,9 @@ describe("buildOfficeSystemPrompt", () => {
     expect(prompt).toMatch(/do not cat, grep, or read the spill/);
     expect(prompt).toMatch(/when the result says to/);
     expect(prompt).toMatch(/do not convert again/);
-    expect(prompt).toMatch(/do not read the PNG to see it/);
+    expect(prompt).toMatch(/do not pdfinfo or pdftotext in shell/);
+    expect(prompt).toMatch(/just-bash on this computer \(not Linux\)/);
+    expect(prompt).toMatch(/no pdfinfo, pdftotext/);
   });
 });
 

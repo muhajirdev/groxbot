@@ -16,6 +16,7 @@ import {
   diskFromComputerFs,
   ensureComputerHome,
   officeImageToolResult,
+  officeShellCommandRefusal,
   rewriteComputerToolArgs,
   withComputerOfficeTools,
 } from "./computer-fs.js";
@@ -383,7 +384,7 @@ describe("withComputerOfficeTools", () => {
     expect(withComputerOfficeTools({ ls, exec })).toEqual({
       list: ls,
       shell: {
-        description: expect.stringMatching(/Bash on this computer/),
+        description: expect.stringMatching(/just-bash on this computer/),
       },
     });
     expect(withComputerOfficeTools({ ls, exec })).not.toHaveProperty("exec");
@@ -441,5 +442,32 @@ describe("computerWorkerShell", () => {
       },
       maxBytes: COMPUTER_SHELL_CAPTURE_BYTES,
     });
+  });
+});
+
+describe("officeShellCommandRefusal", () => {
+  it("points pdfinfo and pdftotext at read()", () => {
+    expect(
+      officeShellCommandRefusal(
+        "date -Iseconds && pdfinfo inbox/agreement-sinemart-2026.pdf",
+      ),
+    ).toMatch(/read\(\)/);
+    expect(
+      officeShellCommandRefusal(
+        "pdftotext -layout inbox/agreement.pdf - | sed -n '1,180p'",
+      ),
+    ).toMatch(/pdftotext/);
+  });
+
+  it("rejects GNU date -I without running the shell", () => {
+    expect(officeShellCommandRefusal("date -Iseconds && ls")).toMatch(
+      /POSIX/,
+    );
+    expect(officeShellCommandRefusal("date '+%Y-%m-%d'")).toBeNull();
+  });
+
+  it("lets ordinary just-bash through", () => {
+    expect(officeShellCommandRefusal("ls inbox && mkdir -p workspace/out")).toBeNull();
+    expect(officeShellCommandRefusal("sed -n '1,20p' notes.md")).toBeNull();
   });
 });
