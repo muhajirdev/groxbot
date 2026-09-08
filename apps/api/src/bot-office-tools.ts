@@ -4,6 +4,7 @@ import { openObjectParameters } from "@groxbot/adapters/edge";
 import {
   binaryComputerReadRefusal,
   COMPUTER_PATH_TOOLS,
+  COMPUTER_SHAPE_TOOLS,
   executeCodeFromInput,
   failedToolMessage,
   isComputerMeterTool,
@@ -14,6 +15,10 @@ import {
   persistToolPayload,
   resolveAiSdkToolResult,
   rewriteComputerToolArgs,
+  shapeComputerToolResult,
+  TOOL_FILE_MAX_CHARS,
+  type ComputerToolSpill,
+  type TruncationRetain,
 } from "@groxbot/core";
 import { z } from "zod";
 
@@ -51,11 +56,16 @@ export function officeAgentTool(opts: {
   };
 }
 
-function finishOfficeTool(result: unknown): {
+function finishOfficeTool(
+  result: unknown,
+  opts?: { maxChars?: number; retain?: TruncationRetain },
+): {
   content: [{ type: "text"; text: string }];
   details: unknown;
 } {
-  const persisted = persistToolPayload(result);
+  const persisted = persistToolPayload(result, opts?.maxChars, {
+    retain: opts?.retain,
+  });
   if (
     isFailedToolValue(result) ||
     looksLikeToolCrash(persisted.text)
@@ -126,17 +136,28 @@ export function wrapAgentToolsForComputerUsage(
   });
 }
 
+export type OfficeToolWrapOptions = {
+  spill?: ComputerToolSpill;
+};
+
 /** Wrap `@cloudflare/computer/tools` `createAITools` (and Code Mode `runtime.tool()`). */
-export function aiToolsToPi(tools: Record<string, unknown>): AgentTool[] {
+export function aiToolsToPi(
+  tools: Record<string, unknown>,
+  opts?: OfficeToolWrapOptions,
+): AgentTool[] {
   const out: AgentTool[] = [];
   for (const [name, raw] of Object.entries(tools)) {
-    const wrapped = aiToolToPi(name, raw);
+    const wrapped = aiToolToPi(name, raw, opts);
     if (wrapped) out.push(wrapped);
   }
   return out;
 }
 
-export function aiToolToPi(name: string, raw: unknown): AgentTool | null {
+export function aiToolToPi(
+  name: string,
+  raw: unknown,
+  opts?: OfficeToolWrapOptions,
+): AgentTool | null {
   if (!raw || typeof raw !== "object") return null;
   const tool = raw as AiTool;
   if (typeof tool.execute !== "function") return null;
@@ -174,7 +195,21 @@ export function aiToolToPi(name: string, raw: unknown): AgentTool | null {
         const refused = binaryComputerReadRefusal(result);
         if (refused) result = refused;
       }
-      return finishOfficeTool(result);
+      const shaped = await shapeComputerToolResult(name, args, result, {
+        spill: opts?.spill,
+      });
+      if (shaped) {
+        return {
+          content: [{ type: "text", text: shaped.text }],
+          details: shaped.details,
+        };
+      }
+      return finishOfficeTool(
+        result,
+        COMPUTER_SHAPE_TOOLS.has(name)
+          ? { maxChars: TOOL_FILE_MAX_CHARS, retain: "head" }
+          : undefined,
+      );
     },
   };
 }

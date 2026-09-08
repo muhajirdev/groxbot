@@ -9,6 +9,8 @@ export * from "./apps.js";
 export * from "./avatar.js";
 export * from "./computer.js";
 export * from "./computer-fs.js";
+export * from "./computer-tool-result.js";
+export * from "./tool-truncate.js";
 export * from "./connector-args.js";
 export * from "./execute-imports.js";
 export * from "./guest-http.js";

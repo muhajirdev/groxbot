@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { listComputerEntries, readComputerFile } from "./computer.js";
 import {
   COMPUTER_SHELL_BACKEND,
+  COMPUTER_SHELL_CAPTURE_BYTES,
   COMPUTER_VFS_ROOT,
   type ComputerFs,
   binaryComputerReadRefusal,
@@ -198,6 +199,10 @@ describe("rewriteComputerToolArgs", () => {
       path: "/",
     });
     expect(rewriteComputerToolArgs("list", {})).toEqual({ path: "/" });
+    expect(rewriteComputerToolArgs("grep", { query: "x" })).toEqual({
+      query: "x",
+      path: "/",
+    });
   });
 });
 
@@ -291,6 +296,16 @@ describe("withComputerOfficeTools", () => {
     expect(withComputerOfficeTools({ ls, exec })).not.toHaveProperty("exec");
     expect(withComputerOfficeTools({ ls, exec })).not.toHaveProperty("ls");
   });
+
+  it("rewrites the read description to mention offset and to_markdown", () => {
+    const read = { description: "Read a workspace file.", execute: () => {} };
+    expect(withComputerOfficeTools({ read }).read).toMatchObject({
+      description: expect.stringMatching(/offset/),
+    });
+    expect(withComputerOfficeTools({ read }).read).toMatchObject({
+      description: expect.stringMatching(/to_markdown/),
+    });
+  });
 });
 
 describe("ensureComputerHome", () => {
@@ -331,6 +346,7 @@ describe("computerWorkerShell", () => {
           description: expect.stringMatching(/just-bash/i),
         },
       },
+      maxBytes: COMPUTER_SHELL_CAPTURE_BYTES,
     });
   });
 });

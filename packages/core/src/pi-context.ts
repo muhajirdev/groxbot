@@ -1,6 +1,8 @@
 /** Live-window prune. The Pi session stays whole; only the LLM call sees less. */
 
+import { COMPUTER_SHAPE_TOOLS } from "./computer-fs.js";
 import { TOOL_PAYLOAD_MAX_CHARS } from "./tool-payload.js";
+import { clipKeepTail, TOOL_TRUNCATE_MAX_BYTES } from "./tool-truncate.js";
 
 export const LIVE_TOOL_RESULT_MAX_CHARS = TOOL_PAYLOAD_MAX_CHARS;
 export const LIVE_TOOL_RESULT_STALE_CHARS = 800;
@@ -26,7 +28,7 @@ export function pruneLiveToolResults<M extends { role: string }>(
     const row = message as M & LiveContextMessage;
     const text = liveToolResultText(row);
     const stale = index <= lastUser || index < lastTool;
-    const budget = stale ? staleChars : maxChars;
+    const budget = liveResultBudget(row, { stale, maxChars, staleChars });
     if (text.length <= budget) return message;
     return stubLiveToolResult(row, text, { stale, budget });
   });
@@ -46,6 +48,18 @@ function lastToolResultIndex(messages: readonly { role: string }[]): number {
   return -1;
 }
 
+function liveResultBudget(
+  row: LiveContextMessage,
+  opts: { stale: boolean; maxChars: number; staleChars: number },
+): number {
+  if (opts.stale) return opts.staleChars;
+  const name = typeof row.toolName === "string" ? row.toolName : "";
+  if (COMPUTER_SHAPE_TOOLS.has(name)) {
+    return Math.max(opts.maxChars, TOOL_TRUNCATE_MAX_BYTES);
+  }
+  return opts.maxChars;
+}
+
 export function liveToolResultText(message: LiveContextMessage): string {
   const fromContent = contentText(message.content);
   if (fromContent) return fromContent;
@@ -63,7 +77,9 @@ function stubLiveToolResult<M extends LiveContextMessage>(
       : "tool";
   const stub = opts.stale
     ? `Omitted from the live window (${text.length} chars, ${name}). Re-run the tool in code.`
-    : `${text.slice(0, opts.budget)}\n… (${text.length} chars, truncated)`;
+    : name === "shell"
+      ? `${text.slice(Math.max(0, text.length - opts.budget))}\n… (${text.length} chars, truncated)`
+      : `${clipKeepTail(text, opts.budget)}\n… (${text.length} chars, truncated)`;
   return {
     ...message,
     content: [{ type: "text", text: stub }],

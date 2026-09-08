@@ -141,6 +141,7 @@ describe("buildOfficeSystemPrompt", () => {
     expect(prompt).toMatch(/inbox is not under \/workspace/);
     expect(prompt).toMatch(/to_markdown, not read/);
     expect(prompt).toMatch(/omit empty html/);
+    expect(prompt).toMatch(/read again with offset/);
   });
 });
 

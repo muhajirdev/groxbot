@@ -37,14 +37,15 @@ export const OFFICE_TOOL_PROMPT: Record<string, OfficeToolPromptContribution> =
     },
     [COMPUTER_SHELL_TOOL_NAME]: {
       snippet:
-        "Bash on this computer (just-bash). Argument is `command`. cwd is /workspace.",
-        guidelines: [
-        "Use shell for bash on this computer. Do not use code for bash.",
+        "Bash on this computer (just-bash). Argument is `command`. cwd is /workspace. Long output is the tail; full dump at /workspace/.tool-output/shell.txt.",
+      guidelines: [
+        "Use shell for bash on this computer. Do not use code for bash. Long shell output is the last 2000 lines or 50KB; read /workspace/.tool-output/shell.txt for the rest.",
       ],
     },
-    list: { snippet: "List files on this computer." },
+    list: { snippet: "List files on this computer. offset pages." },
     read: {
-      snippet: "Read a text file on this computer. PDFs and images: to_markdown.",
+      snippet:
+        "Read a text file on this computer. offset continues. PDFs and images: to_markdown.",
     },
     write: { snippet: "Write a file on this computer." },
     edit: { snippet: "Patch a file on this computer." },
@@ -197,7 +198,7 @@ export function buildOfficeSystemPrompt(opts: {
   );
   if (names.some((name) => COMPUTER_FS_TOOLS.has(name))) {
     add(
-      "list / read / write / edit / grep / find / delete are this computer. Paths like inbox/file.pdf or /inbox/file.pdf — inbox is not under /workspace. PDFs and images: to_markdown, not read. find: pass path `/` for the whole disk. The office library is knowledge inside code.",
+      "list / read / write / edit / grep / find / delete are this computer. Paths like inbox/file.pdf or /inbox/file.pdf — inbox is not under /workspace. PDFs and images: to_markdown, not read. Long files: read again with offset. find: pass path `/` for the whole disk. The office library is knowledge inside code.",
     );
   }
   for (const name of names) {

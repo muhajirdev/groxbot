@@ -85,6 +85,15 @@ describe("persistToolPayload", () => {
     expect(persisted.text.length).toBeLessThan(stringifyToolPayload(value).length);
   });
 
+  it("keeps nextOffset when a generic persist body is clipped", () => {
+    const value = {
+      entries: Array.from({ length: 40 }, (_, i) => ({ i, pad: "x".repeat(200) })),
+      nextOffset: 40,
+    };
+    const persisted = persistToolPayload(value, 400);
+    expect(persisted.text).toMatch(/offset=40|nextOffset/);
+  });
+
   it("strips connector calls so a small code result is not truncated", () => {
     const markdown = "m".repeat(20_000);
     const persisted = persistToolPayload({

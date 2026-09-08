@@ -194,4 +194,49 @@ describe("aiToolToPi", () => {
       tool!.execute("call_1", { path: "/inbox/scope.pdf" }),
     ).rejects.toThrow(/to_markdown/);
   });
+
+  it("returns read text with an offset footer, not a JSON blob", async () => {
+    const tool = aiToolToPi("read", {
+      execute: async () => ({
+        path: "/workspace/invoice.html",
+        content: "<p>hi</p>",
+        startLine: 1,
+        endLine: 1,
+        truncated: true,
+        nextOffset: 2,
+      }),
+    });
+    const result = await tool!.execute("call_1", { path: "invoice.html" });
+    const text = result.content[0];
+    expect(text?.type).toBe("text");
+    if (text?.type === "text") {
+      expect(text.text).toContain("<p>hi</p>");
+      expect(text.text).toMatch(/offset=2/);
+      expect(text.text.startsWith("{")).toBe(false);
+    }
+  });
+
+  it("throws when shell exits non-zero", async () => {
+    const tool = aiToolToPi("shell", {
+      execute: async () => ({
+        command: "false",
+        exitCode: 2,
+        stdout: "",
+        stderr: "nope",
+      }),
+    });
+    await expect(tool!.execute("call_1", { command: "false" })).rejects.toThrow(
+      /exited with code 2/,
+    );
+  });
+
+  it("defaults grep path to /", async () => {
+    const execute = vi.fn(async (input: unknown) => input);
+    const tool = aiToolToPi("grep", { execute });
+    await tool!.execute("call_1", { query: "TODO" });
+    expect(execute).toHaveBeenCalledWith(
+      { query: "TODO", path: "/" },
+      expect.anything(),
+    );
+  });
 });

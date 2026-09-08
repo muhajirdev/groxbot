@@ -1,6 +1,7 @@
 /** Cap tool JSON before it occupies the live window. Slim fat plugin dumps. */
 
 import { stringifyToolOutput } from "./office-chat.js";
+import { clipKeepTail, type TruncationRetain } from "./tool-truncate.js";
 
 /** When a code/computer result still won't fit the live window. */
 export const TOOL_PAYLOAD_MAX_CHARS = 8_000;
@@ -58,16 +59,20 @@ function slimCodeModeCall(call: unknown): unknown {
 export function persistToolPayload(
   value: unknown,
   maxChars = TOOL_PAYLOAD_MAX_CHARS,
+  opts?: { retain?: TruncationRetain },
 ): { text: string; details: unknown } {
   const prepared = slimCodeModeCalls(value);
   const text = stringifyToolPayload(prepared);
   if (text.length <= maxChars) return { text, details: prepared };
-  const preview = text.slice(0, maxChars);
   const hint = isCodeModeResult(prepared)
     ? " Return a smaller `result` from code — connector `calls` are already stripped."
     : "";
+  const clipped =
+    opts?.retain === "tail"
+      ? `${text.slice(Math.max(0, text.length - maxChars))}`
+      : clipKeepTail(text, maxChars);
   return {
-    text: `Result truncated at ${preview.length} of ${text.length} chars.${hint}\n${preview}`,
+    text: `Result truncated at ${Math.min(maxChars, clipped.length)} of ${text.length} chars.${hint}\n${clipped}`,
     details: { truncated: true, bytes: text.length },
   };
 }

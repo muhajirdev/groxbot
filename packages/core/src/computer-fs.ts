@@ -12,14 +12,24 @@ export const COMPUTER_SHELL_DESCRIPTION =
   "Fast Worker shell (just-bash) on this bot’s computer. Core text commands only — no Linux container.";
 /** Pi-facing bash tool. Computer ships this as `exec` — do not leave both names. */
 export const COMPUTER_SHELL_TOOL_NAME = "shell";
+/** Capture more than the live window so we can tail-truncate like Pi. */
+export const COMPUTER_SHELL_CAPTURE_BYTES = 256 * 1024;
+export const COMPUTER_SHELL_SPILL_PATH = "/workspace/.tool-output/shell.txt";
 export const COMPUTER_SHELL_TOOL_DESCRIPTION = [
   "Bash on this computer (just-bash). Argument is `command`. cwd is /workspace.",
+  "Output is the last 2000 lines or 50KB. Overflow is saved to /workspace/.tool-output/shell.txt.",
   "This is not the JavaScript sandbox — that is `code` (knowledge, routines, history).",
+].join(" ");
+export const COMPUTER_READ_TOOL_DESCRIPTION = [
+  "Read a text file on this computer. Relative or absolute path.",
+  "Capped at 2000 lines or 50KB. For more, pass offset (1-indexed line) and optional byteOffset.",
+  "PDFs and images: to_markdown — do not read() them.",
 ].join(" ");
 
 export type ComputerWorkerShell = {
   defaultBackend: typeof COMPUTER_SHELL_BACKEND;
   backends: Record<string, { description: string }>;
+  maxBytes: number;
 };
 
 /** `createAITools({ shell })` — Worker shell is the only bash backend. */
@@ -29,6 +39,7 @@ export function computerWorkerShell(): ComputerWorkerShell {
     backends: {
       [COMPUTER_SHELL_BACKEND]: { description: COMPUTER_SHELL_DESCRIPTION },
     },
+    maxBytes: COMPUTER_SHELL_CAPTURE_BYTES,
   };
 }
 
@@ -42,6 +53,12 @@ export function withComputerOfficeTools<T extends Record<string, unknown>>(
   const { ls, exec, ...rest } = computerTools;
   const out: Record<string, unknown> = { ...rest };
   if (ls !== undefined) out.list = ls;
+  if (rest.read !== undefined && typeof rest.read === "object") {
+    out.read = {
+      ...rest.read,
+      description: COMPUTER_READ_TOOL_DESCRIPTION,
+    };
+  }
   if (exec !== undefined) {
     out.shell =
       exec && typeof exec === "object"
@@ -151,6 +168,15 @@ export const COMPUTER_PATH_TOOLS = new Set([
   "shell",
 ]);
 
+/** Computer dumps Pi shapes as text (read/shell/grep) or pages (list/find). */
+export const COMPUTER_SHAPE_TOOLS = new Set([
+  "read",
+  "shell",
+  "grep",
+  "list",
+  "find",
+]);
+
 /**
  * Inbox is a sibling of `/workspace`, not inside it. Models prefix chips with
  * `/workspace` because shell cwd is `/workspace`. Relative files (not inbox)
@@ -195,7 +221,7 @@ export function rewriteComputerToolArgs(
     const path = typeof next.path === "string" ? next.path : "";
     if (!path || path === "/") next.path = "/";
   }
-  if (name === "list") {
+  if (name === "list" || name === "grep") {
     if (typeof next.path !== "string" || !next.path.trim()) next.path = "/";
   }
   if (name === "shell") {

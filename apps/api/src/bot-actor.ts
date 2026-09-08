@@ -108,6 +108,8 @@ import {
   takePiAssistantDraft,
   teammatePrompt,
   tinyfishPoolStart,
+  TOOL_TRUNCATE_MAX_BYTES,
+  TOOL_TRUNCATE_MAX_LINES,
   toRoutineDto,
   withComputerOfficeTools,
   withOfficeExecuteDescription,
@@ -431,8 +433,23 @@ export class RoomHome extends Agent<WorkerEnv> {
           createAITools({
             workspace: this.computer,
             shell: computerWorkerShell(),
+            read: {
+              maxLines: TOOL_TRUNCATE_MAX_LINES,
+              maxBytes: TOOL_TRUNCATE_MAX_BYTES,
+            },
           }),
         ),
+        {
+          spill: async (path, content) => {
+            await this.computer.fs.mkdir("/workspace/.tool-output", {
+              recursive: true,
+            });
+            await this.computer.fs.writeFile(
+              path,
+              new TextEncoder().encode(content),
+            );
+          },
+        },
       ),
       ...createPageAgentTools(page),
       ...(this.env.BROWSER

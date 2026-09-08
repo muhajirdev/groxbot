@@ -94,6 +94,8 @@ describe("Computer Worker shell wiring", () => {
     expect(actor).toMatch(/createBotComputer\(/);
     expect(actor).toMatch(/createAITools\(/);
     expect(actor).toMatch(/computerWorkerShell\(\)/);
+    expect(actor).toMatch(/TOOL_TRUNCATE_MAX_BYTES/);
+    expect(actor).toMatch(/\.tool-output/);
     expect(actor).toMatch(/__getWorkspaceStub/);
     expect(actor).not.toMatch(/@cloudflare\/shell/);
     expect(actor).not.toMatch(/from "@cloudflare\/think"/);

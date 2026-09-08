@@ -4,11 +4,15 @@ import {
   pruneLiveToolResults,
 } from "./pi-context.js";
 
-function toolResult(id: string, text: string, extra?: { details?: unknown }) {
+function toolResult(
+  id: string,
+  text: string,
+  extra?: { details?: unknown; toolName?: string },
+) {
   return {
     role: "toolResult" as const,
     toolCallId: id,
-    toolName: "code",
+    toolName: extra?.toolName ?? "code",
     content: [{ type: "text" as const, text }],
     details: extra?.details,
     isError: false,
@@ -64,8 +68,9 @@ describe("pruneLiveToolResults", () => {
       { maxChars: 40, staleChars: 10 },
     );
     const text = liveToolResultText(pruned[1]!);
-    expect(text.startsWith("h".repeat(40))).toBe(true);
-    expect(text).toMatch(/200 chars, truncated/);
+    expect(text).toMatch(/truncated/);
+    expect(text).toMatch(/200 chars/);
+    expect(text.length).toBeLessThan(fat.length);
     expect(pruned[0]).toMatchObject({ role: "user", content: "fetch" });
   });
 
@@ -75,5 +80,17 @@ describe("pruneLiveToolResults", () => {
     pruneLiveToolResults(messages, { staleChars: 8 });
     expect(liveToolResultText(original)).toBe("x".repeat(50));
     expect(original.details).toEqual({ raw: true });
+  });
+
+  it("keeps a latest computer read under the 50KB file cap", () => {
+    const body = "line\n".repeat(4_000);
+    const pruned = pruneLiveToolResults(
+      [
+        { role: "user", content: "read", timestamp: 1 },
+        toolResult("read-1", body, { toolName: "read" }),
+      ],
+      { maxChars: 100, staleChars: 10 },
+    );
+    expect(liveToolResultText(pruned[1]!)).toBe(body);
   });
 });
