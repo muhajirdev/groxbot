@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Breadcrumbs, SiteChrome } from "../components/SiteChrome";
-import { appLoginUrl } from "../lib/app-url";
+import { appLoginUrl, startUrl } from "../lib/app-url";
 import { MAC_DMG_URL } from "../lib/copy";
 import { breadcrumbJsonLd } from "../lib/json-ld";
 import { seoHead } from "../lib/site";
 
 export const Route = createFileRoute("/download")({
-  loader: () => ({ startUrl: appLoginUrl() }),
+  loader: () => ({ startUrl: startUrl(), officeUrl: appLoginUrl() }),
   head: () =>
     seoHead({
       title: "Download Mac app",
@@ -24,7 +24,7 @@ export const Route = createFileRoute("/download")({
 });
 
 function DownloadPage() {
-  const { startUrl } = Route.useLoaderData();
+  const { startUrl, officeUrl } = Route.useLoaderData();
   return (
     <SiteChrome startUrl={startUrl}>
       <main>
@@ -42,7 +42,7 @@ function DownloadPage() {
             <a className="btn lg" href={MAC_DMG_URL}>
               Download .dmg
             </a>
-            <a className="btn ghost" href={startUrl}>
+            <a className="btn ghost" href={officeUrl}>
               Use in the browser
             </a>
           </div>
@@ -88,7 +88,7 @@ function DownloadPage() {
           <p className="lede tight">
             The office is the product. The Mac app is a window around it.
           </p>
-          <a className="btn lg" href={startUrl}>
+          <a className="btn lg" href={officeUrl}>
             Open Groxbot
           </a>
           <Link className="btn ghost" to="/pricing">

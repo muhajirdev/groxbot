@@ -1,4 +1,5 @@
 import { CLOUD_WEB_ORIGIN } from "@groxbot/contracts";
+import { INVITE_MAILTO } from "./copy";
 
 const LOCAL_WEB_ORIGIN = "http://127.0.0.1:5173";
 
@@ -21,4 +22,9 @@ export function appOrigin(): string {
 
 export function appLoginUrl(): string {
   return `${appOrigin()}/login`;
+}
+
+/** Hosted office is invite-only — primary CTAs email for access. */
+export function startUrl(): string {
+  return INVITE_MAILTO;
 }

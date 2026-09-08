@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Breadcrumbs, SiteChrome } from "../components/SiteChrome";
-import { appLoginUrl } from "../lib/app-url";
+import { startUrl } from "../lib/app-url";
 import {
   CONTACT_EMAIL,
   CONTACT_MAILTO,
@@ -10,7 +10,7 @@ import { breadcrumbJsonLd } from "../lib/json-ld";
 import { seoHead } from "../lib/site";
 
 export const Route = createFileRoute("/terms")({
-  loader: () => ({ startUrl: appLoginUrl() }),
+  loader: () => ({ startUrl: startUrl() }),
   head: () =>
     seoHead({
       title: "Terms",
@@ -127,7 +127,7 @@ function TermsPage() {
               GitHub
             </a>
             <a className="btn ghost" href={startUrl}>
-              Get started
+              Request an invite
             </a>
           </div>
         </section>

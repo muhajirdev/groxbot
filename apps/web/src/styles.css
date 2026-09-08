@@ -2465,6 +2465,18 @@ a.btn {
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  outline: none;
+}
+
+.field input:focus,
+.field input:focus-visible,
+.field textarea:focus,
+.field textarea:focus-visible,
+.field select:focus,
+.field select:focus-visible {
+  outline: none;
+  box-shadow: none;
+  border-color: var(--ink);
 }
 
 .field .combobox-field-input {

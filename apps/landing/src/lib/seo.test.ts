@@ -281,9 +281,9 @@ describe("llms discovery", () => {
 
   it("leads public copy with AI is better together", () => {
     expect(TAGLINE).toBe("AI is better together");
-    expect(HERO_PITCH).toBe("Multiplayer. Open source.");
-    expect(DEFAULT_TITLE).toBe("Multiplayer. Open source. | Groxbot");
-    expect(DEFAULT_DESCRIPTION).toMatch(/^Multiplayer\. Open source\./);
+    expect(HERO_PITCH).toBe("Multiplayer. Open source. Invite only.");
+    expect(DEFAULT_TITLE).toBe("Multiplayer. Open source. Invite only. | Groxbot");
+    expect(DEFAULT_DESCRIPTION).toMatch(/^Multiplayer\. Open source\. Invite only\./);
     expect(FOOTER_BLURB).toMatch(/^AI is better together\./);
     expect(landingLlmsTxt()).toContain("AI is better together");
   });

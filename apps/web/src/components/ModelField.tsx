@@ -126,7 +126,7 @@ export function ModelField(props: {
       <Combobox.InputGroup
         className={cn(
           "flex w-full items-center rounded-[12px] border border-line bg-card px-3 py-2.5",
-          "focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/40",
+          "focus-within:border-ink",
           props.className,
         )}
       >

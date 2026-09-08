@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Breadcrumbs, SiteChrome } from "../../components/SiteChrome";
 import { COMPARE_PAGES, PRIMARY_COMPARE_SLUG } from "../../data/compare";
-import { appLoginUrl } from "../../lib/app-url";
+import { startUrl } from "../../lib/app-url";
 import { breadcrumbJsonLd, itemListJsonLd } from "../../lib/json-ld";
 import { seoHead } from "../../lib/site";
 
@@ -13,7 +13,7 @@ export const Route = createFileRoute("/compare/")({
     const pairwise = COMPARE_PAGES.filter(
       (page) => page.slug !== PRIMARY_COMPARE_SLUG,
     );
-    return { startUrl: appLoginUrl(), featured, pairwise };
+    return { startUrl: startUrl(), featured, pairwise };
   },
   head: () =>
     seoHead({
@@ -105,7 +105,7 @@ function CompareIndex() {
             Hire a teammate. Message it. Grant access when it hits a wall.
           </p>
           <a className="btn lg" href={startUrl}>
-            Get started
+            Request an invite
           </a>
         </section>
       </main>

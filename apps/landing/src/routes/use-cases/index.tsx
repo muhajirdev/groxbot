@@ -6,12 +6,12 @@ import {
   USE_CASES,
   useCasesByCategory,
 } from "../../data/use-cases";
-import { appLoginUrl } from "../../lib/app-url";
+import { startUrl } from "../../lib/app-url";
 import { breadcrumbJsonLd, itemListJsonLd } from "../../lib/json-ld";
 import { seoHead } from "../../lib/site";
 
 export const Route = createFileRoute("/use-cases/")({
-  loader: () => ({ startUrl: appLoginUrl(), items: USE_CASES }),
+  loader: () => ({ startUrl: startUrl(), items: USE_CASES }),
   head: () =>
     seoHead({
       title: "Use cases",
@@ -118,7 +118,7 @@ function UseCasesIndex() {
             message is a real task.
           </p>
           <a className="btn lg" href={startUrl}>
-            Get started
+            Request an invite
           </a>
         </section>
       </main>

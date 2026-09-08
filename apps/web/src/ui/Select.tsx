@@ -38,7 +38,7 @@ export function Select(props: {
       <BaseSelect.Trigger
         aria-label={props["aria-label"]}
         className={cn(
-          "flex w-full items-center justify-between gap-2 rounded-lg border border-line bg-card px-3 py-2 text-left text-[14px] text-ink outline-none",
+          "flex w-full items-center justify-between gap-2 rounded-lg border border-line bg-card px-3 py-2 text-left text-[14px] text-ink outline-none focus-visible:border-ink",
           props.className,
         )}
       >

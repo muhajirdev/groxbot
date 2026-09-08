@@ -6,6 +6,7 @@ import {
   CONTACT_MAILTO,
   FOOTER_BLURB,
   SOURCE_REPO,
+  START_CTA,
 } from "../lib/copy";
 import { SupportChatLink } from "./SupportChat";
 
@@ -31,7 +32,7 @@ export function SiteHeader(props: { startUrl: string }) {
           GitHub
         </a>
         <a className="btn" href={props.startUrl}>
-          Get started
+          {START_CTA}
         </a>
       </nav>
     </header>

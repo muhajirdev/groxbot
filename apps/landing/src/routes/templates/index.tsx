@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Breadcrumbs, SiteChrome } from "../../components/SiteChrome";
-import { appLoginUrl } from "../../lib/app-url";
+import { startUrl } from "../../lib/app-url";
 import { LANDING_HIRE_BOTS } from "../../lib/bot-marketplace";
 import { breadcrumbJsonLd, itemListJsonLd } from "../../lib/json-ld";
 import { seoHead } from "../../lib/site";
@@ -19,7 +19,7 @@ function botsByCategory(): Array<[string, HireBot[]]> {
 
 export const Route = createFileRoute("/templates/")({
   loader: () => ({
-    startUrl: appLoginUrl(),
+    startUrl: startUrl(),
     groups: botsByCategory(),
     count: LANDING_HIRE_BOTS.length,
   }),
@@ -124,7 +124,7 @@ function TemplatesIndex() {
             Pick a package. Open the thread. The first message is a real task.
           </p>
           <a className="btn lg" href={startUrl}>
-            Get started
+            Request an invite
           </a>
         </section>
       </main>

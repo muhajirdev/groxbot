@@ -2,6 +2,9 @@ import { GROXBOT_EMAIL, GROXBOT_TAGLINE } from "@groxbot/seo";
 
 export const CONTACT_EMAIL = GROXBOT_EMAIL;
 export const CONTACT_MAILTO = `mailto:${CONTACT_EMAIL}`;
+export const INVITE_EMAIL = "muhajir@expandra.ai";
+export const INVITE_MAILTO = `mailto:${INVITE_EMAIL}`;
+export const START_CTA = "Request an invite";
 
 export const DEMOS = [
   {
@@ -223,7 +226,7 @@ export const SOURCE_REPO = "https://github.com/muhajirdev/groxbot";
 export const MAC_DMG_FILENAME = "Groxbot-mac-arm64.dmg";
 export const MAC_DMG_URL = `${SOURCE_REPO}/releases/latest/download/${MAC_DMG_FILENAME}`;
 export const TAGLINE = GROXBOT_TAGLINE;
-export const HERO_PITCH = "Multiplayer. Open source.";
+export const HERO_PITCH = "Multiplayer. Open source. Invite only.";
 export const FOOTER_BLURB = `${GROXBOT_TAGLINE}. For the whole team. Fair-code.`;
 
 export const THESES = [

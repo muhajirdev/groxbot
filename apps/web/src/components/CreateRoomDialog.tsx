@@ -36,7 +36,7 @@ function InviteField(props: {
       <Combobox.InputGroup
         className={cn(
           "flex min-h-9 w-full cursor-text flex-wrap items-center gap-1 rounded-lg border border-line bg-card px-2 py-1",
-          "focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/40",
+          "focus-within:border-ink",
         )}
       >
         <Combobox.Value>

@@ -2992,6 +2992,10 @@ a.chip.on .chip-count,
   color: var(--muted);
 }
 
+.hero-home .home-cta-note {
+  margin: 14px 0 0;
+}
+
 .demo.home-section {
   display: block;
   padding-top: 80px;

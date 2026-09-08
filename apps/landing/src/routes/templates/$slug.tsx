@@ -1,7 +1,7 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { BulletList } from "../../components/ContentBits";
 import { Breadcrumbs, SiteChrome } from "../../components/SiteChrome";
-import { appLoginUrl } from "../../lib/app-url";
+import { startUrl } from "../../lib/app-url";
 import { LANDING_HIRE_BOTS } from "../../lib/bot-marketplace";
 import { breadcrumbJsonLd } from "../../lib/json-ld";
 import { seoHead } from "../../lib/site";
@@ -21,7 +21,7 @@ export const Route = createFileRoute("/templates/$slug")({
     const bot = findBot(params.slug);
     if (!bot) throw notFound();
     return {
-      startUrl: appLoginUrl(),
+      startUrl: startUrl(),
       bot,
       related: relatedBots(bot.id, bot.category),
     };

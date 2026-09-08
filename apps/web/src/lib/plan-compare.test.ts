@@ -17,13 +17,13 @@ describe("labMonthlyUsd", () => {
     expect(labChargeLabel(1)).toBe("$20 × 1");
     expect(labMonthlyUsd(10)).toBe(200);
     expect(labChargeLabel(10)).toBe("$20 × 10");
-    expect(GROXBOT_PRO_MONTHLY_USD).toBe(29);
+    expect(GROXBOT_PRO_MONTHLY_USD).toBe(49);
   });
 
   it("prices annual as 10 months", () => {
-    expect(planListUsd("pro", "year")).toBe(290);
-    expect(planListUsd("plus", "year")).toBe(490);
-    expect(planListUsd("believers", "year")).toBe(990);
+    expect(planListUsd("pro", "year")).toBe(490);
+    expect(planListUsd("plus", "year")).toBe(1500);
+    expect(planListUsd("believers", "year")).toBe(5000);
     expect(planPeriodLabel("year")).toBe("/yr");
   });
 

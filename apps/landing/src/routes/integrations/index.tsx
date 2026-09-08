@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { IntegrationGrid } from "../../components/IntegrationCard";
 import { Breadcrumbs, SiteChrome } from "../../components/SiteChrome";
-import { appLoginUrl } from "../../lib/app-url";
+import { startUrl } from "../../lib/app-url";
 import {
   computerIntegrations,
   featuredIntegrations,
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/integrations/")({
     const q = deps.q.trim();
     const matches = q ? searchIntegrations(q).slice(0, 80) : [];
     return {
-      startUrl: appLoginUrl(),
+      startUrl: startUrl(),
       q,
       matches,
       featured: featuredIntegrations(),
@@ -143,7 +143,7 @@ function IntegrationsIndex() {
 
         <section className="cta">
           <a className="btn" href={startUrl}>
-            Get started
+            Request an invite
           </a>
         </section>
       </main>

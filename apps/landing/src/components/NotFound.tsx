@@ -1,10 +1,10 @@
 import { Link } from "@tanstack/react-router";
 import { SiteChrome } from "./SiteChrome";
-import { appLoginUrl } from "../lib/app-url";
+import { startUrl } from "../lib/app-url";
 
 export function NotFoundPage() {
   return (
-    <SiteChrome startUrl={appLoginUrl()}>
+    <SiteChrome startUrl={startUrl()}>
       <main>
         <section className="hero">
           <p className="kicker">404</p>

@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Breadcrumbs, SiteChrome } from "../components/SiteChrome";
-import { appLoginUrl } from "../lib/app-url";
+import { startUrl } from "../lib/app-url";
 import { CONTACT_EMAIL, CONTACT_MAILTO } from "../lib/copy";
 import { breadcrumbJsonLd } from "../lib/json-ld";
 import { seoHead } from "../lib/site";
 
 export const Route = createFileRoute("/privacy")({
-  loader: () => ({ startUrl: appLoginUrl() }),
+  loader: () => ({ startUrl: startUrl() }),
   head: () =>
     seoHead({
       title: "Privacy",

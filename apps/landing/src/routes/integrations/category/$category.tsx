@@ -1,7 +1,7 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { IntegrationGrid } from "../../../components/IntegrationCard";
 import { Breadcrumbs, SiteChrome } from "../../../components/SiteChrome";
-import { appLoginUrl } from "../../../lib/app-url";
+import { startUrl } from "../../../lib/app-url";
 import {
   getCategory,
   integrationCategories,
@@ -15,7 +15,7 @@ export const Route = createFileRoute("/integrations/category/$category")({
     const category = getCategory(params.category);
     if (!category) throw notFound();
     const items = integrationsInCategory(category.slug);
-    return { startUrl: appLoginUrl(), category, items };
+    return { startUrl: startUrl(), category, items };
   },
   head: ({ loaderData }) => {
     if (!loaderData?.category) return {};

@@ -60,8 +60,8 @@ export function RoutineScheduleField(props: {
           <Menu.Trigger
             className={cn(
               "flex w-full items-center justify-between gap-2 rounded-lg border border-line bg-card px-3 py-2 text-left text-[14px] text-ink outline-none",
-              "focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/40",
-              "data-popup-open:border-accent",
+              "focus-visible:border-ink",
+              "data-popup-open:border-ink",
             )}
           >
             <span className="min-w-0 truncate">
@@ -208,7 +208,7 @@ function TimeSubmenu(props: {
           <Menu.Popup className={popupClass}>
             <div className="px-1 pb-1">
               <input
-                className="w-full rounded-md border border-line bg-card px-2 py-1.5 text-[13px] text-ink outline-none placeholder:text-muted focus-visible:border-accent"
+                className="w-full rounded-md border border-line bg-card px-2 py-1.5 text-[13px] text-ink outline-none placeholder:text-muted focus-visible:border-ink"
                 placeholder="9:07 AM"
                 value={custom}
                 aria-label={`Custom time for ${props.label}`}

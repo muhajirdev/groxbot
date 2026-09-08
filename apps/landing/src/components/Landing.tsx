@@ -14,6 +14,7 @@ import {
   HOME_MODELS,
   HERO_PITCH,
   SOURCE_REPO,
+  START_CTA,
   THESES,
 } from "../lib/copy";
 import { LANDING_HIRE_BOTS } from "../lib/bot-marketplace";
@@ -55,12 +56,13 @@ export function Landing(props: { startUrl: string }) {
           </p>
           <div className="row">
             <a className="btn lg" href={props.startUrl}>
-              Get started
+              {START_CTA}
             </a>
             <Link className="btn ghost" to="/compare">
               Compare
             </Link>
           </div>
+          <p className="home-cta-note">Invite only — we’ll email you a seat.</p>
         </section>
 
         <OfficePreview />
@@ -421,13 +423,13 @@ export function Landing(props: { startUrl: string }) {
         </section>
 
         <section className="cta">
-          <p className="kicker">Hire the first one</p>
-          <h2>Hire your first Chief of Staff.</h2>
+          <p className="kicker">Invite only</p>
+          <h2>Request an invite.</h2>
           <p className="lede tight">
-            Name it. Open the thread. Give it a real task.
+            Groxbot isn’t open signup yet. Email us and we’ll get you in.
           </p>
           <a className="btn lg" href={props.startUrl}>
-            Get started
+            {START_CTA}
           </a>
         </section>
       </main>

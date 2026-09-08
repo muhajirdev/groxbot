@@ -2,13 +2,13 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { FaqList } from "../components/ContentBits";
 import { Breadcrumbs, SiteChrome } from "../components/SiteChrome";
 import { PRICING_FAQS, PRICING_PLANS } from "../data/pricing";
-import { appLoginUrl } from "../lib/app-url";
+import { startUrl } from "../lib/app-url";
 import { CONTACT_MAILTO, SOURCE_REPO } from "../lib/copy";
 import { breadcrumbJsonLd, faqJsonLd } from "../lib/json-ld";
 import { seoHead } from "../lib/site";
 
 export const Route = createFileRoute("/pricing")({
-  loader: () => ({ startUrl: appLoginUrl(), plans: PRICING_PLANS }),
+  loader: () => ({ startUrl: startUrl(), plans: PRICING_PLANS }),
   head: () =>
     seoHead({
       title: "Pricing",
@@ -49,15 +49,6 @@ function PricingPage() {
               <article key={plan.id} className="card flex flex-col">
                 <p className="kicker">{plan.popular ? "Popular" : "Plan"}</p>
                 <h2 className="!mb-1 !text-xl">{plan.name}</h2>
-                <p className="!mb-1 !text-[clamp(28px,4vw,36px)] !font-semibold !tracking-[-0.03em] !text-[var(--ink)]">
-                  ${plan.monthly}
-                  <span className="text-base font-normal text-[var(--muted)]">
-                    /mo
-                  </span>
-                </p>
-                <p className="!mb-3 !text-sm !text-[var(--muted)]">
-                  ${plan.yearly}/yr · 2 months free
-                </p>
                 <p className="!mb-3">{plan.blurb}</p>
                 <ul className="points !mb-4">
                   {plan.features.map((feature) => (
@@ -128,7 +119,7 @@ function PricingPage() {
             Name it. Open the thread. Give it a real task.
           </p>
           <a className="btn lg" href={startUrl}>
-            Get started
+            Request an invite
           </a>
         </section>
       </main>

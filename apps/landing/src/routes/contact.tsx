@@ -1,13 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Breadcrumbs, SiteChrome } from "../components/SiteChrome";
 import { SupportChatLink } from "../components/SupportChat";
-import { appLoginUrl } from "../lib/app-url";
+import { startUrl } from "../lib/app-url";
 import { CONTACT_EMAIL, CONTACT_MAILTO } from "../lib/copy";
 import { breadcrumbJsonLd } from "../lib/json-ld";
 import { seoHead } from "../lib/site";
 
 export const Route = createFileRoute("/contact")({
-  loader: () => ({ startUrl: appLoginUrl() }),
+  loader: () => ({ startUrl: startUrl() }),
   head: () =>
     seoHead({
       title: "Contact",
@@ -43,7 +43,7 @@ function ContactPage() {
               Email {CONTACT_EMAIL}
             </a>
             <a className="btn ghost" href={startUrl}>
-              Get started
+              Request an invite
             </a>
           </div>
         </section>

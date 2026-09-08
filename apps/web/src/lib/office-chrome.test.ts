@@ -478,6 +478,12 @@ describe("office chrome", () => {
       /\.field input,\s*\.field textarea,\s*\.field select\s*\{[^}]*width:\s*100%[^}]*min-width:\s*0/s,
     );
     expect(css).toMatch(
+      /\.field select:focus-visible\s*\{[^}]*border-color:\s*var\(--ink\)/s,
+    );
+    expect(css).not.toMatch(
+      /\.field select:focus[^}]*ring/s,
+    );
+    expect(css).toMatch(
       /\.field \.combobox-field-input\s*\{[^}]*border:\s*0[^}]*padding:\s*0/s,
     );
     expect(css).toMatch(

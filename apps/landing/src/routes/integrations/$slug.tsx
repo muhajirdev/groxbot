@@ -5,7 +5,7 @@ import {
   IntegrationLogo,
 } from "../../components/IntegrationCard";
 import { Breadcrumbs, SiteChrome } from "../../components/SiteChrome";
-import { appLoginUrl } from "../../lib/app-url";
+import { startUrl } from "../../lib/app-url";
 import {
   getIntegration,
   relatedIntegrations,
@@ -19,7 +19,7 @@ export const Route = createFileRoute("/integrations/$slug")({
     const item = getIntegration(params.slug);
     if (!item) throw notFound();
     return {
-      startUrl: appLoginUrl(),
+      startUrl: startUrl(),
       item,
       related: relatedIntegrations(item),
       useCases: useCasesForIntegration(item),
@@ -74,7 +74,7 @@ function IntegrationPage() {
             <p className="lede">{item.description}</p>
             <div className="row">
               <a className="btn" href={startUrl}>
-                Get started
+                Request an invite
               </a>
               {item.productUrl ? (
                 <a

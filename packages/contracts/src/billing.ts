@@ -21,9 +21,9 @@ export type BillingInterval = z.infer<typeof BillingInterval>;
 
 /** List prices. Annual is 10 months (2 months free). */
 export const WORKSPACE_PLAN_PRICE_USD = {
-  [WORKSPACE_PLAN_PRO]: { month: 29, year: 290 },
-  [WORKSPACE_PLAN_PLUS]: { month: 49, year: 490 },
-  [WORKSPACE_PLAN_BELIEVERS]: { month: 99, year: 990 },
+  [WORKSPACE_PLAN_PRO]: { month: 49, year: 490 },
+  [WORKSPACE_PLAN_PLUS]: { month: 150, year: 1500 },
+  [WORKSPACE_PLAN_BELIEVERS]: { month: 500, year: 5000 },
 } as const;
 
 /** Polar-hosted groxbot.com: office turns need a paid plan, including BYOK. */

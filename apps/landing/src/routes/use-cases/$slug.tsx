@@ -12,7 +12,7 @@ import {
   getUseCaseCategory,
   relatedUseCases,
 } from "../../data/use-cases";
-import { appLoginUrl } from "../../lib/app-url";
+import { startUrl } from "../../lib/app-url";
 import { getIntegration } from "../../lib/integrations";
 import { useCaseJsonLd } from "../../lib/json-ld";
 import { seoHead } from "../../lib/site";
@@ -21,7 +21,7 @@ export const Route = createFileRoute("/use-cases/$slug")({
   loader: ({ params }) => {
     const item = getUseCase(params.slug);
     if (!item) throw notFound();
-    return { startUrl: appLoginUrl(), item };
+    return { startUrl: startUrl(), item };
   },
   head: ({ loaderData }) => {
     if (!loaderData?.item) return {};
@@ -73,7 +73,7 @@ function UseCasePage() {
           />
           <div className="row mt-1">
             <a className="btn lg" href={startUrl}>
-              Get started
+              Request an invite
             </a>
           </div>
         </section>
@@ -191,7 +191,7 @@ function UseCasePage() {
             message is a real task.
           </p>
           <a className="btn lg" href={startUrl}>
-            Get started
+            Request an invite
           </a>
         </section>
       </main>

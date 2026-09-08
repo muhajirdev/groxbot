@@ -12,7 +12,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { OfficePreview } from "../../components/OfficePreview";
 import { Breadcrumbs, SiteChrome } from "../../components/SiteChrome";
-import { appLoginUrl } from "../../lib/app-url";
+import { startUrl } from "../../lib/app-url";
 import { cn } from "../../lib/cn";
 import { CONTACT_EMAIL, CONTACT_MAILTO, SOURCE_REPO } from "../../lib/copy";
 import { LANDING_ORIGINS } from "../../lib/discovery";
@@ -22,7 +22,7 @@ import { seoHead } from "../../lib/site";
 
 export const Route = createFileRoute("/press/")({
   loader: () => ({
-    startUrl: appLoginUrl(),
+    startUrl: startUrl(),
     facts: pressFacts(LANDING_ORIGINS),
   }),
   head: () =>
@@ -255,7 +255,7 @@ function PressPage() {
               GitHub
             </a>
             <a className="btn ghost" href={startUrl}>
-              Get started
+              Request an invite
             </a>
           </div>
         </section>

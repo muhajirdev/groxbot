@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Breadcrumbs, SiteChrome } from "../components/SiteChrome";
 import { CHANGELOG } from "../data/changelog";
-import { appLoginUrl } from "../lib/app-url";
+import { startUrl } from "../lib/app-url";
 import { breadcrumbJsonLd } from "../lib/json-ld";
 import { seoHead } from "../lib/site";
 
 export const Route = createFileRoute("/changelog")({
-  loader: () => ({ startUrl: appLoginUrl(), entries: CHANGELOG }),
+  loader: () => ({ startUrl: startUrl(), entries: CHANGELOG }),
   head: () =>
     seoHead({
       title: "Changelog",
@@ -83,7 +83,7 @@ function ChangelogPage() {
             Hire a teammate. Message it. Grant access when it hits a wall.
           </p>
           <a className="btn lg" href={startUrl}>
-            Get started
+            Request an invite
           </a>
         </section>
       </main>

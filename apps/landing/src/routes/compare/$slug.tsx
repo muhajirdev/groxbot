@@ -6,7 +6,7 @@ import {
   getComparePage,
   relatedComparePages,
 } from "../../data/compare";
-import { appLoginUrl } from "../../lib/app-url";
+import { startUrl } from "../../lib/app-url";
 import { compareJsonLd } from "../../lib/json-ld";
 import { seoHead } from "../../lib/site";
 
@@ -15,7 +15,7 @@ export const Route = createFileRoute("/compare/$slug")({
     const page = getComparePage(params.slug);
     if (!page) throw notFound();
     return {
-      startUrl: appLoginUrl(),
+      startUrl: startUrl(),
       page,
       related: relatedComparePages(page.slug),
     };
@@ -81,7 +81,7 @@ function CompareSlugPage() {
           <p className="thesis !mb-7 max-w-2xl">{page.thesis}</p>
           <div className="row mt-1">
             <a className="btn lg" href={startUrl}>
-              Get started
+              Request an invite
             </a>
             <Link className="btn ghost" to="/use-cases">
               See use cases
@@ -217,7 +217,7 @@ function CompareSlugPage() {
             message is a real task.
           </p>
           <a className="btn lg" href={startUrl}>
-            Get started
+            Request an invite
           </a>
         </section>
       </main>
