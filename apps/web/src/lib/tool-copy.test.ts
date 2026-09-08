@@ -14,8 +14,8 @@ describe("toolActivityCopy", () => {
     expect(toolActivityCopy("shell", "running")).toBe("Using the computer");
     expect(toolActivityCopy("shell", "complete")).toBe("Used the computer");
     expect(toolActivityCopy("render_pdf", "running")).toBe("Rendering a PDF");
-    expect(toolActivityCopy("browser_act", "complete")).toBe(
-      "Used the browser",
+    expect(toolActivityCopy("render_screenshot", "complete")).toBe(
+      "Took a screenshot",
     );
   });
 

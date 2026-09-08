@@ -32,10 +32,6 @@ const PHRASES: Record<string, { running: string; done: string }> = {
     running: "Turning it into markdown",
     done: "Turned it into markdown",
   },
-  browser_act: {
-    running: "Using the browser",
-    done: "Used the browser",
-  },
   render_pdf: {
     running: "Rendering a PDF",
     done: "Rendered a PDF",

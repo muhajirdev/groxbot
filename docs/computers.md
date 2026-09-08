@@ -16,4 +16,4 @@ Do **not** bring back:
 
 Hands later are still this bot’s Computer workspace, not a Computer DO. Live docs / slides / sheets are `AppRuntime` Durable Objects, not computers. Worker JavaScript and Container backends stay later.
 
-**Browser Run.** When `BROWSER` is bound, Pi gets `browser_act` (Stagehand 2.5 + Workers AI for natural-language steps), plus `render_pdf` / `render_screenshot` (Quick Actions). Files land under `inbox/render` on this computer. Public page reading stays TinyFish (`web_search` / `fetch_url`) — not the browser.
+**Browser Run.** When `BROWSER` is bound, Pi gets `render_pdf` / `render_screenshot` (Quick Actions). Files land under `inbox/render` on this computer. Public page reading stays TinyFish (`web_search` / `fetch_url`) — not the browser.

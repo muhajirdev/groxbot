@@ -433,7 +433,6 @@ export class RoomHome extends Agent<WorkerEnv> {
         ? createBrowserAgentTools({
             browser: this.env.BROWSER,
             workspace: this.workspace,
-            ai: this.env.AI,
           })
         : []),
       createPresentTool(),

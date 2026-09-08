@@ -29,9 +29,6 @@
 		"binding": "BROWSER",
 		"remote": true
 	},
-	"alias": {
-		"playwright": "@cloudflare/playwright"
-	},
 	"send_email": [
 		{
 			"name": "EMAIL"
