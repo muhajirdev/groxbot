@@ -146,6 +146,32 @@ function toolkitOf(item: unknown): string {
   ).toLowerCase();
 }
 
+function authConfigIdOf(item: unknown): string {
+  const row = asRecord(item);
+  return readString(
+    row?.id,
+    row?.nanoid,
+    asRecord(row?.auth_config)?.id,
+  );
+}
+
+/** Never reuse another toolkit's config (Gmail is often first in an unfiltered list). */
+function matchingAuthConfigId(listed: unknown[], toolkit: string): string {
+  const wanted = toolkit.trim().toLowerCase();
+  const hits: unknown[] = [];
+  const unlabeled: unknown[] = [];
+  for (const item of listed) {
+    const slug = toolkitOf(item);
+    if (slug === wanted) hits.push(item);
+    else if (!slug) unlabeled.push(item);
+  }
+  for (const item of hits.length > 0 ? hits : unlabeled) {
+    const id = authConfigIdOf(item);
+    if (id) return id;
+  }
+  return "";
+}
+
 export function slimComposioTools(
   value: unknown,
   toolkits: readonly string[] = [],
@@ -344,9 +370,7 @@ export class SdkComposioGateway implements ComposioGateway {
     const listed = this.sdk.authConfigs?.list
       ? itemsOf(await this.sdk.authConfigs.list({ toolkit }))
       : [];
-    const existing = listed
-      .map((item) => readString(asRecord(item)?.id))
-      .find(Boolean);
+    const existing = matchingAuthConfigId(listed, toolkit);
     if (existing) return existing;
     if (!this.sdk.authConfigs?.create) {
       throw new ComposioError(
@@ -359,11 +383,7 @@ export class SdkComposioGateway implements ComposioGateway {
         name: `groxbot-${toolkit}`,
       }),
     );
-    const id = readString(
-      created?.id,
-      created?.nanoid,
-      asRecord(created?.auth_config)?.id,
-    );
+    const id = authConfigIdOf(created);
     if (!id)
       throw new ComposioError(`Could not create auth config for ${toolkit}.`);
     return id;
@@ -492,18 +512,10 @@ export class HttpComposioGateway implements ComposioGateway {
   private async authConfigId(toolkit: string): Promise<string> {
     const listed = itemsOf(
       await this.request(
-        `/auth_configs?toolkit=${encodeURIComponent(toolkit)}`,
+        `/auth_configs?toolkit_slug=${encodeURIComponent(toolkit)}`,
       ),
     );
-    const existing = listed
-      .map((item) =>
-        readString(
-          asRecord(item)?.id,
-          asRecord(item)?.nanoid,
-          asRecord(asRecord(item)?.auth_config)?.id,
-        ),
-      )
-      .find(Boolean);
+    const existing = matchingAuthConfigId(listed, toolkit);
     if (existing) return existing;
     const created = asRecord(
       await this.request("/auth_configs", {
@@ -514,11 +526,7 @@ export class HttpComposioGateway implements ComposioGateway {
         }),
       }),
     );
-    const id = readString(
-      created?.id,
-      created?.nanoid,
-      asRecord(created?.auth_config)?.id,
-    );
+    const id = authConfigIdOf(created);
     if (!id) {
       throw new ComposioError(`Could not create auth config for ${toolkit}.`);
     }

@@ -147,6 +147,116 @@ describe("Composio adapter", () => {
       alias: "groxbot-plug1",
       user_id: "groxbot:ws:1",
     });
+    expect(calls.some((item) => item.includes("toolkit_slug=gmail"))).toBe(
+      true,
+    );
+  });
+
+  it("links GitHub with the GitHub auth config even if Gmail is listed first", async () => {
+    let linkBody = "";
+    const gateway = new HttpComposioGateway("ak", async (input, init) => {
+      const url = String(input);
+      if (url.includes("/auth_configs") && init?.method === "POST") {
+        throw new Error("should reuse github config, not create");
+      }
+      if (url.includes("/auth_configs")) {
+        expect(url).toMatch(/toolkit_slug=github/);
+        expect(url).not.toMatch(/[?&]toolkit=/);
+        return jsonResponse({
+          items: [
+            { id: "ac_gmail", toolkit: { slug: "gmail" } },
+            { id: "ac_github", toolkit: { slug: "github" } },
+          ],
+        });
+      }
+      if (url.includes("/connected_accounts/link")) {
+        linkBody = String(init?.body ?? "");
+        return jsonResponse({
+          redirect_url: "https://connect.composio.dev/github",
+          id: "ca_github",
+        });
+      }
+      return jsonResponse({ error: { message: url } }, 404);
+    });
+    await expect(
+      gateway.link({
+        userId: "groxbot:ws:1",
+        toolkit: "github",
+        callbackUrl: "http://127.0.0.1:3100/api/plugins/callback?id=1",
+      }),
+    ).resolves.toEqual({
+      redirectUrl: "https://connect.composio.dev/github",
+      connectedAccountId: "ca_github",
+    });
+    expect(JSON.parse(linkBody).auth_config_id).toBe("ac_github");
+  });
+
+  it("creates a Cal.com auth config instead of reusing Gmail", async () => {
+    let createdBody = "";
+    let linkBody = "";
+    const gateway = new HttpComposioGateway("ak", async (input, init) => {
+      const url = String(input);
+      if (url.includes("/auth_configs") && init?.method === "POST") {
+        createdBody = String(init?.body ?? "");
+        return jsonResponse({ id: "ac_cal" }, 201);
+      }
+      if (url.includes("/auth_configs")) {
+        expect(url).toMatch(/toolkit_slug=cal/);
+        return jsonResponse({
+          items: [{ id: "ac_gmail", toolkit: { slug: "gmail" } }],
+        });
+      }
+      if (url.includes("/connected_accounts/link")) {
+        linkBody = String(init?.body ?? "");
+        return jsonResponse({
+          redirect_url: "https://connect.composio.dev/cal",
+          id: "ca_cal",
+        });
+      }
+      return jsonResponse({ error: { message: url } }, 404);
+    });
+    await expect(
+      gateway.link({
+        userId: "groxbot:ws:1",
+        toolkit: "cal",
+        callbackUrl: "http://127.0.0.1:3100/api/plugins/callback?id=1",
+      }),
+    ).resolves.toMatchObject({
+      redirectUrl: "https://connect.composio.dev/cal",
+    });
+    expect(JSON.parse(createdBody)).toMatchObject({
+      toolkit: { slug: "cal" },
+    });
+    expect(JSON.parse(linkBody).auth_config_id).toBe("ac_cal");
+  });
+
+  it("does not reuse Gmail when the SDK lists every auth config", async () => {
+    const linked: string[] = [];
+    const gateway = new SdkComposioGateway({
+      authConfigs: {
+        list: async () => ({
+          items: [
+            { id: "ac_gmail", toolkit: { slug: "gmail" } },
+            { id: "ac_github", toolkit: { slug: "github" } },
+          ],
+        }),
+      },
+      connectedAccounts: {
+        link: async (_userId, authConfigId) => {
+          linked.push(authConfigId);
+          return {
+            redirectUrl: "https://connect.composio.dev/github",
+            id: "ca_github",
+          };
+        },
+      },
+    });
+    await gateway.link({
+      userId: "groxbot:ws:1",
+      toolkit: "github",
+      callbackUrl: "http://127.0.0.1:3100/api/plugins/callback?id=1",
+    });
+    expect(linked).toEqual(["ac_github"]);
   });
 
   it("reads a string toolkit field on connected accounts", async () => {
