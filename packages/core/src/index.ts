@@ -30,6 +30,7 @@ export * from "./office-away.js";
 export * from "./office-chat.js";
 export * from "./office-compact.js";
 export * from "./office-history.js";
+export * from "./office-hire.js";
 export * from "./office-intro.js";
 export * from "./person-door.js";
 export * from "./office-review.js";

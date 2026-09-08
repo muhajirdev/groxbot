@@ -29,9 +29,9 @@ export const OFFICE_TOOL_PROMPT: Record<string, OfficeToolPromptContribution> =
     },
     [OFFICE_CODE_TOOL_NAME]: {
       snippet:
-        "JavaScript sandbox for knowledge, routines, history, and page helpers. Argument is `code`, not a bash command. You can import npm packages.",
+        "JavaScript sandbox for knowledge, routines, history, bots, and page helpers. Argument is `code`, not a bash command. You can import npm packages.",
       guidelines: [
-        "knowledge, routines, and history live inside code (`await knowledge.search({ query })`, `await knowledge.read({ path })`, `await routines.list()`, `await history.search({ query })`). set_context, skill_manage, present, and shell are top-level tools, not sandbox globals.",
+        "knowledge, routines, history, and bots live inside code (`await knowledge.search({ query })`, `await knowledge.read({ path })`, `await routines.list()`, `await history.search({ query })`, `await bots.search({ query })`, `await bots.hire({ marketplaceId })`). Hire needs approval. set_context, skill_manage, present, and shell are top-level tools, not sandbox globals.",
         KNOWLEDGE_MARKDOWN_LINK_HINT,
       ],
     },
@@ -148,7 +148,7 @@ function officeCodeSandboxPhrase(opts: {
   mcp: boolean;
   plugins: boolean;
 }): string {
-  const parts = ["knowledge", "routines", "history", "page helpers"];
+  const parts = ["knowledge", "routines", "history", "bots", "page helpers"];
   if (opts.mcp) parts.push("workspace MCP");
   if (opts.plugins) parts.push("plugins");
   return `${parts.slice(0, -1).join(", ")}, and ${parts.at(-1)}`;
@@ -177,7 +177,7 @@ export function buildOfficeSystemPrompt(opts: {
     const snippet =
       name === OFFICE_CODE_TOOL_NAME
         ? contribution.snippet.replace(
-            "knowledge, routines, history, and page helpers",
+            "knowledge, routines, history, bots, and page helpers",
             officeCodeSandboxPhrase({
               mcp: Boolean(mcpGuideline),
               plugins: Boolean(pluginsGuideline),

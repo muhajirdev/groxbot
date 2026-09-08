@@ -80,6 +80,11 @@ describe("Computer Worker shell wiring", () => {
     expect(execute).toMatch(/createCodemodeRuntime/);
     expect(execute).toMatch(/connectors\.push\(\.\.\.opts\.connectors\)/);
     expect(home).not.toMatch(/name:\s*"mcp"/);
+    expect(readSrc("bot-bots-connector.ts")).toMatch(
+      /class BotsConnector extends CodemodeConnector/,
+    );
+    expect(readSrc("bot-bots-connector.ts")).toMatch(/requiresApproval: true/);
+    expect(readSrc("bot-bots-connector.ts")).toMatch(/bots\.hire/);
   });
 
   it("constructs Computer with WorkerShellBackend, not Think bash", () => {
@@ -121,6 +126,9 @@ describe("Computer Worker shell wiring", () => {
     expect(actor).not.toMatch(/workspaceBash/);
     expect(actor).toMatch(/sqliteSessionStore|DurableSessionStorage/);
     expect(actor).toMatch(/HistoryConnector/);
+    expect(actor).toMatch(/BotsConnector/);
+    expect(actor).toMatch(/hireTeammate/);
+    expect(actor).toMatch(/bots:\s*true/);
     expect(actor).toMatch(/PluginsConnector/);
     expect(actor).toMatch(/officeHistorySearch/);
     expect(actor).toMatch(/ensureComputerHome/);

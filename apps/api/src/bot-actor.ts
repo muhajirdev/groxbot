@@ -70,6 +70,10 @@ import {
   type OfficeChatMessage,
   type OfficeHistorySearch,
   officeCanReadSkills,
+  officeMarketplaceHits,
+  officeHiredBotProjection,
+  OfficeHireError,
+  resolveOfficeHire,
   officeIntroTurnTools,
   officeModelContextWindow,
   officeReviewAnnounce,
@@ -116,14 +120,18 @@ import {
   withComputerOfficeTools,
   withOfficeExecuteDescription,
   writeInboxFile,
+  createSkillImportHttp,
 } from "@groxbot/core";
 import { bots, mcpConnections, member, organization, user } from "@groxbot/db";
 import { createNeonHttpDb } from "@groxbot/db/neon";
 import { Agent } from "agents";
 import { AgentContextProvider } from "agents/experimental/memory/session";
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, isNull, or } from "drizzle-orm";
 import { z } from "zod";
+import { ORPCError } from "@orpc/server";
+import { createBot } from "./bots.js";
 import { createBotComputer } from "./bot-computer-workspace.js";
+import { BotsConnector } from "./bot-bots-connector.js";
 import {
   createBundlingExecutor,
   createOfficeExecuteTool,
@@ -144,10 +152,12 @@ import { createPresentTool } from "./bot-present.js";
 import { RoutinesConnector } from "./bot-routines-connector.js";
 import { createSkillTool } from "./bot-skill.js";
 import { agentRuntimeSource, productEnv, type RuntimeSource } from "./env.js";
+import { knowledgeAccess } from "./knowledge.js";
 import { r2KnowledgeDisk } from "./knowledge-r2.js";
 import type { SendEmailBinding } from "./mail.js";
 import { sendAwayOfficeMail } from "./mail.js";
 import { httpMcpConnectionLike } from "./mcp-http.js";
+import { initRoomActor } from "./room-rpc.js";
 export interface WorkerEnv {
   DATABASE_URL: string;
   BETTER_AUTH_SECRET: string;
@@ -474,6 +484,7 @@ export class RoomHome extends Agent<WorkerEnv> {
           {
             history: true,
             routines: true,
+            bots: true,
             mcp,
             plugins: plugins.length > 0,
           },
@@ -1919,6 +1930,86 @@ export class RoomHome extends Agent<WorkerEnv> {
     return rows;
   }
 
+  async listTeammates(): Promise<
+    Array<{ id: string; name: string; title: string; homeRoomId: string }>
+  > {
+    await this.ensureBotLoaded();
+    const workspaceId = this.officeId?.trim();
+    const userId = this.ownerUserId?.trim();
+    if (!workspaceId || !userId) return [];
+    const env = productEnv(this.env);
+    const { db } = createNeonHttpDb(env.databaseUrl);
+    const rows = await db
+      .select({
+        id: bots.id,
+        name: bots.name,
+        title: bots.title,
+        homeRoomId: bots.homeRoomId,
+      })
+      .from(bots)
+      .where(
+        and(
+          eq(bots.workspaceId, workspaceId),
+          isNull(bots.archivedAt),
+          or(eq(bots.visibility, "shared"), eq(bots.userId, userId)),
+        ),
+      );
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      title: row.title,
+      homeRoomId: row.homeRoomId ?? "",
+    }));
+  }
+
+  searchMarketplace(input: {
+    query?: string;
+    category?: string;
+    limit?: number;
+  }) {
+    return officeMarketplaceHits(input);
+  }
+
+  async hireTeammate(input: {
+    name?: string;
+    title?: string;
+    description?: string;
+    instructions?: string;
+    marketplaceId?: string;
+  }) {
+    await this.ensureBotLoaded();
+    const workspaceId = this.officeId?.trim();
+    const userId = this.ownerUserId?.trim();
+    if (!workspaceId || !userId) {
+      throw new OfficeHireError("This office has no owner.");
+    }
+    const resolved = resolveOfficeHire(input);
+    const env = productEnv(this.env);
+    const { db } = createNeonHttpDb(env.databaseUrl);
+    const disk = this.officeKnowledge();
+    try {
+      const bot = await createBot(
+        {
+          db,
+          initRoom: (roomId, opts) =>
+            initRoomActor(this.env.ROOM_ACTOR, roomId, opts),
+          knowledge: disk
+            ? knowledgeAccess(disk, createSkillImportHttp())
+            : undefined,
+        },
+        { userId, workspaceId },
+        resolved,
+      );
+      return officeHiredBotProjection(bot);
+    } catch (error) {
+      if (error instanceof OfficeHireError) throw error;
+      if (error instanceof ORPCError) {
+        throw new OfficeHireError(error.message);
+      }
+      throw error;
+    }
+  }
+
   async createRoutine(input: {
     name: string;
     prompt: string;
@@ -2269,10 +2360,12 @@ export class RoomHome extends Agent<WorkerEnv> {
       | SkillsStoreConnector
       | WorkspaceMcpConnector
       | RoutinesConnector
+      | BotsConnector
       | PluginsConnector
     > = [
       new HistoryConnector(this.ctx, this.env, () => this),
       new RoutinesConnector(this.ctx, this.env, () => this),
+      new BotsConnector(this.ctx, this.env, () => this),
     ];
     if (this.env.KNOWLEDGE) {
       const disk = r2KnowledgeDisk(this.env.KNOWLEDGE);

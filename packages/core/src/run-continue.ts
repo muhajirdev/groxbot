@@ -102,6 +102,9 @@ export const KNOWLEDGE_EXECUTE_HINT =
 export const ROUTINES_EXECUTE_HINT =
   "`routines` — this bot’s recurring jobs. `await routines.list()` / `create({ name, prompt, schedule })` / `update({ id, name, prompt, schedule })` / `run({ id })`. Schedules like `every weekday at 09:00`. Timezone comes from Settings.";
 
+export const BOTS_EXECUTE_HINT =
+  "`bots` — workspace roster. `await bots.list()`, `await bots.search({ query })` for marketplace packages, then `await bots.hire({ marketplaceId })` or `await bots.hire({ name, title, instructions })`. Hire needs approval. They land on the sidebar — empty desk until the human writes. Not a top-level tool.";
+
 export const HISTORY_EXECUTE_HINT =
   "`history` — this office thread. `await history.search({ query })` for older turns the live window may have dropped. Not other teammates, not the knowledge library.";
 
@@ -119,6 +122,7 @@ export function withOfficeExecuteDescription(
   extras?: {
     routines?: boolean;
     history?: boolean;
+    bots?: boolean;
     mcp?: string[];
     plugins?: boolean;
   },
@@ -130,6 +134,8 @@ export function withOfficeExecuteDescription(
     next = hintExecuteConnector(next, "history", HISTORY_EXECUTE_HINT);
   if (extras?.routines)
     next = hintExecuteConnector(next, "routines", ROUTINES_EXECUTE_HINT);
+  if (extras?.bots)
+    next = hintExecuteConnector(next, "bots", BOTS_EXECUTE_HINT);
   if (extras?.plugins)
     next = hintExecuteConnector(next, "plugins", PLUGINS_EXECUTE_HINT);
   for (const name of extras?.mcp ?? []) {

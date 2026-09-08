@@ -54,6 +54,7 @@ describe("withOfficeExecuteDescription", () => {
     "- `knowledge`",
     "- `history`",
     "- `routines`",
+    "- `bots`",
     "- `github`",
   ].join("\n");
 
@@ -67,6 +68,16 @@ describe("withOfficeExecuteDescription", () => {
     expect(next).toContain("- `github`");
     expect(next).toContain("- `routines`");
     expect(next).not.toMatch(/^- `knowledge`$/m);
+  });
+
+  it("hints bots so a teammate can hire onto the roster", () => {
+    const next = withOfficeExecuteDescription(generated, false, {
+      bots: true,
+    });
+    expect(next).toMatch(/- `bots` — workspace roster/);
+    expect(next).toMatch(/bots\.hire\(\{ marketplaceId \}\)/);
+    expect(next).toMatch(/needs approval/);
+    expect(next).not.toMatch(/^- `bots`$/m);
   });
 
   it("hints routines so the bot can schedule work", () => {

@@ -189,20 +189,30 @@ export async function listBots(
 }
 
 async function readExistingHire(
-  context: RpcContext,
-  actor: Actor,
+  context: Pick<RpcContext, "db">,
+  actor: { userId: string; workspaceId: string },
   botId: string,
 ): Promise<Bot | null> {
-  try {
-    const { bot, thread } = await getBotThread(context, actor, botId);
-    return toBotDto(bot, thread.id);
-  } catch {
+  const [bot] = await context.db
+    .select()
+    .from(bots)
+    .where(and(eq(bots.id, botId), eq(bots.workspaceId, actor.workspaceId)))
+    .limit(1);
+  if (!bot) return null;
+  if (
+    parseVisibility(bot.visibility) === "private" &&
+    bot.userId !== actor.userId
+  ) {
     return null;
   }
+  const thread = await getHomeThread(context.db, bot);
+  if (!thread) return null;
+  return toBotDto(bot, thread.id);
 }
 
 async function seedHireDesk(
-  context: RpcContext,
+  context: Pick<RpcContext, "db"> &
+    Pick<Partial<RpcContext>, "initRoom" | "knowledge">,
   input: {
     workspaceId: string;
     botId: string;
@@ -249,16 +259,17 @@ async function seedHireDesk(
 }
 
 export async function createBot(
-  context: RpcContext,
-  actor: Actor,
+  context: Pick<RpcContext, "db"> &
+    Pick<Partial<RpcContext>, "initRoom" | "knowledge">,
+  actor: { userId: string; workspaceId: string },
   input: {
     id?: string;
     name: string;
     title?: string;
     description: string;
     instructions: string;
-    avatarColor: string;
-    avatarShape: string;
+    avatarColor?: string;
+    avatarShape?: string;
     homeRoomId?: string;
     visibility?: "private" | "shared";
     marketplaceId?: string;
@@ -293,8 +304,8 @@ export async function createBot(
       title,
       description,
       instructions,
-      avatarColor: input.avatarColor,
-      avatarShape: input.avatarShape,
+      avatarColor: input.avatarColor?.trim() || "#5b7cff",
+      avatarShape: input.avatarShape?.trim() || "circle",
       guestKind: "off",
       visibility: parseVisibility(input.visibility ?? "shared"),
       createdAt: now,

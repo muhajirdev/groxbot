@@ -32,7 +32,7 @@ export class SkillsStoreConnector extends CodemodeConnector {
       "Curated Agent Skills store (trusted GitHub / skills.sh packages).",
       "Search with skills_store.search, then install with skills_store.install({ id }) — install needs approval.",
       "Installed skills land in office knowledge as skills/<name>/SKILL.md and show up in <available_skills> on the next turn.",
-      "Not Plugins and not the bot hire marketplace. Prefer the store over inventing a playbook when a listing already fits.",
+      "Not Plugins. Hire a teammate with bots.search / bots.hire, not this store. Prefer the store over inventing a playbook when a listing already fits.",
     ].join(" ");
   }
 
