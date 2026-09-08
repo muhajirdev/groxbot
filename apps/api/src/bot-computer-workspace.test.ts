@@ -22,6 +22,8 @@ describe("Computer Worker shell wiring", () => {
     expect(room).not.toMatch(/parseRoomKind/);
     expect(room).not.toMatch(/storage\.put\("kind"/);
     expect(room).toMatch(/runGuestTurn/);
+    expect(room).toMatch(/isThoughtSignatureError/);
+    expect(room).toMatch(/stripThoughtReplay/);
     expect(room).toMatch(/personDoorContext/);
     expect(room).toMatch(/buildOfficeSystemPrompt/);
     expect(room).not.toMatch(
@@ -64,6 +66,10 @@ describe("Computer Worker shell wiring", () => {
     expect(home).toMatch(/compactOfficeSession/);
     expect(home).toMatch(/isContextOverflowError/);
     expect(home).toMatch(/isContextOverflowError\(result\.errorMessage\)/);
+    expect(home).toMatch(/isThoughtSignatureError/);
+    expect(home).toMatch(/isThoughtSignatureError\(result\.errorMessage\)/);
+    expect(home).toMatch(/thought_signature_retry/);
+    expect(home).toMatch(/stripThoughtReplay/);
     expect(home).toMatch(/force:\s*true/);
     expect(home).toMatch(/executeConnectors/);
     expect(home).toMatch(/createOfficeExecuteTool/);

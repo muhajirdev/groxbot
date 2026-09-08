@@ -184,6 +184,23 @@ describe("office session tree", () => {
     ).not.toHaveProperty("details");
   });
 
+  it("does not persist a failed assistant so the turn can retry", async () => {
+    const session = new Session(new DurableSessionStorage(memoryStore()));
+    await appendOfficeUserText(session, { id: "u1", content: "list files" });
+    await persistOfficeSessionEvent(session, {
+      type: "message_end",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "Corrupted thought signature." }],
+        stopReason: "error",
+        errorMessage: "Corrupted thought signature.",
+        timestamp: Date.now(),
+      },
+    } as never);
+    const bound = piBoundFromSessionEntries(await session.getBranch());
+    expect(bound.map((row) => row.message.role)).toEqual(["user"]);
+  });
+
   it("stamps a filed assistant line with custom metadata", async () => {
     const session = new Session(new DurableSessionStorage(memoryStore()));
     await appendOfficeUserText(session, { id: "u1", content: "do the work" });

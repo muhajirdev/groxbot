@@ -328,6 +328,15 @@ describe("office chrome", () => {
     expect(footer).not.toContain("min-h-7.5");
   });
 
+  it("floats hover action bars so they do not shift layout", () => {
+    const actionBar = threadAui.slice(
+      threadAui.indexOf("const AssistantActionBar"),
+      threadAui.indexOf("const UserMessage"),
+    );
+    expect(actionBar).toContain('autohideFloat="single-branch"');
+    expect(actionBar).toContain("data-[floating]:absolute");
+  });
+
   it("merges Stop and Send into one composer slot", () => {
     const actions = threadAui.slice(
       threadAui.indexOf("const composerSlotIsStop"),

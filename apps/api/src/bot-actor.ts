@@ -47,6 +47,7 @@ import {
   formatRoutinePrompt,
   isoUnixSeconds,
   isContextOverflowError,
+  isThoughtSignatureError,
   jsonClone,
   lastOfficeHumanUserId,
   lastOfficeUserIsIntro,
@@ -782,6 +783,7 @@ export class RoomHome extends Agent<WorkerEnv> {
       `${system.length} chars`,
     );
     try {
+      let stripThoughtReplay = false;
       const runTurn = async () => {
         const context = await session.buildContext();
         return runPiTurn({
@@ -791,6 +793,7 @@ export class RoomHome extends Agent<WorkerEnv> {
           streamFn,
           tools,
           signal: abort.signal,
+          stripThoughtReplay,
           getSteeringMessages: () =>
             intro ? [] : this.officeSteer.drainMessages(),
           getFollowUpMessages: () =>
@@ -880,6 +883,14 @@ export class RoomHome extends Agent<WorkerEnv> {
           force: true,
         });
         if (compacted) result = await runTurn();
+      }
+      if (
+        result.stopReason === "error" &&
+        isThoughtSignatureError(result.errorMessage)
+      ) {
+        await this.emitOfficeDebug(turnStartedAt, "thought_signature_retry");
+        stripThoughtReplay = true;
+        result = await runTurn();
       }
       if (result.stopReason === "aborted" || abort.signal.aborted) {
         await this.emitOfficeDebug(turnStartedAt, "turn_aborted");

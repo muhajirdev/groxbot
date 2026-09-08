@@ -37,6 +37,7 @@ import {
   takePiAssistantDraft,
   piUserText,
   piViewMessages,
+  isThoughtSignatureError,
   RoomError,
   resolveRoomTargets,
   resolveRunModel,
@@ -376,65 +377,76 @@ export class RoomActor extends RoomHome {
     this.status = "streaming";
     await this.broadcastStatus();
     try {
-      const result = await runPiTurn({
-        systemPrompt: system,
-        messages: piGroupLoopMessages(messages, target.id),
-        model: brain.model,
-        streamFn: brain.streamFn,
-        tools,
-        signal: abort.signal,
-        getSteeringMessages: () => this.roomSteer.drainMessages(),
-        getFollowUpMessages: () => this.roomSteer.drainMessages(),
-        onEvent: async (event) => {
-          const incoming =
-            "message" in event && event.message ? event.message : null;
-          if (
-            incoming?.role === "user" &&
-            (event.type === "message_start" || event.type === "message_end")
-          ) {
-            const queued =
-              event.type === "message_end"
-                ? this.roomSteer.takeEmitted()
-                : this.roomSteer.peekEmitted();
+      let stripThoughtReplay = false;
+      const runTurn = () =>
+        runPiTurn({
+          systemPrompt: system,
+          messages: piGroupLoopMessages(messages, target.id),
+          model: brain.model,
+          streamFn: brain.streamFn,
+          tools,
+          signal: abort.signal,
+          stripThoughtReplay,
+          getSteeringMessages: () => this.roomSteer.drainMessages(),
+          getFollowUpMessages: () => this.roomSteer.drainMessages(),
+          onEvent: async (event) => {
+            const incoming =
+              "message" in event && event.message ? event.message : null;
+            if (
+              incoming?.role === "user" &&
+              (event.type === "message_start" || event.type === "message_end")
+            ) {
+              const queued =
+                event.type === "message_end"
+                  ? this.roomSteer.takeEmitted()
+                  : this.roomSteer.peekEmitted();
+              const cloned = jsonClone(event);
+              if (!cloned) return;
+              const parsed = parsePiClientEvent({
+                ...cloned,
+                threadId: this.name,
+                seq: this.roomSeq + 1,
+                ...(queued
+                  ? { id: queued.id, metadata: queued.metadata }
+                  : {}),
+              });
+              if (!parsed) return;
+              this.applyTurnEvent(parsed);
+              await this.broadcastEvent(parsed);
+              return;
+            }
+            const draftId = takePiAssistantDraft(assistantDraft, event);
             const cloned = jsonClone(event);
             if (!cloned) return;
             const parsed = parsePiClientEvent({
               ...cloned,
               threadId: this.name,
               seq: this.roomSeq + 1,
-              ...(queued
-                ? { id: queued.id, metadata: queued.metadata }
+              ...(event.type === "message_update" ||
+              event.type === "message_end" ||
+              event.type === "message_start"
+                ? { metadata: withRoomSpeaker(cloned.metadata, target) }
+                : {}),
+              ...(draftId &&
+              (event.type === "message_update" ||
+                event.type === "message_end" ||
+                event.type === "message_start")
+                ? { id: draftId }
                 : {}),
             });
             if (!parsed) return;
             this.applyTurnEvent(parsed);
             await this.broadcastEvent(parsed);
-            return;
-          }
-          const draftId = takePiAssistantDraft(assistantDraft, event);
-          const cloned = jsonClone(event);
-          if (!cloned) return;
-          const parsed = parsePiClientEvent({
-            ...cloned,
-            threadId: this.name,
-            seq: this.roomSeq + 1,
-            ...(event.type === "message_update" ||
-            event.type === "message_end" ||
-            event.type === "message_start"
-              ? { metadata: withRoomSpeaker(cloned.metadata, target) }
-              : {}),
-            ...(draftId &&
-            (event.type === "message_update" ||
-              event.type === "message_end" ||
-              event.type === "message_start")
-              ? { id: draftId }
-              : {}),
-          });
-          if (!parsed) return;
-          this.applyTurnEvent(parsed);
-          await this.broadcastEvent(parsed);
-        },
-      });
+          },
+        });
+      let result = await runTurn();
+      if (
+        result.stopReason === "error" &&
+        isThoughtSignatureError(result.errorMessage)
+      ) {
+        stripThoughtReplay = true;
+        result = await runTurn();
+      }
       if (this.guestTurn !== abort) return true;
       if (result.stopReason === "aborted" || abort.signal.aborted) {
         this.status = "ready";
