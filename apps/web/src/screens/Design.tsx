@@ -280,7 +280,7 @@ export function Design() {
           <Section
             id="reasoning"
             title="Thought"
-            lede="Flat disclosure like tool rows. Streaming holds the panel open; done collapses to Thought."
+            lede="One disclosure for the whole thought/tool trail. Streaming holds it open; done collapses to Thought."
           >
             <Specimen label="Streaming" hint="active shimmer">
               <ReasoningRoot variant="ghost" streaming defaultOpen>
@@ -303,6 +303,19 @@ export function Design() {
                 <ReasoningTrigger duration={4} />
                 <ReasoningContent>
                   <ReasoningText>{THOUGHT}</ReasoningText>
+                </ReasoningContent>
+              </ReasoningRoot>
+            </Specimen>
+            <Specimen label="Chain" hint="Thought / N steps zipper folds into one row">
+              <ReasoningRoot variant="ghost">
+                <ReasoningTrigger />
+                <ReasoningContent>
+                  <div className="flex flex-col items-start gap-1">
+                    <ReasoningText>{THOUGHT}</ReasoningText>
+                    <ToolGroupRow count={6} />
+                    <ReasoningText>{THOUGHT}</ReasoningText>
+                    <ToolGroupRow count={1} />
+                  </div>
                 </ReasoningContent>
               </ReasoningRoot>
             </Specimen>

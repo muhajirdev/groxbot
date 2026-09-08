@@ -485,12 +485,21 @@ const AssistantMessage: FC = () => {
         >
           {({ part, children }) => {
             switch (part.type) {
-              case "group-chainOfThought":
+              case "group-chainOfThought": {
+                const streaming = part.status.type === "running";
                 return (
-                  <div data-slot="aui_chain-of-thought" className="contents">
-                    {children}
+                  <div data-slot="aui_chain-of-thought">
+                    <ReasoningRoot variant="ghost" streaming={streaming}>
+                      <ReasoningTrigger active={streaming} />
+                      <ReasoningContent aria-busy={streaming}>
+                        <div className="flex flex-col items-start gap-1">
+                          {children}
+                        </div>
+                      </ReasoningContent>
+                    </ReasoningRoot>
                   </div>
                 );
+              }
               case "group-tool":
                 if (ToolGroup) {
                   return <ToolGroup group={part}>{children}</ToolGroup>;
@@ -504,17 +513,12 @@ const AssistantMessage: FC = () => {
                     <ToolGroupContent>{children}</ToolGroupContent>
                   </ToolGroupRoot>
                 );
-              case "group-reasoning": {
-                const streaming = part.status.type === "running";
+              case "group-reasoning":
                 return (
-                  <ReasoningRoot variant="ghost" streaming={streaming}>
-                    <ReasoningTrigger active={streaming} />
-                    <ReasoningContent aria-busy={streaming}>
-                      <ReasoningText>{children}</ReasoningText>
-                    </ReasoningContent>
-                  </ReasoningRoot>
+                  <div data-slot="aui_chain-reasoning" className="min-w-0 w-full">
+                    <ReasoningText>{children}</ReasoningText>
+                  </div>
                 );
-              }
               case "reasoning":
                 return (
                   <MarkdownText

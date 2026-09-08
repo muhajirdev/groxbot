@@ -396,10 +396,16 @@ describe("office chrome", () => {
     expect(threadAui).toMatch(
       /reasoning: \["group-chainOfThought", "group-reasoning"\]/,
     );
+    expect(threadAui).toMatch(/case "group-chainOfThought"/);
+    expect(threadAui).toContain('data-slot="aui_chain-of-thought"');
+    expect(threadAui).not.toMatch(
+      /data-slot="aui_chain-of-thought"[^>]*className="contents"/,
+    );
     expect(threadAui).toMatch(/case "group-reasoning"/);
     expect(threadAui).toMatch(/case "reasoning":/);
     expect(threadAui).toContain("ReasoningRoot");
     expect(threadAui).toContain("ReasoningText");
+    expect(threadAui).toContain('data-slot="aui_chain-reasoning"');
     expect(threadAui).not.toMatch(
       /case "group-tool":[\s\S]*if \(!showToolCalls\) return children/,
     );
