@@ -13,6 +13,43 @@ export function nextHireName(bots: { name: string }[]): string {
   return NEW_BOT_NAME;
 }
 
+let hireLock = false;
+
+/** Process-wide so a Chat remount cannot start a second `bots.create`. */
+export function beginHire(): boolean {
+  if (hireLock) return false;
+  hireLock = true;
+  return true;
+}
+
+export function endHire(): void {
+  hireLock = false;
+}
+
+export function isHireInFlight(): boolean {
+  return hireLock;
+}
+
+/**
+ * Create may time out after Postgres already committed. Treat a matching
+ * `bots.get` as success so the client does not hire again.
+ */
+export async function settleCreatedHire(input: {
+  botId: string;
+  create: () => Promise<Bot>;
+  get: (botId: string) => Promise<Bot>;
+}): Promise<Bot> {
+  try {
+    return await input.create();
+  } catch (caught) {
+    try {
+      return await input.get(input.botId);
+    } catch {
+      throw caught;
+    }
+  }
+}
+
 export function nextAvatarColor(bots: { avatarColor: string }[]): string {
   const used = new Set(bots.map((bot) => bot.avatarColor));
   return (

@@ -101,7 +101,14 @@ import {
 import { saveComputerDownload } from "../lib/computer-download";
 import { userFacingError } from "../lib/errors";
 import { scheduleKnowledgeFilePrefetch } from "../lib/file-cache";
-import { draftCreatedBot, nextAvatarColor } from "../lib/hire";
+import {
+  beginHire,
+  draftCreatedBot,
+  endHire,
+  isHireInFlight,
+  nextAvatarColor,
+  settleCreatedHire,
+} from "../lib/hire";
 import type { MarketplaceTab } from "../lib/marketplace";
 import {
   applyOfficeColor,
@@ -1115,7 +1122,7 @@ export function Chat(props: {
       avatarShape?: Bot["avatarShape"];
     }) => {
       const trimmed = input.name.trim();
-      if (!trimmed || hiring.current) return;
+      if (!trimmed || hiring.current || !beginHire()) return;
       hiring.current = true;
       onboardDismissed.current = true;
       setOnboardOpen(false);
@@ -1149,19 +1156,24 @@ export function Chat(props: {
         patchThreadMeta(id, { opening: true });
         void goToBot(id, deskClosed());
         await whenWorkspaceReady(props.workspace.id);
-        const created = await client.bots.create({
-          id,
-          homeRoomId,
-          name: trimmed,
-          avatarColor,
-          avatarShape,
-          visibility: input.visibility,
-          ...(title ? { title } : {}),
-          ...(input.marketplaceId
-            ? { marketplaceId: input.marketplaceId }
-            : {}),
-          ...(input.instructions ? { instructions: input.instructions } : {}),
-          ...(input.description ? { description: input.description } : {}),
+        const created = await settleCreatedHire({
+          botId: id,
+          create: () =>
+            client.bots.create({
+              id,
+              homeRoomId,
+              name: trimmed,
+              avatarColor,
+              avatarShape,
+              visibility: input.visibility,
+              ...(title ? { title } : {}),
+              ...(input.marketplaceId
+                ? { marketplaceId: input.marketplaceId }
+                : {}),
+              ...(input.instructions ? { instructions: input.instructions } : {}),
+              ...(input.description ? { description: input.description } : {}),
+            }),
+          get: (botId) => client.bots.get({ botId }),
         });
         cacheBot(created);
         patchThreadMeta(id, { opening: false });
@@ -1179,6 +1191,7 @@ export function Chat(props: {
         }
       } finally {
         hiring.current = false;
+        endHire();
       }
     },
     [currentBotId, goToBot, me?.userId, props.workspace.id],
@@ -1382,7 +1395,7 @@ export function Chat(props: {
     (id: PaletteActionId) => {
       setPaletteOpen(false);
       if (id === "hire") {
-        if (!hiring.current) setHireOpen(true);
+        if (!hiring.current && !isHireInFlight()) setHireOpen(true);
         return;
       }
       if (id === "room") {
@@ -1455,7 +1468,7 @@ export function Chat(props: {
       hotkey: "Mod+N",
       callback: () => {
         setPaletteOpen(false);
-        if (!hiring.current) setHireOpen(true);
+        if (!hiring.current && !isHireInFlight()) setHireOpen(true);
       },
       options: {
         enabled:
@@ -1742,7 +1755,7 @@ export function Chat(props: {
                         sectionOpen
                       }
                       onNewBot={() => {
-                        if (!hiring.current) setHireOpen(true);
+                        if (!hiring.current && !isHireInFlight()) setHireOpen(true);
                       }}
                       onNewRoom={() => setRoomOpen(true)}
                       onNewSection={() => setSectionOpen(true)}
@@ -2220,7 +2233,7 @@ export function Chat(props: {
                     <Button
                       type="button"
                       onClick={() => {
-                        if (!hiring.current) setHireOpen(true);
+                        if (!hiring.current && !isHireInFlight()) setHireOpen(true);
                       }}
                     >
                       New bot

@@ -38,6 +38,7 @@ import { ORPCError } from "@orpc/server";
 import { and, desc, eq, inArray, or } from "drizzle-orm";
 import type { RpcContext } from "./context.js";
 import { agentRuntimeSource } from "./env.js";
+import { isUniqueViolation } from "./pg-error.js";
 import type { Actor } from "./session.js";
 
 const STALE_MS = 60_000;
@@ -187,6 +188,66 @@ export async function listBots(
   return listed;
 }
 
+async function readExistingHire(
+  context: RpcContext,
+  actor: Actor,
+  botId: string,
+): Promise<Bot | null> {
+  try {
+    const { bot, thread } = await getBotThread(context, actor, botId);
+    return toBotDto(bot, thread.id);
+  } catch {
+    return null;
+  }
+}
+
+async function seedHireDesk(
+  context: RpcContext,
+  input: {
+    workspaceId: string;
+    botId: string;
+    name: string;
+    homeRoomId: string;
+    pack?: ReturnType<typeof getBotMarketplaceTemplate>;
+  },
+): Promise<void> {
+  try {
+    if (context.initRoom) {
+      await context.initRoom(input.homeRoomId, {
+        workspaceId: input.workspaceId,
+        name: input.name,
+        botId: input.botId,
+        members: [
+          {
+            id: input.botId,
+            name: input.name,
+            homeRoomId: input.homeRoomId,
+          },
+        ],
+        ...(input.pack
+          ? {
+              hirePackage: {
+                soul: input.pack.soul,
+                memory: input.pack.memory,
+                skipIntro: true,
+              },
+            }
+          : {}),
+      });
+    }
+    if (input.pack && context.knowledge) {
+      for (const skill of input.pack.skills) {
+        await context.knowledge.write(input.workspaceId, {
+          path: marketplaceSkillPath(skill),
+          content: marketplaceSkillMarkdown(skill),
+        });
+      }
+    }
+  } catch {
+    // Roster row is committed. First office open still inits the actor.
+  }
+}
+
 export async function createBot(
   context: RpcContext,
   actor: Actor,
@@ -222,72 +283,73 @@ export async function createBot(
   const threadId = newId();
   const homeRoomId = input.homeRoomId?.trim() || newId();
   const now = new Date();
-  await context.db.insert(bots).values({
-    id: botId,
-    workspaceId: actor.workspaceId,
-    userId: actor.userId,
-    name,
-    title,
-    description,
-    instructions,
-    avatarColor: input.avatarColor,
-    avatarShape: input.avatarShape,
-    guestKind: "off",
-    visibility: parseVisibility(input.visibility ?? "shared"),
-    createdAt: now,
-    updatedAt: now,
-  });
-  await context.db.insert(threads).values({
-    id: threadId,
-    workspaceId: actor.workspaceId,
-    kind: "office",
-    botId,
-    createdAt: now,
-  });
-  await context.db.insert(threadMembers).values({
-    id: newId(),
-    threadId,
-    userId: actor.userId,
-    role: "owner",
-    createdAt: now,
-  });
-  const home = await createRoom(context.db, {
-    workspaceId: actor.workspaceId,
-    userId: actor.userId,
-    name,
-    memberBotIds: [botId],
-    id: homeRoomId,
-    own: true,
-  });
-  await context.db
-    .update(bots)
-    .set({ homeThreadId: threadId, homeRoomId: home.id, updatedAt: now })
-    .where(eq(bots.id, botId));
-  if (context.initRoom) {
-    await context.initRoom(home.id, {
+  let deskRoomId = homeRoomId;
+  try {
+    await context.db.insert(bots).values({
+      id: botId,
       workspaceId: actor.workspaceId,
+      userId: actor.userId,
       name,
-      botId,
-      members: [{ id: botId, name, homeRoomId: home.id }],
-      ...(pack
-        ? {
-            hirePackage: {
-              soul: pack.soul,
-              memory: pack.memory,
-              skipIntro: true,
-            },
-          }
-        : {}),
+      title,
+      description,
+      instructions,
+      avatarColor: input.avatarColor,
+      avatarShape: input.avatarShape,
+      guestKind: "off",
+      visibility: parseVisibility(input.visibility ?? "shared"),
+      createdAt: now,
+      updatedAt: now,
     });
-  }
-  if (pack && context.knowledge) {
-    for (const skill of pack.skills) {
-      await context.knowledge.write(actor.workspaceId, {
-        path: marketplaceSkillPath(skill),
-        content: marketplaceSkillMarkdown(skill),
-      });
+    await context.db.insert(threads).values({
+      id: threadId,
+      workspaceId: actor.workspaceId,
+      kind: "office",
+      botId,
+      createdAt: now,
+    });
+    await context.db.insert(threadMembers).values({
+      id: newId(),
+      threadId,
+      userId: actor.userId,
+      role: "owner",
+      createdAt: now,
+    });
+    const home = await createRoom(context.db, {
+      workspaceId: actor.workspaceId,
+      userId: actor.userId,
+      name,
+      memberBotIds: [botId],
+      id: homeRoomId,
+      own: true,
+    });
+    deskRoomId = home.id;
+    await context.db
+      .update(bots)
+      .set({ homeThreadId: threadId, homeRoomId: home.id, updatedAt: now })
+      .where(eq(bots.id, botId));
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      const existing = await readExistingHire(context, actor, botId);
+      if (existing) {
+        await seedHireDesk(context, {
+          workspaceId: actor.workspaceId,
+          botId: existing.id,
+          name: existing.name,
+          homeRoomId: existing.homeRoomId || homeRoomId,
+          pack,
+        });
+        return existing;
+      }
     }
+    throw error;
   }
+  await seedHireDesk(context, {
+    workspaceId: actor.workspaceId,
+    botId,
+    name,
+    homeRoomId: deskRoomId,
+    pack,
+  });
   const [bot] = await context.db
     .select()
     .from(bots)
