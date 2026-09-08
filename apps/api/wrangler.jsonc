@@ -26,7 +26,11 @@
 		"binding": "AI"
 	},
 	"browser": {
-		"binding": "BROWSER"
+		"binding": "BROWSER",
+		"remote": true
+	},
+	"alias": {
+		"playwright": "@cloudflare/playwright"
 	},
 	"send_email": [
 		{

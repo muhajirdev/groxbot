@@ -129,6 +129,7 @@ import {
 import { HistoryConnector } from "./bot-history.js";
 import { KnowledgeConnector } from "./bot-knowledge.js";
 import { SkillsStoreConnector } from "./bot-skills-store.js";
+import { createBrowserAgentTools } from "./bot-browser.js";
 import { bindToMarkdown, createPageAgentTools } from "./bot-markdown.js";
 import { WorkspaceMcpConnector } from "./bot-mcp-connector.js";
 import {
@@ -176,7 +177,12 @@ export interface WorkerEnv {
   APP_RUNTIME: DurableObjectNamespace;
   ROOM_ACTOR: DurableObjectNamespace;
   LOADER: unknown;
-  BROWSER: unknown;
+  BROWSER: {
+    quickAction(
+      action: "pdf" | "screenshot",
+      body: { html?: string; url?: string },
+    ): Promise<Response>;
+  };
   KNOWLEDGE?: R2Bucket;
   PRODUCT_CACHE?: KVNamespace;
 }
@@ -426,6 +432,13 @@ export class RoomHome extends Agent<WorkerEnv> {
         ),
       ),
       ...createPageAgentTools(page),
+      ...(this.env.BROWSER
+        ? createBrowserAgentTools({
+            browser: this.env.BROWSER,
+            workspace: this.workspace,
+            ai: this.env.AI,
+          })
+        : []),
       createPresentTool(),
       this.setContextTool(),
       ...(skill ? [skill] : []),

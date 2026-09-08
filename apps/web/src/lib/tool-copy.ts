@@ -32,6 +32,18 @@ const PHRASES: Record<string, { running: string; done: string }> = {
     running: "Turning it into markdown",
     done: "Turned it into markdown",
   },
+  browser_act: {
+    running: "Using the browser",
+    done: "Used the browser",
+  },
+  render_pdf: {
+    running: "Rendering a PDF",
+    done: "Rendered a PDF",
+  },
+  render_screenshot: {
+    running: "Taking a screenshot",
+    done: "Took a screenshot",
+  },
   present: { running: "Putting it on the page", done: "Put it on the page" },
   skill_manage: { running: "Saving a playbook", done: "Saved a playbook" },
   room_list: { running: "Looking at papers", done: "Looked at papers" },

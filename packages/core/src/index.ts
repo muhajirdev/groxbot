@@ -3,6 +3,7 @@ export * from "./model-pricing.js";
 export * from "./billing-plans.js";
 export * from "./polar-mirror.js";
 export * from "./billing.js";
+export * from "./browser-render.js";
 export * from "./app-intent.js";
 export * from "./apps.js";
 export * from "./avatar.js";

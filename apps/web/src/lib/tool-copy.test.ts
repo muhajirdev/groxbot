@@ -13,6 +13,10 @@ describe("toolActivityCopy", () => {
     expect(toolActivityCopy("code", "complete")).toBe("Worked in code");
     expect(toolActivityCopy("shell", "running")).toBe("Using the computer");
     expect(toolActivityCopy("shell", "complete")).toBe("Used the computer");
+    expect(toolActivityCopy("render_pdf", "running")).toBe("Rendering a PDF");
+    expect(toolActivityCopy("browser_act", "complete")).toBe(
+      "Used the browser",
+    );
   });
 
   it("softens cancel and unknown names", () => {
