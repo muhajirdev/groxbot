@@ -458,7 +458,7 @@ const SectionHeader = memo(function SectionHeader(props: {
         </span>
       </button>
       <button
-        className="absolute top-0.5 right-0.5 grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted opacity-0 group-hover/section:opacity-100 hover:bg-hover hover:text-ink focus-visible:opacity-100"
+        className="absolute top-0.5 right-0.5 grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted opacity-0 group-hover/section:opacity-100 hover:bg-hover hover:text-ink focus-visible:opacity-100 max-[720px]:opacity-100"
         type="button"
         aria-label={`${props.name} actions`}
         onClick={(event) => {

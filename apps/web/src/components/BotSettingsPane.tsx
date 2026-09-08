@@ -7,10 +7,10 @@ import { AVATAR_COLORS, AVATAR_SHAPES } from "../lib/jobs";
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
 import { isPinnedBot } from "../lib/sidebar";
+import { Button } from "../ui";
 import { AvatarMark, ShapePicks } from "./Avatar";
 import { CloseIcon } from "./Icons";
 import { ModelField } from "./ModelField";
-import { Button } from "../ui";
 
 export function BotSettingsPane(props: {
   bot: Bot;
