@@ -197,6 +197,12 @@ export class PiThreadSession {
     await this.host?.stop();
   }
 
+  async fetchSnapshot(): Promise<PiBoundMessage[] | undefined> {
+    const host = this.host;
+    if (!host?.snapshot) return undefined;
+    return parsePiOfficeSnapshot(await host.snapshot())?.messages;
+  }
+
   /** Idempotent. Hire can call this before the Thread mounts. */
   connect(): void {
     if (this.disposed || this.connected || this.connecting) return;

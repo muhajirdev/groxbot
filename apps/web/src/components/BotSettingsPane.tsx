@@ -3,7 +3,14 @@ import { CUSTOM_MODEL_SENTINEL, pickerCatalog } from "@groxbot/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { patchBot } from "../lib/collections";
+import { userFacingError } from "../lib/errors";
 import { AVATAR_COLORS, AVATAR_SHAPES } from "../lib/jobs";
+import {
+  buildHarnessExport,
+  harnessExportFilename,
+  liveHarnessSource,
+  saveHarnessExport,
+} from "../lib/office-harness-export";
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
 import { isPinnedBot } from "../lib/sidebar";
@@ -29,6 +36,8 @@ export function BotSettingsPane(props: {
   const [advancedOpen, setAdvancedOpen] = useState(Boolean(bot.model));
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
   const modelsQuery = useQuery(orpc.models.get.queryOptions());
   const pinned = isPinnedBot(bot);
   const fullCatalog = modelsQuery.data?.catalog ?? [];
@@ -106,6 +115,28 @@ export function BotSettingsPane(props: {
       })
       .then(() => onSavedRef.current());
   }, [pending, bot.id]);
+
+  async function exportHarness() {
+    if (exporting) return;
+    setExporting(true);
+    setExportError("");
+    try {
+      const bundle = await buildHarnessExport(
+        bot,
+        liveHarnessSource({
+          list: (botId) => client.computer.list({ botId }),
+          read: (botId, path) => client.computer.read({ botId, path }),
+        }),
+      );
+      saveHarnessExport(bundle, harnessExportFilename(bot));
+    } catch (caught) {
+      setExportError(
+        userFacingError(caught, "Could not export this conversation"),
+      );
+    } finally {
+      setExporting(false);
+    }
+  }
 
   return (
     <aside className="pane">
@@ -202,6 +233,21 @@ export function BotSettingsPane(props: {
               </label>
             ) : null}
           </div>
+        ) : null}
+        <button
+          className="text-btn"
+          type="button"
+          disabled={exporting}
+          onClick={() => void exportHarness()}
+        >
+          {exporting ? "Exporting…" : "Export conversation"}
+        </button>
+        <p className="muted m-0 text-[12px]">
+          JSON dump of this desk — full log with tool calls, computer files, and
+          routines.
+        </p>
+        {exportError ? (
+          <p className="m-0 text-[13px] text-danger">{exportError}</p>
         ) : null}
         {!pending &&
         (props.onPin || props.onArchive || props.onDelete) ? (

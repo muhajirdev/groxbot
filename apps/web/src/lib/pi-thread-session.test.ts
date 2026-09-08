@@ -71,4 +71,31 @@ describe("pi-thread-session", () => {
     forgetPiThread("room-1");
     expect(peekPiThread("room-1")).toBeUndefined();
   });
+
+  it("reads a snapshot from the live host", async () => {
+    const connect = vi.fn(async (): Promise<PiHost> => ({
+      ...fakeHost(),
+      snapshot: async () => ({
+        metadata: { id: "room-1", status: "idle" },
+        messages: [
+          {
+            id: "u1",
+            message: { role: "user", content: "hey", timestamp: 1 },
+          },
+        ],
+      }),
+    }));
+    const session = ensurePiThread({
+      threadId: "room-snap",
+      rpcUrl: "ws://office/rooms/room-snap/rpc",
+      connect,
+    });
+    await session.waitReady(2_000);
+    await expect(session.fetchSnapshot()).resolves.toEqual([
+      {
+        id: "u1",
+        message: { role: "user", content: "hey", timestamp: 1 },
+      },
+    ]);
+  });
 });
