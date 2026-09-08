@@ -146,6 +146,7 @@ describe("runOwnedPiTurn", () => {
       },
       { text: "Okay, summary." },
     ]);
+    let skipStartPoll = true;
     const result = await runPiTurn({
       systemPrompt: "You are Piper.",
       messages: [{ role: "user", content: "list files" }],
@@ -158,10 +159,17 @@ describe("runOwnedPiTurn", () => {
           parameters: openObjectParameters(),
           execute: async () => ({
             content: [{ type: "text", text: "[]" }],
+            details: { entries: [] },
           }),
         },
       ],
-      getSteeringMessages: () => steer.splice(0),
+      getSteeringMessages: () => {
+        if (skipStartPoll) {
+          skipStartPoll = false;
+          return [];
+        }
+        return steer.splice(0);
+      },
       streamFn: (called, context) => {
         const last = context.messages.at(-1);
         lastUser.push(
