@@ -11,6 +11,7 @@ import {
 import { COMPARE_PAGES } from "../data/compare";
 import { USE_CASES } from "../data/use-cases";
 import { appOrigin } from "./app-url";
+import { LANDING_HIRE_BOTS } from "./bot-marketplace";
 import { computerIntegrations, featuredIntegrations } from "./integrations";
 import { canonicalUrl, landingOrigin } from "./site";
 
@@ -60,6 +61,10 @@ function extraSections(): string {
     (item) =>
       `- [${item.title}](${canonicalUrl(`/use-cases/${item.slug}`)}): ${item.lede}`,
   ).join("\n");
+  const templates = LANDING_HIRE_BOTS.map(
+    (bot) =>
+      `- [${bot.name}](${canonicalUrl(`/templates/${bot.id}`)}): ${bot.blurb}`,
+  ).join("\n");
   const comparisons = COMPARE_PAGES.map(
     (page) =>
       `- [${page.title}](${canonicalUrl(`/compare/${page.slug}`)}): ${page.lede}`,
@@ -68,9 +73,22 @@ function extraSections(): string {
 
 ${jobs}
 
+## Templates (hire catalog)
+
+${templates}
+
 ## Compare
 
 ${comparisons}
+
+## Product pages
+
+- [Pricing](${canonicalUrl("/pricing")})
+- [Enterprise / self-host](${canonicalUrl("/enterprise")})
+- [Changelog](${canonicalUrl("/changelog")})
+- [Contact](${canonicalUrl("/contact")})
+- [Privacy](${canonicalUrl("/privacy")})
+- [Terms](${canonicalUrl("/terms")})
 
 ## Indie / computer integrations
 

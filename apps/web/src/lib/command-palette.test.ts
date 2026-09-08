@@ -123,7 +123,7 @@ describe("rankPaletteItems", () => {
       ),
     ).toBe(true);
     expect(
-      rankPaletteItems("discord", [piper], []).some(
+      rankPaletteItems("crisp", [piper], []).some(
         (row) => row.kind === "action" && row.action.id === "support",
       ),
     ).toBe(true);

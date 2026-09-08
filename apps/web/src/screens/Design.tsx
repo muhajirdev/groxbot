@@ -43,6 +43,7 @@ import {
   TOAST_SHARED_LINK_COPIED,
 } from "../lib/toast";
 import { applyTheme, readTheme, type Theme } from "../lib/theme";
+import { toolActivityCopy } from "../lib/tool-copy";
 import { Button, Chip, cn, Field, Input } from "../ui";
 
 const SECTIONS = [
@@ -310,22 +311,27 @@ export function Design() {
           <Section
             id="tools"
             title="Tools"
-            lede="Same spiral while a call runs. Check, warning, and strike-through after."
+            lede="Short human lines while a call runs. Chevron and args only with groxbot.showToolCalls."
           >
             <Specimen label="Running">
-              <ToolRow toolName="read_file" status="running" />
+              <ToolRow toolName="code" status="running" />
+            </Specimen>
+            <Specimen label="Compact" hint="default in chat">
+              <ToolRow toolName="set_context" status="complete" compact />
+              <ToolRow toolName="code" status="complete" compact />
+              <ToolRow toolName="shell" status="complete" compact />
             </Specimen>
             <Specimen label="Complete">
-              <ToolRow toolName="read_file" status="complete" />
+              <ToolRow toolName="shell" status="complete" />
             </Specimen>
             <Specimen label="Needs approval">
-              <ToolRow toolName="send_email" status="requires-action" />
+              <ToolRow toolName="shell" status="requires-action" />
             </Specimen>
             <Specimen label="Failed">
-              <ToolRow toolName="browser" status="incomplete" />
+              <ToolRow toolName="web_search" status="incomplete" />
             </Specimen>
             <Specimen label="Cancelled">
-              <ToolRow toolName="write_file" status="cancelled" />
+              <ToolRow toolName="write" status="cancelled" />
             </Specimen>
             <Specimen label="Group" hint="3 tool calls">
               <ToolGroupRow count={3} active />
@@ -575,7 +581,7 @@ export function Design() {
           <Section
             id="composer"
             title="Composer"
-            lede="Send while it is working redirects. Square stop now halts."
+            lede="Same corner: send, or stop while it works. Type again to redirect."
           >
             <Specimen label="Idle">
               <ComposerMock running={false} />
@@ -784,6 +790,7 @@ function ToolRow(props: {
     | "incomplete"
     | "requires-action"
     | "cancelled";
+  compact?: boolean;
 }) {
   const running = props.status === "running";
   const cancelled = props.status === "cancelled";
@@ -795,7 +802,10 @@ function ToolRow(props: {
         : props.status === "requires-action"
           ? WarningCircleIcon
           : XCircleIcon;
-  const label = cancelled ? "Cancelled tool" : "Used tool";
+  const label = toolActivityCopy(
+    props.toolName,
+    cancelled ? "cancelled" : props.status,
+  );
 
   return (
     <div className="flex w-fit origin-left items-center gap-2 py-1.5 text-sm text-muted-foreground">
@@ -813,12 +823,14 @@ function ToolRow(props: {
           running && "shimmer motion-reduce:animate-none",
         )}
       >
-        {label}: <b>{props.toolName}</b>
+        {label}
       </span>
       {running ? null : (
         <span className="text-muted-foreground text-xs tabular-nums">1.2s</span>
       )}
-      <ChevronDownIcon className="size-4 shrink-0 -rotate-90 opacity-50" />
+      {props.compact ? null : (
+        <ChevronDownIcon className="size-4 shrink-0 -rotate-90 opacity-50" />
+      )}
     </div>
   );
 }
@@ -893,25 +905,26 @@ function ComposerMock(props: { running: boolean }) {
             tooltip="Stop now"
             side="bottom"
             type="button"
-            variant="ghost"
+            variant="default"
             size="icon"
-            className="size-7 rounded-full"
+            className="size-8 rounded-full bg-ink text-[var(--bg)] hover:bg-ink"
             aria-label="Stop now"
           >
             <SquareIcon className="size-3.5 fill-current" />
           </TooltipIconButton>
-        ) : null}
-        <TooltipIconButton
-          tooltip="Send message"
-          side="bottom"
-          type="button"
-          variant="default"
-          size="icon"
-          className="size-7 rounded-full bg-accent text-white hover:bg-accent/90"
-          aria-label="Send message"
-        >
-          <ArrowUpIcon className="size-4" />
-        </TooltipIconButton>
+        ) : (
+          <TooltipIconButton
+            tooltip="Send message"
+            side="bottom"
+            type="button"
+            variant="default"
+            size="icon"
+            className="size-8 rounded-full bg-ink text-[var(--bg)] hover:bg-ink disabled:bg-ink/35 disabled:text-[var(--bg)] disabled:opacity-100"
+            aria-label="Send message"
+          >
+            <ArrowUpIcon className="size-4" />
+          </TooltipIconButton>
+        )}
       </div>
     </div>
   );

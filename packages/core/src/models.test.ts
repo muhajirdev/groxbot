@@ -68,14 +68,24 @@ describe("hosted Cloudflare overlay", () => {
     expect(workspace[HOSTED_AI_ENV]).toBeUndefined();
   });
 
-  it("falls back to the hosted Workers AI starter when OpenRouter has no key", () => {
+  it("keeps OpenRouter ids on hosted grox-gateway without a customer OR key", () => {
     expect(
       fallbackRunnableModel(
         "openrouter/deepseek/deepseek-v4-flash",
         [CLOUDFLARE_PROVIDER],
         true,
       ),
-    ).toBe(HOSTED_STARTER_MODEL);
+    ).toBe("openrouter/deepseek/deepseek-v4-flash");
     expect(emptyModelUsage.requests).toBe(0);
+  });
+
+  it("falls back when OpenRouter is selected without hosted gateway or OR key", () => {
+    expect(
+      fallbackRunnableModel(
+        "openrouter/deepseek/deepseek-v4-flash",
+        [CLOUDFLARE_PROVIDER],
+        false,
+      ),
+    ).toBe(HOSTED_STARTER_MODEL);
   });
 });

@@ -1,5 +1,6 @@
 import type { AgentRunRequest } from "@groxbot/adapter-kit";
 import {
+  BINDING_STARTER_MODEL,
   CLOUD_LANDING_ORIGIN,
   CLOUDFLARE_PROVIDER,
   DEFAULT_AI_GATEWAY_ID,
@@ -7,6 +8,7 @@ import {
   HOSTED_STARTER_MODEL,
   OPENAI_CODEX_AUTH_ENV,
   OPENROUTER_PROVIDER,
+  gatewayRequestModel as catalogGatewayRequestModel,
 } from "@groxbot/contracts";
 
 export const GATEWAY_PROVIDERS = [
@@ -69,7 +71,7 @@ export function isGatewayProvider(value: string): value is GatewayProvider {
 
 export function defaultGatewayModel(provider: GatewayProvider): string {
   return provider === CLOUDFLARE_PROVIDER
-    ? gatewayRequestModel(HOSTED_STARTER_MODEL)
+    ? gatewayRequestModel(BINDING_STARTER_MODEL)
     : OPENROUTER_DEEPSEEK_V4_FLASH;
 }
 
@@ -138,19 +140,7 @@ export function gatewayHeaders(
 }
 
 export function gatewayRequestModel(model: string): string {
-  const trimmed = model.trim();
-  const cfIndex = trimmed.indexOf("@cf/");
-  if (cfIndex >= 0) return trimmed.slice(cfIndex);
-  if (trimmed.startsWith("openrouter/")) {
-    return trimmed.slice("openrouter/".length);
-  }
-  if (trimmed.startsWith("cloudflare-ai-gateway/")) {
-    const rest = trimmed.slice("cloudflare-ai-gateway/".length);
-    return rest.startsWith("workers-ai/")
-      ? rest.slice("workers-ai/".length)
-      : rest;
-  }
-  return trimmed;
+  return catalogGatewayRequestModel(model);
 }
 
 function asTokenCount(value: unknown): number | undefined {
@@ -252,7 +242,7 @@ export function loadGatewayConfig(
     return {
       provider: CLOUDFLARE_PROVIDER,
       apiKey: groxGatewaySecret,
-      model,
+      model: read(source, "AI_GATEWAY_MODEL") ?? HOSTED_STARTER_MODEL,
       groxGatewayUrl,
       referer,
       title: "Groxbot",

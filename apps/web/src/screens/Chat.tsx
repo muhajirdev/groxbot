@@ -64,10 +64,7 @@ import { SectionContextMenu } from "../components/SectionContextMenu";
 import { SectionDialog } from "../components/SectionDialog";
 import { SidebarCreateMenu } from "../components/SidebarCreateMenu";
 import { SubscribeModal } from "../components/SubscribeModal";
-import {
-  SupportChatButton,
-  SupportDialog,
-} from "../components/SupportChatButton";
+import { SupportChatButton } from "../components/SupportChatButton";
 import { ThreadList } from "../components/ThreadList";
 import {
   Tooltip,
@@ -150,7 +147,11 @@ import {
   PANE_WIDTH_MIN,
   usePaneWidth,
 } from "../lib/pane-width";
-import { onboardingNeedsPlan, planGateCopy } from "../lib/plan-gate";
+import {
+  onboardingNeedsPlan,
+  onboardingPlanReady,
+  planGateCopy,
+} from "../lib/plan-gate";
 import { readCollapsedSections, writeCollapsedSections } from "../lib/prefs";
 import { usePanePresence } from "../lib/presence";
 import { forgetRoomMessages } from "../lib/room-messages";
@@ -184,6 +185,7 @@ import {
   sectionMenuBox,
   sectionMenuItems,
 } from "../lib/sidebar";
+import { openCrispChat } from "../lib/support-chat";
 import {
   dropThreadMeta,
   ensureThreadMeta,
@@ -507,6 +509,7 @@ export function Chat(props: {
   const me = meQuery.data;
   const thisOffice = me?.workspaceId === props.workspace.id;
   const needsHostedPlan = Boolean(thisOffice && me?.needsHostedPlan);
+  const planReady = onboardingPlanReady(me, props.workspace.id);
   const needsPlan = onboardingNeedsPlan(me, props.workspace.id);
   const planCopy = planGateCopy(me?.trialAvailable !== false);
   const sessionUser = readSession(queryClient)?.user;
@@ -516,7 +519,6 @@ export function Chat(props: {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const knowledgeListQuery = useQuery(knowledgeListQueryOptions());
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [supportOpen, setSupportOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<
     "general" | "models" | "billing"
   >("general");
@@ -1395,7 +1397,7 @@ export function Chat(props: {
         return;
       }
       if (id === "support") {
-        setSupportOpen(true);
+        openCrispChat({ email: me?.email, name: me?.name });
         return;
       }
       if (id === "settings") {
@@ -1404,7 +1406,7 @@ export function Chat(props: {
       }
       setDesk(deskComputer());
     },
-    [desk, openMarketplace, room, setDesk],
+    [desk, me, openMarketplace, room, setDesk],
   );
 
   useHotkeys([
@@ -1694,7 +1696,6 @@ export function Chat(props: {
                     />
                   </div>
                   <div className="no-drag relative flex shrink-0 items-center gap-0.5">
-                    <SupportChatButton onClick={() => setSupportOpen(true)} />
                     <InviteFriendButton workspaceId={props.workspace.id} />
                     {bot ? (
                       <Button
@@ -1909,24 +1910,31 @@ export function Chat(props: {
                     <span>Plugins</span>
                   </button>
                 </nav>
-                <button
-                  className="mt-0.5 flex w-full items-center gap-2 rounded-lg border-0 bg-transparent px-1.5 py-1.5 text-left text-inherit hover:bg-hover"
-                  type="button"
-                  onClick={() => {
-                    setSettingsTab("general");
-                    setSettingsOpen(true);
-                  }}
-                >
-                  <PersonAvatar
-                    name={officeProfileLabel(me)}
-                    image={me?.image}
-                    className="size-6"
+                <div className="mt-0.5 flex items-center gap-0.5">
+                  <button
+                    className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border-0 bg-transparent px-1.5 py-1.5 text-left text-inherit hover:bg-hover"
+                    type="button"
+                    onClick={() => {
+                      setSettingsTab("general");
+                      setSettingsOpen(true);
+                    }}
+                  >
+                    <PersonAvatar
+                      name={officeProfileLabel(me)}
+                      image={me?.image}
+                      className="size-6"
+                    />
+                    <span className="min-w-0 flex-1 truncate text-[13px] font-medium leading-tight">
+                      {officeProfileLabel(me)}
+                    </span>
+                    <CaretSwapIcon className="size-3.5 shrink-0 text-muted" />
+                  </button>
+                  <SupportChatButton
+                    onClick={() =>
+                      openCrispChat({ email: me?.email, name: me?.name })
+                    }
                   />
-                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium leading-tight">
-                    {officeProfileLabel(me)}
-                  </span>
-                  <CaretSwapIcon className="size-3.5 shrink-0 text-muted" />
-                </button>
+                </div>
               </div>
               <button
                 type="button"
@@ -2265,6 +2273,7 @@ export function Chat(props: {
                   <ComputerPane
                     key={bot.id}
                     bot={bot}
+                    roomId={bot.homeRoomId || bot.id}
                     openPath={computerOpenPath}
                     onPreviewClose={() => setComputerFile(null)}
                     onSettings={() => {
@@ -2347,7 +2356,7 @@ export function Chat(props: {
             onSupport={() => {
               setSettingsOpen(false);
               setSettingsTab("general");
-              setSupportOpen(true);
+              openCrispChat({ email: me?.email, name: me?.name });
             }}
             onSignOut={() => {
               void (async () => {
@@ -2358,10 +2367,6 @@ export function Chat(props: {
                 await navigate({ to: "/" });
               })();
             }}
-          />
-          <SupportDialog
-            open={supportOpen}
-            onClose={() => setSupportOpen(false)}
           />
           <CommandPalette
             open={paletteOpen}
@@ -2399,6 +2404,7 @@ export function Chat(props: {
             youEmail={youEmail}
             officeColor={officeColor}
             needsPlan={needsPlan}
+            planReady={planReady}
             trialAvailable={me?.trialAvailable !== false}
             onOfficeColor={(id) => {
               setOfficeColor(id);
@@ -2409,6 +2415,7 @@ export function Chat(props: {
               setOnboardOpen(false);
             }}
             onContinue={() => {
+              if (!planReady) return;
               onboardDismissed.current = true;
               setOnboardOpen(false);
               if (needsPlan) setSubscribeOpen(true);

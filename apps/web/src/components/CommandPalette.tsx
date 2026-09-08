@@ -17,9 +17,9 @@ import { prefetchKnowledgeFiles } from "../lib/file-cache";
 import { cn } from "../ui";
 import { AvatarMark } from "./Avatar";
 import {
-  ChatIcon,
   FileIcon,
   GearIcon,
+  HelpIcon,
   KnowledgeIcon,
   MonitorIcon,
   PlugIcon,
@@ -50,7 +50,7 @@ function ActionGlyph(props: { id: PaletteActionId }) {
   if (props.id === "plugins") return <PlugIcon className={className} />;
   if (props.id === "knowledge") return <KnowledgeIcon className={className} />;
   if (props.id === "skills") return <SkillsIcon className={className} />;
-  if (props.id === "support") return <ChatIcon className={className} />;
+  if (props.id === "support") return <HelpIcon className={className} />;
   return <GearIcon className={className} />;
 }
 

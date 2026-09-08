@@ -1,13 +1,7 @@
-import type {
-  Me,
-  ModelCatalogItem,
-  ModelProvider,
-  WorkspaceMember,
-} from "@groxbot/contracts";
+import type { Me, ModelProvider, WorkspaceMember } from "@groxbot/contracts";
 import {
   CLOUDFLARE_PROVIDER,
   CUSTOM_MODEL_SENTINEL,
-  catalogGroupLabel,
   DEFAULT_AI_GATEWAY_ID,
   missingProviderMessage,
   OPENAI_CODEX_PROVIDER,
@@ -25,7 +19,9 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { billingStatusLabel } from "../lib/billing-format";
 import { BUILD_REVISION, shortRevision } from "../lib/build";
+import { readDebugMode, useDebugMode, writeDebugMode } from "../lib/debug-mode";
 import { userFacingError } from "../lib/errors";
 import type { OfficeColorId } from "../lib/office-color";
 import { workspaceListQueryOptions } from "../lib/office-persist";
@@ -52,6 +48,7 @@ import { Button, ModalShell } from "../ui";
 import { ChevronDownIcon, CloseIcon } from "./Icons";
 import { OfficeColorPicker } from "./OfficeColorPicker";
 import { PersonAvatar } from "./PersonAvatar";
+import { ModelField } from "./ModelField";
 import { TimezoneField } from "./TimezoneField";
 
 type Tab = "general" | "models" | "billing" | "updates";
@@ -137,7 +134,7 @@ export function AppSettings(props: {
             <div className="settings-pane" hidden={tab !== "general"}>
               <section className="set-block">
                 <p className="group-label">Account</p>
-                <div className="account-row">
+                <div className="set-row">
                   <ProfilePhotoButton
                     name={props.me?.name || "You"}
                     image={props.me?.image}
@@ -168,8 +165,11 @@ export function AppSettings(props: {
               </section>
               <section className="set-block">
                 <p className="group-label">Appearance</p>
-                <div className="field">
-                  <span>Office color</span>
+                <div className="set-row">
+                  <div>
+                    <strong>Office color</strong>
+                    <p className="muted">Sidebar and chrome</p>
+                  </div>
                   <OfficeColorPicker
                     value={props.officeColor}
                     onChange={props.onOfficeColor}
@@ -177,32 +177,46 @@ export function AppSettings(props: {
                 </div>
               </section>
               <section className="set-block">
-                <p className="group-label">Bot</p>
-                <label className="field">
-                  <span>Timezone</span>
-                  <TimezoneField
-                    value={timezone}
-                    onChange={(value) => {
-                      setTimezone(value);
-                      writeTimezonePref(value);
-                    }}
-                  />
-                  <p className="hint">Wall-clock routines run in this zone.</p>
-                </label>
+                <p className="group-label">Developer</p>
+                <div className="set-row">
+                  <div>
+                    <strong>Debug</strong>
+                    <p className="muted">
+                      Turn timing log on this bot&apos;s computer pane
+                    </p>
+                  </div>
+                  <DebugModeToggle />
+                </div>
+              </section>
+              <section className="set-block">
+                <p className="group-label">Timezone</p>
+                <p className="hint set-lede">
+                  Wall-clock routines run in this zone.
+                </p>
+                <TimezoneField
+                  value={timezone}
+                  onChange={(value) => {
+                    setTimezone(value);
+                    writeTimezonePref(value);
+                  }}
+                  className="bg-card-2"
+                />
               </section>
               <section className="set-block">
                 <p className="group-label">Support</p>
-                <p className="muted">
-                  Discord is the fastest way to reach us. Join the Groxbot
-                  server and ask there.
-                </p>
-                <button
-                  className="mini mt-2"
-                  type="button"
-                  onClick={props.onSupport}
-                >
-                  Chat with us
-                </button>
+                <div className="set-row">
+                  <div>
+                    <strong>Live chat</strong>
+                    <p className="muted">We usually reply in a few minutes</p>
+                  </div>
+                  <button
+                    className="mini"
+                    type="button"
+                    onClick={props.onSupport}
+                  >
+                    Chat with us
+                  </button>
+                </div>
               </section>
               <section className="set-block">
                 <p className="group-label">Build</p>
@@ -222,7 +236,7 @@ export function AppSettings(props: {
             {seen.updates ? (
               <div className="settings-pane" hidden={tab !== "updates"}>
                 <section className="set-block">
-                  <p className="muted">Git revision of this office.</p>
+                  <p className="group-label">Revision</p>
                   <BuildStamp />
                 </section>
               </div>
@@ -234,24 +248,47 @@ export function AppSettings(props: {
   );
 }
 
+function DebugModeToggle() {
+  const on = useDebugMode();
+  return (
+    <button
+      className="mini"
+      type="button"
+      aria-pressed={on}
+      onClick={() => writeDebugMode(!readDebugMode())}
+    >
+      {on ? "On" : "Off"}
+    </button>
+  );
+}
+
 function BuildStamp() {
   const short = shortRevision(BUILD_REVISION);
   const [copied, setCopied] = useState(false);
+
+  function copy() {
+    if (!navigator.clipboard) return;
+    void navigator.clipboard.writeText(BUILD_REVISION).then(() => {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    });
+  }
+
   return (
-    <button
-      className="text-btn"
-      type="button"
-      title={BUILD_REVISION}
-      onClick={() => {
-        if (!navigator.clipboard) return;
-        void navigator.clipboard.writeText(BUILD_REVISION).then(() => {
-          setCopied(true);
-          window.setTimeout(() => setCopied(false), 1500);
-        });
-      }}
-    >
-      {copied ? "Copied" : short}
-    </button>
+    <div className="set-row">
+      <div>
+        <strong>{copied ? "Copied" : short}</strong>
+        <p className="muted">Git revision</p>
+      </div>
+      <button
+        className="mini"
+        type="button"
+        title={BUILD_REVISION}
+        onClick={copy}
+      >
+        Copy
+      </button>
+    </div>
   );
 }
 
@@ -514,77 +551,81 @@ function WorkspaceSettings(props: {
           }}
         >
           <span>Name</span>
-          <input
-            value={name}
-            maxLength={80}
-            autoComplete="organization"
-            disabled={saving}
-            onChange={(event) => {
-              setDraft(event.target.value);
-              setError("");
-            }}
-          />
-          <button className="mini" type="submit" disabled={saving || !dirty}>
-            {saving ? "Saving…" : "Save"}
-          </button>
+          <div className="field-row">
+            <input
+              value={name}
+              maxLength={80}
+              autoComplete="organization"
+              disabled={saving}
+              onChange={(event) => {
+                setDraft(event.target.value);
+                setError("");
+              }}
+            />
+            <button className="mini" type="submit" disabled={saving || !dirty}>
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
         </form>
       ) : (
         <p className="muted">{props.name || "This workspace"}</p>
       )}
       {props.enabled ? (
-        <div className="member-list">
+        <>
           <span className="field-label">Members</span>
-          {membersQuery.error && !membersQuery.data ? (
-            <p className="muted">Could not load members.</p>
-          ) : (
-            members.map((row) => (
-              <div key={row.userId} className="member-row">
-                {row.mine ? (
-                  <ProfilePhotoButton name={row.name} image={row.image} />
-                ) : (
-                  <PersonAvatar name={row.name} image={row.image} size="md" />
-                )}
-                <div className="member-meta">
+          <div className="member-list set-card">
+            {membersQuery.error && !membersQuery.data ? (
+              <p className="muted">Could not load members.</p>
+            ) : (
+              members.map((row) => (
+                <div key={row.userId} className="member-row">
                   {row.mine ? (
-                    <form
-                      className="member-name"
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        void saveMemberName();
-                      }}
-                    >
-                      <input
-                        value={memberName}
-                        maxLength={80}
-                        aria-label="Your name"
-                        disabled={savingMember}
-                        onChange={(event) => setMemberName(event.target.value)}
-                      />
-                      <button
-                        className="mini"
-                        type="submit"
-                        disabled={
-                          savingMember ||
-                          !memberName.trim() ||
-                          memberName.trim() === (props.me?.name ?? "").trim()
-                        }
-                      >
-                        {savingMember ? "Saving…" : "Save"}
-                      </button>
-                    </form>
+                    <ProfilePhotoButton name={row.name} image={row.image} />
                   ) : (
-                    <strong>{row.name}</strong>
+                    <PersonAvatar name={row.name} image={row.image} size="md" />
                   )}
-                  <p className="muted">
-                    {row.mine ? "You · " : ""}
-                    {row.email}
-                  </p>
+                  <div className="member-meta">
+                    {row.mine ? (
+                      <form
+                        className="member-name"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          void saveMemberName();
+                        }}
+                      >
+                        <input
+                          value={memberName}
+                          maxLength={80}
+                          aria-label="Your name"
+                          disabled={savingMember}
+                          onChange={(event) => setMemberName(event.target.value)}
+                        />
+                        <button
+                          className="mini"
+                          type="submit"
+                          disabled={
+                            savingMember ||
+                            !memberName.trim() ||
+                            memberName.trim() === (props.me?.name ?? "").trim()
+                          }
+                        >
+                          {savingMember ? "Saving…" : "Save"}
+                        </button>
+                      </form>
+                    ) : (
+                      <strong>{row.name}</strong>
+                    )}
+                    <p className="muted">
+                      {row.mine ? "You · " : ""}
+                      {row.email}
+                    </p>
+                  </div>
+                  <span className="member-role">{row.role}</span>
                 </div>
-                <span className="member-role">{row.role}</span>
-              </div>
-            ))
-          )}
-        </div>
+              ))
+            )}
+          </div>
+        </>
       ) : null}
       {props.enabled ? (
         <>
@@ -596,36 +637,39 @@ function WorkspaceSettings(props: {
             }}
           >
             <span>Invite by email</span>
-            <input
-              type="email"
-              value={email}
-              placeholder="teammate@company.com"
-              autoComplete="off"
-              onChange={(event) => setEmail(event.target.value)}
-            />
-            <button
-              className="mini"
-              type="submit"
-              disabled={busy || !email.trim()}
-            >
-              {busy ? "Sending…" : "Send invite"}
-            </button>
-          </form>
-          {error ? <p className="muted">{error}</p> : null}
-          {sent ? (
-            <div className="field">
-              <p className="muted">
-                Invite emailed to {sent.email}. They open the link and join. You
-                can also copy the link:
-              </p>
-              <input readOnly value={sent.url} />
+            <div className="field-row">
+              <input
+                type="email"
+                value={email}
+                placeholder="teammate@company.com"
+                autoComplete="off"
+                onChange={(event) => setEmail(event.target.value)}
+              />
               <button
                 className="mini"
-                type="button"
-                onClick={() => void copyLink()}
+                type="submit"
+                disabled={busy || !email.trim()}
               >
-                {copied ? "Copied" : "Copy link"}
+                {busy ? "Sending…" : "Send invite"}
               </button>
+            </div>
+          </form>
+          {error ? <p className="warn">{error}</p> : null}
+          {sent ? (
+            <div className="field">
+              <p className="hint set-lede">
+                Invite emailed to {sent.email}. They open the link and join.
+              </p>
+              <div className="field-row">
+                <input readOnly value={sent.url} />
+                <button
+                  className="mini"
+                  type="button"
+                  onClick={() => void copyLink()}
+                >
+                  {copied ? "Copied" : "Copy"}
+                </button>
+              </div>
             </div>
           ) : null}
         </>
@@ -633,25 +677,24 @@ function WorkspaceSettings(props: {
         <p className="muted">Create a workspace first, then invite people.</p>
       )}
       {props.enabled && canDeleteWorkspace(membersQuery.data ?? []) ? (
-        <div className="field">
+        <div className="set-divide">
           {confirmDelete ? (
             <>
-              <span>Delete workspace</span>
-              <p className="muted">
+              <p className="group-label">Delete workspace</p>
+              <p className="hint set-lede">
                 This removes the office, teammates, knowledge, computers, and
                 chat. It cannot be undone.
                 {onlyOffice ? " We'll open a new empty office after." : ""}
               </p>
               <div className="row">
-                <Button
-                  className="px-3 py-1.5 text-[13px]"
-                  variant="ghost"
+                <button
+                  className="mini"
                   type="button"
                   disabled={deleting}
                   onClick={() => setConfirmDelete(false)}
                 >
                   Cancel
-                </Button>
+                </button>
                 <Button
                   className="border-0 bg-danger px-3 py-1.5 text-[13px] text-white"
                   type="button"
@@ -680,16 +723,10 @@ function WorkspaceSettings(props: {
   );
 }
 
-function formatCount(value: number): string {
-  return value.toLocaleString();
-}
-
 function BillingTab() {
   const queryClient = useQueryClient();
   const billingQuery = useQuery(orpc.billing.status.queryOptions());
-  const [busy, setBusy] = useState<"checkout" | "portal" | "ondemand" | null>(
-    null,
-  );
+  const [busy, setBusy] = useState<"checkout" | "portal" | null>(null);
   const [error, setError] = useState("");
 
   const billing = billingQuery.data;
@@ -739,19 +776,6 @@ function BillingTab() {
     }
   }
 
-  async function toggleOnDemand(enabled: boolean) {
-    setBusy("ondemand");
-    setError("");
-    try {
-      await client.billing.updateOnDemand({ onDemandEnabled: enabled });
-      await billingQuery.refetch();
-    } catch (caught) {
-      setError(userFacingError(caught, "Could not update on-demand billing."));
-    } finally {
-      setBusy(null);
-    }
-  }
-
   const planLabel =
     billing.plan === WORKSPACE_PLAN_BELIEVERS
       ? "Believers"
@@ -760,99 +784,107 @@ function BillingTab() {
         : billing.plan === WORKSPACE_PLAN_PRO
           ? "Pro"
           : "Free";
-  const statusLabel =
-    billing.status === "trialing"
-      ? "trial"
-      : billing.status !== "none"
-        ? billing.status
-        : null;
+  const statusLabel = billingStatusLabel(billing.status);
+  const statusTone =
+    billing.status === "active"
+      ? "is-ok"
+      : billing.status === "past_due"
+        ? "is-warn"
+        : undefined;
   const usagePercent = billing.includedUsagePercent;
   const atLimit = usagePercent !== null && usagePercent >= 100;
 
   return (
-    <section className="set-block">
-      <p className="group-label">Workspace plan</p>
-      {billing.enabled ? (
-        <>
-          <p>
-            <strong>{planLabel}</strong>
-            {statusLabel ? ` · ${statusLabel}` : null}
-          </p>
-          {billing.checkoutAvailable && billing.plan === "none" ? (
-            <>
-              <p className="hint">
-                Pro starts with a {PRO_TRIAL_INTERVAL_COUNT}-day trial. Card on
-                file; cancel before it ends and you are not charged. Your own
-                keys still need a plan; they are not counted against hosted
-                usage.
-              </p>
-              <div className="row">
-                <button
-                  type="button"
-                  className="btn"
-                  disabled={busy !== null}
-                  onClick={() => startCheckout(WORKSPACE_PLAN_PRO)}
-                >
-                  Start {PRO_TRIAL_INTERVAL_COUNT}-day Pro trial
-                </button>
-                <button
-                  type="button"
-                  className="btn ghost"
-                  disabled={busy !== null}
-                  onClick={() => startCheckout(WORKSPACE_PLAN_PLUS)}
-                >
-                  Pro Plus
-                </button>
-                <button
-                  type="button"
-                  className="btn ghost"
-                  disabled={busy !== null}
-                  onClick={() => startCheckout(WORKSPACE_PLAN_BELIEVERS)}
-                >
-                  Believers
-                </button>
+    <>
+      <section className="set-block">
+        <p className="group-label">Workspace plan</p>
+        {billing.enabled ? (
+          <>
+            <div className="billing-plan">
+              <div>
+                <strong>{planLabel}</strong>
+                {statusLabel ? (
+                  <p
+                    className={`muted billing-plan-status${statusTone ? ` ${statusTone}` : ""}`}
+                  >
+                    {statusLabel}
+                  </p>
+                ) : billing.plan === "none" ? (
+                  <p className="muted billing-plan-status">No hosted plan yet</p>
+                ) : null}
               </div>
-            </>
-          ) : null}
-          {billing.portalAvailable && billing.plan !== "none" ? (
-            <p>
-              <button
-                type="button"
-                className="btn ghost"
-                disabled={busy !== null}
-                onClick={() => openPortal()}
-              >
-                Manage subscription
-              </button>
-            </p>
-          ) : null}
-          {billing.limitsEnforced && billing.plan !== "none" ? (
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={billing.onDemandEnabled}
-                disabled={busy !== null}
-                onChange={(event) => toggleOnDemand(event.target.checked)}
-              />
-              Keep going after included usage runs out
-            </label>
-          ) : null}
-        </>
-      ) : (
-        <p className="hint">
-          Self-host billing is off. Hosted usage on groxbot.com is unlimited
-          until Polar is configured.
-        </p>
-      )}
+              {billing.portalAvailable && billing.plan !== "none" ? (
+                <button
+                  type="button"
+                  className="mini"
+                  aria-label="Manage subscription"
+                  disabled={busy !== null}
+                  onClick={() => openPortal()}
+                >
+                  Manage
+                </button>
+              ) : null}
+            </div>
+            {billing.checkoutAvailable && billing.plan === "none" ? (
+              <>
+                <p className="hint">
+                  Pro starts with a {PRO_TRIAL_INTERVAL_COUNT}-day trial. Card
+                  on file; cancel before it ends and you are not charged. Your
+                  own keys still need a plan; they are not counted against
+                  hosted usage.
+                </p>
+                <div className="billing-checkout">
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={busy !== null}
+                    onClick={() => startCheckout(WORKSPACE_PLAN_PRO)}
+                  >
+                    Start {PRO_TRIAL_INTERVAL_COUNT}-day Pro trial
+                  </button>
+                  <div className="row">
+                    <button
+                      type="button"
+                      className="mini"
+                      disabled={busy !== null}
+                      onClick={() => startCheckout(WORKSPACE_PLAN_PLUS)}
+                    >
+                      Pro Plus
+                    </button>
+                    <button
+                      type="button"
+                      className="mini"
+                      disabled={busy !== null}
+                      onClick={() => startCheckout(WORKSPACE_PLAN_BELIEVERS)}
+                    >
+                      Believers
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : null}
+          </>
+        ) : (
+          <p className="hint">
+            Self-host billing is off. Hosted usage on groxbot.com is unlimited
+            until Polar is configured.
+          </p>
+        )}
+      </section>
 
       {usagePercent !== null ? (
-        <>
+        <section className="set-block">
           <p className="group-label">Hosted usage</p>
-          <p className="hint">
-            Included models only, reset each UTC month. Your own keys are not
+          <p className="hint billing-usage-lede">
+            Included models only. Resets each UTC month. Your own keys are not
             counted.
           </p>
           <div className="billing-usage">
+            <div className="billing-usage-head">
+              <p>
+                <strong>{usagePercent}%</strong> used this month
+              </p>
+            </div>
             <div
               className="billing-usage-meter"
               role="progressbar"
@@ -862,28 +894,23 @@ function BillingTab() {
               aria-label="Monthly included hosted usage"
             >
               <span
-                className="billing-usage-fill"
+                className={`billing-usage-fill${atLimit ? " is-cap" : ""}`}
                 style={{ width: `${usagePercent}%` }}
               />
             </div>
-            <p className={atLimit ? "warn" : undefined}>
-              <strong>{usagePercent}%</strong> used this month
-            </p>
-            {billing.onDemandActive ? (
-              <p className="muted">On-demand usage is active.</p>
-            ) : null}
-            {atLimit && !billing.onDemandEnabled ? (
-              <p className="warn">
-                Monthly included usage reached. Turn on on-demand or upgrade.
-              </p>
+            {atLimit ? (
+              <p className="warn">Monthly included usage reached.</p>
             ) : null}
           </div>
-        </>
+        </section>
       ) : billing.enabled && billing.plan !== "none" ? (
-        <p className="hint">No monthly usage cap on this plan.</p>
+        <section className="set-block">
+          <p className="group-label">Hosted usage</p>
+          <p className="hint">Usage will show after the first hosted turn.</p>
+        </section>
       ) : null}
       {error ? <p className="warn">{error}</p> : null}
-    </section>
+    </>
   );
 }
 
@@ -944,12 +971,6 @@ function ModelsTab() {
       ? (settings?.defaultModelId ?? "")
       : selectedModel,
   );
-  const grouped = new Map<ModelProvider, ModelCatalogItem[]>();
-  for (const item of pickerItems) {
-    const list = grouped.get(item.provider) ?? [];
-    list.push(item);
-    grouped.set(item.provider, list);
-  }
   const selectedMeta = settings?.catalog.find(
     (item) => item.id === selectedModel,
   );
@@ -1060,15 +1081,16 @@ function ModelsTab() {
     <>
       <section className="set-block">
         <p className="group-label">Default model</p>
-        <p className="hint">
+        <p className="hint set-lede">
           Every teammate uses this unless you override it on that bot.
         </p>
         <label className="field">
           <span>Model</span>
-          <select
+          <ModelField
             value={selectedModel}
-            onChange={(e) => {
-              const next = e.target.value;
+            catalog={pickerItems}
+            className="bg-card-2"
+            onChange={(next) => {
               setDefaultModel(next);
               const meta = settings.catalog.find((item) => item.id === next);
               if (
@@ -1081,19 +1103,7 @@ function ModelsTab() {
                 }));
               }
             }}
-          >
-            {[...grouped.entries()].map(([provider, items]) => (
-              <optgroup key={provider} label={catalogGroupLabel(provider)}>
-                {items.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                    {item.available ? "" : " — needs key"}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-            <option value={CUSTOM_MODEL_SENTINEL}>Custom…</option>
-          </select>
+          />
         </label>
         {selectedModel === CUSTOM_MODEL_SENTINEL ? (
           <label className="field">
@@ -1121,7 +1131,7 @@ function ModelsTab() {
       </section>
       <section className="set-block">
         <p className="group-label">Provider keys</p>
-        <p className="hint">
+        <p className="hint set-lede">
           Groxbot includes hosted models so you can start without a key. Paste
           your own anytime — your key wins when it is on file.
         </p>
@@ -1141,16 +1151,9 @@ function ModelsTab() {
               </span>
             </div>
             {settings.hostedGateway ? (
-              <div className="provider-key-body">
-                <p className="hint">
-                  This workspace uses Groxbot’s included models. Token counts
-                  are per workspace.
-                </p>
-                <p className="muted">
-                  {formatCount(settings.usage.requests)} requests ·{" "}
-                  {formatCount(settings.usage.totalTokens)} tokens
-                </p>
-              </div>
+              <p className="provider-key-meta">
+                Included models. Usage is on Usage & Billing.
+              </p>
             ) : null}
           </div>
           {providers.map((provider) => {
@@ -1294,16 +1297,18 @@ function ModelsTab() {
           })}
         </div>
       </section>
-      {error ? <p className="error">{error}</p> : null}
-      {saved ? <p className="hint">Saved.</p> : null}
-      <button
-        className="btn"
-        type="button"
-        disabled={busy}
-        onClick={() => void save()}
-      >
-        {busy ? "Saving…" : "Save models"}
-      </button>
+      <div className="set-models-foot">
+        {error ? <p className="error">{error}</p> : null}
+        {saved ? <p className="hint">Saved.</p> : null}
+        <button
+          className="btn"
+          type="button"
+          disabled={busy}
+          onClick={() => void save()}
+        >
+          {busy ? "Saving…" : "Save models"}
+        </button>
+      </div>
     </>
   );
 }

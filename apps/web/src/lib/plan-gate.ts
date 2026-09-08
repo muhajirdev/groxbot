@@ -18,11 +18,25 @@ export function planGateCopy(trialAvailable: boolean): {
 }
 
 /**
- * Instant paint for the founder letter. Unknown / stale `me` is hosted.
- * Only skip the trial CTA after this office has said it does not need a plan.
+ * Instant paint for the founder letter. Unknown / stale `me` is not ready —
+ * the continue button waits instead of flashing the trial CTA.
+ */
+export function onboardingPlanReady(
+  me: { workspaceId?: string | null } | null | undefined,
+  workspaceId: string,
+): boolean {
+  return me?.workspaceId === workspaceId;
+}
+
+/**
+ * Trial vs office CTA once `me` is for this workspace.
+ * Unknown / stale `me` still returns true so continue stays gated.
  */
 export function onboardingNeedsPlan(
-  me: { workspaceId?: string | null; needsHostedPlan?: boolean } | null | undefined,
+  me:
+    | { workspaceId?: string | null; needsHostedPlan?: boolean }
+    | null
+    | undefined,
   workspaceId: string,
 ): boolean {
   if (me?.workspaceId !== workspaceId) return true;

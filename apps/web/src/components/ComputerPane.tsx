@@ -1,13 +1,18 @@
 import type { Bot, Routine } from "@groxbot/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { saveComputerDownload } from "../lib/computer-download";
 import {
   type ComputerTreeNode,
   filterComputerTree,
   nestComputerEntries,
 } from "../lib/computer-tree";
+import { useDebugMode } from "../lib/debug-mode";
 import { userFacingError } from "../lib/errors";
+import {
+  clearOfficeDebugLines,
+  useOfficeDebugLines,
+} from "../lib/office-debug";
 import { OFFICE_MESSAGES_GC_TIME } from "../lib/office-messages";
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
@@ -46,11 +51,17 @@ const DEFAULT_CRON = "every day at 09:00";
 
 export function ComputerPane(props: {
   bot: Bot;
+  /** Home room id — office Cap’n Web thread for debug logs. */
+  roomId?: string;
   onSettings: () => void;
   onCollapse: () => void;
   openPath?: string | null;
   onPreviewClose?: () => void;
 }) {
+  const debug = useDebugMode();
+  const roomId = (props.roomId || props.bot.homeRoomId || props.bot.id).trim();
+  const debugLines = useOfficeDebugLines(roomId);
+  const debugLogRef = useRef<HTMLPreElement | null>(null);
   const [sheet, setSheet] = useState<"create" | Routine | null>(null);
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
@@ -76,6 +87,11 @@ export function ComputerPane(props: {
     setSelected(openPath);
     setPreviewPath(openPath);
   }, [openPath]);
+  useEffect(() => {
+    const el = debugLogRef.current;
+    if (!el || !debug) return;
+    el.scrollTop = el.scrollHeight;
+  }, [debug, debugLines]);
   const filesQuery = useQuery({
     ...orpc.computer.list.queryOptions({ input: { botId } }),
     gcTime: OFFICE_MESSAGES_GC_TIME,
@@ -327,6 +343,30 @@ export function ComputerPane(props: {
             <p className="explorer-empty">Showing the first 200 paths.</p>
           ) : null}
         </div>
+        {debug ? (
+          <section className="computer-debug">
+            <div className="routines-head">
+              <span>Debug</span>
+              <button
+                className="mini"
+                type="button"
+                disabled={debugLines.length === 0}
+                onClick={() => clearOfficeDebugLines(roomId)}
+              >
+                Clear
+              </button>
+            </div>
+            <pre
+              ref={debugLogRef}
+              className="computer-debug-log"
+              aria-label="Turn timing log"
+            >
+              {debugLines.length > 0
+                ? debugLines.join("\n")
+                : "Send a message to see turn timing…"}
+            </pre>
+          </section>
+        ) : null}
         <section className="routines">
           <div className="routines-head">
             <span>Routines</span>

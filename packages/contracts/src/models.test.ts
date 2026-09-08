@@ -9,6 +9,7 @@ import {
   HOSTED_AI_ENV,
   HOSTED_AI_FLAG,
   hostedCloudflareGateway,
+  hostedStarterModel,
   MODEL_CATALOG,
   ModelSettingsSchema,
   missingProviderMessage,
@@ -43,6 +44,9 @@ describe("model catalog", () => {
     );
     expect(providerForModel("openai-codex/gpt-5.4")).toBe("openai-codex");
     expect(providerForModel("openai/gpt-4o")).toBe("openai");
+    expect(providerForModel("groxbot/auto")).toBe(CLOUDFLARE_PROVIDER);
+    expect(providerForModel("groxbot/free")).toBe(CLOUDFLARE_PROVIDER);
+    expect(providerForModel("auto")).toBe(CLOUDFLARE_PROVIDER);
     expect(OPENAI_CODEX_SETUP_STEPS[0]?.detail).toMatch(/npx @openai\/codex login/);
     expect(OPENAI_CODEX_SETUP_STEPS[1]?.detail).toMatch(/~\/\.codex\/auth\.json/);
   });
@@ -121,6 +125,21 @@ describe("model catalog", () => {
     );
   });
 
+  it("keeps Groxbot routers opaque for grox-gateway", () => {
+    expect(gatewayRequestModel("groxbot/auto")).toBe("groxbot/auto");
+    expect(gatewayRequestModel("auto")).toBe("groxbot/auto");
+    expect(gatewayRequestModel("free")).toBe("groxbot/free");
+    expect(
+      hostedStarterModel({
+        GROX_GATEWAY_URL: "https://gateway.groxbot.com",
+        GROX_GATEWAY_SECRET: "gw",
+      }),
+    ).toBe("groxbot/auto");
+    expect(hostedStarterModel({})).toBe(
+      "cloudflare-ai-gateway/workers-ai/@cf/zai-org/glm-5.3-flash",
+    );
+  });
+
   it("lists Cloudflare models", () => {
     expect(
       MODEL_CATALOG.some((item) => item.provider === CLOUDFLARE_PROVIDER),
@@ -129,16 +148,24 @@ describe("model catalog", () => {
     expect(catalogGroupLabel(OPENROUTER_PROVIDER)).toBe("OpenRouter");
     const groxOnly = pickerCatalog(
       MODEL_CATALOG,
-      "cloudflare-ai-gateway/workers-ai/@cf/zai-org/glm-5.3-flash",
+      "groxbot/auto",
     );
-    expect(groxOnly.every((item) => item.provider === CLOUDFLARE_PROVIDER)).toBe(
-      true,
-    );
+    expect(
+      groxOnly.every((item) => item.provider === CLOUDFLARE_PROVIDER),
+    ).toBe(true);
+    expect(
+      groxOnly.some((item) => item.provider === OPENROUTER_PROVIDER),
+    ).toBe(false);
+    expect(
+      groxOnly.some((item) => item.provider === ANTHROPIC_PROVIDER),
+    ).toBe(false);
     expect(
       pickerCatalog(MODEL_CATALOG, "openrouter/deepseek/deepseek-v4-flash"),
     ).toHaveLength(MODEL_CATALOG.length);
     expect(MODEL_CATALOG.map((item) => item.id)).toEqual(
       expect.arrayContaining([
+        "groxbot/auto",
+        "groxbot/free",
         "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-flash-0731",
         "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-pro-0813",
         "cloudflare-ai-gateway/workers-ai/@cf/zai-org/glm-4.7-flash",
@@ -158,6 +185,18 @@ describe("model catalog", () => {
       ]),
     ).toBe(true);
     expect(modelIsRunnable("vendor/custom", [OPENROUTER_PROVIDER])).toBe(true);
+    expect(
+      modelIsRunnable("openrouter/deepseek/deepseek-v4-flash", [
+        CLOUDFLARE_PROVIDER,
+      ]),
+    ).toBe(false);
+    expect(
+      modelIsRunnable(
+        "openrouter/deepseek/deepseek-v4-flash",
+        [CLOUDFLARE_PROVIDER],
+        { hostedGateway: true },
+      ),
+    ).toBe(true);
   });
 
   it("validates provider secrets", () => {

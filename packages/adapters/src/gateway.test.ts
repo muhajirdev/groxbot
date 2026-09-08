@@ -1,4 +1,5 @@
 import {
+  BINDING_STARTER_MODEL,
   CLOUDFLARE_PROVIDER,
   DEFAULT_AI_GATEWAY_ID,
   HOSTED_AI_ENV,
@@ -137,6 +138,7 @@ describe("loadGatewayConfig", () => {
     expect(
       gatewayHeaders(config, { workspaceId: "ws_1" })["x-grox-workspace-id"],
     ).toBe("ws_1");
+    expect(config.model).toBe(HOSTED_STARTER_MODEL);
     expect(
       gatewayConfigured({
         GROX_GATEWAY_URL: "https://grox-gateway.example.com",
@@ -151,7 +153,7 @@ describe("loadGatewayConfig", () => {
       CLOUDFLARE_API_TOKEN: "cf-token",
     });
     expect(config.provider).toBe(CLOUDFLARE_PROVIDER);
-    expect(config.model).toBe(gatewayRequestModel(HOSTED_STARTER_MODEL));
+    expect(config.model).toBe(gatewayRequestModel(BINDING_STARTER_MODEL));
     expect(config.gatewayId).toBe(DEFAULT_AI_GATEWAY_ID);
     expect(gatewayChatUrl(config)).toBe(
       cloudflareAiGatewayChatUrl("acct_123", DEFAULT_AI_GATEWAY_ID),
@@ -353,7 +355,7 @@ describe("GatewayAgentRuntime", () => {
     expect(seen).toEqual([
       {
         url: cloudflareAiGatewayChatUrl("acct_123", DEFAULT_AI_GATEWAY_ID),
-        model: piAiRequestModel(CLOUDFLARE_PROVIDER, HOSTED_STARTER_MODEL),
+        model: piAiRequestModel(CLOUDFLARE_PROVIDER, BINDING_STARTER_MODEL),
         auth: "Bearer cf-token",
         metadata: JSON.stringify({
           workspaceId: "ws-1",

@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   HOSTED_OFFICE_CONTEXT_WINDOW,
   isContextOverflowError,
+  isThoughtSignatureError,
   officeModelContextWindow,
+  stripThoughtReplay,
 } from "./office-compact.js";
 
 describe("isContextOverflowError", () => {
@@ -18,6 +20,57 @@ describe("isContextOverflowError", () => {
     expect(isContextOverflowError("The hosted model returned an empty reply")).toBe(
       false,
     );
+  });
+});
+
+describe("isThoughtSignatureError", () => {
+  it("matches Gemini thought-signature 400s", () => {
+    expect(isThoughtSignatureError("Corrupted thought signature.")).toBe(true);
+    expect(
+      isThoughtSignatureError(
+        "Function call is missing a thought_signature in functionCall parts",
+      ),
+    ).toBe(true);
+    expect(isThoughtSignatureError("The hosted model returned an empty reply")).toBe(
+      false,
+    );
+  });
+});
+
+describe("stripThoughtReplay", () => {
+  it("drops encrypted thinking blobs on assistant tool calls", () => {
+    const messages = stripThoughtReplay([
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "toolCall",
+            id: "call_1",
+            name: "bash",
+            arguments: { command: "ls" },
+            thoughtSignature: JSON.stringify({
+              type: "reasoning.encrypted",
+              id: "rs_1",
+              data: "blob",
+            }),
+          },
+        ],
+        reasoning_details: [{ type: "reasoning.encrypted", data: "blob" }],
+      },
+      { role: "user", content: "ok" },
+    ]);
+    expect(messages[0]).toEqual({
+      role: "assistant",
+      content: [
+        {
+          type: "toolCall",
+          id: "call_1",
+          name: "bash",
+          arguments: { command: "ls" },
+        },
+      ],
+    });
+    expect(messages[1]).toEqual({ role: "user", content: "ok" });
   });
 });
 

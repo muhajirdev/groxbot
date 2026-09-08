@@ -10,12 +10,16 @@ import {
   CLOUDFLARE_PROVIDER,
   CUSTOM_MODEL_SENTINEL,
   DEFAULT_AI_GATEWAY_ID,
+  GROXBOT_AUTO_MODEL,
+  GROXBOT_FREE_MODEL,
   gatewayModelId,
+  groxHostedGateway,
   HOSTED_AI_ENV,
   HOSTED_AI_FLAG,
   HOSTED_STARTER_MODEL,
   hostedAiEnabled,
   hostedCloudflareGateway,
+  hostedStarterModel,
   MODEL_CATALOG,
   missingProviderMessage,
   modelIsRunnable,
@@ -24,11 +28,11 @@ import {
   OPENAI_PROVIDER,
   OPENROUTER_PROVIDER,
   openAiCodexHint,
-  packOpenAiCodexAuth,
-  parseOpenAiCodexAuth,
   PRODUCT_RUNTIME,
   PROVIDER_META,
   PROVIDER_ORDER,
+  packOpenAiCodexAuth,
+  parseOpenAiCodexAuth,
   providerForModel,
   resolveStoredModelId,
   SUGGESTED_STARTER_MODEL,
@@ -39,13 +43,13 @@ import {
 import type { Database } from "@groxbot/db";
 import { secrets, userModelCredentials, workspaceModels } from "@groxbot/db";
 import { eq } from "drizzle-orm";
+import { ensureWorkspaceBilling, utcMonthStartIso } from "./billing.js";
 import { newId } from "./ids.js";
 import {
-  ensureWorkspaceBilling,
-  utcMonthStartIso,
-} from "./billing.js";
+  fetchOpenRouterCatalog,
+  mergeOpenRouterIntoCatalog,
+} from "./openrouter-models.js";
 import { decryptSecret, encryptSecret, secretHint } from "./secret-box.js";
-import { workspaceMonthlyModelUsage } from "./usage.js";
 
 const PROVIDERS: ModelProvider[] = [...PROVIDER_ORDER];
 
@@ -193,14 +197,18 @@ export function fallbackRunnableModel(
   model: string,
   providers: readonly ModelProvider[],
   hosted = false,
+  hostedStarter = HOSTED_STARTER_MODEL,
 ): string {
   const current = gatewayModelId(model);
-  if (current && modelIsRunnable(current, providers)) return current;
-  if (hosted && modelIsRunnable(HOSTED_STARTER_MODEL, providers)) {
-    return gatewayModelId(HOSTED_STARTER_MODEL);
+  const runnableOpts = { hostedGateway: hosted };
+  if (current && modelIsRunnable(current, providers, runnableOpts)) {
+    return current;
+  }
+  if (hosted && modelIsRunnable(hostedStarter, providers, runnableOpts)) {
+    return gatewayModelId(hostedStarter);
   }
   const fromCatalog = MODEL_CATALOG.find((item) =>
-    modelIsRunnable(item.id, providers),
+    modelIsRunnable(item.id, providers, runnableOpts),
   )?.id;
   return gatewayModelId(fromCatalog || SUGGESTED_STARTER_MODEL);
 }
@@ -299,22 +307,48 @@ export async function loadModelSettings(
     creds.find((row) => row.isDefault)?.defaultModel?.trim() ||
     "";
   const defaultModelId = fallbackRunnableModel(
-    stored || (hosted ? HOSTED_STARTER_MODEL : SUGGESTED_STARTER_MODEL),
+    stored || (hosted ? hostedStarterModel(env) : SUGGESTED_STARTER_MODEL),
     available,
     Boolean(hosted),
+    hostedStarterModel(env),
   );
-  const listed = MODEL_CATALOG.some((item) => item.id === defaultModelId);
-  const catalog = MODEL_CATALOG.map((item) => ({
-    id: item.id,
-    label: item.label,
-    provider: item.provider,
-    available: modelIsRunnable(item.id, available),
-  }));
+  const listedStatic = MODEL_CATALOG.some((item) => item.id === defaultModelId);
+  const groxGateway = Boolean(groxHostedGateway(env));
+  const runnableOpts = { hostedGateway: groxGateway };
+  const staticCatalog = MODEL_CATALOG.filter((item) => {
+    if (groxGateway) return true;
+    return item.id !== GROXBOT_AUTO_MODEL && item.id !== GROXBOT_FREE_MODEL;
+  }).map((item) => {
+    const viaGateway =
+      groxGateway && item.provider === OPENROUTER_PROVIDER;
+    return {
+      id: item.id,
+      label: item.label,
+      // Hosted grox-gateway: OpenRouter models sit under Groxbot, not a separate key.
+      provider: viaGateway ? CLOUDFLARE_PROVIDER : item.provider,
+      available: viaGateway
+        ? true
+        : modelIsRunnable(item.id, available, runnableOpts),
+    };
+  });
+  const openRouterLive = await fetchOpenRouterCatalog({
+    available: groxGateway || available.includes(OPENROUTER_PROVIDER),
+  });
+  const openRouterRows = groxGateway
+    ? openRouterLive.map((row) => ({
+        ...row,
+        provider: CLOUDFLARE_PROVIDER,
+        available: true,
+      }))
+    : openRouterLive;
+  const catalog = mergeOpenRouterIntoCatalog(staticCatalog, openRouterRows);
+  const listed =
+    listedStatic || catalog.some((item) => item.id === defaultModelId);
   const warning =
-    available.length > 0 && !modelIsRunnable(defaultModelId, available)
+    available.length > 0 &&
+    !modelIsRunnable(defaultModelId, available, runnableOpts)
       ? missingProviderMessage(defaultModelId)
       : null;
-  const usage = await workspaceMonthlyModelUsage(db, actor.workspaceId);
   const billing = await ensureWorkspaceBilling(db, actor.workspaceId);
 
   return {
@@ -328,7 +362,10 @@ export async function loadModelSettings(
     catalog,
     warning,
     usage: {
-      ...usage,
+      requests: 0,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
       periodStart: utcMonthStartIso(),
       monthlyTokenLimit: billing.monthlyTokenLimit,
     },
@@ -609,9 +646,12 @@ export async function resolveRunModel(
     bot.model?.trim() || settings.defaultModel,
     providers,
     usedHosted,
+    hostedStarterModel(baseEnv),
   );
   if (model) env.GROXBOT_MODEL = model;
-  const configured = modelIsRunnable(model, providers);
+  const configured = modelIsRunnable(model, providers, {
+    hostedGateway: Boolean(groxHostedGateway(baseEnv)),
+  });
   return {
     env,
     model,

@@ -19,12 +19,11 @@ import {
 import {
   HOSTED_STARTER_MODEL,
   labelForModel,
-  OFFICE_INTRO_SOURCE,
   officeUserFromHeaders,
   type OpenAiCodexAuth,
   type Routine,
   stampIncomingOfficeUser,
-  type UsageBillingKind,
+  WORKSPACE_PLAN_REQUIRED_MESSAGE,
 } from "@groxbot/contracts";
 import {
   applyOfficeReviewTurn,
@@ -48,11 +47,13 @@ import {
   formatRoutinePrompt,
   isoUnixSeconds,
   isContextOverflowError,
+  isThoughtSignatureError,
   jsonClone,
   lastOfficeHumanUserId,
   lastOfficeUserIsIntro,
   lastPiAssistantText,
   listComputerEntries,
+  readComputerFile,
   listConnectedPluginAccounts,
   loadOfficeSkillCatalog,
   mcpCatalogForExecute,
@@ -68,7 +69,6 @@ import {
   type OfficeHistorySearch,
   officeCanReadSkills,
   officeIntroTurnTools,
-  officeIntroUserText,
   officeModelContextWindow,
   officeReviewAnnounce,
   officeReviewDue,
@@ -96,16 +96,12 @@ import {
   RoutineNotFoundError,
   RoutineScheduleError,
   recordComputerUsage,
-  recordHostedModelUsage,
   resolveRunModel,
-  assertHostedUsageAllowed,
   assertWorkspacePlanAllowed,
-  billingKindForDecision,
   type StoredRoutine,
   searchOfficeHistory,
   shouldArmAwayOfficePing,
   shouldEnqueueOfficeReview,
-  shouldRunOfficeIntro,
   shouldSendAwayOfficePing,
   soulOverlayFromWrite,
   TinyfishKeyPool,
@@ -124,8 +120,6 @@ import { AgentContextProvider } from "agents/experimental/memory/session";
 import { and, eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { createBotComputer } from "./bot-computer-workspace.js";
-import { postHostedUsageIngest } from "./billing/ingest-http.js";
-import { createModelPricingPort } from "./billing/model-pricing-kv.js";
 import {
   createBundlingExecutor,
   createOfficeExecuteTool,
@@ -133,6 +127,7 @@ import {
 import { HistoryConnector } from "./bot-history.js";
 import { KnowledgeConnector } from "./bot-knowledge.js";
 import { SkillsStoreConnector } from "./bot-skills-store.js";
+import { createBrowserAgentTools } from "./bot-browser.js";
 import { bindToMarkdown, createPageAgentTools } from "./bot-markdown.js";
 import { WorkspaceMcpConnector } from "./bot-mcp-connector.js";
 import {
@@ -180,7 +175,12 @@ export interface WorkerEnv {
   APP_RUNTIME: DurableObjectNamespace;
   ROOM_ACTOR: DurableObjectNamespace;
   LOADER: unknown;
-  BROWSER: unknown;
+  BROWSER: {
+    quickAction(
+      action: "pdf" | "screenshot",
+      body: { html?: string; url?: string },
+    ): Promise<Response>;
+  };
   KNOWLEDGE?: R2Bucket;
   PRODUCT_CACHE?: KVNamespace;
 }
@@ -311,7 +311,6 @@ export class RoomHome extends Agent<WorkerEnv> {
   private hireName = "";
   private turnModel = HOSTED_STARTER_MODEL;
   private turnEnv: RuntimeSource = {};
-  private turnHosted = false;
   private botLoaded = false;
   private botLoading: Promise<void> | null = null;
   protected officeId = "";
@@ -431,6 +430,12 @@ export class RoomHome extends Agent<WorkerEnv> {
         ),
       ),
       ...createPageAgentTools(page),
+      ...(this.env.BROWSER
+        ? createBrowserAgentTools({
+            browser: this.env.BROWSER,
+            workspace: this.workspace,
+          })
+        : []),
       createPresentTool(),
       this.setContextTool(),
       ...(skill ? [skill] : []),
@@ -554,7 +559,8 @@ export class RoomHome extends Agent<WorkerEnv> {
     const generation =
       (await this.ctx.storage.get<number>(OFFICE_GENERATION_STORAGE)) ?? 0;
     await live.streamGeneration(generation);
-    const startIntro = await this.prepareOfficeIntro();
+    // No hidden hire turn — empty desk until the human writes (felt slow).
+    await this.ctx.storage.put(OFFICE_INTRO_STORAGE, true);
     const snapshot = jsonClone(await this.officeSnapshot());
     if (snapshot) {
       await live.event({
@@ -566,7 +572,6 @@ export class RoomHome extends Agent<WorkerEnv> {
     }
     if (this.officeError) await live.error(this.officeError);
     await live.status(this.officeStatus);
-    if (startIntro) this.ctx.waitUntil(this.enqueueOfficeTurn());
   }
 
   async officeSnapshot(): Promise<PiOfficeSnapshot> {
@@ -703,17 +708,23 @@ export class RoomHome extends Agent<WorkerEnv> {
     this.officeTurn = abort;
     this.officeError = "";
     this.officeStatus = "submitted";
+    const turnStartedAt = Date.now();
+    let firstModelEvent = false;
     await this.bumpOfficeGeneration();
     await this.broadcastOfficeStatus();
+    await this.emitOfficeDebug(turnStartedAt, "turn_start");
     await this.ensureBotLoaded();
+    await this.emitOfficeDebug(turnStartedAt, "bot_loaded", this.turnModel);
     if (abort.signal.aborted) return;
     await this.healComputerFiles();
+    await this.emitOfficeDebug(turnStartedAt, "computer_ready");
     const session = await this.ensureOfficeSession();
     const streamFn = this.turnStreamFn();
     if (!streamFn) {
       this.officeStatus = "error";
       this.officeError =
         "Add a model key, or use Groxbot’s included gateway, to talk to teammates.";
+      await this.emitOfficeDebug(turnStartedAt, "error", "no_stream");
       await this.broadcastOfficeError();
       await this.broadcastOfficeStatus();
       return;
@@ -724,31 +735,27 @@ export class RoomHome extends Agent<WorkerEnv> {
     const model = this.turnPiModel();
     const bound = await this.officeBound(session);
     const intro = lastOfficeUserIsIntro(bound);
-    const startedAt = Date.now();
+    const startedAt = turnStartedAt;
     const visible = !intro;
     this.officeTurnTouched = false;
     let computerSeconds = 0;
-    let hostedBillingKind: UsageBillingKind | null = null;
     if (this.officeId) {
       const env = productEnv(this.env);
       const source = agentRuntimeSource(env);
       const { db, close } = createNeonHttpDb(env.databaseUrl);
       try {
         await assertWorkspacePlanAllowed(db, this.officeId, source);
-        if (this.turnHosted) {
-          const decision = await assertHostedUsageAllowed(
-            db,
-            this.officeId,
-            source,
-          );
-          hostedBillingKind = billingKindForDecision(decision);
-        }
       } catch (error) {
         this.officeStatus = "error";
         this.officeError =
           error instanceof Error
             ? error.message
-            : "This workspace hit its monthly hosted usage limit.";
+            : WORKSPACE_PLAN_REQUIRED_MESSAGE;
+        await this.emitOfficeDebug(
+          turnStartedAt,
+          "error",
+          "plan_blocked",
+        );
         await this.broadcastOfficeError();
         await this.broadcastOfficeStatus();
         return;
@@ -756,15 +763,27 @@ export class RoomHome extends Agent<WorkerEnv> {
         await close();
       }
     }
+    await this.emitOfficeDebug(turnStartedAt, "plan_ok");
     const baseTools = intro
       ? officeIntroTurnTools(await this.officeAgentTools())
       : await this.officeAgentTools();
+    await this.emitOfficeDebug(
+      turnStartedAt,
+      "tools_ready",
+      `${baseTools.length} tools`,
+    );
     const tools = wrapAgentToolsForComputerUsage(baseTools, (seconds) => {
       computerSeconds += seconds;
       this.officeTurnTouched = true;
     });
     const system = await this.officeSystemPrompt(bound, tools);
+    await this.emitOfficeDebug(
+      turnStartedAt,
+      "prompt_ready",
+      `${system.length} chars`,
+    );
     try {
+      let stripThoughtReplay = false;
       const runTurn = async () => {
         const context = await session.buildContext();
         return runPiTurn({
@@ -774,42 +793,37 @@ export class RoomHome extends Agent<WorkerEnv> {
           streamFn,
           tools,
           signal: abort.signal,
+          stripThoughtReplay,
           getSteeringMessages: () =>
             intro ? [] : this.officeSteer.drainMessages(),
           getFollowUpMessages: () =>
             intro ? [] : this.officeSteer.drainMessages(),
           onEvent: async (event) => {
-            if (
-              hostedBillingKind &&
-              event.type === "turn_end" &&
-              event.message.role === "assistant"
-            ) {
-              const usage = event.message.usage;
-              const promptTokens = usage?.input ?? 0;
-              const completionTokens = usage?.output ?? 0;
-              const totalTokens =
-                usage?.totalTokens ?? promptTokens + completionTokens;
-              if (promptTokens > 0 || completionTokens > 0 || totalTokens > 0) {
-                const userId =
-                  lastOfficeHumanUserId(await this.officeBound(session)) ||
-                  this.ownerUserId ||
-                  "";
-                if (userId && this.officeId && this.personId) {
-                  this.ctx.waitUntil(
-                    this.persistModelUsage({
-                      workspaceId: this.officeId,
-                      userId,
-                      botId: this.personId,
-                      model: this.turnModel,
-                      billingKind: hostedBillingKind,
-                      promptTokens,
-                      completionTokens,
-                      totalTokens,
-                      piCost: usage?.cost,
-                    }),
-                  );
-                }
-              }
+            if (!firstModelEvent) {
+              firstModelEvent = true;
+              await this.emitOfficeDebug(
+                turnStartedAt,
+                "first_model_event",
+                event.type,
+              );
+            }
+            if (event.type === "tool_execution_start") {
+              const name =
+                "toolName" in event && typeof event.toolName === "string"
+                  ? event.toolName
+                  : "tool";
+              await this.emitOfficeDebug(turnStartedAt, "tool_start", name);
+            }
+            if (event.type === "tool_execution_end") {
+              const name =
+                "toolName" in event && typeof event.toolName === "string"
+                  ? event.toolName
+                  : "tool";
+              await this.emitOfficeDebug(
+                turnStartedAt,
+                "tool_end",
+                `${name}${event.isError ? " error" : ""}`,
+              );
             }
             const incoming =
               "message" in event && event.message ? event.message : null;
@@ -855,11 +869,13 @@ export class RoomHome extends Agent<WorkerEnv> {
         streamFn,
         signal: abort.signal,
       });
+      await this.emitOfficeDebug(turnStartedAt, "compact_done");
       let result = await runTurn();
       if (
         result.stopReason === "error" &&
         isContextOverflowError(result.errorMessage)
       ) {
+        await this.emitOfficeDebug(turnStartedAt, "compact_retry");
         const compacted = await this.compactOfficeContext(session, {
           model,
           streamFn,
@@ -868,7 +884,16 @@ export class RoomHome extends Agent<WorkerEnv> {
         });
         if (compacted) result = await runTurn();
       }
+      if (
+        result.stopReason === "error" &&
+        isThoughtSignatureError(result.errorMessage)
+      ) {
+        await this.emitOfficeDebug(turnStartedAt, "thought_signature_retry");
+        stripThoughtReplay = true;
+        result = await runTurn();
+      }
       if (result.stopReason === "aborted" || abort.signal.aborted) {
+        await this.emitOfficeDebug(turnStartedAt, "turn_aborted");
         this.officeStatus = "ready";
         await this.broadcastOfficeStatus();
         return;
@@ -882,10 +907,20 @@ export class RoomHome extends Agent<WorkerEnv> {
           model: this.turnModel,
           error: this.officeError.slice(0, 180),
         });
+        await this.emitOfficeDebug(
+          turnStartedAt,
+          "turn_error",
+          this.officeError.slice(0, 120),
+        );
         await this.broadcastOfficeError();
         await this.broadcastOfficeStatus();
         return;
       }
+      await this.emitOfficeDebug(
+        turnStartedAt,
+        "turn_done",
+        result.stopReason || "ok",
+      );
       this.officeStatus = "ready";
       await this.broadcastOfficeStatus();
       const after = await this.officeBound(session);
@@ -919,6 +954,7 @@ export class RoomHome extends Agent<WorkerEnv> {
       });
     } catch (error) {
       if (abort.signal.aborted) {
+        await this.emitOfficeDebug(turnStartedAt, "turn_aborted");
         this.officeStatus = "ready";
         await this.broadcastOfficeStatus();
         return;
@@ -926,6 +962,11 @@ export class RoomHome extends Agent<WorkerEnv> {
       this.officeStatus = "error";
       this.officeError =
         error instanceof Error ? error.message : "The model run failed.";
+      await this.emitOfficeDebug(
+        turnStartedAt,
+        "turn_error",
+        this.officeError.slice(0, 120),
+      );
       await this.broadcastOfficeError();
       await this.broadcastOfficeStatus();
     } finally {
@@ -1171,6 +1212,25 @@ export class RoomHome extends Agent<WorkerEnv> {
     });
     if (!payload) return;
     await this.broadcastOffice((sub) => sub.event(payload));
+  }
+
+  /** Cap’n Web + console turn timing (Settings → Debug). */
+  private async emitOfficeDebug(
+    startedAt: number,
+    phase: string,
+    detail?: string,
+  ): Promise<void> {
+    const ms = Math.max(0, Date.now() - startedAt);
+    const line = detail
+      ? `${phase} +${ms}ms ${detail}`
+      : `${phase} +${ms}ms`;
+    console.log("office turn", this.name, line);
+    await this.broadcastOfficeEvent({
+      type: "debug_log",
+      phase,
+      ms,
+      line,
+    });
   }
 
   private broadcastOfficeStatus(): Promise<void> {
@@ -1452,7 +1512,6 @@ export class RoomHome extends Agent<WorkerEnv> {
     );
     this.turnModel = overlay.model || HOSTED_STARTER_MODEL;
     this.turnEnv = overlay.env;
-    this.turnHosted = overlay.hosted;
     this.soulPrompt = teammatePrompt({
       ...bot,
       modelLabel: labelForModel(this.turnModel),
@@ -1483,51 +1542,6 @@ export class RoomHome extends Agent<WorkerEnv> {
         `[bot ${this.name}] computer usage +${input.seconds}s`,
         error,
       );
-    } finally {
-      await close();
-    }
-  }
-
-  private async persistModelUsage(input: {
-    workspaceId: string;
-    userId: string;
-    botId: string;
-    model: string;
-    billingKind: UsageBillingKind;
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-    piCost?: { input?: number; output?: number; total?: number };
-  }): Promise<void> {
-    const env = productEnv(this.env);
-    const { db, close } = createNeonHttpDb(env.databaseUrl);
-    try {
-      const pricing = createModelPricingPort(this.env.PRODUCT_CACHE, db);
-      const row = await recordHostedModelUsage(db, {
-        workspaceId: input.workspaceId,
-        userId: input.userId,
-        botId: input.botId,
-        model: input.model,
-        billingKind: input.billingKind,
-        promptTokens: input.promptTokens,
-        completionTokens: input.completionTokens,
-        totalTokens: input.totalTokens,
-        piCost: input.piCost,
-        pricing,
-      });
-      if (row) {
-        await postHostedUsageIngest(env.apiUrl ?? env.authUrl, env.authSecret, {
-          usageId: row.id,
-          workspaceId: row.workspaceId,
-          userId: row.userId,
-          model: row.model,
-          costCents: row.costCents,
-          promptTokens: row.promptTokens,
-          completionTokens: row.completionTokens,
-        });
-      }
-    } catch (error) {
-      console.error(`[bot ${this.name}] model usage`, error);
     } finally {
       await close();
     }
@@ -1622,55 +1636,6 @@ export class RoomHome extends Agent<WorkerEnv> {
     continuation?: boolean;
   }): void {
     this.ctx.waitUntil(this.maybeRunOfficeReview(result));
-  }
-
-  /**
-   * First open after hire: become the named person/role, write soul, greet.
-   * Stamp the hidden user and mark submitted before the snapshot so the
-   * client never paints an idle empty desk first.
-   */
-  private async prepareOfficeIntro(): Promise<boolean> {
-    if (!(await this.isPersonRoom())) return false;
-    if (await this.ctx.storage.get(OFFICE_INTRO_STORAGE)) return false;
-    await this.ensureBotLoaded();
-    if (!this.hireName.trim()) return false;
-    if (!this.turnStreamFn()) return false;
-    if (this.officeId) {
-      const env = productEnv(this.env);
-      const source = agentRuntimeSource(env);
-      const { db, close } = createNeonHttpDb(env.databaseUrl);
-      try {
-        await assertWorkspacePlanAllowed(db, this.officeId, source);
-      } catch {
-        return false;
-      } finally {
-        await close();
-      }
-    }
-    const session = await this.ensureOfficeSession();
-    const bound = await this.officeBound(session);
-    if (!shouldRunOfficeIntro(bound)) {
-      await this.ctx.storage.put(OFFICE_INTRO_STORAGE, true);
-      return false;
-    }
-    try {
-      await appendOfficeUserText(session, {
-        id: crypto.randomUUID(),
-        content: officeIntroUserText({
-          name: this.hireName,
-        }),
-        metadata: {
-          source: OFFICE_INTRO_SOURCE,
-          custom: { source: OFFICE_INTRO_SOURCE },
-        },
-      });
-      await this.ctx.storage.put(OFFICE_INTRO_STORAGE, true);
-      this.officeStatus = "submitted";
-      return true;
-    } catch (error) {
-      console.error("bot actor office intro", this.name, error);
-      return false;
-    }
   }
 
   private async maybeRunOfficeReview(result: {

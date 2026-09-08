@@ -10,6 +10,10 @@ const threadAui = readFileSync(
   join(root, "../components/assistant-ui/elements/thread.aui.tsx"),
   "utf8",
 );
+const toolFallback = readFileSync(
+  join(root, "../components/assistant-ui/elements/tool-fallback.aui.tsx"),
+  "utf8",
+);
 const chatScreen = readFileSync(join(root, "../screens/Chat.tsx"), "utf8");
 const computerPane = readFileSync(
   join(root, "../components/ComputerPane.tsx"),
@@ -286,16 +290,63 @@ describe("office chrome", () => {
     );
   });
 
-  it("keeps Send available while a turn is running", () => {
+  it("keeps working under the last bubble while tools run", () => {
+    expect(threadAui).toMatch(/case "indicator"/);
+    expect(threadAui).toMatch(
+      /case "indicator"[\s\S]*?data-slot="aui_assistant-working"/,
+    );
+    expect(threadAui).toContain("assistantTurnHasRunningTool");
+    expect(threadAui).toMatch(
+      /case "indicator"[\s\S]*if \(toolRunning\) return null/,
+    );
+    expect(threadAui).not.toContain("AssistantWorkingDots");
+  });
+
+  it("always paints tool rows; args stay behind the flag", () => {
+    expect(threadAui).toMatch(
+      /case "tool-call":[\s\S]*ToolFallbackComponent/,
+    );
+    expect(threadAui).not.toMatch(
+      /case "tool-call":[\s\S]*if \(!showToolCalls\) return null/,
+    );
+    expect(threadAui).toMatch(
+      /case "group-tool":[\s\S]*if \(!showToolCalls\) return children/,
+    );
+    expect(toolFallback).toContain("useShowToolCalls");
+    expect(toolFallback).toContain('data-expandable="false"');
+    expect(toolFallback).toContain("expandable={false}");
+    expect(toolFallback).toContain("toolActivityCopy");
+    expect(toolFallback).not.toContain("Used tool");
+  });
+
+  it("does not reserve action-bar height when the bar is hidden", () => {
+    const footer = threadAui.slice(
+      threadAui.indexOf('data-slot="aui_assistant-message-footer"'),
+      threadAui.indexOf("<BranchPicker />"),
+    );
+    expect(footer).toContain("empty:hidden");
+    expect(footer).not.toContain("min-h-7.5");
+  });
+
+  it("floats hover action bars so they do not shift layout", () => {
+    const actionBar = threadAui.slice(
+      threadAui.indexOf("const AssistantActionBar"),
+      threadAui.indexOf("const UserMessage"),
+    );
+    expect(actionBar).toContain('autohideFloat="single-branch"');
+    expect(actionBar).toContain("data-[floating]:absolute");
+  });
+
+  it("merges Stop and Send into one composer slot", () => {
     const actions = threadAui.slice(
-      threadAui.indexOf("const ComposerAction"),
+      threadAui.indexOf("const composerSlotIsStop"),
       threadAui.indexOf("const MessageError"),
     );
     expect(actions).toContain("ComposerPrimitive.Send");
-    expect(actions).not.toMatch(
-      /AuiIf condition=\{\(s\) => !s\.thread\.isRunning && !pending\}/,
-    );
+    expect(actions).toContain("ComposerPrimitive.Cancel");
     expect(actions).toContain("Stop now");
+    expect(actions).toContain("composerSlotIsStop");
+    expect(actions).toContain("s.composer.text.trim()");
   });
 
   it("keeps halt on the composer, not the thread head", () => {
@@ -334,6 +385,12 @@ describe("office chrome", () => {
     expect(css).toMatch(/\.field\s*\{[^}]*min-width:\s*0/s);
     expect(css).toMatch(
       /\.field input,\s*\.field textarea,\s*\.field select\s*\{[^}]*width:\s*100%[^}]*min-width:\s*0/s,
+    );
+    expect(css).toMatch(
+      /\.field \.combobox-field-input\s*\{[^}]*border:\s*0[^}]*padding:\s*0/s,
+    );
+    expect(css).toMatch(
+      /\.settings-main \.field \.combobox-field-input\s*\{[^}]*background:\s*transparent/s,
     );
     expect(css).toMatch(/\.pane-scroll\s*\{[^}]*min-width:\s*0/s);
   });

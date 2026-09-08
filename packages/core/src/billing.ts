@@ -1,10 +1,10 @@
 import {
   USAGE_BILLING_KIND_INCLUDED,
   USAGE_BILLING_KIND_ON_DEMAND,
+  type UsageBillingKind,
   WORKSPACE_PLAN_NONE,
   WORKSPACE_PLAN_REQUIRED_MESSAGE,
   WorkspacePlan,
-  type UsageBillingKind,
 } from "@groxbot/contracts";
 import type { Database } from "@groxbot/db";
 import { workspaceBilling } from "@groxbot/db";
@@ -13,7 +13,6 @@ import {
   computerSecondsToMinutes,
   workspaceMonthlyComputerSeconds,
 } from "./computer-usage.js";
-import { loadHostedUsageMonthly } from "./usage-mirror.js";
 
 export type WorkspaceBillingRow = {
   plan: string;
@@ -46,7 +45,9 @@ export class UsageLimitExceededError extends Error {
 }
 
 /** Usage limits and checkout apply only after Polar is wired. Until then, track usage but do not block. */
-export function billingLimitsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+export function billingLimitsEnabled(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
   return Boolean(env.POLAR_ACCESS_TOKEN?.trim());
 }
 
@@ -194,9 +195,7 @@ export function onDemandUsageActive(
   monthly: MonthlyUsageSnapshot,
 ): boolean {
   if (!includedPoolExhausted(billing, monthly)) return false;
-  return (
-    billing.onDemandEnabled || hostedSubscriptionAllowsUsage(billing)
-  );
+  return billing.onDemandEnabled || hostedSubscriptionAllowsUsage(billing);
 }
 
 export async function getWorkspaceBilling(
@@ -254,22 +253,10 @@ export async function assertHostedUsageAllowed(
   db: Database,
   workspaceId: string,
   env: NodeJS.ProcessEnv,
-  monthly?: MonthlyUsageSnapshot,
+  _monthly?: MonthlyUsageSnapshot,
 ): Promise<HostedUsageDecision> {
-  if (!billingLimitsEnabled(env)) {
-    return USAGE_BILLING_KIND_INCLUDED;
-  }
-  const billing = await ensureWorkspaceBilling(db, workspaceId);
-  const usage = monthly ?? (await loadHostedUsageMonthly(db, workspaceId));
-  const limitsEnforced = billingLimitsEnabled(env);
-  const decision = hostedUsageDecision(billing, usage, { limitsEnforced });
-  if (decision === "blocked") {
-    if (!hostedSubscriptionAllowsUsage(billing)) {
-      throw new UsageLimitExceededError(WORKSPACE_PLAN_REQUIRED_MESSAGE);
-    }
-    throw new UsageLimitExceededError();
-  }
-  return decision;
+  await assertWorkspacePlanAllowed(db, workspaceId, env);
+  return USAGE_BILLING_KIND_INCLUDED;
 }
 
 export type BillingStatus = {
@@ -283,9 +270,9 @@ export type BillingStatus = {
   onDemandSpendCapCents: number | null;
   portalAvailable: boolean;
   checkoutAvailable: boolean;
-  /** 0–100 of monthly included hosted usage. Null when unlimited / no cap. */
+  /** 0–100 of monthly included hosted usage from grox-gateway. Null when unset. */
   includedUsagePercent: number | null;
-  /** Included cap exhausted and on-demand is enabled. */
+  /** Unused: hosted cap is the workspace key, not Polar on-demand. */
   onDemandActive: boolean;
   usage: {
     periodStart: string;
@@ -304,10 +291,10 @@ export async function loadBillingStatus(
 ): Promise<BillingStatus> {
   const enabled = billingEnabled(env);
   const billing = await ensureWorkspaceBilling(db, workspaceId);
-  const [monthly, computerSeconds] = await Promise.all([
-    loadHostedUsageMonthly(db, workspaceId),
-    workspaceMonthlyComputerSeconds(db, workspaceId),
-  ]);
+  const computerSeconds = await workspaceMonthlyComputerSeconds(
+    db,
+    workspaceId,
+  );
   return {
     enabled,
     limitsEnforced: billingLimitsEnabled(env),
@@ -319,13 +306,13 @@ export async function loadBillingStatus(
     onDemandSpendCapCents: billing.onDemandSpendCapCents,
     portalAvailable: enabled,
     checkoutAvailable: enabled,
-    includedUsagePercent: includedUsagePercent(billing, monthly),
-    onDemandActive: onDemandUsageActive(billing, monthly),
+    includedUsagePercent: null,
+    onDemandActive: false,
     usage: {
       periodStart: utcMonthStartIso(),
-      includedSpendCents: monthly.includedSpendCents,
-      onDemandSpendCents: monthly.onDemandSpendCents,
-      includedTokens: monthly.includedTokens,
+      includedSpendCents: 0,
+      onDemandSpendCents: 0,
+      includedTokens: 0,
       computerSeconds,
       computerMinutes: computerSecondsToMinutes(computerSeconds),
     },

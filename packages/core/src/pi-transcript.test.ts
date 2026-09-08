@@ -42,6 +42,9 @@ describe("parse Pi wire", () => {
     });
     expect(user?.role).toBe("user");
     expect(assistant?.role).toBe("assistant");
+    expect(assistant && "usage" in assistant && assistant.usage?.totalTokens).toBe(
+      0,
+    );
     expect(assistant && piAssistantText(assistant)).toBe("ok");
     expect(tool?.role).toBe("toolResult");
     if (user && assistant && tool) {

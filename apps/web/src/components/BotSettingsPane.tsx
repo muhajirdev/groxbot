@@ -1,10 +1,5 @@
 import type { Bot } from "@groxbot/contracts";
-import {
-  CUSTOM_MODEL_SENTINEL,
-  PROVIDER_ORDER,
-  catalogGroupLabel,
-  pickerCatalog,
-} from "@groxbot/contracts";
+import { CUSTOM_MODEL_SENTINEL, pickerCatalog } from "@groxbot/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { patchBot } from "../lib/collections";
@@ -13,6 +8,7 @@ import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
 import { AvatarMark, ShapePicks } from "./Avatar";
 import { CloseIcon } from "./Icons";
+import { ModelField } from "./ModelField";
 
 export function BotSettingsPane(props: {
   bot: Bot;
@@ -163,32 +159,16 @@ export function BotSettingsPane(props: {
           <div className="advanced">
             <label className="field">
               <span>Model</span>
-              <select
+              <ModelField
                 value={model}
-                onChange={(e) => {
-                  const next = e.target.value;
+                catalog={catalog}
+                inherit={{ label: defaultLabel }}
+                onChange={(next) => {
                   setModel(next);
                   if (next !== CUSTOM_MODEL_SENTINEL)
                     void save({ model: next });
                 }}
-              >
-                <option value="">Workspace default ({defaultLabel})</option>
-                {PROVIDER_ORDER.filter((provider) =>
-                  catalog.some((item) => item.provider === provider),
-                ).map((provider) => (
-                  <optgroup key={provider} label={catalogGroupLabel(provider)}>
-                    {catalog
-                      .filter((item) => item.provider === provider)
-                      .map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.label}
-                          {item.available ? "" : " — needs key"}
-                        </option>
-                      ))}
-                  </optgroup>
-                ))}
-                <option value={CUSTOM_MODEL_SENTINEL}>Custom…</option>
-              </select>
+              />
             </label>
             {model === CUSTOM_MODEL_SENTINEL ? (
               <label className="field">

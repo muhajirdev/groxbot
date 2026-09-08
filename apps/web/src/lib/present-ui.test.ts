@@ -137,6 +137,16 @@ describe("PresentSurface", () => {
     expect(html).toContain("https://example.com/chart.png");
   });
 
+  it("paints a File chip when the model omitted $type", () => {
+    const html = renderToStaticMarkup(
+      createElement(PresentSurface, {
+        tree: { path: "invoice.html", place: "computer" },
+      }),
+    );
+    expect(html).toContain('data-aui="file"');
+    expect(html).toContain("invoice.html");
+  });
+
   it("renders a File chip for a computer path", () => {
     const html = renderToStaticMarkup(
       createElement(PresentSurface, {

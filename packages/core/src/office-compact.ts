@@ -64,6 +64,62 @@ export function isContextOverflowError(message?: string | null): boolean {
   );
 }
 
+/** Gemini 3 rejects replayed tool calls when the thought signature is missing, truncated, or from another model. */
+export function isThoughtSignatureError(message?: string | null): boolean {
+  const text = (message ?? "").toLowerCase();
+  if (!text.trim()) return false;
+  return (
+    text.includes("thought_signature") ||
+    text.includes("thought signature") ||
+    text.includes("thoughtsignature")
+  );
+}
+
+const THOUGHT_REPLAY_KEYS = [
+  "thoughtSignature",
+  "thinkingSignature",
+  "textSignature",
+  "reasoning_details",
+] as const;
+
+type ThoughtReplayBlock = Record<string, unknown>;
+
+/** Drop encrypted thinking blobs so a retry can continue after Auto hops or a truncated signature. */
+export function stripThoughtReplay<M>(messages: readonly M[]): M[] {
+  return messages.map((message) => stripThoughtReplayMessage(message));
+}
+
+function stripThoughtReplayMessage<M>(message: M): M {
+  if (!message || typeof message !== "object") return message;
+  const row = message as M & { role?: unknown; content?: unknown };
+  if (row.role !== "assistant") return message;
+  const withoutExtra = stripThoughtReplayRecord(row);
+  let content = withoutExtra.content as unknown;
+  let contentChanged = false;
+  if (Array.isArray(row.content)) {
+    const next = row.content.map((block) => {
+      const stripped = stripThoughtReplayRecord(block);
+      if (stripped !== block) contentChanged = true;
+      return stripped;
+    });
+    if (contentChanged) content = next;
+  }
+  if (withoutExtra === row && !contentChanged) return message;
+  return (
+    contentChanged ? { ...withoutExtra, content } : withoutExtra
+  ) as M;
+}
+
+function stripThoughtReplayRecord<T>(value: T): T {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const record = value as ThoughtReplayBlock;
+  const extra = THOUGHT_REPLAY_KEYS.filter((key) => key in record);
+  if (extra.length === 0) return value;
+  const next = { ...record };
+  for (const key of extra) delete next[key];
+  return next as T;
+}
+
 export function officeModelContextWindow(model: {
   id?: string;
   contextWindow?: number;
@@ -71,6 +127,9 @@ export function officeModelContextWindow(model: {
   const listed = model.contextWindow ?? 0;
   const id = (model.id ?? "").toLowerCase();
   if (id.includes("glm-5.3") || id.includes("glm-5.2")) {
+    return Math.max(listed, HOSTED_OFFICE_CONTEXT_WINDOW);
+  }
+  if (id.includes("groxbot/") || id === "auto" || id === "free") {
     return Math.max(listed, HOSTED_OFFICE_CONTEXT_WINDOW);
   }
   if (listed >= 256_000) return listed;

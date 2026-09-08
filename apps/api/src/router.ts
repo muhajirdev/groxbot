@@ -4,14 +4,16 @@ import {
   SUGGESTED_STARTER_MODEL,
 } from "@groxbot/contracts";
 import {
+  billingLimitsEnabled,
   ComputerFileError,
   ComputerPathError,
   ComputerWriteError,
   createKnowledgeShare,
-  billingLimitsEnabled,
   encryptionSecret,
   ensureWorkspaceBilling,
   getPokeThread,
+  hostedTrialAvailable,
+  isWorkspaceBillingManager,
   KnowledgeFileError,
   KnowledgePathError,
   KnowledgeShareError,
@@ -24,25 +26,24 @@ import {
   loadModelSettings,
   ModelSettingsError,
   needsHostedPlan,
-  hostedTrialAvailable,
   PokeError,
   publishedProfileImage,
-  revokeKnowledgeShare,
-  revokeKnowledgeSharesForPrefix,
   RoutineError,
   RoutineNotFoundError,
   RoutineScheduleError,
+  revokeKnowledgeShare,
+  revokeKnowledgeSharesForPrefix,
   SkillImportError,
   saveModelSettings,
   sleep,
   toBotDto,
   updateWorkspaceOnDemand,
   userHasModelCredentials,
-  isWorkspaceBillingManager,
 } from "@groxbot/core";
 import { guestConnectors, threads, userModelCredentials } from "@groxbot/db";
 import { implement, ORPCError } from "@orpc/server";
 import { and, eq } from "drizzle-orm";
+import { updateAccount } from "./account.js";
 import {
   deleteAdminUserAccount,
   deleteAdminWorkspaceAccount,
@@ -51,7 +52,7 @@ import {
   getAdminWorkspaces,
   purgeAdminData,
 } from "./admin.js";
-import { updateAccount } from "./account.js";
+import { fetchGatewayEntitlement } from "./billing/gateway-entitlement.js";
 import {
   archiveBot,
   createBot,
@@ -76,7 +77,14 @@ import {
   rotateGuest,
 } from "./guests.js";
 import { healthPayload } from "./health.js";
-import { addMcp, connectMcp, listMcp, probeMcp, removeMcp, updateMcp } from "./mcp.js";
+import {
+  addMcp,
+  connectMcp,
+  listMcp,
+  probeMcp,
+  removeMcp,
+  updateMcp,
+} from "./mcp.js";
 import {
   addPlugin,
   connectPlugin,
@@ -121,6 +129,23 @@ import {
 } from "./workspaces.js";
 
 const os = implement(appContract).$context<RpcContext>();
+
+async function workspaceBillingStatus(
+  context: RpcContext,
+  workspaceId: string,
+) {
+  const status = await loadBillingStatus(
+    context.db,
+    workspaceId,
+    agentRuntimeSource(context.env),
+  );
+  const hosted = await fetchGatewayEntitlement(context.env, workspaceId);
+  return {
+    ...status,
+    includedUsagePercent:
+      status.plan === "none" ? null : (hosted?.usagePercent ?? null),
+  };
+}
 
 export const appRouter = os.router({
   health: os.health.handler(async ({ context }) => healthPayload(context.env)),
@@ -169,16 +194,13 @@ export const appRouter = os.router({
       .where(eq(userModelCredentials.workspaceId, actor.workspaceId))
       .limit(1);
     const workspace = await loadWorkspaceRef(context, user);
-    let billing = await ensureWorkspaceBilling(
-      context.db,
-      actor.workspaceId,
-    );
+    let billing = await ensureWorkspaceBilling(context.db, actor.workspaceId);
     // Checkout can succeed before the Polar webhook lands. Settings already
     // refreshes Polar; office `me` must too or reload still paints the gate.
     if (context.billing.enabled() && billing.plan === "none") {
-      await context.billing.refreshCustomerState(actor.workspaceId).catch(
-        () => {},
-      );
+      await context.billing
+        .refreshCustomerState(actor.workspaceId)
+        .catch(() => {});
       billing = await ensureWorkspaceBilling(context.db, actor.workspaceId);
     }
     return {
@@ -342,16 +364,7 @@ export const appRouter = os.router({
   billing: {
     status: os.billing.status.handler(async ({ context }) => {
       const actor = await requireActor(context);
-      if (context.billing.enabled()) {
-        await context.billing.refreshCustomerState(actor.workspaceId).catch(
-          () => {},
-        );
-      }
-      return loadBillingStatus(
-        context.db,
-        actor.workspaceId,
-        agentRuntimeSource(context.env),
-      );
+      return workspaceBillingStatus(context, actor.workspaceId);
     }),
     checkout: os.billing.checkout.handler(async ({ context, input }) => {
       const actor = await requireActor(context);
@@ -372,9 +385,10 @@ export const appRouter = os.router({
         });
       }
       const successUrl = `${context.env.webOrigin.replace(/\/$/, "")}/`;
-      const forwarded = context.headers?.get("CF-Connecting-IP")?.trim()
-        || context.headers?.get("X-Forwarded-For")?.split(",")[0]?.trim()
-        || undefined;
+      const forwarded =
+        context.headers?.get("CF-Connecting-IP")?.trim() ||
+        context.headers?.get("X-Forwarded-For")?.split(",")[0]?.trim() ||
+        undefined;
       return context.billing.createCheckout({
         workspaceId: actor.workspaceId,
         payerUserId: actor.userId,
@@ -409,34 +423,32 @@ export const appRouter = os.router({
         returnUrl,
       });
     }),
-    updateOnDemand: os.billing.updateOnDemand.handler(async ({ context, input }) => {
-      const actor = await requireActor(context);
-      if (!context.billing.enabled()) {
-        throw new ORPCError("FAILED_PRECONDITION", {
-          message: "Billing is not available on this deployment.",
+    updateOnDemand: os.billing.updateOnDemand.handler(
+      async ({ context, input }) => {
+        const actor = await requireActor(context);
+        if (!context.billing.enabled()) {
+          throw new ORPCError("FAILED_PRECONDITION", {
+            message: "Billing is not available on this deployment.",
+          });
+        }
+        if (
+          !(await isWorkspaceBillingManager(
+            context.db,
+            actor.userId,
+            actor.workspaceId,
+          ))
+        ) {
+          throw new ORPCError("FORBIDDEN", {
+            message: "Only workspace owners and admins can manage billing.",
+          });
+        }
+        await updateWorkspaceOnDemand(context.db, actor.workspaceId, {
+          onDemandEnabled: input.onDemandEnabled,
+          onDemandSpendCapCents: input.onDemandSpendCapCents ?? null,
         });
-      }
-      if (
-        !(await isWorkspaceBillingManager(
-          context.db,
-          actor.userId,
-          actor.workspaceId,
-        ))
-      ) {
-        throw new ORPCError("FORBIDDEN", {
-          message: "Only workspace owners and admins can manage billing.",
-        });
-      }
-      await updateWorkspaceOnDemand(context.db, actor.workspaceId, {
-        onDemandEnabled: input.onDemandEnabled,
-        onDemandSpendCapCents: input.onDemandSpendCapCents ?? null,
-      });
-      return loadBillingStatus(
-        context.db,
-        actor.workspaceId,
-        agentRuntimeSource(context.env),
-      );
-    }),
+        return workspaceBillingStatus(context, actor.workspaceId);
+      },
+    ),
   },
   bots: {
     list: os.bots.list.handler(async ({ context }) => {

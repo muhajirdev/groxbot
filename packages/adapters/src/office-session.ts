@@ -50,6 +50,11 @@ export async function persistOfficeSessionEvent(
     return session.appendMessage(message as AgentMessage);
   }
   if (message.role !== "assistant") return undefined;
+  const stopReason =
+    "stopReason" in message && typeof message.stopReason === "string"
+      ? message.stopReason
+      : undefined;
+  if (stopReason === "error" || stopReason === "aborted") return undefined;
   if (!assistantId || (await session.getStorage().getEntry(assistantId))) {
     return session.appendMessage(message as AgentMessage);
   }

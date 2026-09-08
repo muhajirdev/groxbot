@@ -14,9 +14,9 @@ import {
   ChevronDownIcon as ChevronDownGlyph,
   ChevronLeftIcon as ChevronLeftGlyph,
   ChevronRightIcon as ChevronRightGlyph,
+  CircleQuestionMarkIcon,
   ComputerIcon,
   Copy01Icon,
-  CustomerService01Icon,
   DashboardSquare01Icon,
   Delete02Icon,
   Download01Icon,
@@ -239,8 +239,8 @@ export function PeoplePlusIcon(props: IconProps) {
   return <Glyph icon={AddTeamIcon} {...props} />;
 }
 
-export function ChatIcon(props: IconProps) {
-  return <Glyph icon={CustomerService01Icon} {...props} />;
+export function HelpIcon(props: IconProps) {
+  return <Glyph icon={CircleQuestionMarkIcon} {...props} />;
 }
 
 export function DownloadIcon(props: IconProps) {

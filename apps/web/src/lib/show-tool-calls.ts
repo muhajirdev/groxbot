@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-/** Dev chrome in the thread. Off by default. Console: localStorage.setItem("groxbot.showToolCalls", "1"); location.reload() */
+/** Expandable tool args/results. Compact activity rows always show. Console: localStorage.setItem("groxbot.showToolCalls", "1"); location.reload() */
 export const SHOW_TOOL_CALLS_KEY = "groxbot.showToolCalls";
 const EVENT = "groxbot-show-tool-calls";
 

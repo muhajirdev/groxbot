@@ -268,19 +268,6 @@ export function YouScreen({ navigation }: Props) {
       />
       <Field label="Gateway id" value={cfGateway} onChangeText={setCfGateway} />
       <Button label="Save keys" onPress={() => void saveModels()} busy={busy} />
-      {modelsQuery.data?.usage ? (
-        <View>
-          <Text style={styles.section}>Hosted usage</Text>
-          <Text style={styles.meta}>
-            {modelsQuery.data.usage.totalTokens} tokens ·{" "}
-            {modelsQuery.data.usage.requests} requests
-          </Text>
-          <Text style={styles.meta}>
-            {modelsQuery.data.usage.promptTokens} prompt ·{" "}
-            {modelsQuery.data.usage.completionTokens} completion
-          </Text>
-        </View>
-      ) : null}
       <Button label="Sign out" tone="ghost" onPress={() => void signOut()} />
     </Screen>
   );

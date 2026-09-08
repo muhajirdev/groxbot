@@ -8,6 +8,7 @@ import {
   planListUsd,
   planPeriodLabel,
   stepPlanPeople,
+  teamProductivityLiftPercent,
 } from "./plan-compare";
 
 describe("labMonthlyUsd", () => {
@@ -33,5 +34,11 @@ describe("labMonthlyUsd", () => {
     expect(clampPlanPeople(0)).toBe(1);
     expect(peopleLabel(1)).toBe("1 person");
     expect(peopleLabel(10)).toBe("10 people");
+  });
+
+  it("raises team productivity as headcount goes up", () => {
+    expect(teamProductivityLiftPercent(1)).toBe(8);
+    expect(teamProductivityLiftPercent(10)).toBe(80);
+    expect(teamProductivityLiftPercent(20)).toBe(160);
   });
 });

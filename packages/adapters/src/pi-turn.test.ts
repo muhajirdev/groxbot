@@ -246,4 +246,67 @@ describe("runOwnedPiTurn", () => {
     expect(seen[0]).toMatch(/compacted into the following summary/);
     expect(seen[0]).toMatch(/Keep the inbox current/);
   });
+
+  it("strips encrypted thought replay before the model call", async () => {
+    const seen: unknown[] = [];
+    const result = await runPiTurn({
+      systemPrompt: "You are Piper.",
+      messages: [
+        { role: "user", content: "run it", timestamp: 1 },
+        {
+          role: "assistant",
+          content: [
+            {
+              type: "toolCall",
+              id: "call_1",
+              name: "bash",
+              arguments: { command: "ls" },
+              thoughtSignature: JSON.stringify({
+                type: "reasoning.encrypted",
+                id: "rs_1",
+                data: "stale-blob",
+              }),
+            },
+          ],
+          api: "openai-completions",
+          provider: "openai",
+          model: "test-model",
+          usage: {
+            input: 0,
+            output: 0,
+            cacheRead: 0,
+            cacheWrite: 0,
+            totalTokens: 0,
+            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+          },
+          stopReason: "toolUse",
+          timestamp: 2,
+        },
+        {
+          role: "toolResult",
+          toolCallId: "call_1",
+          toolName: "bash",
+          content: [{ type: "text", text: "ok" }],
+          isError: false,
+          timestamp: 3,
+        },
+      ],
+      model,
+      stripThoughtReplay: true,
+      streamFn: (called, context) => {
+        const assistant = context.messages.find(
+          (message) => message.role === "assistant",
+        );
+        seen.push(
+          assistant && "content" in assistant
+            ? assistant.content
+            : assistant,
+        );
+        return scriptedPiStreamFn("ok")(called, context);
+      },
+    });
+    expect(result.text).toBe("ok");
+    expect(JSON.stringify(seen[0])).not.toMatch(/stale-blob/);
+    expect(JSON.stringify(seen[0])).not.toMatch(/thoughtSignature/);
+  });
 });

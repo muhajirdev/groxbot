@@ -60,6 +60,15 @@ export const OFFICE_TOOL_PROMPT: Record<string, OfficeToolPromptContribution> =
     to_markdown: {
       snippet: "Convert HTML or a computer file (PDF/doc) to Markdown.",
     },
+    render_pdf: {
+      snippet: "Render HTML or a URL to a PDF on this computer.",
+      guidelines: [
+        "Use render_pdf or render_screenshot to print HTML or a URL. Do not open a browser just to read a page — use fetch_url.",
+      ],
+    },
+    render_screenshot: {
+      snippet: "Capture a PNG of HTML or a URL on this computer.",
+    },
     [PRESENT_TOOL_NAME]: {
       snippet:
         "Show a glanceable JSON tree in the thread (`$type` plus `children`). Facts, a short table, a chart, or a File chip.",

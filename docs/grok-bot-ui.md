@@ -72,7 +72,7 @@ Composer:
 - Attach / drag files (they cap ~6 at once).
 - `@` = Bot, group, routine, connector.
 - `/` = saved skill.
-- Send while it is working = redirect. “Stop now” = halt (does not undo).
+- One corner disc: empty + working = stop; otherwise send. Send while it is working = redirect. Stop = halt (does not undo). “Working” stays up until the first bubble or activity row. Tool activity stays visible as a short human line (`Set up the desk`, `Worked in code`); args/results expand only with `groxbot.showToolCalls`.
 
 Job-title chips and the office **New bot** name dialog share a curated hire catalog of full bot packages (soul, starter memory, skills) — including roles seeded from public Grok Bot marketplace listings. **New bot** asks for a name first. **Browse bot templates** opens the marketplace — same templates, same `bots.create` path. This is **not** Plugins (Composio connectors), **not** Knowledge skills/playbooks, and **not** a user-published template store (static catalog for now).
 
@@ -199,6 +199,6 @@ Empty composer and New Agent must still work without those.
 4. Computer pane: this bot’s Cloudflare Computer workspace (empty first). No takeover, no desk RPC. Wakeup is the bot’s actor, not a queue UI.
 5. Edit profile on the Bot, not a separate admin app.
 6. First-run does not require Composio.
-7. **Models on first-run + Settings → Models**: Groxbot hosted Workers AI (`env.AI` through Cloudflare AI Gateway) plus workspace BYOK keys (encrypted). BYOK wins. Default model is hosted Workers AI when no key is pasted. A bot can override. Hosted token usage is counted per workspace. Messaging fails closed until a matching key or the hosted gateway exists (office banner as fallback).
+7. **Models on first-run + Settings → Models**: Groxbot hosted Auto / Free (Polar-gated grox-gateway) plus leftover named hosted models and workspace BYOK keys (encrypted). BYOK wins. Default model is hosted Auto when no key is pasted. A bot can override. Hosted token usage is counted per workspace. Messaging fails closed until a matching key or the hosted gateway exists (office banner as fallback).
 
 Sources: xAI Grok Bot docs dated around 11 Aug 2026, [x.ai/bot](https://x.ai/bot), [introducing grok bot](https://x.ai/news/introducing-grok-bot).

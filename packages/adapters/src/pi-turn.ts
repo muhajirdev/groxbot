@@ -34,6 +34,7 @@ import {
 import {
   HOSTED_OFFICE_CONTEXT_WINDOW,
   pruneLiveToolResults,
+  stripThoughtReplay,
 } from "@groxbot/core";
 import type { ChatMessage, GatewayEnv } from "./gateway.js";
 import {
@@ -218,11 +219,20 @@ export async function runPiTurn(input: {
   onEvent?: (event: AgentEvent) => void | Promise<void>;
   getSteeringMessages?: () => Promise<AgentMessage[]> | AgentMessage[];
   getFollowUpMessages?: () => Promise<AgentMessage[]> | AgentMessage[];
+  stripThoughtReplay?: boolean;
 }): Promise<PiTurnResult> {
   let text = "";
   let usage: Usage | null = null;
   let stopReason: StopReason = "stop";
   let errorMessage: string | undefined;
+  const streamFn: StreamFn = input.stripThoughtReplay
+    ? (model, context, options) =>
+        input.streamFn(
+          model,
+          { ...context, messages: stripThoughtReplay(context.messages) },
+          options,
+        )
+    : input.streamFn;
   await runAgentLoopContinue(
     {
       systemPrompt: input.systemPrompt,
@@ -248,7 +258,7 @@ export async function runPiTurn(input: {
       errorMessage = message.errorMessage;
     },
     input.signal,
-    input.streamFn,
+    streamFn,
   );
   return { text, usage, stopReason, errorMessage };
 }
@@ -261,6 +271,7 @@ export async function runOwnedPiTurn(
     onEvent?: (event: AgentEvent) => void | Promise<void>;
     getSteeringMessages?: () => Promise<AgentMessage[]> | AgentMessage[];
     getFollowUpMessages?: () => Promise<AgentMessage[]> | AgentMessage[];
+    stripThoughtReplay?: boolean;
   },
 ): Promise<PiTurnResult> {
   return runPiTurn(input);

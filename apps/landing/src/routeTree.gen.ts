@@ -13,7 +13,10 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AiDotjsonRouteImport } from './routes/ai[.]json'
 import { Route as AiDottxtRouteImport } from './routes/ai[.]txt'
 import { Route as BrandDottxtRouteImport } from './routes/brand[.]txt'
+import { Route as ChangelogRouteImport } from './routes/changelog'
+import { Route as ContactRouteImport } from './routes/contact'
 import { Route as DeveloperAiDottxtRouteImport } from './routes/developer-ai[.]txt'
+import { Route as EnterpriseRouteImport } from './routes/enterprise'
 import { Route as FaqAiDottxtRouteImport } from './routes/faq-ai[.]txt'
 import { Route as FaviconDotsvgRouteImport } from './routes/favicon[.]svg'
 import { Route as IdentityDotjsonRouteImport } from './routes/identity[.]json'
@@ -27,10 +30,13 @@ import { Route as McpDotjsonRouteImport } from './routes/mcp[.]json'
 import { Route as OgDotsvgRouteImport } from './routes/og[.]svg'
 import { Route as PressKitRouteImport } from './routes/press-kit'
 import { Route as PressDotmdRouteImport } from './routes/press[.]md'
+import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as RobotsAiDottxtRouteImport } from './routes/robots-ai[.]txt'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SiteDotwebmanifestRouteImport } from './routes/site[.]webmanifest'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as DotwellKnownApiCatalogRouteImport } from './routes/[.]well-known/api-catalog'
 import { Route as DotwellKnownMcpRouteImport } from './routes/[.]well-known/mcp'
 import { Route as DotwellKnownMcpDotjsonRouteImport } from './routes/[.]well-known/mcp[.]json'
@@ -41,6 +47,8 @@ import { Route as IntegrationsSlugRouteImport } from './routes/integrations/$slu
 import { Route as PressIndexRouteImport } from './routes/press/index'
 import { Route as PressFileRouteImport } from './routes/press/$file'
 import { Route as SShareIdRouteImport } from './routes/s/$shareId'
+import { Route as TemplatesIndexRouteImport } from './routes/templates/index'
+import { Route as TemplatesSlugRouteImport } from './routes/templates/$slug'
 import { Route as UseCasesIndexRouteImport } from './routes/use-cases/index'
 import { Route as UseCasesSlugRouteImport } from './routes/use-cases/$slug'
 import { Route as DotwellKnownMcpServerCardDotjsonRouteImport } from './routes/[.]well-known/mcp/server-card[.]json'
@@ -66,9 +74,24 @@ const BrandDottxtRoute = BrandDottxtRouteImport.update({
   path: '/brand.txt',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChangelogRoute = ChangelogRouteImport.update({
+  id: '/changelog',
+  path: '/changelog',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DeveloperAiDottxtRoute = DeveloperAiDottxtRouteImport.update({
   id: '/developer-ai.txt',
   path: '/developer-ai.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EnterpriseRoute = EnterpriseRouteImport.update({
+  id: '/enterprise',
+  path: '/enterprise',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FaqAiDottxtRoute = FaqAiDottxtRouteImport.update({
@@ -136,6 +159,16 @@ const PressDotmdRoute = PressDotmdRouteImport.update({
   path: '/press.md',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PricingRoute = PricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RobotsAiDottxtRoute = RobotsAiDottxtRouteImport.update({
   id: '/robots-ai.txt',
   path: '/robots-ai.txt',
@@ -154,6 +187,11 @@ const SiteDotwebmanifestRoute = SiteDotwebmanifestRouteImport.update({
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DotwellKnownApiCatalogRoute = DotwellKnownApiCatalogRouteImport.update({
@@ -206,6 +244,16 @@ const SShareIdRoute = SShareIdRouteImport.update({
   path: '/s/$shareId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TemplatesIndexRoute = TemplatesIndexRouteImport.update({
+  id: '/templates/',
+  path: '/templates/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TemplatesSlugRoute = TemplatesSlugRouteImport.update({
+  id: '/templates/$slug',
+  path: '/templates/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const UseCasesIndexRoute = UseCasesIndexRouteImport.update({
   id: '/use-cases/',
   path: '/use-cases/',
@@ -234,7 +282,10 @@ export interface FileRoutesByFullPath {
   '/ai.json': typeof AiDotjsonRoute
   '/ai.txt': typeof AiDottxtRoute
   '/brand.txt': typeof BrandDottxtRoute
+  '/changelog': typeof ChangelogRoute
+  '/contact': typeof ContactRoute
   '/developer-ai.txt': typeof DeveloperAiDottxtRoute
+  '/enterprise': typeof EnterpriseRoute
   '/faq-ai.txt': typeof FaqAiDottxtRoute
   '/favicon.svg': typeof FaviconDotsvgRoute
   '/identity.json': typeof IdentityDotjsonRoute
@@ -248,10 +299,13 @@ export interface FileRoutesByFullPath {
   '/og.svg': typeof OgDotsvgRoute
   '/press-kit': typeof PressKitRoute
   '/press.md': typeof PressDotmdRoute
+  '/pricing': typeof PricingRoute
+  '/privacy': typeof PrivacyRoute
   '/robots-ai.txt': typeof RobotsAiDottxtRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/site.webmanifest': typeof SiteDotwebmanifestRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms': typeof TermsRoute
   '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
   '/.well-known/mcp': typeof DotwellKnownMcpRouteWithChildren
   '/.well-known/mcp.json': typeof DotwellKnownMcpDotjsonRoute
@@ -259,10 +313,12 @@ export interface FileRoutesByFullPath {
   '/integrations/$slug': typeof IntegrationsSlugRoute
   '/press/$file': typeof PressFileRoute
   '/s/$shareId': typeof SShareIdRoute
+  '/templates/$slug': typeof TemplatesSlugRoute
   '/use-cases/$slug': typeof UseCasesSlugRoute
   '/compare/': typeof CompareIndexRoute
   '/integrations/': typeof IntegrationsIndexRoute
   '/press/': typeof PressIndexRoute
+  '/templates/': typeof TemplatesIndexRoute
   '/use-cases/': typeof UseCasesIndexRoute
   '/.well-known/mcp/server-card.json': typeof DotwellKnownMcpServerCardDotjsonRoute
   '/integrations/category/$category': typeof IntegrationsCategoryCategoryRoute
@@ -272,7 +328,10 @@ export interface FileRoutesByTo {
   '/ai.json': typeof AiDotjsonRoute
   '/ai.txt': typeof AiDottxtRoute
   '/brand.txt': typeof BrandDottxtRoute
+  '/changelog': typeof ChangelogRoute
+  '/contact': typeof ContactRoute
   '/developer-ai.txt': typeof DeveloperAiDottxtRoute
+  '/enterprise': typeof EnterpriseRoute
   '/faq-ai.txt': typeof FaqAiDottxtRoute
   '/favicon.svg': typeof FaviconDotsvgRoute
   '/identity.json': typeof IdentityDotjsonRoute
@@ -286,10 +345,13 @@ export interface FileRoutesByTo {
   '/og.svg': typeof OgDotsvgRoute
   '/press-kit': typeof PressKitRoute
   '/press.md': typeof PressDotmdRoute
+  '/pricing': typeof PricingRoute
+  '/privacy': typeof PrivacyRoute
   '/robots-ai.txt': typeof RobotsAiDottxtRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/site.webmanifest': typeof SiteDotwebmanifestRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms': typeof TermsRoute
   '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
   '/.well-known/mcp': typeof DotwellKnownMcpRouteWithChildren
   '/.well-known/mcp.json': typeof DotwellKnownMcpDotjsonRoute
@@ -297,10 +359,12 @@ export interface FileRoutesByTo {
   '/integrations/$slug': typeof IntegrationsSlugRoute
   '/press/$file': typeof PressFileRoute
   '/s/$shareId': typeof SShareIdRoute
+  '/templates/$slug': typeof TemplatesSlugRoute
   '/use-cases/$slug': typeof UseCasesSlugRoute
   '/compare': typeof CompareIndexRoute
   '/integrations': typeof IntegrationsIndexRoute
   '/press': typeof PressIndexRoute
+  '/templates': typeof TemplatesIndexRoute
   '/use-cases': typeof UseCasesIndexRoute
   '/.well-known/mcp/server-card.json': typeof DotwellKnownMcpServerCardDotjsonRoute
   '/integrations/category/$category': typeof IntegrationsCategoryCategoryRoute
@@ -311,7 +375,10 @@ export interface FileRoutesById {
   '/ai.json': typeof AiDotjsonRoute
   '/ai.txt': typeof AiDottxtRoute
   '/brand.txt': typeof BrandDottxtRoute
+  '/changelog': typeof ChangelogRoute
+  '/contact': typeof ContactRoute
   '/developer-ai.txt': typeof DeveloperAiDottxtRoute
+  '/enterprise': typeof EnterpriseRoute
   '/faq-ai.txt': typeof FaqAiDottxtRoute
   '/favicon.svg': typeof FaviconDotsvgRoute
   '/identity.json': typeof IdentityDotjsonRoute
@@ -325,10 +392,13 @@ export interface FileRoutesById {
   '/og.svg': typeof OgDotsvgRoute
   '/press-kit': typeof PressKitRoute
   '/press.md': typeof PressDotmdRoute
+  '/pricing': typeof PricingRoute
+  '/privacy': typeof PrivacyRoute
   '/robots-ai.txt': typeof RobotsAiDottxtRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/site.webmanifest': typeof SiteDotwebmanifestRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms': typeof TermsRoute
   '/.well-known/api-catalog': typeof DotwellKnownApiCatalogRoute
   '/.well-known/mcp': typeof DotwellKnownMcpRouteWithChildren
   '/.well-known/mcp.json': typeof DotwellKnownMcpDotjsonRoute
@@ -336,10 +406,12 @@ export interface FileRoutesById {
   '/integrations/$slug': typeof IntegrationsSlugRoute
   '/press/$file': typeof PressFileRoute
   '/s/$shareId': typeof SShareIdRoute
+  '/templates/$slug': typeof TemplatesSlugRoute
   '/use-cases/$slug': typeof UseCasesSlugRoute
   '/compare/': typeof CompareIndexRoute
   '/integrations/': typeof IntegrationsIndexRoute
   '/press/': typeof PressIndexRoute
+  '/templates/': typeof TemplatesIndexRoute
   '/use-cases/': typeof UseCasesIndexRoute
   '/.well-known/mcp/server-card.json': typeof DotwellKnownMcpServerCardDotjsonRoute
   '/integrations/category/$category': typeof IntegrationsCategoryCategoryRoute
@@ -351,7 +423,10 @@ export interface FileRouteTypes {
     | '/ai.json'
     | '/ai.txt'
     | '/brand.txt'
+    | '/changelog'
+    | '/contact'
     | '/developer-ai.txt'
+    | '/enterprise'
     | '/faq-ai.txt'
     | '/favicon.svg'
     | '/identity.json'
@@ -365,10 +440,13 @@ export interface FileRouteTypes {
     | '/og.svg'
     | '/press-kit'
     | '/press.md'
+    | '/pricing'
+    | '/privacy'
     | '/robots-ai.txt'
     | '/robots.txt'
     | '/site.webmanifest'
     | '/sitemap.xml'
+    | '/terms'
     | '/.well-known/api-catalog'
     | '/.well-known/mcp'
     | '/.well-known/mcp.json'
@@ -376,10 +454,12 @@ export interface FileRouteTypes {
     | '/integrations/$slug'
     | '/press/$file'
     | '/s/$shareId'
+    | '/templates/$slug'
     | '/use-cases/$slug'
     | '/compare/'
     | '/integrations/'
     | '/press/'
+    | '/templates/'
     | '/use-cases/'
     | '/.well-known/mcp/server-card.json'
     | '/integrations/category/$category'
@@ -389,7 +469,10 @@ export interface FileRouteTypes {
     | '/ai.json'
     | '/ai.txt'
     | '/brand.txt'
+    | '/changelog'
+    | '/contact'
     | '/developer-ai.txt'
+    | '/enterprise'
     | '/faq-ai.txt'
     | '/favicon.svg'
     | '/identity.json'
@@ -403,10 +486,13 @@ export interface FileRouteTypes {
     | '/og.svg'
     | '/press-kit'
     | '/press.md'
+    | '/pricing'
+    | '/privacy'
     | '/robots-ai.txt'
     | '/robots.txt'
     | '/site.webmanifest'
     | '/sitemap.xml'
+    | '/terms'
     | '/.well-known/api-catalog'
     | '/.well-known/mcp'
     | '/.well-known/mcp.json'
@@ -414,10 +500,12 @@ export interface FileRouteTypes {
     | '/integrations/$slug'
     | '/press/$file'
     | '/s/$shareId'
+    | '/templates/$slug'
     | '/use-cases/$slug'
     | '/compare'
     | '/integrations'
     | '/press'
+    | '/templates'
     | '/use-cases'
     | '/.well-known/mcp/server-card.json'
     | '/integrations/category/$category'
@@ -427,7 +515,10 @@ export interface FileRouteTypes {
     | '/ai.json'
     | '/ai.txt'
     | '/brand.txt'
+    | '/changelog'
+    | '/contact'
     | '/developer-ai.txt'
+    | '/enterprise'
     | '/faq-ai.txt'
     | '/favicon.svg'
     | '/identity.json'
@@ -441,10 +532,13 @@ export interface FileRouteTypes {
     | '/og.svg'
     | '/press-kit'
     | '/press.md'
+    | '/pricing'
+    | '/privacy'
     | '/robots-ai.txt'
     | '/robots.txt'
     | '/site.webmanifest'
     | '/sitemap.xml'
+    | '/terms'
     | '/.well-known/api-catalog'
     | '/.well-known/mcp'
     | '/.well-known/mcp.json'
@@ -452,10 +546,12 @@ export interface FileRouteTypes {
     | '/integrations/$slug'
     | '/press/$file'
     | '/s/$shareId'
+    | '/templates/$slug'
     | '/use-cases/$slug'
     | '/compare/'
     | '/integrations/'
     | '/press/'
+    | '/templates/'
     | '/use-cases/'
     | '/.well-known/mcp/server-card.json'
     | '/integrations/category/$category'
@@ -466,7 +562,10 @@ export interface RootRouteChildren {
   AiDotjsonRoute: typeof AiDotjsonRoute
   AiDottxtRoute: typeof AiDottxtRoute
   BrandDottxtRoute: typeof BrandDottxtRoute
+  ChangelogRoute: typeof ChangelogRoute
+  ContactRoute: typeof ContactRoute
   DeveloperAiDottxtRoute: typeof DeveloperAiDottxtRoute
+  EnterpriseRoute: typeof EnterpriseRoute
   FaqAiDottxtRoute: typeof FaqAiDottxtRoute
   FaviconDotsvgRoute: typeof FaviconDotsvgRoute
   IdentityDotjsonRoute: typeof IdentityDotjsonRoute
@@ -480,10 +579,13 @@ export interface RootRouteChildren {
   OgDotsvgRoute: typeof OgDotsvgRoute
   PressKitRoute: typeof PressKitRoute
   PressDotmdRoute: typeof PressDotmdRoute
+  PricingRoute: typeof PricingRoute
+  PrivacyRoute: typeof PrivacyRoute
   RobotsAiDottxtRoute: typeof RobotsAiDottxtRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SiteDotwebmanifestRoute: typeof SiteDotwebmanifestRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  TermsRoute: typeof TermsRoute
   DotwellKnownApiCatalogRoute: typeof DotwellKnownApiCatalogRoute
   DotwellKnownMcpRoute: typeof DotwellKnownMcpRouteWithChildren
   DotwellKnownMcpDotjsonRoute: typeof DotwellKnownMcpDotjsonRoute
@@ -491,10 +593,12 @@ export interface RootRouteChildren {
   IntegrationsSlugRoute: typeof IntegrationsSlugRoute
   PressFileRoute: typeof PressFileRoute
   SShareIdRoute: typeof SShareIdRoute
+  TemplatesSlugRoute: typeof TemplatesSlugRoute
   UseCasesSlugRoute: typeof UseCasesSlugRoute
   CompareIndexRoute: typeof CompareIndexRoute
   IntegrationsIndexRoute: typeof IntegrationsIndexRoute
   PressIndexRoute: typeof PressIndexRoute
+  TemplatesIndexRoute: typeof TemplatesIndexRoute
   UseCasesIndexRoute: typeof UseCasesIndexRoute
   IntegrationsCategoryCategoryRoute: typeof IntegrationsCategoryCategoryRoute
 }
@@ -529,11 +633,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BrandDottxtRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/changelog': {
+      id: '/changelog'
+      path: '/changelog'
+      fullPath: '/changelog'
+      preLoaderRoute: typeof ChangelogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/developer-ai.txt': {
       id: '/developer-ai.txt'
       path: '/developer-ai.txt'
       fullPath: '/developer-ai.txt'
       preLoaderRoute: typeof DeveloperAiDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/enterprise': {
+      id: '/enterprise'
+      path: '/enterprise'
+      fullPath: '/enterprise'
+      preLoaderRoute: typeof EnterpriseRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/faq-ai.txt': {
@@ -627,6 +752,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PressDotmdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pricing': {
+      id: '/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/robots-ai.txt': {
       id: '/robots-ai.txt'
       path: '/robots-ai.txt'
@@ -653,6 +792,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/.well-known/api-catalog': {
@@ -725,6 +871,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SShareIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/templates/': {
+      id: '/templates/'
+      path: '/templates'
+      fullPath: '/templates/'
+      preLoaderRoute: typeof TemplatesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/templates/$slug': {
+      id: '/templates/$slug'
+      path: '/templates/$slug'
+      fullPath: '/templates/$slug'
+      preLoaderRoute: typeof TemplatesSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/use-cases/': {
       id: '/use-cases/'
       path: '/use-cases'
@@ -773,7 +933,10 @@ const rootRouteChildren: RootRouteChildren = {
   AiDotjsonRoute: AiDotjsonRoute,
   AiDottxtRoute: AiDottxtRoute,
   BrandDottxtRoute: BrandDottxtRoute,
+  ChangelogRoute: ChangelogRoute,
+  ContactRoute: ContactRoute,
   DeveloperAiDottxtRoute: DeveloperAiDottxtRoute,
+  EnterpriseRoute: EnterpriseRoute,
   FaqAiDottxtRoute: FaqAiDottxtRoute,
   FaviconDotsvgRoute: FaviconDotsvgRoute,
   IdentityDotjsonRoute: IdentityDotjsonRoute,
@@ -787,10 +950,13 @@ const rootRouteChildren: RootRouteChildren = {
   OgDotsvgRoute: OgDotsvgRoute,
   PressKitRoute: PressKitRoute,
   PressDotmdRoute: PressDotmdRoute,
+  PricingRoute: PricingRoute,
+  PrivacyRoute: PrivacyRoute,
   RobotsAiDottxtRoute: RobotsAiDottxtRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   SiteDotwebmanifestRoute: SiteDotwebmanifestRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  TermsRoute: TermsRoute,
   DotwellKnownApiCatalogRoute: DotwellKnownApiCatalogRoute,
   DotwellKnownMcpRoute: DotwellKnownMcpRouteWithChildren,
   DotwellKnownMcpDotjsonRoute: DotwellKnownMcpDotjsonRoute,
@@ -798,10 +964,12 @@ const rootRouteChildren: RootRouteChildren = {
   IntegrationsSlugRoute: IntegrationsSlugRoute,
   PressFileRoute: PressFileRoute,
   SShareIdRoute: SShareIdRoute,
+  TemplatesSlugRoute: TemplatesSlugRoute,
   UseCasesSlugRoute: UseCasesSlugRoute,
   CompareIndexRoute: CompareIndexRoute,
   IntegrationsIndexRoute: IntegrationsIndexRoute,
   PressIndexRoute: PressIndexRoute,
+  TemplatesIndexRoute: TemplatesIndexRoute,
   UseCasesIndexRoute: UseCasesIndexRoute,
   IntegrationsCategoryCategoryRoute: IntegrationsCategoryCategoryRoute,
 }

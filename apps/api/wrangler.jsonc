@@ -26,7 +26,8 @@
 		"binding": "AI"
 	},
 	"browser": {
-		"binding": "BROWSER"
+		"binding": "BROWSER",
+		"remote": true
 	},
 	"send_email": [
 		{

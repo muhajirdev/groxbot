@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useShowToolCalls } from "@/lib/show-tool-calls";
+import { toolActivityCopy, type ToolActivityKind } from "@/lib/tool-copy";
 import { SpiralLoader } from "./spiral-loader";
 
 const ANIMATION_DURATION = 200;
@@ -126,28 +128,23 @@ function ToolFallbackDuration({
 function ToolFallbackTrigger({
   toolName,
   status,
+  expandable = true,
   className,
   ...props
 }: React.ComponentProps<typeof CollapsibleTrigger> & {
   toolName: string;
   status?: ToolCallMessagePartStatus;
+  expandable?: boolean;
 }) {
   const statusType = status?.type ?? "complete";
   const isRunning = statusType === "running";
   const isCancelled =
     status?.type === "incomplete" && status.reason === "cancelled";
   const Icon = isRunning ? null : statusIconMap[statusType];
-  const label = isCancelled ? "Cancelled tool" : "Used tool";
-
-  return (
-    <CollapsibleTrigger
-      data-slot="tool-fallback-trigger"
-      className={cn(
-        "aui-tool-fallback-trigger group/trigger text-muted-foreground hover:text-foreground flex w-fit origin-left items-center gap-2 py-1.5 text-sm transition-[color,scale] active:scale-[0.98]",
-        className,
-      )}
-      {...props}
-    >
+  const kind: ToolActivityKind = isCancelled ? "cancelled" : statusType;
+  const label = toolActivityCopy(toolName, kind);
+  const inner = (
+    <>
       {Icon ? (
         <Icon
           data-slot="tool-fallback-trigger-icon"
@@ -171,19 +168,46 @@ function ToolFallbackTrigger({
           isRunning && "shimmer motion-reduce:animate-none",
         )}
       >
-        {label}: <b>{toolName}</b>
+        {label}
       </span>
       <ToolFallbackDuration />
-      <ChevronDownIcon
-        data-slot="tool-fallback-trigger-chevron"
-        className={cn(
-          "aui-tool-fallback-trigger-chevron size-4 shrink-0",
-          "transition-transform duration-(--animation-duration) ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
-          "-rotate-90",
-          "group-data-open/trigger:rotate-0",
-          "group-data-panel-open/trigger:rotate-0",
-        )}
-      />
+      {expandable ? (
+        <ChevronDownIcon
+          data-slot="tool-fallback-trigger-chevron"
+          className={cn(
+            "aui-tool-fallback-trigger-chevron size-4 shrink-0",
+            "transition-transform duration-(--animation-duration) ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
+            "-rotate-90",
+            "group-data-open/trigger:rotate-0",
+            "group-data-panel-open/trigger:rotate-0",
+          )}
+        />
+      ) : null}
+    </>
+  );
+
+  const rowClass = cn(
+    "aui-tool-fallback-trigger group/trigger text-muted-foreground flex w-fit origin-left items-center gap-2 py-1.5 text-sm",
+    expandable &&
+      "hover:text-foreground transition-[color,scale] active:scale-[0.98]",
+    className,
+  );
+
+  if (!expandable) {
+    return (
+      <div data-slot="tool-fallback-trigger" className={rowClass}>
+        {inner}
+      </div>
+    );
+  }
+
+  return (
+    <CollapsibleTrigger
+      data-slot="tool-fallback-trigger"
+      className={rowClass}
+      {...props}
+    >
+      {inner}
     </CollapsibleTrigger>
   );
 }
@@ -560,6 +584,7 @@ const ToolFallbackImpl: ToolCallMessagePartComponent = ({
   approval,
   respondToApproval,
 }) => {
+  const expandable = useShowToolCalls();
   const isCancelled =
     status?.type === "incomplete" && status.reason === "cancelled";
   const isRequiresAction = status?.type === "requires-action";
@@ -574,6 +599,34 @@ const ToolFallbackImpl: ToolCallMessagePartComponent = ({
     if (isRequiresAction) setOpen(true);
   }
 
+  const approvalRow = shouldRenderApproval ? (
+    <ToolFallbackApproval
+      addResult={addResult}
+      resume={resume}
+      interrupt={interrupt}
+      approval={approval}
+      respondToApproval={respondToApproval}
+      status={status}
+    />
+  ) : null;
+
+  if (!expandable) {
+    return (
+      <div
+        data-slot="tool-fallback-root"
+        data-expandable="false"
+        className="aui-tool-fallback-root w-full"
+      >
+        <ToolFallbackTrigger
+          toolName={toolName}
+          status={status}
+          expandable={false}
+        />
+        {approvalRow}
+      </div>
+    );
+  }
+
   return (
     <ToolFallbackRoot open={open} onOpenChange={setOpen}>
       <ToolFallbackTrigger toolName={toolName} status={status} />
@@ -583,16 +636,7 @@ const ToolFallbackImpl: ToolCallMessagePartComponent = ({
           argsText={argsText}
           className={cn(isCancelled && "opacity-60")}
         />
-        {shouldRenderApproval && (
-          <ToolFallbackApproval
-            addResult={addResult}
-            resume={resume}
-            interrupt={interrupt}
-            approval={approval}
-            respondToApproval={respondToApproval}
-            status={status}
-          />
-        )}
+        {approvalRow}
         {!isCancelled && <ToolFallbackResult result={result} />}
       </ToolFallbackContent>
     </ToolFallbackRoot>
