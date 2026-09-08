@@ -26,6 +26,16 @@ describe("runPresent", () => {
     });
   });
 
+  it("infers File when path is present without $type", () => {
+    expect(
+      runPresent({ path: "invoice.html", place: "computer" }),
+    ).toEqual({
+      ok: true,
+      $type: "File",
+      preview: "invoice.html",
+    });
+  });
+
   it("rejects a missing $type", () => {
     expect(runPresent({ title: "Nope" })).toEqual({
       ok: false,
@@ -241,8 +251,8 @@ describe("presentTreeFromToolPart", () => {
 });
 
 describe("PRESENT_TOOL_PARAMETERS", () => {
-  it("requires $type without recursing into children", () => {
-    expect(PRESENT_TOOL_PARAMETERS.required).toEqual(["$type"]);
+  it("stays shallow so wrapped trees still reach execute", () => {
+    expect(PRESENT_TOOL_PARAMETERS.required).toBeUndefined();
     expect(PRESENT_TOOL_PARAMETERS.additionalProperties).toBe(true);
     expect(PRESENT_TOOL_PARAMETERS.properties.$type.type).toBe("string");
     expect(PRESENT_TOOL_PARAMETERS.properties.children.items).toEqual({

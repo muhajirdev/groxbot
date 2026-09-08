@@ -55,7 +55,6 @@ export const PRESENT_TOOL_DESCRIPTION = [
 export const PRESENT_TOOL_PARAMETERS = {
   type: "object",
   additionalProperties: true,
-  required: ["$type"],
   properties: {
     $type: {
       type: "string",
@@ -232,6 +231,8 @@ export function coercePresentInput(input: unknown): unknown {
     next.$type = "Card";
   } else if (!str(next.$type) && (next.headers != null || next.cells != null)) {
     next.$type = "Table";
+  } else if (!str(next.$type) && str(next.path)) {
+    next.$type = "File";
   }
   return next;
 }
