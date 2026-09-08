@@ -3,8 +3,11 @@ import {
   isMarkdownName,
   markdownFileName,
   mimeTypeForMarkdownName,
+  persistToMarkdownPage,
+  presentToMarkdown,
   readMarkdownConversion,
   runToMarkdown,
+  toMarkdownSpillPath,
   type MarkdownDisk,
 } from "./markdown.js";
 import { PUBLIC_FETCH_ALLOWLIST } from "./public-fetch.js";
@@ -139,5 +142,72 @@ describe("runToMarkdown", () => {
         sanitizePath: (path) => path,
       }),
     ).toMatchObject({ ok: false, message: /not available/ });
+  });
+});
+
+describe("presentToMarkdown", () => {
+  it("pages a long conversion and points at the spilled file", () => {
+    const markdown = Array.from({ length: 80 }, (_, i) => `line-${i + 1} ${"x".repeat(80)}`).join(
+      "\n",
+    );
+    const spill = toMarkdownSpillPath("scope-sinemart-finance-ops.pdf");
+    const text = presentToMarkdown(
+      {
+        ok: true,
+        name: "scope-sinemart-finance-ops.pdf",
+        mimeType: "application/pdf",
+        markdown,
+      },
+      { spillPath: spill },
+    );
+    expect(spill).toBe("/workspace/.tool-output/scope-sinemart-finance-ops.md");
+    expect(text).toContain(spill);
+    expect(text).toMatch(/Use offset=\d+ to continue/);
+    expect(text.length).toBeLessThan(8_000);
+    expect(text).not.toMatch(/^Result truncated/);
+  });
+
+  it("continues from offset", () => {
+    const markdown = Array.from({ length: 10 }, (_, i) => `L${i + 1}`).join("\n");
+    const text = presentToMarkdown(
+      {
+        ok: true,
+        name: "a.pdf",
+        mimeType: "application/pdf",
+        markdown,
+      },
+      { offset: 8 },
+    );
+    expect(text).toContain("L8");
+    expect(text).toContain("L10");
+    expect(text).not.toContain("L1\n");
+  });
+});
+
+describe("persistToMarkdownPage", () => {
+  it("writes the full markdown then returns a short page", async () => {
+    const files = new Map<string, string>();
+    const markdown = "n".repeat(12_000);
+    const page = await persistToMarkdownPage(
+      {
+        ok: true,
+        name: "scope.pdf",
+        mimeType: "application/pdf",
+        markdown,
+      },
+      {
+        workspace: {
+          readFile: async () => null,
+          writeFile: async (path, content) => {
+            files.set(path, content);
+          },
+          mkdir: async () => {},
+        },
+      },
+    );
+    expect(typeof page).toBe("string");
+    expect(files.get("/workspace/.tool-output/scope.md")).toBe(markdown);
+    expect(String(page).length).toBeLessThan(markdown.length);
+    expect(String(page)).toContain("/workspace/.tool-output/scope.md");
   });
 });

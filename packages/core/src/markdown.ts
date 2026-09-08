@@ -1,3 +1,5 @@
+import { TOOL_TRUNCATE_MAX_LINES, truncateHead } from "./tool-truncate.js";
+
 export type MarkdownBytes = {
   name: string;
   mimeType: string;
@@ -25,7 +27,74 @@ export type ToMarkdownInput = {
   html?: string;
   path?: string;
   name?: string;
+  /** 1-indexed markdown line, same as computer `read` offset. */
+  offset?: number;
 };
+
+/** Keep a to_markdown page under the 8k persist cap so the model does not retry. */
+export const TO_MARKDOWN_PAGE_BYTES = 6_000;
+export const TO_MARKDOWN_SPILL_DIR = "/workspace/.tool-output";
+
+export type MarkdownWriteDisk = MarkdownDisk & {
+  writeFile?(path: string, content: string): Promise<void> | void;
+  mkdir?(
+    path: string,
+    opts?: { recursive?: boolean },
+  ): Promise<void> | void;
+};
+
+export function toMarkdownSpillPath(name: string): string {
+  const file = name.split(/[/\\]/u).pop() || "document";
+  const stem = file.replace(/\.[^.]+$/u, "") || file;
+  const safe =
+    stem.replace(/[^\w.-]+/gu, "-").replace(/^-+|-+$/gu, "") || "document";
+  return `${TO_MARKDOWN_SPILL_DIR}/${safe}.md`;
+}
+
+export function presentToMarkdown(
+  result: ToMarkdownOk,
+  opts?: { offset?: number; spillPath?: string },
+): string {
+  const lines = splitMarkdownLines(result.markdown);
+  const startLine = Math.max(1, Math.floor(opts?.offset ?? 1));
+  if (lines.length > 0 && startLine > lines.length) {
+    return `Offset ${startLine} is beyond end of markdown (${lines.length} lines). Full text: ${opts?.spillPath ?? "re-run to_markdown"}.`;
+  }
+  const selected = lines.slice(startLine - 1).join("\n");
+  const head = truncateHead(selected, {
+    maxLines: TOOL_TRUNCATE_MAX_LINES,
+    maxBytes: TO_MARKDOWN_PAGE_BYTES,
+  });
+  const outputLines = head.firstLineExceedsLimit
+    ? 1
+    : head.outputLines;
+  const shownEnd = startLine + Math.max(outputLines, 1) - 1;
+  const next = shownEnd + 1;
+  const more =
+    head.firstLineExceedsLimit ||
+    head.truncated ||
+    next <= lines.length;
+  const saved = opts?.spillPath
+    ? `Saved full markdown (${result.markdown.length} chars, ${lines.length} lines) to ${opts.spillPath}. Continue with read({ path: "${opts.spillPath}", offset: ${more ? next : 1} }) or to_markdown offset=${more ? next : 1}.\n\n`
+    : "";
+  let body = head.firstLineExceedsLimit
+    ? selected.slice(0, TO_MARKDOWN_PAGE_BYTES)
+    : head.content;
+  if (head.truncated || head.firstLineExceedsLimit || startLine > 1) {
+    const of = lines.length;
+    const end = Math.min(shownEnd, Math.max(of, 1));
+    body += `\n\n[Showing lines ${startLine}-${end} of ${of}.`;
+    body += more ? ` Use offset=${next} to continue.]` : "]";
+  }
+  return `${saved}${body}`;
+}
+
+function splitMarkdownLines(content: string): string[] {
+  if (content.length === 0) return [];
+  const lines = content.split("\n");
+  if (content.endsWith("\n")) lines.pop();
+  return lines;
+}
 
 const MIME_BY_EXT: Record<string, string> = {
   bmp: "image/bmp",
@@ -172,6 +241,31 @@ export async function runToMarkdown(opts: {
       error instanceof Error ? error.message : "Markdown conversion failed.";
     return { ok: false, message };
   }
+}
+
+export async function persistToMarkdownPage(
+  result: ToMarkdownResult,
+  opts?: {
+    offset?: number;
+    workspace?: MarkdownWriteDisk;
+  },
+): Promise<ToMarkdownResult | string> {
+  if (!result.ok) return result;
+  let spillPath: string | undefined;
+  const disk = opts?.workspace;
+  if (disk?.writeFile) {
+    spillPath = toMarkdownSpillPath(result.name);
+    try {
+      await disk.mkdir?.(TO_MARKDOWN_SPILL_DIR, { recursive: true });
+      await disk.writeFile(spillPath, result.markdown);
+    } catch {
+      spillPath = undefined;
+    }
+  }
+  return presentToMarkdown(result, {
+    offset: opts?.offset,
+    spillPath,
+  });
 }
 
 async function readMarkdownBytes(

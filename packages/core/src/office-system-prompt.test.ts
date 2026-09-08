@@ -142,6 +142,7 @@ describe("buildOfficeSystemPrompt", () => {
     expect(prompt).toMatch(/to_markdown, not read/);
     expect(prompt).toMatch(/omit empty html/);
     expect(prompt).toMatch(/read again with offset/);
+    expect(prompt).toMatch(/\.tool-output/);
   });
 });
 

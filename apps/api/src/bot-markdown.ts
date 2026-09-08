@@ -2,6 +2,7 @@
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import type { WorkersAiBinding } from "@groxbot/adapters/edge";
 import {
+  persistToMarkdownPage,
   PUBLIC_FETCH_ALLOWLIST,
   runPublicFetch,
   runTinyfishFetch,
@@ -32,7 +33,7 @@ export const FETCH_URL_DESCRIPTION =
   "Read a public http(s) URL (TinyFish). Loopback and private nets are blocked. Returns clean Markdown when TinyFish is set; otherwise a plain GET. Large bodies land in inbox/fetch on this computer. Do not open a browser just to read a page.";
 
 export const TO_MARKDOWN_DESCRIPTION =
-  "Convert HTML, a PDF, or a file on this computer to Markdown. Use fetch_url first for a public page, then pass the HTML body here. For a file already on this computer, pass path only (inbox/spec.pdf or /inbox/spec.pdf) — omit html. Inbox is not under /workspace. Do not use the browser just to read a page.";
+  "Convert HTML, a PDF, or a file on this computer to Markdown. Use fetch_url first for a public page, then pass the HTML body here. For a file already on this computer, pass path only (inbox/spec.pdf or /inbox/spec.pdf) — omit html. Inbox is not under /workspace. Long output is saved to /workspace/.tool-output and paged — use offset or read() the saved .md, do not convert the same PDF again. Do not use the browser just to read a page.";
 
 export const webSearchParameters = z.object({
   query: z.string().min(1).describe("What to search the public web for."),
@@ -59,6 +60,12 @@ export const toMarkdownParameters = z.object({
     .string()
     .optional()
     .describe("Optional filename used to pick a MIME type."),
+  offset: z
+    .number()
+    .int()
+    .min(1)
+    .optional()
+    .describe("1-indexed markdown line to continue from after a long conversion."),
 });
 
 export type PageToolsOpts = {
@@ -118,16 +125,26 @@ export async function runFetchUrlTool(
 
 export async function runToMarkdownTool(
   opts: {
-    workspace: MarkdownDisk;
+    workspace: MarkdownDisk & {
+      writeFile?(path: string, content: string): Promise<void> | void;
+      mkdir?(
+        path: string,
+        opts?: { recursive?: boolean },
+      ): Promise<void> | void;
+    };
     convert?: (file: MarkdownBytes) => Promise<unknown>;
   },
-  input: { html?: string; path?: string; name?: string },
+  input: { html?: string; path?: string; name?: string; offset?: number },
 ): Promise<unknown> {
-  return runToMarkdown({
+  const result = await runToMarkdown({
     input,
     workspace: opts.workspace,
     convert: opts.convert,
     sanitizePath: sanitizeComputerPath,
+  });
+  return persistToMarkdownPage(result, {
+    offset: input.offset,
+    workspace: opts.workspace,
   });
 }
 
@@ -163,6 +180,8 @@ export function createPageAgentTools(opts: PageToolsOpts): AgentTool[] {
           html: typeof input.html === "string" ? input.html : undefined,
           path: typeof input.path === "string" ? input.path : undefined,
           name: typeof input.name === "string" ? input.name : undefined,
+          offset:
+            typeof input.offset === "number" ? input.offset : undefined,
         }),
     }),
   ];
