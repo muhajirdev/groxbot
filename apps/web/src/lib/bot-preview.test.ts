@@ -12,6 +12,7 @@ import {
   setOfficeMessages,
 } from "./office-messages";
 import { orpc, queryClient } from "./orpc";
+import { clearAllPendingRosterDeletes } from "./roster-pending";
 
 const botsKey = orpc.bots.list.queryOptions().queryKey;
 
@@ -31,6 +32,7 @@ function bot(id: string, lastPreview: string, title = ""): Bot {
 afterEach(() => {
   clearOfficeMessages();
   queryClient.removeQueries({ queryKey: botsKey });
+  clearAllPendingRosterDeletes();
 });
 
 describe("mergeBotList", () => {

@@ -198,9 +198,17 @@ import {
 } from "../lib/thread-cache";
 import { scheduleThreadPrefetch } from "../lib/thread-prefetch";
 import { formatListTime } from "../lib/time";
+import { liveCatalogId } from "../lib/rpc-workspace";
 import {
+  withoutPendingBotDeletes,
+  withoutPendingRoomDeletes,
+} from "../lib/roster-pending";
+import {
+  botsListKey,
   knowledgeListQueryOptions,
   listedBots,
+  roomsListKey,
+  snapshotWorkspaceCatalog,
   whenWorkspaceReady,
 } from "../lib/workspace-catalog";
 import { writeLastRoom } from "../lib/workspace-switcher";
@@ -491,16 +499,18 @@ export function Chat(props: {
   const meQuery = useQuery(orpc.me.queryOptions());
   const liveBotsRows = botsQuery.data ?? [];
   const peekedBots = peekBots();
-  const bots =
+  const bots = withoutPendingBotDeletes(
     liveBotsRows.length > 0 || peekedBots.length === 0
       ? liveBotsRows
-      : peekedBots;
+      : peekedBots,
+  );
   const liveRoomsRows = roomsQuery.data ?? [];
   const peekedRooms = peekRooms();
-  const rooms =
+  const rooms = withoutPendingRoomDeletes(
     liveRoomsRows.length > 0 || peekedRooms.length === 0
       ? liveRoomsRows
-      : peekedRooms;
+      : peekedRooms,
+  );
   const liveSectionRows = sectionsQuery.data ?? [];
   const peekedSections = peekSections();
   const sections =
@@ -908,7 +918,10 @@ export function Chat(props: {
 
     setOfficeKeepAlive((prev) => dropOfficeKeepAlive(prev, botId));
     officeLruRef.current = dropOfficeKeepAlive(officeLruRef.current, botId);
+    await queryClient.cancelQueries({ queryKey: botsListKey });
     removeBot(botId);
+    const catalogId = liveCatalogId();
+    if (catalogId) snapshotWorkspaceCatalog(catalogId);
 
     const nextId = currentId
       ? nextBotIdAfterDelete(peekBots(), botId, currentId)
@@ -990,7 +1003,10 @@ export function Chat(props: {
 
     setRoomKeepAlive((prev) => dropOfficeKeepAlive(prev, room.id));
     roomLruRef.current = dropOfficeKeepAlive(roomLruRef.current, room.id);
+    await queryClient.cancelQueries({ queryKey: roomsListKey });
     removeRoom(room.id);
+    const catalogId = liveCatalogId();
+    if (catalogId) snapshotWorkspaceCatalog(catalogId);
 
     const nextRoom = peekRooms()[0];
     const nextBot = firstLiveBot(peekBots());

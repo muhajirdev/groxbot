@@ -32,6 +32,10 @@ import {
   setLiveCatalogId,
   setRpcWorkspaceId,
 } from "./rpc-workspace";
+import {
+  withoutPendingBotDeletes,
+  withoutPendingRoomDeletes,
+} from "./roster-pending";
 import { tenantBoundQueryFn } from "./tenant-query";
 import {
   readCachedWorkspace,
@@ -86,13 +90,17 @@ export function knowledgeListQueryOptions() {
 export function listedBots(): Bot[] {
   const live = peekBots();
   if (live.length > 0) return live;
-  return queryClient.getQueryData<Bot[]>(botsListKey) ?? [];
+  return withoutPendingBotDeletes(
+    queryClient.getQueryData<Bot[]>(botsListKey) ?? [],
+  );
 }
 
 export function listedRooms(): Room[] {
   const live = peekRooms();
   if (live.length > 0) return live;
-  return queryClient.getQueryData<Room[]>(roomsListKey) ?? [];
+  return withoutPendingRoomDeletes(
+    queryClient.getQueryData<Room[]>(roomsListKey) ?? [],
+  );
 }
 
 function listedSections(): SidebarSection[] {
