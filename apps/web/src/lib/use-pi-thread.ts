@@ -95,6 +95,16 @@ export function usePiThread(options: {
       session.rejectApproval(executionId, seq),
     [session],
   );
+  const pendingAsks = useCallback(() => session.pendingAsks(), [session]);
+  const answerAsk = useCallback(
+    (toolCallId: string, answers: unknown) =>
+      session.answerAsk(toolCallId, answers),
+    [session],
+  );
+  const skipAsk = useCallback(
+    (toolCallId: string) => session.skipAsk(toolCallId),
+    [session],
+  );
 
   return {
     view,
@@ -115,5 +125,8 @@ export function usePiThread(options: {
     pendingApprovals,
     approveApproval,
     rejectApproval,
+    pendingAsks,
+    answerAsk,
+    skipAsk,
   };
 }

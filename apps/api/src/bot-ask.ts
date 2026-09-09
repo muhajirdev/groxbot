@@ -8,7 +8,6 @@ import {
   officeAskPrompt,
   officeAskSkipped,
   parseOfficeAskInput,
-  parsePendingAsks,
   type OfficeAskParseFail,
   type OfficeAskPrompt,
   type OfficeAskResult,
@@ -24,10 +23,6 @@ type AskWaiter = {
 export class OfficeAskBoard {
   private live = false;
   private waiters = new Map<string, AskWaiter>();
-
-  get interactive(): boolean {
-    return this.live;
-  }
 
   enterLive(): void {
     this.live = true;
@@ -124,8 +119,4 @@ export function createAskTool(board: OfficeAskBoard): AgentTool {
     }),
     execute: async (input, ctx) => board.wait(input, ctx),
   });
-}
-
-export function pendingAsksFrom(board: OfficeAskBoard): OfficeAskPrompt[] {
-  return parsePendingAsks(board.pending());
 }

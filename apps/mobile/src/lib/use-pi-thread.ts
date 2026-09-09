@@ -33,6 +33,9 @@ type PiHost = {
   pendingApprovals?(): Promise<unknown>;
   approveApproval?(executionId: string): Promise<unknown>;
   rejectApproval?(executionId: string, seq: number): Promise<unknown>;
+  pendingAsks?(): Promise<unknown>;
+  answerAsk?(toolCallId: string, answers: unknown): Promise<unknown>;
+  skipAsk?(toolCallId: string): Promise<unknown>;
   [Symbol.dispose]?: () => void;
 };
 
@@ -282,6 +285,35 @@ export function usePiThread(options: {
     [waitReady],
   );
 
+  const pendingAsks = useCallback(async () => {
+    await waitReady();
+    return hostRef.current?.pendingAsks?.() ?? [];
+  }, [waitReady]);
+
+  const answerAsk = useCallback(
+    async (toolCallId: string, answers: unknown) => {
+      await waitReady();
+      const host = hostRef.current;
+      if (!host?.answerAsk) {
+        throw new Error("Could not reach this teammate. Try sending again.");
+      }
+      return host.answerAsk(toolCallId, answers);
+    },
+    [waitReady],
+  );
+
+  const skipAsk = useCallback(
+    async (toolCallId: string) => {
+      await waitReady();
+      const host = hostRef.current;
+      if (!host?.skipAsk) {
+        throw new Error("Could not reach this teammate. Try sending again.");
+      }
+      return host.skipAsk(toolCallId);
+    },
+    [waitReady],
+  );
+
   const projected = useMemo(() => projectPiOfficeView(view), [view]);
   const status = view.status;
   const busy = status === "submitted" || status === "streaming";
@@ -302,5 +334,8 @@ export function usePiThread(options: {
     pendingApprovals,
     approveApproval,
     rejectApproval,
+    pendingAsks,
+    answerAsk,
+    skipAsk,
   };
 }

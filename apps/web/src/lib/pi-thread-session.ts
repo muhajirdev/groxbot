@@ -31,6 +31,9 @@ export type PiHost = {
   pendingApprovals?(): Promise<unknown>;
   approveApproval?(executionId: string): Promise<unknown>;
   rejectApproval?(executionId: string, seq: number): Promise<unknown>;
+  pendingAsks?(): Promise<unknown>;
+  answerAsk?(toolCallId: string, answers: unknown): Promise<unknown>;
+  skipAsk?(toolCallId: string): Promise<unknown>;
   [Symbol.dispose]?: () => void;
 };
 
@@ -227,6 +230,23 @@ export class PiThreadSession {
     await this.waitReady();
     if (!this.host?.rejectApproval) throw new Error(REACH);
     return this.host.rejectApproval(executionId, seq);
+  }
+
+  async pendingAsks(): Promise<unknown> {
+    await this.waitReady();
+    return this.host?.pendingAsks?.() ?? [];
+  }
+
+  async answerAsk(toolCallId: string, answers: unknown): Promise<unknown> {
+    await this.waitReady();
+    if (!this.host?.answerAsk) throw new Error(REACH);
+    return this.host.answerAsk(toolCallId, answers);
+  }
+
+  async skipAsk(toolCallId: string): Promise<unknown> {
+    await this.waitReady();
+    if (!this.host?.skipAsk) throw new Error(REACH);
+    return this.host.skipAsk(toolCallId);
   }
 
   async fetchSnapshot(): Promise<PiBoundMessage[] | undefined> {
