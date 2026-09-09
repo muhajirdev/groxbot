@@ -477,15 +477,15 @@ describe("office chrome", () => {
     expect(threadAui).toContain("Stop now");
   });
 
-  it("keeps roster sections as small caps labels", () => {
+  it("keeps roster section labels smaller than bot rows", () => {
     const header = chatScreen.slice(
       chatScreen.indexOf("const SectionHeader"),
       chatScreen.indexOf("export function Chat"),
     );
-    expect(header).toMatch(/text-\[11px\]/);
-    expect(header).toMatch(/uppercase/);
-    expect(header).not.toMatch(/text-\[12px\]/);
-    expect(header).not.toMatch(/text-\[13px\]/);
+    expect(header).toMatch(/text-\[8px\]/);
+    expect(header).not.toMatch(/uppercase/);
+    expect(header).not.toMatch(/text-\[9px\]/);
+    expect(header).not.toMatch(/text-\[10px\]/);
   });
 
   it("keeps routines a left-aligned list, not a centered empty-state", () => {

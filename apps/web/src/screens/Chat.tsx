@@ -469,7 +469,7 @@ const SectionHeader = memo(function SectionHeader(props: {
     <div className="group/section relative">
       <button
         type="button"
-        className="flex w-full items-center gap-1.5 rounded-[10px] border-0 bg-transparent px-2 py-1.5 text-left text-[9px] text-muted/80 hover:bg-hover hover:text-muted"
+        className="flex w-full items-center gap-1.5 rounded-[10px] border-0 bg-transparent px-2 py-1.5 text-left text-[8px] text-muted/80 hover:bg-hover hover:text-muted"
         aria-expanded={!props.collapsed}
         onClick={props.onToggle}
         onContextMenu={(event) => {
