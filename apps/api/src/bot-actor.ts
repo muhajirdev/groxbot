@@ -791,6 +791,26 @@ export class RoomHome extends Agent<WorkerEnv> {
     return { rejected };
   }
 
+  async officePendingAsks(): Promise<unknown> {
+    return this.officeAsk.pending();
+  }
+
+  async officeAnswerAsk(toolCallId: string, answers: unknown): Promise<unknown> {
+    const id = toolCallId.trim();
+    if (!id) throw new Error("Missing question.");
+    const result = this.officeAsk.answer(id, answers);
+    if (!result) throw new Error("That question is no longer waiting.");
+    return result;
+  }
+
+  async officeSkipAsk(toolCallId: string): Promise<unknown> {
+    const id = toolCallId.trim();
+    if (!id) throw new Error("Missing question.");
+    const result = this.officeAsk.skip(id);
+    if (!result) throw new Error("That question is no longer waiting.");
+    return result;
+  }
+
   async appendOfficeUserAndRun(input: {
     id: string;
     content: string;
@@ -910,6 +930,7 @@ export class RoomHome extends Agent<WorkerEnv> {
       `${system.length} chars`,
     );
     try {
+      if (!intro) this.officeAsk.enterLive();
       let stripThoughtReplay = false;
       const runTurn = async () => {
         const context = await session.buildContext();
@@ -1098,6 +1119,7 @@ export class RoomHome extends Agent<WorkerEnv> {
       await this.broadcastOfficeError();
       await this.broadcastOfficeStatus();
     } finally {
+      this.officeAsk.leaveLive();
       if (this.officeTurn === abort) this.officeTurn = null;
       const leftover = this.officeSteer.takeAll();
       for (const row of leftover) {
