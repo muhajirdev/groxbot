@@ -107,6 +107,9 @@ describe("Computer Worker shell wiring", () => {
     expect(actor).toMatch(/parseTinyfishKeys/);
     expect(actor).toMatch(/TinyfishKeyPool/);
     expect(actor).toMatch(/createSkillTool\(/);
+    expect(actor).toMatch(/createAskTool\(/);
+    expect(actor).toMatch(/officeAsk\.enterLive/);
+    expect(readSrc("bot-ask.ts")).toMatch(/OFFICE_ASK_TOOL_NAME/);
     expect(actor).toMatch(/applyOfficeSkillsToSystem/);
     expect(actor).toMatch(/loadOfficeSkillCatalog/);
     expect(actor).toMatch(/buildOfficeSystemPrompt/);
