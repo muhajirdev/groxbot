@@ -10,6 +10,7 @@ import {
   withOfficeLearnContent,
   withOfficeSkillCatalog,
 } from "./office-skill-slash.js";
+import { formatRoutinePrompt } from "./routines.js";
 
 const skill: OfficeSkillCatalogEntry = {
   name: "agreements",
@@ -174,5 +175,54 @@ describe("applyOfficeSkillsToSystem", () => {
     const next = withOfficeLearnContent("You are Reja.", "", []);
     expect(next).toContain("Topic: (none — ask what to learn)");
     expect(next).toContain("Existing skills: (none)");
+  });
+
+  it("does not treat a human schedule request as a firing", () => {
+    const next = applyOfficeSkillsToSystem({
+      system: "You are Reja.",
+      messages: [
+        { role: "user", content: "Please schedule QC every 2 hours" },
+      ],
+      catalog: [skill],
+    });
+    expect(next).toContain("<available_skills>");
+    expect(next).not.toContain("<scheduled_job>");
+  });
+
+  it("treats a scheduled job kick as execute-now, not /learn or a skill", () => {
+    const next = applyOfficeSkillsToSystem({
+      system: "You are Reja.",
+      messages: [
+        {
+          role: "user",
+          content: formatRoutinePrompt(
+            "QC 10 soal Mimpimu tiap 2 jam",
+            "Call mimpimu.audit_question. Do not re-audit.",
+          ),
+        },
+      ],
+      catalog: [skill],
+    });
+    expect(next).toContain("<available_skills>");
+    expect(next).toContain("<scheduled_job>");
+    expect(next).toContain("just fired");
+    expect(next).not.toContain("<learn>");
+    expect(next).not.toContain("<skill_content");
+  });
+
+  it("still injects a scheduled job overlay when skills cannot load", () => {
+    const next = applyOfficeSkillsToSystem({
+      system: "You are Reja.",
+      messages: [
+        {
+          role: "user",
+          content: "Scheduled routine: Nightly Gmail\n\nCheck overnight mail.",
+        },
+      ],
+      catalog: [skill],
+      canReadSkills: false,
+    });
+    expect(next).toContain("<scheduled_job>");
+    expect(next).not.toContain("<available_skills>");
   });
 });

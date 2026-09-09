@@ -2,15 +2,47 @@ import { describe, expect, it } from "vitest";
 import {
   agentRoutineWhen,
   createStoredRoutine,
+  formatRoutinePrompt,
   isIntervalSchedule,
+  isRoutineKickText,
+  LEGACY_ROUTINE_KICK_PREFIX,
   MemoryRoutineStore,
   parseRoutineClock,
   parseRoutineSchedule,
+  ROUTINE_KICK_PREFIX,
   RoutineNotFoundError,
   RoutineScheduleError,
   toRoutineDto,
   wallClockToUtcCron,
+  withOfficeRoutineKick,
 } from "./routines.js";
+
+describe("formatRoutinePrompt", () => {
+  it("reads as a job to run now, not a routine to design", () => {
+    const text = formatRoutinePrompt(
+      " QC 10 soal Mimpimu tiap 2 jam ",
+      " Call mimpimu.audit_question and save. ",
+    );
+    expect(text.startsWith(ROUTINE_KICK_PREFIX)).toBe(true);
+    expect(text).toContain("QC 10 soal Mimpimu tiap 2 jam");
+    expect(text).toContain("Call mimpimu.audit_question and save.");
+    expect(text).not.toMatch(/^Scheduled routine:/);
+    expect(isRoutineKickText(text)).toBe(true);
+    expect(isRoutineKickText(`${LEGACY_ROUTINE_KICK_PREFIX} Nightly Gmail`)).toBe(
+      true,
+    );
+    expect(isRoutineKickText("Please schedule QC every 2 hours")).toBe(false);
+  });
+
+  it("injects execute-now rules onto the system prompt", () => {
+    const next = withOfficeRoutineKick("You are Reja.");
+    expect(next).toContain("<scheduled_job>");
+    expect(next).toContain("just fired");
+    expect(next).toContain("Do not call routines.create");
+    expect(next).toContain("Do not ask clarifying questions");
+    expect(withOfficeRoutineKick(next)).toBe(next);
+  });
+});
 
 describe("parseRoutineSchedule", () => {
   it("keeps wall-clock strings", () => {

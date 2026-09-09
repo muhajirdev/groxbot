@@ -1,11 +1,13 @@
 /**
  * Pi skills on the office library: catalog in the system prompt, `/skill:name`
- * injects SKILL.md, `/learn` authors one. No activate_skill — the model reads
- * the file (knowledge.read).
+ * injects SKILL.md, `/learn` authors one. A scheduled-job kick injects execute-now
+ * rules so the model does not treat the alarm as a request to design a routine.
+ * No activate_skill — the model reads the file (knowledge.read).
  */
 
-import type { OfficeSkillCatalogEntry } from "./office-skill.js";
 import { KNOWLEDGE_MARKDOWN_LINK_HINT } from "./knowledge-links.js";
+import type { OfficeSkillCatalogEntry } from "./office-skill.js";
+import { isRoutineKickText, withOfficeRoutineKick } from "./routines.js";
 
 export type OfficeSkillSlash = {
   name: string;
@@ -155,10 +157,14 @@ export function applyOfficeSkillsToSystem(opts: {
   /** Skills load via knowledge.read inside code. Skip when that tool is off this turn. */
   canReadSkills?: boolean;
 }): string {
-  if (opts.canReadSkills === false) return opts.system;
+  const text = lastUserText(opts.messages);
+  const routineKick = !opts.continuation && isRoutineKickText(text);
+  if (opts.canReadSkills === false) {
+    return routineKick ? withOfficeRoutineKick(opts.system) : opts.system;
+  }
   let system = withOfficeSkillCatalog(opts.system, opts.catalog);
   if (opts.continuation) return system;
-  const text = lastUserText(opts.messages);
+  if (routineKick) return withOfficeRoutineKick(system);
   const learn = parseOfficeLearnSlash(text);
   if (learn) return withOfficeLearnContent(system, learn.topic, opts.catalog);
   const invoked = parseOfficeSkillSlash(text);

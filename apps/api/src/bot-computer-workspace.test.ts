@@ -205,6 +205,18 @@ describe("Computer Worker shell wiring", () => {
     expect(readSrc("bots.ts")).not.toMatch(/getMcpHostBot/);
   });
 
+  it("tells Code Mode not to treat a firing as a create", () => {
+    const connector = readSrc("bot-routines-connector.ts");
+    expect(connector).toMatch(/Create or edit only when a human asks/);
+    expect(connector).toMatch(/name is a short label/);
+    expect(connector).toMatch(/Run now — scheduled job/);
+    expect(connector).toMatch(/Do not call create, update, or run/);
+    expect(connector).not.toMatch(
+      /Use when someone asks you to do something on a schedule/,
+    );
+    expect(readSrc("bot-actor.ts")).toMatch(/formatRoutinePrompt/);
+  });
+
   it("does not depend on @cloudflare/shell", () => {
     const pkg = JSON.parse(
       readFileSync(join(src, "../package.json"), "utf8"),
