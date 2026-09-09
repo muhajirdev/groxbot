@@ -140,6 +140,7 @@ import {
 import { HistoryConnector } from "./bot-history.js";
 import { KnowledgeConnector } from "./bot-knowledge.js";
 import { SkillsStoreConnector } from "./bot-skills-store.js";
+import { createAskTool, OfficeAskBoard } from "./bot-ask.js";
 import { createBrowserAgentTools } from "./bot-browser.js";
 import { bindToMarkdown, createPageAgentTools, runToMarkdownTool } from "./bot-markdown.js";
 import { WorkspaceMcpConnector } from "./bot-mcp-connector.js";
@@ -371,6 +372,7 @@ export class RoomHome extends Agent<WorkerEnv> {
   private officeTurn: AbortController | null = null;
   private officeQueue: Promise<void> = Promise.resolve();
   private officeSteer = new PiSteerQueue();
+  private officeAsk = new OfficeAskBoard();
   private officeSession: Session | null = null;
   private officeSeq = 0;
   private tinyfishKeys: TinyfishKeyPool | null = null;
@@ -479,6 +481,7 @@ export class RoomHome extends Agent<WorkerEnv> {
           })
         : []),
       createPresentTool(),
+      createAskTool(this.officeAsk),
       this.setContextTool(),
       ...this.roomAppTools(),
       ...(skill ? [skill] : []),
