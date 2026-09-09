@@ -9,6 +9,7 @@ import {
   officeAskSkipped,
   parseOfficeAskInput,
   parsePendingAsks,
+  type OfficeAskParseFail,
   type OfficeAskPrompt,
   type OfficeAskResult,
 } from "@groxbot/core";
@@ -44,9 +45,9 @@ export class OfficeAskBoard {
   async wait(
     input: unknown,
     ctx: { toolCallId: string; signal?: AbortSignal },
-  ): Promise<OfficeAskResult> {
+  ): Promise<OfficeAskResult | OfficeAskParseFail> {
     const parsed = parseOfficeAskInput(input);
-    if (!parsed.ok) return { ok: false, message: parsed.message } as never;
+    if (!parsed.ok) return parsed;
     if (!this.live) return officeAskSkipped("unattended");
     const toolCallId = ctx.toolCallId.trim() || crypto.randomUUID();
     const prompt = officeAskPrompt(toolCallId, parsed.questions);
@@ -85,10 +86,9 @@ export class OfficeAskBoard {
   }
 
   private abortAll(): void {
-    for (const [id, waiter] of this.waiters) {
-      this.waiters.delete(id);
-      waiter.resolve(officeAskSkipped("aborted"));
-    }
+    const pending = [...this.waiters.values()];
+    this.waiters.clear();
+    for (const waiter of pending) waiter.resolve(officeAskSkipped("aborted"));
   }
 }
 
@@ -122,11 +122,7 @@ export function createAskTool(board: OfficeAskBoard): AgentTool {
       options: z.array(askOption).optional(),
       multi: z.boolean().optional(),
     }),
-    execute: async (input, ctx) => {
-      const result = await board.wait(input, ctx);
-      if (!result.ok) return result;
-      return result;
-    },
+    execute: async (input, ctx) => board.wait(input, ctx),
   });
 }
 
