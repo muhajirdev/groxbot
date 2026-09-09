@@ -28,9 +28,9 @@ describe("formatRoutinePrompt", () => {
     expect(text).toContain("Call mimpimu.audit_question and save.");
     expect(text).not.toMatch(/^Scheduled routine:/);
     expect(isRoutineKickText(text)).toBe(true);
-    expect(isRoutineKickText(`${LEGACY_ROUTINE_KICK_PREFIX} Nightly Gmail`)).toBe(
-      true,
-    );
+    expect(
+      isRoutineKickText(`${LEGACY_ROUTINE_KICK_PREFIX} Nightly Gmail`),
+    ).toBe(true);
     expect(isRoutineKickText("Please schedule QC every 2 hours")).toBe(false);
   });
 

@@ -162,7 +162,7 @@ export function applyOfficeSkillsToSystem(opts: {
   if (opts.canReadSkills === false) {
     return routineKick ? withOfficeRoutineKick(opts.system) : opts.system;
   }
-  let system = withOfficeSkillCatalog(opts.system, opts.catalog);
+  const system = withOfficeSkillCatalog(opts.system, opts.catalog);
   if (opts.continuation) return system;
   if (routineKick) return withOfficeRoutineKick(system);
   const learn = parseOfficeLearnSlash(text);

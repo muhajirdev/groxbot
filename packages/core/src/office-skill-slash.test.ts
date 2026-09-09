@@ -180,9 +180,7 @@ describe("applyOfficeSkillsToSystem", () => {
   it("does not treat a human schedule request as a firing", () => {
     const next = applyOfficeSkillsToSystem({
       system: "You are Reja.",
-      messages: [
-        { role: "user", content: "Please schedule QC every 2 hours" },
-      ],
+      messages: [{ role: "user", content: "Please schedule QC every 2 hours" }],
       catalog: [skill],
     });
     expect(next).toContain("<available_skills>");
