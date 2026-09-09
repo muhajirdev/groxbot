@@ -36,6 +36,15 @@ export function applyAppTitle(
     if (templateId === "slides") {
       return { slides: [{ id: "s1", title, body: "" }] };
     }
+    if (templateId === "crm") return { title, contacts: [], revision: 1 };
+    if (templateId === "game") {
+      return {
+        title,
+        board: [null, null, null, null, null, null, null, null, null],
+        turn: "X",
+        winner: null,
+      };
+    }
     return state;
   }
   if (templateId === "docs") return { ...state, title };
@@ -47,6 +56,9 @@ export function applyAppTitle(
         })
       : [{ id: "s1", title, body: "" }];
     return { ...state, slides };
+  }
+  if (templateId === "crm" || templateId === "game") {
+    return { ...state, title };
   }
   return state;
 }

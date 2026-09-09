@@ -15,6 +15,7 @@ const toolFallback = readFileSync(
   "utf8",
 );
 const chatScreen = readFileSync(join(root, "../screens/Chat.tsx"), "utf8");
+const icons = readFileSync(join(root, "../components/Icons.tsx"), "utf8");
 const computerPane = readFileSync(
   join(root, "../components/ComputerPane.tsx"),
   "utf8",
@@ -61,7 +62,7 @@ function luminance(hex: string): number {
   const linear = rgb.map((c) =>
     c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4,
   );
-  return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+  return 0.2126 * linear[0]! + 0.7152 * linear[1]! + 0.0722 * linear[2]!;
 }
 
 function contrast(a: string, b: string): number {
@@ -82,10 +83,15 @@ describe("office chrome", () => {
   });
 
   it("lifts the light panel off the gray gutter", () => {
-    expect(token(light, "--bg")).toBe("#f3f3f3");
-    expect(token(light, "--bg-thread")).toBe("#ffffff");
+    expect(token(light, "--bg")).toBe("#f2f1ed");
+    expect(token(light, "--bg-thread")).toBe("#fffefa");
     expect(token(light, "--bg-side")).toBe(token(light, "--bg"));
     expect(token(light, "--bg-thread")).not.toBe(token(light, "--bg"));
+    expect(token(light, "--accent")).toBe("#3f5f99");
+    expect(token(light, "--on-ink")).toBe("#fffefa");
+    expect(contrast(token(light, "--ink"), token(light, "--bg-thread"))).toBeGreaterThanOrEqual(7);
+    expect(contrast(token(light, "--muted"), token(light, "--bg-thread"))).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(token(light, "--accent"), token(light, "--bg-thread"))).toBeGreaterThanOrEqual(4.5);
   });
 
   it("lifts cards, selection, and hairlines above the panel", () => {
@@ -101,7 +107,7 @@ describe("office chrome", () => {
   });
 
   it("rounds the thread as the shell, not the roster", () => {
-    expect(token(dark, "--radius-shell")).toBe("16px");
+    expect(token(dark, "--radius-shell")).toBe("20px");
     expect(css).toMatch(/\.chat-shell\s*\{[^}]*padding:\s*0;/s);
     expect(css).toMatch(
       /\.chat-panel\s*\{[^}]*border:\s*0;[^}]*border-radius:\s*0/s,
@@ -110,12 +116,33 @@ describe("office chrome", () => {
       /\.chat-stage\s*\{[^}]*border:\s*1px solid var\(--line\);[^}]*border-radius:\s*var\(--radius-shell\)/s,
     );
     expect(css).toMatch(/\.chat-stage\s*\{[^}]*color:\s*var\(--ink\)/s);
+    expect(css).toMatch(/\.chat-stage\s*\{[^}]*corner-shape:\s*squircle/s);
     expect(css).toMatch(
       /\.knowledge-place\s*\{[^}]*border:\s*1px solid var\(--line\);[^}]*border-radius:\s*var\(--radius-shell\)/s,
     );
     expect(css).toMatch(/\.knowledge-place\s*\{[^}]*color:\s*var\(--ink\)/s);
     expect(css).toMatch(
+      /\.knowledge-place\s*\{[^}]*corner-shape:\s*squircle/s,
+    );
+    expect(css).toMatch(
       /\.chat-panel\s*\{[^}]*grid-template-columns:\s*var\(--side-width, 240px\)/s,
+    );
+  });
+
+  it("uses continuous squircle corners for composers", () => {
+    expect(css).toMatch(/\.corner-squircle\s*\{[^}]*corner-shape:\s*squircle/s);
+    expect(threadAui).toContain('["--composer-radius" as string]: "2rem"');
+    expect(threadAui).toMatch(
+      /data-slot="aui_composer-shell"[\s\S]*?className="[^"]*corner-squircle/,
+    );
+    expect(threadAui).toMatch(
+      /className="aui-edit-composer-root corner-squircle/,
+    );
+  });
+
+  it("frames clay bot avatars as squircles", () => {
+    expect(css).toMatch(
+      /\.clay-avatar\s*\{[^}]*border-radius:\s*32%;[^}]*corner-shape:\s*squircle/s,
     );
   });
 
@@ -131,7 +158,7 @@ describe("office chrome", () => {
       /:root\[data-office-color="linear"\]\s*\{[^}]*--bg-thread:\s*#131315/s,
     );
     expect(css).toMatch(
-      /:root\[data-office-color="snow"\]\s*\{[^}]*--bg-thread:\s*#ffffff/s,
+      /:root\[data-office-color="snow"\]\s*\{[^}]*--bg-thread:\s*#fffefa/s,
     );
     expect(css).toMatch(
       /:root\[data-office-color="paper"\]\s*\{[^}]*--bg-thread:\s*#f7f0e4/s,
@@ -159,33 +186,27 @@ describe("office chrome", () => {
     expect(contrast(token(night, "--line"), thread)).toBeLessThan(2);
   });
 
-  it("keeps snow type readable on the white pane", () => {
+  it("keeps the full light theme readable", () => {
     const snow = rootBlock(':root[data-office-color="snow"] {');
     const gutter = token(snow, "--bg");
     const thread = token(snow, "--bg-thread");
     const card = token(snow, "--card");
-    expect(gutter).toBe("#0d0d0e");
-    expect(thread).toBe("#ffffff");
-    expect(token(snow, "--ink-side")).toBe("#f7f8f8");
+    expect(gutter).toBe("#f2f1ed");
+    expect(token(snow, "--bg-side")).toBe(gutter);
+    expect(thread).toBe("#fffefa");
     expect(contrast(token(snow, "--ink"), thread)).toBeGreaterThanOrEqual(7);
-    expect(contrast(token(snow, "--ink-side"), gutter)).toBeGreaterThanOrEqual(7);
+    expect(contrast(token(snow, "--ink"), gutter)).toBeGreaterThanOrEqual(7);
     expect(contrast(token(snow, "--muted"), thread)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(token(snow, "--muted"), card)).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(token(snow, "--muted-side"), gutter)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(token(snow, "--muted"), gutter)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(token(snow, "--accent"), thread)).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(token(snow, "--accent-side"), gutter)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(token(snow, "--accent"), gutter)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(token(snow, "--danger"), thread)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(token(snow, "--danger"), card)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(token(snow, "--line"), thread)).toBeLessThan(2);
-    expect(css).toMatch(
-      /:root\[data-office-color="snow"\] \.chat-side\s*\{[^}]*--ink:\s*var\(--ink-side\)/s,
-    );
-    expect(css).toMatch(
-      /:root\[data-office-color="snow"\] \.chat-side\s*\{[^}]*--color-ink:\s*var\(--ink\)/s,
-    );
-    expect(css).toMatch(
-      /:root\[data-office-color="snow"\] \.chat-side\s*\{[^}]*--color-muted:\s*var\(--muted\)/s,
-    );
+    expect(token(snow, "--ok")).toBe("#176b45");
+    expect(token(snow, "--shadow")).toContain("rgba(40, 36, 28, 0.12)");
+    expect(css).not.toContain(':root[data-office-color="snow"] .chat-side');
   });
 
   it("keeps every office look readable", () => {
@@ -201,16 +222,6 @@ describe("office chrome", () => {
       expect(token(block, "--bg"), color.id).toBe(color.rail);
       expect(token(block, "--bg-side"), color.id).toBe(gutter);
       expect(contrast(token(block, "--ink"), thread), color.id).toBeGreaterThanOrEqual(7);
-      if (color.id === "snow") {
-        expect(contrast(token(block, "--ink-side"), gutter), color.id).toBeGreaterThanOrEqual(4.5);
-        expect(contrast(token(block, "--muted"), thread), color.id).toBeGreaterThanOrEqual(4.5);
-        expect(contrast(token(block, "--muted"), card), color.id).toBeGreaterThanOrEqual(4.5);
-        expect(contrast(danger, card), color.id).toBeGreaterThanOrEqual(4.5);
-        expect(contrast(token(block, "--line"), thread), color.id).toBeLessThan(2);
-        expect(contrast(token(block, "--muted-side"), gutter), color.id).toBeGreaterThanOrEqual(4.5);
-        expect(contrast(token(block, "--accent-side"), gutter), color.id).toBeGreaterThanOrEqual(4.5);
-        continue;
-      }
       expect(contrast(token(block, "--ink"), gutter), color.id).toBeGreaterThanOrEqual(4.5);
       if (color.id === "paper") continue;
       expect(contrast(token(block, "--muted"), thread), color.id).toBeGreaterThanOrEqual(4.5);
@@ -252,6 +263,28 @@ describe("office chrome", () => {
       /\.chat-dock-item\[aria-current="page"\][^}]*color:\s*var\(--accent\)/s,
     );
     expect(css).toMatch(/\.chat-dock-item\s*\{[^}]*outline:\s*none/s);
+  });
+
+  it("animates dock icons through idle hover and click", () => {
+    expect(css).toMatch(/@keyframes ico-idle-sway/);
+    expect(css).toMatch(/@keyframes ico-pin/);
+    expect(css).toMatch(/@keyframes ico-click/);
+    expect(css).toMatch(/\.chat-dock-item:hover \.ico-knowledge \.sprout/);
+    expect(css).toMatch(/\.chat-dock-item\[data-clicked\] \.office-ico/);
+    expect(css).toMatch(
+      /prefers-reduced-motion: reduce\)\s*\{[^}]*\.office-ico/s,
+    );
+    expect(chatScreen).toMatch(/function DockItem/);
+    expect(chatScreen).toMatch(/function YouRow/);
+    expect(chatScreen).toMatch(/useIconPress/);
+    expect(chatScreen).toMatch(/useDockLabelsHidden/);
+    expect(icons).toMatch(/className=\{cn\("office-ico"/);
+    expect(icons).toMatch(/kind="caret"/);
+    expect(css).toMatch(/\.chat-you:hover \.ico-caret \.caret-up/);
+    expect(css).toMatch(
+      /\.aui-composer-send:hover:not\(:disabled\)\s*\{[^}]*transform:\s*scale\(1\.05\)/s,
+    );
+    expect(threadAui).toMatch(/active:scale-100/);
   });
 
   it("lets the office pane share one resizable column", () => {
@@ -315,6 +348,7 @@ describe("office chrome", () => {
     expect(chatScreen).toMatch(/grid-cols-\[44px_minmax\(0,1fr\)\]/);
     expect(chatScreen).toMatch(/size="md"/);
     expect(css).toMatch(/\.member-stack\s*\{[^}]*width:\s*44px/s);
+    expect(css).toMatch(/\.chat-conv\s*\{[^}]*corner-shape:\s*squircle/s);
   });
 
   it("scrolls the work board sideways", () => {
@@ -511,7 +545,14 @@ describe("office chrome", () => {
     expect(appSettings).toContain("DEFAULT_SETTINGS_TAB");
     expect(appSettings).toContain('export const DEFAULT_SETTINGS_TAB: Tab = "appearance"');
     expect(appSettings).toContain("OfficeLookList");
+    expect(appSettings).not.toContain("ThemePicks");
     expect(appSettings).not.toMatch(/group-label">Appearance/);
+    expect(appSettings).not.toMatch(/Follow this device/);
+    expect(css).not.toMatch(/\.theme-picks\s*\{/);
+    expect(css).toMatch(
+      /:root\[data-theme="light"\]\[data-office-color="linear"\]\s*\{[^}]*--bg-thread:\s*#fffefa/s,
+    );
+    expect(css).toMatch(/\.stage-back\s*\{[^}]*background:\s*var\(--overlay\)/s);
   });
 
   it("keeps settings field controls inside the pane", () => {

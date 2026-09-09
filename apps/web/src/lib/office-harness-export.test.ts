@@ -112,6 +112,7 @@ describe("buildHarnessExport", () => {
           generation: 0,
           seq: 4,
           floorBotId: "",
+          focusedAppId: "",
         },
       }),
       debugLog: () => ["turn_start +0ms"],
@@ -182,6 +183,7 @@ describe("buildHarnessExport", () => {
           generation: 0,
           seq: 1,
           floorBotId: "",
+          focusedAppId: "",
         },
       }),
     });

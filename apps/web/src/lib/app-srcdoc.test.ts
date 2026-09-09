@@ -7,11 +7,12 @@ describe("app iframe document", () => {
   it("injects a Cap'n Web handshake and blocks network", () => {
     const html = appSrcDoc(
       "await gadget.subscribe()",
-      "export function newMessagePortRpcSession() {}",
+      "export function newMessagePortRpcSession() {}\nexport class RpcTarget {}",
     );
     expect(html).toContain("connect-src 'none'");
     expect(html).toContain("handshake");
     expect(html).toContain("newMessagePortRpcSession");
+    expect(html).toContain("RpcTarget");
     expect(html).toContain("gadget.subscribe");
     expect(html).not.toContain("gadget:call");
   });

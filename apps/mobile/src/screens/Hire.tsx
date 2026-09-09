@@ -1,3 +1,8 @@
+import {
+  BOT_MARKETPLACE_CATALOG,
+  filterBotMarketplace,
+  hireFieldsFromTemplate,
+} from "@groxbot/contracts";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -21,17 +26,27 @@ export function HireScreen({ navigation }: Props) {
   const meQuery = useQuery(orpc.me.queryOptions());
   const [name, setName] = useState(nextHireName(botsQuery.data ?? []));
   const [asPrivate, setAsPrivate] = useState(false);
+  const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const templates = filterBotMarketplace(BOT_MARKETPLACE_CATALOG, search, null);
 
-  async function hire() {
-    const next = name.trim();
+  async function hire(marketplaceId?: string) {
+    const template = marketplaceId
+      ? BOT_MARKETPLACE_CATALOG.find((row) => row.id === marketplaceId)
+      : undefined;
+    const fields = template ? hireFieldsFromTemplate(template) : null;
+    const next = (fields?.name || name).trim();
     if (!next) return;
     setBusy(true);
     setError("");
     try {
       const bot = await client.bots.create({
         name: next,
+        title: fields?.title,
+        description: fields?.description,
+        instructions: fields?.instructions,
+        marketplaceId: fields?.marketplaceId,
         avatarColor: nextAvatarColor(botsQuery.data ?? []),
         visibility: asPrivate ? "private" : "shared",
       });
@@ -75,6 +90,23 @@ export function HireScreen({ navigation }: Props) {
         busy={busy}
         disabled={!name.trim()}
       />
+      <Text style={styles.section}>Marketplace</Text>
+      <Field
+        placeholder="Search roles"
+        value={search}
+        onChangeText={setSearch}
+      />
+      {templates.slice(0, 24).map((row) => (
+        <Pressable
+          key={row.id}
+          onPress={() => void hire(row.id)}
+          style={styles.card}
+        >
+          <Text style={styles.cardName}>{row.name}</Text>
+          <Text style={styles.cardBlurb}>{row.blurb}</Text>
+          <Text style={styles.privateLabel}>{row.category}</Text>
+        </Pressable>
+      ))}
     </Screen>
   );
 }
@@ -90,4 +122,13 @@ const styles = StyleSheet.create({
   },
   privateMark: { color: colors.muted, fontSize: 16, lineHeight: 20 },
   privateLabel: { color: colors.muted, fontSize: 13 },
+  section: { color: colors.text, fontWeight: "700", marginTop: 16 },
+  card: {
+    paddingVertical: 10,
+    gap: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
+  },
+  cardName: { color: colors.text, fontWeight: "600" },
+  cardBlurb: { color: colors.muted, fontSize: 13 },
 });

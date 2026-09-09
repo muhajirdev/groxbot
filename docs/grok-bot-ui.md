@@ -32,7 +32,7 @@ Copy this:
 
 - First action is **talk**, not configure a graph.
 - A Bot is a **contact**: name, avatar, one thread.
-- Apps (docs / slides / sheets) open from a **card in chat**. No file manager.
+- Apps (docs / slides / sheets / CRM / game) open from a **card in chat**. No file manager.
 - Plugins exist, but first task can be “summarize this file” with no connector.
 
 Do not copy:

@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 /**
- * Stamp vendored Cloudflare OS client.js / server.js into generated TS
- * string modules. The live app runs server.js as a Dynamic Worker Facet;
- * do not wrap a fake Gadget in the iframe. Do not introduce .gadget archives.
+ * Stamp vendored gadget client.js / server.js into generated TS string
+ * modules. Cloudflare OS docs/slides/sheets plus Groxbot crm/game.
+ * The live app runs server.js as a Dynamic Worker Facet; do not wrap a
+ * fake Gadget in the iframe. Do not introduce .gadget archives.
  */
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const vendorRoot = path.join(root, "vendor", "cloudflare-os");
 const outDir = path.join(root, "src", "generated");
 
-const header = [
+const cfHeader = [
   "/*",
   " * Derived from Cloudflare OS docs/slides/sheets (client.js + server.js)",
   " * https://github.com/cloudflare/cloudflare-os",
@@ -23,7 +23,16 @@ const header = [
   "",
 ].join("\n");
 
-function emit(kind, file, exportName) {
+const groxHeader = [
+  "/*",
+  " * Groxbot gadget (client.js + server.js).",
+  " * Stamped into the App Durable Object. The Gadget class in server.js",
+  " * runs as a Dynamic Worker Facet, not an in-iframe fake.",
+  " */",
+  "",
+].join("\n");
+
+function emit(vendorRoot, kind, file, exportName, header) {
   const src = fs.readFileSync(path.join(vendorRoot, kind, file), "utf8");
   const body = `${header}${src}`;
   const ts =
@@ -34,8 +43,24 @@ function emit(kind, file, exportName) {
   console.log(kind, file, body.length, "bytes");
 }
 
+const jobs = [
+  {
+    vendor: "cloudflare-os",
+    kinds: ["docs", "slides", "sheets"],
+    header: cfHeader,
+  },
+  {
+    vendor: "groxbot",
+    kinds: ["crm", "game"],
+    header: groxHeader,
+  },
+];
+
 fs.mkdirSync(outDir, { recursive: true });
-for (const kind of ["docs", "slides", "sheets"]) {
-  emit(kind, "client.js", `${kind}ClientJs`);
-  emit(kind, "server.js", `${kind}ServerJs`);
+for (const job of jobs) {
+  const vendorRoot = path.join(root, "vendor", job.vendor);
+  for (const kind of job.kinds) {
+    emit(vendorRoot, kind, "client.js", `${kind}ClientJs`, job.header);
+    emit(vendorRoot, kind, "server.js", `${kind}ServerJs`, job.header);
+  }
 }

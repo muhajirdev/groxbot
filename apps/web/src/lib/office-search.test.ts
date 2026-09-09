@@ -4,6 +4,7 @@ import {
   closePeek,
   deskApp,
   deskAwayFromLibrary,
+  deskFromRoomAppFocus,
   deskClosed,
   deskComputer,
   deskLibrary,
@@ -71,6 +72,34 @@ describe("desk helpers", () => {
 
   it("opens an app by id", () => {
     expect(deskApp("doc-1")).toEqual({ pane: "app", app: "doc-1" });
+  });
+});
+
+describe("deskFromRoomAppFocus", () => {
+  it("opens the room's live app for everyone", () => {
+    expect(deskFromRoomAppFocus(deskClosed(), "app_q3")).toEqual({
+      pane: "app",
+      app: "app_q3",
+    });
+    expect(
+      deskFromRoomAppFocus({ pane: "app", app: "app_q3" }, "app_q3"),
+    ).toBeNull();
+  });
+
+  it("leaves computer and library alone", () => {
+    expect(deskFromRoomAppFocus(deskComputer(), "app_q3")).toBeNull();
+    expect(
+      deskFromRoomAppFocus(deskLibrary(deskClosed(), "skills"), "app_q3"),
+    ).toBeNull();
+  });
+
+  it("closes the pane when the room stops the app", () => {
+    expect(
+      deskFromRoomAppFocus({ pane: "app", app: "app_q3" }, ""),
+    ).toEqual(deskClosed());
+    expect(
+      deskFromRoomAppFocus({ pane: "app", app: "app_q3", bot: "steve" }, ""),
+    ).toEqual({ bot: "steve" });
   });
 });
 

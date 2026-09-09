@@ -109,6 +109,7 @@ export const KeptOfficeThread = memo(function KeptOfficeThread(props: {
   onNeedsModel: () => void;
   onNeedsHostedPlan?: () => void;
   onUnarchive: (botId: string) => void;
+  onAppFocus?: (threadId: string, appId: string) => void;
   stopRef: MutableRefObject<(() => void) | null>;
 }) {
   const onError = useCallback(
@@ -137,6 +138,7 @@ export const KeptOfficeThread = memo(function KeptOfficeThread(props: {
       onNeedsModel={props.onNeedsModel}
       onNeedsHostedPlan={props.onNeedsHostedPlan}
       onUnarchive={onUnarchive}
+      onAppFocus={props.onAppFocus}
       stopRef={props.stopRef}
     />
   );
@@ -165,6 +167,7 @@ export function OfficeThread(props: {
   onNeedsModel: () => void;
   onNeedsHostedPlan?: () => void;
   onUnarchive: () => void;
+  onAppFocus?: (threadId: string, appId: string) => void;
   stopRef: MutableRefObject<(() => void) | null>;
 }) {
   const active = props.active !== false;
@@ -214,6 +217,7 @@ export function OfficeThread(props: {
         onError={props.onError}
         onNeedsModel={props.onNeedsModel}
         onNeedsHostedPlan={props.onNeedsHostedPlan}
+        onAppFocus={props.onAppFocus}
         stopHolder={stopHolder}
       />
       {active && (props.error || props.archived) ? (
@@ -254,6 +258,7 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
   onError: (error: string) => void;
   onNeedsModel: () => void;
   onNeedsHostedPlan?: () => void;
+  onAppFocus?: (threadId: string, appId: string) => void;
   stopHolder: MutableRefObject<(() => void) | null>;
 }) {
   const onErrorRef = useRef(props.onError);
@@ -295,6 +300,7 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
     isStreaming,
     connectionError,
     connected,
+    focusedAppId,
     pendingApprovals: loadPendingApprovals,
     approveApproval,
     rejectApproval,
@@ -308,6 +314,11 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
   const inFlight = busy || pending;
   const [approvals, setApprovals] = useState<PendingApproval[]>([]);
   const [resolvingApproval, setResolvingApproval] = useState("");
+
+  useEffect(() => {
+    if (!props.active) return;
+    props.onAppFocus?.(chatId, focusedAppId);
+  }, [props.active, chatId, focusedAppId, props.onAppFocus]);
 
   const refreshApprovals = useCallback(async () => {
     try {

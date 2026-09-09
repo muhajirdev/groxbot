@@ -31,6 +31,7 @@ export function LoginScreen({
   const emailSend = useRef(0);
   const inviteId = invitationIdFromInput(invite ?? "");
   const googleReady = health.data?.oauth?.includes("google") ?? false;
+  const githubReady = health.data?.oauth?.includes("github") ?? false;
   const mailLogged = health.data?.mail === MAIL_LOG;
   const peekQuery = useQuery({
     ...orpc.workspaces.peek.queryOptions({
@@ -46,18 +47,23 @@ export function LoginScreen({
 
   const callbackURL = Linking.createURL("/");
 
-  async function continueWithGoogle() {
+  async function continueWithSocial(provider: "google" | "github") {
     setBusy(true);
     setError("");
-    if (!googleReady) {
+    const ready = provider === "google" ? googleReady : githubReady;
+    if (!ready) {
       setBusy(false);
-      setError("Google sign-in is not configured on this API.");
+      setError(
+        provider === "google"
+          ? "Google sign-in is not configured on this API."
+          : "GitHub sign-in is not configured on this API.",
+      );
       return;
     }
     rememberInvite(inviteId);
     try {
       const result = await authClient.signIn.social({
-        provider: "google",
+        provider,
         callbackURL,
         errorCallbackURL: callbackURL,
       });
@@ -224,7 +230,15 @@ export function LoginScreen({
             <Button
               label="Continue with Google"
               tone="ghost"
-              onPress={() => void continueWithGoogle()}
+              onPress={() => void continueWithSocial("google")}
+              busy={busy}
+            />
+          ) : null}
+          {githubReady ? (
+            <Button
+              label="Continue with GitHub"
+              tone="ghost"
+              onPress={() => void continueWithSocial("github")}
               busy={busy}
             />
           ) : null}

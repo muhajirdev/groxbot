@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { userFacingError } from "../lib/errors";
+import { useIconPress } from "../lib/icon-press";
 import { orpc, queryClient } from "../lib/orpc";
 import { client } from "../lib/rpc";
 import { copyAndToast, toast, TOAST_INVITE_LINK_COPIED } from "../lib/toast";
@@ -11,6 +12,7 @@ export function InviteFriendButton(props: { workspaceId: string }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<"create" | "delete" | null>(null);
   const [error, setError] = useState("");
+  const press = useIconPress();
 
   const linkQuery = useQuery({
     ...orpc.workspaces.inviteLink.queryOptions(),
@@ -72,12 +74,13 @@ export function InviteFriendButton(props: { workspaceId: string }) {
   return (
     <>
       <button
-        className="no-drag grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted outline-none transition-[background-color,color] duration-[var(--dur-popover)] ease-[var(--ease-dialog)] hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-accent"
+        className="ico-hit no-drag grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted outline-none transition-[background-color,color] duration-[var(--dur-popover)] ease-[var(--ease-dialog)] hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-accent"
         type="button"
         aria-label="Invite a friend"
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen(true)}
+        {...press}
       >
         <PeoplePlusIcon />
       </button>

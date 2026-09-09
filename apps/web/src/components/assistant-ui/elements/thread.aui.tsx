@@ -203,7 +203,7 @@ const ThreadRoot: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
       style={{
         ["--thread-max-width" as string]: "100%",
         ["--composer-bg" as string]: "var(--color-card)",
-        ["--composer-radius" as string]: "1rem",
+        ["--composer-radius" as string]: "2rem",
         ["--composer-padding" as string]: "8px",
       }}
     >
@@ -343,7 +343,7 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
       ) : null}
       <div
         data-slot="aui_composer-shell"
-        className="border-border/60 focus-within:border-border dark:border-muted-foreground/15 dark:focus-within:border-muted-foreground/30 flex w-full cursor-text flex-col gap-1 rounded-(--composer-radius) border bg-(--composer-bg) p-(--composer-padding) transition-[border-color]"
+        className="corner-squircle border-border/60 focus-within:border-border dark:border-muted-foreground/15 dark:focus-within:border-muted-foreground/30 flex w-full cursor-text flex-col gap-1 rounded-(--composer-radius) border bg-(--composer-bg) p-(--composer-padding) transition-[border-color]"
       >
         <ComposerAttachments />
         <ComposerPrimitive.Input
@@ -364,7 +364,7 @@ const composerSlotIsStop = (pending: boolean) => (s: AssistantState) =>
   (s.thread.isRunning || pending) && !s.composer.text.trim();
 
 const COMPOSER_PRIMARY_BTN =
-  "size-8 rounded-full bg-ink text-on-ink hover:bg-ink disabled:bg-ink/35 disabled:text-on-ink disabled:opacity-100";
+  "size-8 rounded-full bg-ink text-on-ink hover:bg-ink disabled:bg-ink/35 disabled:text-on-ink disabled:opacity-100 active:scale-100 motion-reduce:transform-none";
 
 const ComposerAction: FC = () => {
   const { pending } = useContext(ThreadChromeContext);
@@ -680,7 +680,7 @@ const EditComposer: FC = () => {
       data-slot="aui_edit-composer-wrapper"
       className="flex flex-col px-2 [contain-intrinsic-size:auto_200px] [content-visibility:auto]"
     >
-      <ComposerPrimitive.Root className="aui-edit-composer-root border-border/60 dark:border-muted-foreground/15 ms-auto flex w-full max-w-[min(92%,36rem)] cursor-text flex-col rounded-(--composer-radius) border bg-(--composer-bg) min-[721px]:max-w-[min(72%,36rem)]">
+      <ComposerPrimitive.Root className="aui-edit-composer-root corner-squircle border-border/60 dark:border-muted-foreground/15 ms-auto flex w-full max-w-[min(92%,36rem)] cursor-text flex-col rounded-(--composer-radius) border bg-(--composer-bg) min-[721px]:max-w-[min(72%,36rem)]">
         <ComposerPrimitive.Input
           className="aui-edit-composer-input text-foreground min-h-14 w-full resize-none bg-transparent px-4 pt-3 pb-1 text-base outline-none"
           autoFocus

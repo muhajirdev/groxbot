@@ -4,9 +4,11 @@ import { PRESENT_TOOL_NAME } from "@groxbot/contracts";
 import { COMPUTER_SHELL_TOOL_NAME } from "./computer-fs.js";
 import { OFFICE_CODE_TOOL_NAME } from "./execute-imports.js";
 import { KNOWLEDGE_MARKDOWN_LINK_HINT } from "./knowledge-links.js";
+import { OFFICE_ASK_TOOL_NAME } from "./office-ask.js";
 import { SKILL_TOOL_NAME } from "./office-skill.js";
 
 export const OFFICE_SET_CONTEXT_TOOL_NAME = "set_context";
+export const OFFICE_APP_TOOL_NAME = "app";
 
 export type OfficePromptTool = {
   name: string;
@@ -31,7 +33,7 @@ export const OFFICE_TOOL_PROMPT: Record<string, OfficeToolPromptContribution> =
       snippet:
         "JavaScript sandbox for knowledge, routines, history, bots, and page helpers. Argument is `code`, not a bash command. You can import npm packages.",
       guidelines: [
-        "knowledge, routines, history, and bots live inside code (`await knowledge.search({ query })`, `await knowledge.read({ path })`, `await knowledge.write({ path, content })` or `from` for a computer PDF, `await routines.list()`, `await history.search({ query })`, `await bots.search({ query })`, `await bots.hire({ marketplaceId })`). Hire needs approval. set_context, skill_manage, present, and shell are top-level tools, not sandbox globals.",
+        "knowledge, routines, history, and bots live inside code (`await knowledge.search({ query })`, `await knowledge.read({ path })`, `await knowledge.write({ path, content })` or `from` for a computer PDF, `await routines.list()`, `await history.search({ query })`, `await bots.search({ query })`, `await bots.hire({ marketplaceId })`). Hire needs approval. set_context, skill_manage, present, ask, and shell are top-level tools, not sandbox globals.",
         KNOWLEDGE_MARKDOWN_LINK_HINT,
       ],
     },
@@ -84,6 +86,13 @@ export const OFFICE_TOOL_PROMPT: Record<string, OfficeToolPromptContribution> =
         "For a glanceable result, call present with a JSON tree (`$type` plus `children`). Put long notes and drafts in a file on this computer, then present a File with that path (`place` computer). After skill_manage create/patch, present a File with the office path (`place` knowledge).",
       ],
     },
+    [OFFICE_ASK_TOOL_NAME]: {
+      snippet:
+        "Ask the human a question and wait. Prefer short options. Not for hire/send/spend.",
+      guidelines: [
+        "When a preference or missing fact blocks the work, call ask and wait. Prefer 2–4 short options. Do not guess a choice you can ask in one tap. Hire/send/spend/delete still need approval, not ask. If ask says no one is watching, continue with your best judgment.",
+      ],
+    },
     [SKILL_TOOL_NAME]: {
       snippet:
         "Create or patch a SKILL.md in the office library at skills/<name>/SKILL.md.",
@@ -95,6 +104,13 @@ export const OFFICE_TOOL_PROMPT: Record<string, OfficeToolPromptContribution> =
     room_read: { snippet: "Read a paper in this room." },
     room_write: {
       snippet: "Write a paper in this room. Shared with everyone seated here.",
+    },
+    [OFFICE_APP_TOOL_NAME]: {
+      snippet:
+        "The live app this room is looking at. Everyone here has it open. method is a Gadget RPC name (getDocument, setDocument, setDeck, applyOperation, initializeBlocks, getDeck, getGame, setGame, upsertContact, move, or whatever server.js exports); arguments is the args list.",
+      guidelines: [
+        "This room is looking at a live app. Use the app tool to read or change that document — do not invent a second copy. method is the Gadget RPC name; arguments is the list of args. set_context, skill_manage, present, ask, shell, and app are top-level tools, not sandbox globals.",
+      ],
     },
   };
 

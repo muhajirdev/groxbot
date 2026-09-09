@@ -64,6 +64,7 @@ export const KeptRoomThread = memo(function KeptRoomThread(props: {
   active?: boolean;
   onNeedsModel: () => void;
   onNeedsHostedPlan?: () => void;
+  onAppFocus?: (threadId: string, appId: string) => void;
   stopRef: MutableRefObject<(() => void) | null>;
 }) {
   const onError = useCallback(
@@ -87,6 +88,7 @@ export const KeptRoomThread = memo(function KeptRoomThread(props: {
       onError={onError}
       onNeedsModel={props.onNeedsModel}
       onNeedsHostedPlan={props.onNeedsHostedPlan}
+      onAppFocus={props.onAppFocus}
       stopRef={props.stopRef}
     />
   );
@@ -108,6 +110,7 @@ export function RoomThread(props: {
   onError: (error: string) => void;
   onNeedsModel: () => void;
   onNeedsHostedPlan?: () => void;
+  onAppFocus?: (threadId: string, appId: string) => void;
   stopRef: MutableRefObject<(() => void) | null>;
 }) {
   const active = props.active !== false;
@@ -219,11 +222,17 @@ const RoomThreadRuntime = memo(function RoomThreadRuntime(props: {
     isStreaming,
     connectionError,
     floorBotId,
+    focusedAppId,
   } = chat;
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
   const busy = status === "submitted" || status === "streaming" || isStreaming;
   const wasBusy = useRef(false);
+
+  useEffect(() => {
+    if (!active) return;
+    props.onAppFocus?.(props.roomId, focusedAppId);
+  }, [active, focusedAppId, props.onAppFocus, props.roomId]);
   const [pending, setPending] = useState(false);
   const abortSendRef = useRef<AbortController | null>(null);
   const inFlight = busy || pending;

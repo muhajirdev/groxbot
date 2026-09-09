@@ -221,9 +221,6 @@ export function AppSettings(props: {
               <div className="settings-pane" hidden={tab !== "appearance"}>
                 <section className="set-block">
                   <p className="group-label">Look</p>
-                  <p className="hint set-lede">
-                    Sidebar and chrome. The thread sits on this.
-                  </p>
                   <OfficeLookList
                     value={props.officeColor}
                     onChange={props.onOfficeColor}

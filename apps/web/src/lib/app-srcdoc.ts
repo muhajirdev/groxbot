@@ -10,7 +10,7 @@ window.open = () => null;
 function capnwebImport(capnwebBundle: string): string {
   const annotated = `//# sourceURL=jsrpc.js\n${capnwebBundle}`;
   const encoded = btoa(annotated);
-  return `import { newMessagePortRpcSession } from "data:text/javascript;charset=utf-8;base64,${encoded}";\n`;
+  return `import { newMessagePortRpcSession, RpcTarget } from "data:text/javascript;charset=utf-8;base64,${encoded}";\n`;
 }
 
 export function appSrcDoc(jsCode: string, capnwebBundle = ""): string {

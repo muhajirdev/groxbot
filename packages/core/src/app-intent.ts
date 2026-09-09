@@ -14,9 +14,19 @@ const TEMPLATES: Array<{ re: RegExp; id: TemplateId; fallback: string }> = [
     fallback: "Untitled sheet",
   },
   {
-    re: /\b(docs?|documents?|writeup|memo)\b/i,
+    re: /\b(crm|pipeline|kanban|leads)\b/i,
+    id: "crm",
+    fallback: "Untitled CRM",
+  },
+  {
+    re: /\b(docs?|documents?|writeup|memo|word)\b/i,
     id: "docs",
     fallback: "Untitled doc",
+  },
+  {
+    re: /\b(tic[- ]?tac[- ]?toe|noughts(?:\s+and\s+crosses)?|multiplayer game|game)\b/i,
+    id: "game",
+    fallback: "Tic-tac-toe",
   },
 ];
 

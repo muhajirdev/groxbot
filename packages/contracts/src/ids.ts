@@ -50,5 +50,5 @@ export const GuestAgentKind = z.enum(["hermes", "openclaw", "generic"]);
 export type GuestAgentKind = z.infer<typeof GuestAgentKind>;
 
 /** Workspace-owned document runtimes. Hidden source; UI is the thing. */
-export const TemplateId = z.enum(["docs", "slides", "sheets"]);
+export const TemplateId = z.enum(["docs", "slides", "sheets", "crm", "game"]);
 export type TemplateId = z.infer<typeof TemplateId>;

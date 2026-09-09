@@ -22,9 +22,9 @@ export function SidebarCreateMenu(props: {
         aria-label="New"
         aria-busy={props.disabled}
         className={cn(
-          "no-drag grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted outline-none",
+          "ico-hit no-drag grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted outline-none",
           "transition-[background-color,color] duration-[var(--dur-popover)] ease-[var(--ease-dialog)]",
-          "hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent",
+          "hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-accent",
           "data-popup-open:bg-selected data-popup-open:text-ink",
           "disabled:cursor-not-allowed disabled:opacity-50",
           props.active && "bg-selected text-ink",

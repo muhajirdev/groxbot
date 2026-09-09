@@ -150,6 +150,7 @@ import {
 import { aiToolsToPi, officeAgentTool, wrapAgentToolsForComputerUsage } from "./bot-office-tools.js";
 import { PluginsConnector } from "./bot-plugins.js";
 import { createPresentTool } from "./bot-present.js";
+import { createRoomAppTool } from "./bot-app.js";
 import { RoutinesConnector } from "./bot-routines-connector.js";
 import { createSkillTool } from "./bot-skill.js";
 import { agentRuntimeSource, productEnv, type RuntimeSource } from "./env.js";
@@ -330,6 +331,8 @@ export class RoomHome extends Agent<WorkerEnv> {
   private botLoaded = false;
   private botLoading: Promise<void> | null = null;
   protected officeId = "";
+  /** Live app this room is looking at. Same storage on home and group. */
+  protected focusedAppId = "";
   /** Product bot id. DO instance name is the home room id. */
   protected personId = "";
   private ownerUserId = "";
@@ -386,6 +389,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     this.sql`DROP TABLE IF EXISTS groxbot_routines`;
     this.ensureOfficeChatTable();
     await this.ensureOfficeSession();
+    await this.loadAppFocus();
     await this.healComputerFiles();
     console.log(`[bot ${this.name}] onStart`);
   }
@@ -476,6 +480,7 @@ export class RoomHome extends Agent<WorkerEnv> {
         : []),
       createPresentTool(),
       this.setContextTool(),
+      ...this.roomAppTools(),
       ...(skill ? [skill] : []),
       {
         ...execute,
@@ -647,7 +652,38 @@ export class RoomHome extends Agent<WorkerEnv> {
       ],
     };
     if (this.officeError) snapshot.lastError = this.officeError;
+    if (this.focusedAppId) snapshot.focusedAppId = this.focusedAppId;
+    else snapshot.focusedAppId = "";
     return snapshot;
+  }
+
+  async setAppFocus(appId: string): Promise<void> {
+    const next = appId.trim();
+    if (next === this.focusedAppId) return;
+    this.focusedAppId = next;
+    if (next) await this.ctx.storage.put("focusedAppId", next);
+    else await this.ctx.storage.delete("focusedAppId");
+    await this.broadcastAppFocus(next);
+  }
+
+  protected async loadAppFocus(): Promise<void> {
+    const stored = await this.ctx.storage.get<string>("focusedAppId");
+    this.focusedAppId = typeof stored === "string" ? stored.trim() : "";
+  }
+
+  protected async broadcastAppFocus(appId: string): Promise<void> {
+    await this.broadcastOfficeEvent({ type: "focus", appId });
+  }
+
+  protected roomAppTools() {
+    if (!this.focusedAppId || !this.env.APP_RUNTIME) return [];
+    return [
+      createRoomAppTool({
+        focusedAppId: () => this.focusedAppId,
+        workspaceId: () => this.officeId,
+        runtime: this.env.APP_RUNTIME,
+      }),
+    ];
   }
 
   async sendOffice(

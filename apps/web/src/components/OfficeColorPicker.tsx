@@ -56,6 +56,7 @@ export function OfficeLookList(props: {
           <span className="office-look-swatch" aria-hidden>
             <i style={{ background: color.rail }} />
             <i style={{ background: color.swatch }} />
+            <b style={{ background: color.swatch }} />
           </span>
           <span className="office-look-copy">
             <strong>{color.label}</strong>

@@ -23,6 +23,38 @@ describe("parseAppIntent", () => {
     });
   });
 
+  it("detects a CRM", () => {
+    expect(parseAppIntent("make a CRM for Acme")).toEqual({
+      templateId: "crm",
+      title: "Acme",
+    });
+  });
+
+  it("detects tic-tac-toe", () => {
+    expect(parseAppIntent("make a tic-tac-toe game")).toEqual({
+      templateId: "game",
+      title: "Tic-tac-toe",
+    });
+    expect(parseAppIntent("make a game")).toEqual({
+      templateId: "game",
+      title: "Tic-tac-toe",
+    });
+  });
+
+  it("keeps a document about a game as a doc", () => {
+    expect(parseAppIntent("draft a document about the game")).toEqual({
+      templateId: "docs",
+      title: "the game",
+    });
+  });
+
+  it("detects a word doc", () => {
+    expect(parseAppIntent("create a word called Brief")).toEqual({
+      templateId: "docs",
+      title: "Brief",
+    });
+  });
+
   it("ignores ordinary chat", () => {
     expect(parseAppIntent("what is in the repo")).toBeNull();
     expect(parseAppIntent("make a sandwich")).toBeNull();

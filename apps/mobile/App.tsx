@@ -16,14 +16,20 @@ import { inviteFromHref, rememberInvite } from "./src/lib/invite";
 import { orpc, queryClient } from "./src/lib/orpc";
 import { setPendingBotId } from "./src/lib/pending";
 import type { RootStackParamList } from "./src/navigation";
+import { setRpcWorkspaceId } from "./src/lib/rpc-workspace";
 import { AppsScreen } from "./src/screens/Apps";
+import { BillingScreen } from "./src/screens/Billing";
+import { BoardScreen } from "./src/screens/Board";
 import { BotSettingsScreen } from "./src/screens/BotSettings";
 import { ComputerScreen } from "./src/screens/Computer";
+import { CreateRoomScreen } from "./src/screens/CreateRoom";
 import { HireScreen } from "./src/screens/Hire";
 import { KnowledgeScreen } from "./src/screens/Knowledge";
 import { LoginScreen } from "./src/screens/Login";
 import { OnboardingScreen } from "./src/screens/Onboarding";
 import { PluginsScreen } from "./src/screens/Plugins";
+import { RoomScreen } from "./src/screens/Room";
+import { RoomSettingsScreen } from "./src/screens/RoomSettings";
 import { RosterScreen } from "./src/screens/Roster";
 import { ThreadScreen } from "./src/screens/Thread";
 import { WelcomeScreen } from "./src/screens/Welcome";
@@ -42,6 +48,9 @@ const linking = {
       Onboarding: "onboarding",
       Roster: "office",
       Thread: "t/:botId",
+      Room: "room/:roomId",
+      Board: "board",
+      Billing: "billing",
     },
   },
 };
@@ -68,6 +77,12 @@ function RootNavigator() {
     ...orpc.me.queryOptions(),
     enabled: signedIn,
   });
+
+  useEffect(() => {
+    if (meQuery.data?.workspaceId) {
+      setRpcWorkspaceId(meQuery.data.workspaceId);
+    }
+  }, [meQuery.data?.workspaceId]);
 
   useEffect(() => {
     function remember(url: string) {
@@ -130,12 +145,17 @@ function RootNavigator() {
         <>
           <Stack.Screen name="Roster" component={RosterScreen} />
           <Stack.Screen name="Thread" component={ThreadScreen} />
+          <Stack.Screen name="Room" component={RoomScreen} />
+          <Stack.Screen name="RoomSettings" component={RoomSettingsScreen} />
+          <Stack.Screen name="CreateRoom" component={CreateRoomScreen} />
+          <Stack.Screen name="Board" component={BoardScreen} />
           <Stack.Screen name="Computer" component={ComputerScreen} />
           <Stack.Screen name="BotSettings" component={BotSettingsScreen} />
           <Stack.Screen name="Hire" component={HireScreen} />
           <Stack.Screen name="Knowledge" component={KnowledgeScreen} />
           <Stack.Screen name="Plugins" component={PluginsScreen} />
           <Stack.Screen name="You" component={YouScreen} />
+          <Stack.Screen name="Billing" component={BillingScreen} />
           <Stack.Screen name="Apps" component={AppsScreen} />
           <Stack.Screen name="Onboarding">
             {(props) => (

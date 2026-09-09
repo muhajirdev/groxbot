@@ -19,14 +19,32 @@
       html[data-theme="light"],
       html[data-theme="light"] body,
       html[data-theme="light"] #root {
-        background: #f3f3f3;
-        color: #1c1c1c;
+        background: #f2f1ed;
+        color: #22211f;
       }
       html[data-office-color="snow"],
       html[data-office-color="snow"] body,
       html[data-office-color="snow"] #root {
-        background: #0d0d0e;
-        color: #1c1c1c;
+        background: #f2f1ed;
+        color: #22211f;
+      }
+      html[data-office-color="paper"],
+      html[data-office-color="paper"] body,
+      html[data-office-color="paper"] #root {
+        background: #d4c4ae;
+        color: #2a2118;
+      }
+      html[data-office-color="blush"],
+      html[data-office-color="blush"] body,
+      html[data-office-color="blush"] #root {
+        background: #e89ab4;
+        color: #4a1830;
+      }
+      html[data-office-color="night"],
+      html[data-office-color="night"] body,
+      html[data-office-color="night"] #root {
+        background: #060a18;
+        color: #e6eefc;
       }
     </style>
     <script>
@@ -54,20 +72,38 @@
           mist: ["paper", "light"],
         };
         var pair = map[color];
-        var lightPref =
+        var office = pair ? pair[0] : "";
+        var lookTheme = pair ? pair[1] : "";
+        var systemLight = matchMedia("(prefers-color-scheme: light)").matches;
+        var appearance =
+          theme === "light"
+            ? "light"
+            : theme === "dark"
+              ? "dark"
+              : theme === "system"
+                ? systemLight
+                  ? "light"
+                  : "dark"
+                : lookTheme || "dark";
+        if (!office) {
+          office = appearance === "light" ? "snow" : "linear";
+        } else if (
           theme === "light" ||
-          (theme === "system" &&
-            matchMedia("(prefers-color-scheme: light)").matches);
-        if (pair) {
-          document.documentElement.dataset.officeColor = pair[0];
-          document.documentElement.dataset.theme = pair[1];
-        } else if (lightPref) {
-          document.documentElement.dataset.officeColor = "snow";
-          document.documentElement.dataset.theme = "light";
-        } else {
-          document.documentElement.dataset.officeColor = "linear";
-          document.documentElement.dataset.theme = "dark";
+          theme === "dark" ||
+          theme === "system"
+        ) {
+          var pinned = lookTheme === appearance;
+          if (!pinned) office = appearance === "light" ? "snow" : "linear";
         }
+        var scheme = {
+          snow: "light",
+          paper: "light",
+          blush: "light",
+          linear: "dark",
+          night: "dark",
+        };
+        document.documentElement.dataset.officeColor = office;
+        document.documentElement.dataset.theme = scheme[office] || appearance;
       } catch (e) {}
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />

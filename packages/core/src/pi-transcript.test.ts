@@ -301,6 +301,28 @@ describe("applyPiOfficeEvent", () => {
     });
     expect(view.floorBotId).toBe("");
   });
+
+  it("tracks the live app the room is looking at", () => {
+    let view = emptyPiOfficeView("room-1");
+    view = applyPiOfficeEvent(view, {
+      threadId: "room-1",
+      seq: 1,
+      type: "focus",
+      appId: "app_q3",
+    });
+    expect(view.focusedAppId).toBe("app_q3");
+    view = applyPiOfficeEvent(view, {
+      threadId: "room-1",
+      seq: 2,
+      type: "snapshot",
+      snapshot: {
+        metadata: { id: "room-1", status: "idle" },
+        messages: [],
+        focusedAppId: "",
+      },
+    });
+    expect(view.focusedAppId).toBe("");
+  });
 });
 
 describe("takePiAssistantDraft", () => {

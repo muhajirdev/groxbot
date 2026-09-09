@@ -93,7 +93,7 @@ export function teammatePrompt(bot: {
  * so the model does not have to `codemode.search` to learn the office library.
  */
 export const OFFICE_CODE_TOOL_PREAMBLE =
-  "JavaScript sandbox. Argument is `code` — not a bash `command`. This is not the computer shell (`shell`). set_context, skill_manage, present, and shell are top-level tools, not globals here.";
+  "JavaScript sandbox. Argument is `code` — not a bash `command`. This is not the computer shell (`shell`). set_context, skill_manage, present, ask, and shell are top-level tools, not globals here.";
 
 export const KNOWLEDGE_EXECUTE_HINT =
   "`knowledge` — shared office library, not this computer. `await knowledge.search({ query })` then `await knowledge.read({ path })` / `write({ path, content })` or `from` for a computer PDF. search and read also accept a lone string. Skills (playbooks) use `skill_manage`, not `knowledge.write`. " +

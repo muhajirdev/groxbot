@@ -36,6 +36,28 @@ describe("buildOfficeSystemPrompt", () => {
     expect(prompt).not.toMatch(/This turn only has set_context/);
   });
 
+  it("describes the live app this room is looking at", () => {
+    const prompt = buildOfficeSystemPrompt({
+      identity,
+      tools: [{ name: "app" }],
+    });
+    expect(prompt).toMatch(/- app:/);
+    expect(prompt).toMatch(/Everyone here has it open/);
+    expect(prompt).toMatch(/Gadget RPC/);
+    expect(prompt).toMatch(/top-level tools, not sandbox globals/);
+  });
+
+  it("tells the teammate to call ask and wait", () => {
+    const prompt = buildOfficeSystemPrompt({
+      identity,
+      tools: [{ name: "ask" }],
+    });
+    expect(prompt).toMatch(/- ask:/);
+    expect(prompt).toMatch(/Ask the human a question and wait/);
+    expect(prompt).toMatch(/call ask and wait/);
+    expect(prompt).toMatch(/no one is watching/);
+  });
+
   it("tells the teammate /learn authors a skill", () => {
     const prompt = buildOfficeSystemPrompt({
       identity,

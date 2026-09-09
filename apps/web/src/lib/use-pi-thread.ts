@@ -75,6 +75,13 @@ export function usePiThread(options: {
     await session.stop();
   }, [session]);
 
+  const focus = useCallback(
+    async (appId: string) => {
+      await session.focus(appId);
+    },
+    [session],
+  );
+
   const pendingApprovals = useCallback(
     () => session.pendingApprovals(),
     [session],
@@ -100,9 +107,11 @@ export function usePiThread(options: {
     isStreaming: status === "streaming",
     busy,
     floorBotId: view.floorBotId,
+    focusedAppId: view.focusedAppId,
     onNew,
     send,
     stop,
+    focus,
     pendingApprovals,
     approveApproval,
     rejectApproval,

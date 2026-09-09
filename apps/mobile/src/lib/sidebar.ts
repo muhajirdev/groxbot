@@ -1,4 +1,11 @@
 import type { Bot } from "@groxbot/contracts";
+import {
+  groupSidebarBots,
+  mixSidebarLive,
+  roomSidebarFaces,
+} from "@groxbot/core/browser";
+
+export { groupSidebarBots, mixSidebarLive, roomSidebarFaces };
 
 export function isPinnedBot(bot: Pick<Bot, "pinnedAt">): boolean {
   return Boolean(bot.pinnedAt);
@@ -45,6 +52,17 @@ export function filterRoster<
   if (!needle) return bots;
   return bots.filter((bot) => {
     const hay = `${bot.name} ${bot.title} ${bot.lastPreview}`.toLowerCase();
+    return hay.includes(needle);
+  });
+}
+
+export function filterRooms<
+  T extends { name: string; lastPreview: string; description?: string },
+>(rooms: T[], query: string): T[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return rooms;
+  return rooms.filter((room) => {
+    const hay = `${room.name} ${room.lastPreview} ${room.description ?? ""}`.toLowerCase();
     return hay.includes(needle);
   });
 }

@@ -29,6 +29,11 @@ export class OfficeChatHost extends RpcTarget {
     super();
   }
 
+  focus(appId: unknown): Promise<void> {
+    const next = typeof appId === "string" ? appId : "";
+    return this.actor.setAppFocus(next);
+  }
+
   snapshot(): Promise<unknown> {
     return this.actor.officeSnapshot();
   }

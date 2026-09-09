@@ -30,6 +30,9 @@ type PiHost = {
     targetBotId?: string;
   }): Promise<void>;
   stop(): Promise<void>;
+  pendingApprovals?(): Promise<unknown>;
+  approveApproval?(executionId: string): Promise<unknown>;
+  rejectApproval?(executionId: string, seq: number): Promise<unknown>;
   [Symbol.dispose]?: () => void;
 };
 
@@ -98,6 +101,7 @@ export function usePiThread(options: {
   const [connectionError, setConnectionError] = useState<Error | undefined>(
     undefined,
   );
+  const [connected, setConnected] = useState(false);
   const readyRef = useRef(false);
   const viewRef = useRef(view);
   viewRef.current = view;
@@ -154,6 +158,7 @@ export function usePiThread(options: {
       .then(() => {
         if (cancelled) return;
         readyRef.current = true;
+        setConnected(true);
         setConnectionError(undefined);
         for (const resolve of readyWaiters.current) resolve();
         readyWaiters.current = [];
@@ -165,11 +170,13 @@ export function usePiThread(options: {
             ? caught
             : new Error("Could not reach this teammate. Try sending again.");
         setConnectionError(err);
+        setConnected(false);
       });
     return () => {
       cancelled = true;
       hostRef.current = null;
       readyRef.current = false;
+      setConnected(false);
       try {
         host[Symbol.dispose]?.();
       } catch {
@@ -246,6 +253,35 @@ export function usePiThread(options: {
     await hostRef.current?.stop();
   }, []);
 
+  const pendingApprovals = useCallback(async () => {
+    await waitReady();
+    return hostRef.current?.pendingApprovals?.() ?? [];
+  }, [waitReady]);
+
+  const approveApproval = useCallback(
+    async (executionId: string) => {
+      await waitReady();
+      const host = hostRef.current;
+      if (!host?.approveApproval) {
+        throw new Error("Could not reach this teammate. Try sending again.");
+      }
+      return host.approveApproval(executionId);
+    },
+    [waitReady],
+  );
+
+  const rejectApproval = useCallback(
+    async (executionId: string, seq: number) => {
+      await waitReady();
+      const host = hostRef.current;
+      if (!host?.rejectApproval) {
+        throw new Error("Could not reach this teammate. Try sending again.");
+      }
+      return host.rejectApproval(executionId, seq);
+    },
+    [waitReady],
+  );
+
   const projected = useMemo(() => projectPiOfficeView(view), [view]);
   const status = view.status;
   const busy = status === "submitted" || status === "streaming";
@@ -257,10 +293,14 @@ export function usePiThread(options: {
     status,
     error,
     connectionError,
+    connected,
     isStreaming: status === "streaming",
     busy,
     onNew,
     send,
     stop,
+    pendingApprovals,
+    approveApproval,
+    rejectApproval,
   };
 }

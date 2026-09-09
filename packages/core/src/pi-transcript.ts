@@ -106,6 +106,8 @@ export type PiOfficeSnapshot = {
   messages: PiBoundMessage[];
   lastError?: string;
   floorBotId?: string;
+  /** Live app this room is looking at. Empty string clears. */
+  focusedAppId?: string;
 };
 
 export type PiSendMessageInput = {
@@ -136,6 +138,7 @@ export type PiOfficeView = {
   generation: number;
   seq: number;
   floorBotId: string;
+  focusedAppId: string;
 };
 
 export type PiClientEvent = {
@@ -182,6 +185,7 @@ export function emptyPiOfficeView(threadId = ""): PiOfficeView {
     generation: 0,
     seq: 0,
     floorBotId: "",
+    focusedAppId: "",
   };
 }
 
@@ -257,6 +261,9 @@ export function parsePiOfficeSnapshot(value: unknown): PiOfficeSnapshot | null {
   }
   if (typeof row.floorBotId === "string" && row.floorBotId.trim()) {
     snapshot.floorBotId = row.floorBotId.trim();
+  }
+  if (typeof row.focusedAppId === "string") {
+    snapshot.focusedAppId = row.focusedAppId.trim();
   }
   return snapshot;
 }
@@ -434,6 +441,7 @@ export function applyPiOfficeEvent(
       next.toolExecutions = keptLocal ? view.toolExecutions : {};
       next.error = snapshot.lastError ?? "";
       next.floorBotId = snapshot.floorBotId ?? view.floorBotId;
+      next.focusedAppId = snapshot.focusedAppId ?? "";
       const inFlight =
         view.status === "submitted" || view.status === "streaming";
       next.status =
@@ -519,6 +527,11 @@ export function applyPiOfficeEvent(
     case "floor": {
       next.floorBotId =
         typeof event.botId === "string" ? event.botId.trim() : "";
+      return next;
+    }
+    case "focus": {
+      next.focusedAppId =
+        typeof event.appId === "string" ? event.appId.trim() : "";
       return next;
     }
     default:

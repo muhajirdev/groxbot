@@ -18,6 +18,7 @@ import {
   type CSSProperties,
   type DragEvent,
   type MouseEvent,
+  type ReactNode,
   memo,
   useCallback,
   useEffect,
@@ -109,6 +110,7 @@ import {
 import { saveComputerDownload } from "../lib/computer-download";
 import { userFacingError } from "../lib/errors";
 import { scheduleKnowledgeFilePrefetch } from "../lib/file-cache";
+import { useDockLabelsHidden, useIconPress } from "../lib/icon-press";
 import {
   beginHire,
   draftCreatedBot,
@@ -133,7 +135,7 @@ import {
   setOfficeMessages,
 } from "../lib/office-messages";
 import { officeRpcUrl } from "../lib/office-chat-rpc";
-import { ensurePiThread, forgetPiThread } from "../lib/pi-thread-session";
+import { ensurePiThread, forgetPiThread, peekPiThread } from "../lib/pi-thread-session";
 import {
   BOARD_TO,
   OFFICE_TO,
@@ -148,6 +150,7 @@ import {
   deskAwayFromLibrary,
   deskClosed,
   deskComputer,
+  deskFromRoomAppFocus,
   deskLibrary,
   deskPeek,
   deskSettings,
@@ -1494,10 +1497,6 @@ export function Chat(props: {
     [],
   );
 
-  useEffect(() => {
-    applyOfficeColor(officeColor);
-  }, [officeColor]);
-
   const openMarketplace = useCallback((tab: MarketplaceTab) => {
     setMarketplaceTab(tab);
     setMarketplaceOpen(true);
@@ -1773,12 +1772,48 @@ export function Chat(props: {
     };
   }, [activeId, hiringThis, isRoom]);
 
+  const chatThreadId = isRoom
+    ? props.roomId
+    : bot?.homeRoomId || bot?.id;
+  const [roomFocusedAppId, setRoomFocusedAppId] = useState("");
+  const hadRoomApp = useRef(false);
+  const onRoomAppFocus = useCallback(
+    (threadId: string, appId: string) => {
+      if (threadId !== chatThreadId) return;
+      if (appId) hadRoomApp.current = true;
+      setRoomFocusedAppId(appId);
+    },
+    [chatThreadId],
+  );
+  useEffect(() => {
+    hadRoomApp.current = false;
+    if (!chatThreadId) {
+      setRoomFocusedAppId("");
+      return;
+    }
+    const focused =
+      peekPiThread(chatThreadId)?.getSnapshot().view.focusedAppId ?? "";
+    if (focused) hadRoomApp.current = true;
+    setRoomFocusedAppId(focused);
+  }, [chatThreadId]);
+  useEffect(() => {
+    if (!roomFocusedAppId && !hadRoomApp.current) return;
+    if (roomFocusedAppId) hadRoomApp.current = true;
+    const next = deskFromRoomAppFocus(desk, roomFocusedAppId);
+    if (!next) return;
+    void setDesk(next);
+  }, [desk, roomFocusedAppId, setDesk]);
   const openDocument = useCallback(
     (app: { appId: string }) => {
       setDesk(deskApp(app.appId));
+      if (chatThreadId) void peekPiThread(chatThreadId)?.focus(app.appId);
     },
-    [setDesk],
+    [chatThreadId, setDesk],
   );
+  const stopRoomApp = useCallback(() => {
+    if (chatThreadId) void peekPiThread(chatThreadId)?.focus("");
+    setDesk(deskClosed());
+  }, [chatThreadId, setDesk]);
   const [computerFile, setComputerFile] = useState<{
     botId: string;
     path: string;
@@ -1887,7 +1922,7 @@ export function Chat(props: {
                       aria-current={props.board ? "page" : undefined}
                       title="Board"
                       className={cn(
-                        "no-drag grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted outline-none no-underline transition-[background-color,color] duration-[var(--dur-popover)] ease-[var(--ease-dialog)] hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-accent",
+                        "ico-hit no-drag grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted outline-none no-underline transition-[background-color,color] duration-[var(--dur-popover)] ease-[var(--ease-dialog)] hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-accent",
                         props.board && "bg-hover text-ink",
                       )}
                     >
@@ -2102,14 +2137,9 @@ export function Chat(props: {
               </div>
               <div className="chat-foot mt-auto">
                 <nav className="chat-dock" aria-label="Office">
-                  <button
-                    className="chat-dock-item"
-                    type="button"
-                    aria-current={
-                      desk.library && !libraryShowsSkills(desk)
-                        ? "page"
-                        : undefined
-                    }
+                  <DockItem
+                    label="Knowledge"
+                    current={desk.library && !libraryShowsSkills(desk)}
                     onClick={() =>
                       setDesk(
                         desk.library && !libraryShowsSkills(desk)
@@ -2119,12 +2149,10 @@ export function Chat(props: {
                     }
                   >
                     <KnowledgeIcon className="size-5" />
-                    <span>Knowledge</span>
-                  </button>
-                  <button
-                    className="chat-dock-item"
-                    type="button"
-                    aria-current={libraryShowsSkills(desk) ? "page" : undefined}
+                  </DockItem>
+                  <DockItem
+                    label="Skills"
+                    current={libraryShowsSkills(desk)}
                     onClick={() =>
                       setDesk(
                         libraryShowsSkills(desk)
@@ -2134,40 +2162,26 @@ export function Chat(props: {
                     }
                   >
                     <SkillsIcon className="size-5" />
-                    <span>Skills</span>
-                  </button>
+                  </DockItem>
                   <LiveAppsDockItem />
-                  <button
-                    className="chat-dock-item"
-                    type="button"
-                    aria-pressed={
-                      marketplaceOpen && marketplaceTab === "plugins"
-                    }
+                  <DockItem
+                    label="Plugins"
+                    pressed={marketplaceOpen && marketplaceTab === "plugins"}
                     onClick={() => openMarketplace("plugins")}
                   >
                     <PlugIcon className="size-5" />
-                    <span>Plugins</span>
-                  </button>
+                  </DockItem>
                 </nav>
                 <div className="mt-0.5 flex items-center gap-0.5">
-                  <button
-                    className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border-0 bg-transparent px-1.5 py-1.5 text-left text-inherit hover:bg-hover"
-                    type="button"
+                  <YouRow
+                    name={officeProfileLabel(me)}
+                    image={me?.image}
+                    expanded={settingsOpen}
                     onClick={() => {
                       setSettingsTab(DEFAULT_SETTINGS_TAB);
                       setSettingsOpen(true);
                     }}
-                  >
-                    <PersonAvatar
-                      name={officeProfileLabel(me)}
-                      image={me?.image}
-                      className="size-6"
-                    />
-                    <span className="min-w-0 flex-1 truncate text-[13px] font-medium leading-tight">
-                      {officeProfileLabel(me)}
-                    </span>
-                    <CaretSwapIcon className="size-3.5 shrink-0 text-muted" />
-                  </button>
+                  />
                   <SupportChatButton
                     onClick={() =>
                       openCrispChat({ email: me?.email, name: me?.name })
@@ -2420,6 +2434,7 @@ export function Chat(props: {
                           error={itemError}
                           onNeedsModel={onNeedsModel}
                           onNeedsHostedPlan={onNeedsHostedPlan}
+                          onAppFocus={onRoomAppFocus}
                           stopRef={stopOffice}
                         />
                       );
@@ -2463,6 +2478,7 @@ export function Chat(props: {
                           onNeedsModel={onNeedsModel}
                           onNeedsHostedPlan={onNeedsHostedPlan}
                           onUnarchive={onUnarchiveBot}
+                          onAppFocus={onRoomAppFocus}
                           stopRef={stopOffice}
                         />
                       );
@@ -2537,7 +2553,7 @@ export function Chat(props: {
                     appId={exitingApp.id}
                     title={exitingApp.title}
                     templateId={exitingApp.templateId}
-                    onCollapse={() => setDesk(deskClosed())}
+                    onCollapse={stopRoomApp}
                   />
                 ) : null}
                 {pane.rendered === "settings" && bot ? (
@@ -2804,8 +2820,79 @@ export function Chat(props: {
   );
 }
 
+function DockItem(props: {
+  label: string;
+  current?: boolean;
+  pressed?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  const press = useIconPress();
+  const tip = useDockLabelsHidden();
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        className="chat-dock-item"
+        type="button"
+        aria-label={props.label}
+        aria-current={props.current ? "page" : undefined}
+        aria-pressed={props.pressed}
+        onClick={props.onClick}
+        {...press}
+      >
+        {props.children}
+        <span>{props.label}</span>
+      </TooltipTrigger>
+      {tip ? (
+        <TooltipContent side="top" sideOffset={6}>
+          {props.label}
+        </TooltipContent>
+      ) : null}
+    </Tooltip>
+  );
+}
+
+function YouRow(props: {
+  name: string;
+  image?: string | null;
+  expanded: boolean;
+  onClick: () => void;
+}) {
+  const press = useIconPress();
+  const tip = useDockLabelsHidden();
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        className="chat-you ico-hit no-drag flex min-w-0 flex-1 items-center gap-2 rounded-lg border-0 bg-transparent px-1.5 py-1.5 text-left text-inherit"
+        type="button"
+        aria-label="Settings"
+        aria-haspopup="dialog"
+        aria-expanded={props.expanded}
+        onClick={props.onClick}
+        {...press}
+      >
+        <PersonAvatar
+          name={props.name}
+          image={props.image}
+          className="chat-you-face size-6"
+        />
+        <span className="chat-you-name min-w-0 flex-1 truncate text-[13px] font-medium leading-tight">
+          {props.name}
+        </span>
+        <CaretSwapIcon className="chat-you-caret size-3.5 shrink-0 text-muted" />
+      </TooltipTrigger>
+      {tip ? (
+        <TooltipContent side="top" sideOffset={6}>
+          Settings
+        </TooltipContent>
+      ) : null}
+    </Tooltip>
+  );
+}
+
 function LiveAppsDockItem() {
   const [open, setOpen] = useState(false);
+  const press = useIconPress();
   return (
     <Tooltip open={open} onOpenChange={setOpen}>
       <TooltipTrigger
@@ -2813,6 +2900,7 @@ function LiveAppsDockItem() {
         type="button"
         aria-label="Live apps, coming soon"
         onClick={() => setOpen(true)}
+        {...press}
       >
         <LiveAppsIcon className="size-5" />
         <span>Live apps</span>

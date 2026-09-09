@@ -48,6 +48,12 @@ export function ThreadScreen({ navigation, route }: Props) {
             </Pressable>
             <Pressable
               accessibilityRole="button"
+              onPress={() => navigation.navigate("Plugins", { botId })}
+            >
+              <Text style={styles.link}>Plugins</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
               onPress={() => navigation.navigate("BotSettings", { botId })}
             >
               <Text style={styles.link}>Settings</Text>
@@ -72,12 +78,18 @@ export function ThreadScreen({ navigation, route }: Props) {
       {bot ? (
         <OfficeThread
           botId={bot.id}
+          roomId={bot.homeRoomId || bot.id}
           botName={bot.name}
           archived={Boolean(bot.archivedAt)}
           needsModel={Boolean(meQuery.data?.needsModel)}
+          needsHostedPlan={Boolean(meQuery.data?.needsHostedPlan)}
           userId={meQuery.data?.userId}
           userName={meQuery.data?.name}
           onNeedsModel={() => navigation.navigate("You")}
+          onNeedsHostedPlan={() => navigation.navigate("Billing")}
+          onOpenPath={(path) =>
+            navigation.navigate("Computer", { botId: bot.id, path })
+          }
           onUnarchive={() => void unarchive()}
         />
       ) : (

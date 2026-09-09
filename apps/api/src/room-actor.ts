@@ -100,6 +100,7 @@ export class RoomActor extends RoomHome {
       }
       const floor = await this.ctx.storage.get<string>("floorBotId");
       this.floorBotId = typeof floor === "string" ? floor.trim() : "";
+      await this.loadAppFocus();
       return;
     }
     await super.onStart();
@@ -190,6 +191,7 @@ export class RoomActor extends RoomHome {
     };
     if (this.error) snapshot.lastError = this.error;
     if (this.floorBotId) snapshot.floorBotId = this.floorBotId;
+    snapshot.focusedAppId = this.focusedAppId;
     return snapshot;
   }
 
@@ -359,6 +361,7 @@ export class RoomActor extends RoomHome {
     const tools: AgentTool[] = [
       ...(await this.guestTools(homeRoomId, workspaceId)),
       ...this.roomFileTools(this.name, workspaceId),
+      ...this.roomAppTools(),
     ];
     const system = await this.withOfficeSkills(
       buildOfficeSystemPrompt({
@@ -961,6 +964,14 @@ export class RoomActor extends RoomHome {
     if (botId) await this.ctx.storage.put("floorBotId", botId);
     else await this.ctx.storage.delete("floorBotId");
     await this.broadcastEvent({ type: "floor", botId });
+  }
+
+  protected override async broadcastAppFocus(appId: string): Promise<void> {
+    if (!(await this.isPersonRoom())) {
+      await this.broadcastEvent({ type: "focus", appId });
+      return;
+    }
+    await super.broadcastAppFocus(appId);
   }
 
   private broadcastError(): Promise<void> {

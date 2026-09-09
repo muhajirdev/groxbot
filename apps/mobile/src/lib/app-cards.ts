@@ -7,7 +7,7 @@ export type OfficeAppCard = {
   title: string;
 };
 
-const TEMPLATES = new Set<string>(["docs", "slides", "sheets"]);
+const TEMPLATES = new Set<string>(["docs", "slides", "sheets", "crm", "game"]);
 
 function asCard(value: unknown): OfficeAppCard | null {
   if (!value || typeof value !== "object") return null;

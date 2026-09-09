@@ -1,10 +1,20 @@
 import { MASCOT_MOODS, type MascotMood } from "@groxbot/mascot";
 import {
   ArrowUpIcon,
+  BoardIcon,
+  CaretSwapIcon,
   CheckIcon,
   ChevronDownIcon,
+  GearIcon,
   GitHubIcon,
   GoogleIcon,
+  HelpIcon,
+  KnowledgeIcon,
+  LiveAppsIcon,
+  PeoplePlusIcon,
+  PlugIcon,
+  PlusIcon,
+  SkillsIcon,
   SquareIcon,
   WarningCircleIcon,
   XCircleIcon,
@@ -38,6 +48,7 @@ import { OfficeToast } from "../components/ToastHost";
 import { TypingDots } from "../components/TypingDots";
 import { Skeleton } from "../components/ui/skeleton";
 import { AVATAR_COLORS, AVATAR_SHAPES, SUGGESTED_JOBS } from "../lib/jobs";
+import { useIconPress } from "../lib/icon-press";
 import {
   TOAST_LINK_COPIED,
   TOAST_SHARED_LINK_COPIED,
@@ -57,6 +68,7 @@ const SECTIONS = [
   { id: "composer", label: "Composer" },
   { id: "status", label: "Status" },
   { id: "controls", label: "Controls" },
+  { id: "icons", label: "Icons" },
   { id: "color", label: "Color" },
   { id: "knowledge", label: "Knowledge" },
 ] as const;
@@ -160,7 +172,7 @@ export function Design() {
         </div>
         <div className="design-head-actions">
           <div className="row tight">
-            {(["system", "dark", "light"] as const).map((value) => (
+            {(["system", "light", "dark"] as const).map((value) => (
               <Chip
                 key={value}
                 selected={theme === value}
@@ -507,6 +519,7 @@ export function Design() {
                       shape={shape}
                       size="md"
                       mood="idle"
+                      photo={false}
                     />
                     <figcaption>{shape}</figcaption>
                   </figure>
@@ -594,13 +607,19 @@ export function Design() {
           <Section
             id="composer"
             title="Composer"
-            lede="Same corner: send, or stop while it works. Type again to redirect."
+            lede="Regular 22px corners beside a softer 32px Apple-style continuous squircle."
           >
-            <Specimen label="Idle">
-              <ComposerMock running={false} />
+            <Specimen label="Regular · idle">
+              <ComposerMock running={false} squircle={false} />
             </Specimen>
-            <Specimen label="Running">
-              <ComposerMock running />
+            <Specimen label="Squircle · idle">
+              <ComposerMock running={false} squircle />
+            </Specimen>
+            <Specimen label="Regular · running">
+              <ComposerMock running squircle={false} />
+            </Specimen>
+            <Specimen label="Squircle · running">
+              <ComposerMock running squircle />
             </Specimen>
             <Specimen label="Follow-ups">
               <div className="flex flex-wrap gap-2">
@@ -690,6 +709,47 @@ export function Design() {
               <Field label="Name">
                 <Input defaultValue="Chief" />
               </Field>
+            </Specimen>
+          </Section>
+
+          <Section
+            id="icons"
+            title="Icons"
+            lede="Idle sways. Hover plays a short gesture. Click springs and fills."
+          >
+            <Specimen label="Dock" hint="hover, click, selected">
+              <DockPreview />
+            </Specimen>
+            <Specimen label="Chrome">
+              <div className="flex items-center gap-1">
+                <ChromeIconPreview label="Invite">
+                  <PeoplePlusIcon />
+                </ChromeIconPreview>
+                <ChromeIconPreview label="Board" current>
+                  <BoardIcon />
+                </ChromeIconPreview>
+                <ChromeIconPreview label="New">
+                  <PlusIcon />
+                </ChromeIconPreview>
+                <ChromeIconPreview label="Help">
+                  <HelpIcon />
+                </ChromeIconPreview>
+                <ChromeIconPreview label="Settings">
+                  <GearIcon />
+                </ChromeIconPreview>
+              </div>
+            </Specimen>
+            <Specimen label="You" hint="profile row under the dock">
+              <YouPreview />
+            </Specimen>
+            <Specimen label="Send">
+              <button
+                className="aui-composer-send size-8 rounded-full"
+                type="button"
+                aria-label="Send message"
+              >
+                <ArrowUpIcon className="aui-composer-send-icon size-4" />
+              </button>
             </Specimen>
           </Section>
 
@@ -876,7 +936,7 @@ function BotRow(props: {
   return (
     <div
       className={cn(
-        "grid min-w-0 grid-cols-[44px_minmax(0,1fr)] items-center gap-2.5 rounded-[14px] px-2 py-2.5",
+        "corner-squircle grid min-w-0 grid-cols-[44px_minmax(0,1fr)] items-center gap-2.5 rounded-[14px] px-2 py-2.5",
         props.selected && "bg-selected",
       )}
     >
@@ -903,11 +963,15 @@ function BotRow(props: {
   );
 }
 
-function ComposerMock(props: { running: boolean }) {
+function ComposerMock(props: { running: boolean; squircle: boolean }) {
   return (
     <div
-      className="flex w-full flex-col gap-1 rounded-2xl border border-line bg-card p-2"
-      style={{ ["--composer-radius" as string]: "1rem" }}
+      className={`${props.squircle ? "corner-squircle" : ""} flex w-full flex-col gap-1 rounded-(--composer-radius) border border-line bg-card p-2`}
+      style={{
+        ["--composer-radius" as string]: props.squircle
+          ? "2rem"
+          : "1.375rem",
+      }}
     >
       <p className="min-h-9 px-2 py-1 text-[14px] leading-[1.5] text-muted">
         Message Chief
@@ -940,5 +1004,76 @@ function ComposerMock(props: { running: boolean }) {
         )}
       </div>
     </div>
+  );
+}
+
+function DockPreview() {
+  const [current, setCurrent] = useState("knowledge");
+  const items = [
+    { id: "knowledge", label: "Knowledge", icon: KnowledgeIcon },
+    { id: "skills", label: "Skills", icon: SkillsIcon },
+    { id: "apps", label: "Live apps", icon: LiveAppsIcon },
+    { id: "plugins", label: "Plugins", icon: PlugIcon },
+  ] as const;
+  return (
+    <div className="chat-foot w-[280px] bg-bg-side">
+      <nav className="chat-dock" aria-label="Office">
+        {items.map((item) => (
+          <PreviewDockItem
+            key={item.id}
+            label={item.label}
+            current={current === item.id}
+            onClick={() => setCurrent(item.id)}
+          >
+            <item.icon className="size-5" />
+          </PreviewDockItem>
+        ))}
+      </nav>
+    </div>
+  );
+}
+
+function PreviewDockItem(props: {
+  label: string;
+  current?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  const press = useIconPress();
+  return (
+    <button
+      className="chat-dock-item"
+      type="button"
+      aria-current={props.current ? "page" : undefined}
+      onClick={props.onClick}
+      {...press}
+    >
+      {props.children}
+      <span>{props.label}</span>
+    </button>
+  );
+}
+
+function ChromeIconPreview(props: {
+  label: string;
+  current?: boolean;
+  children: ReactNode;
+}) {
+  const press = useIconPress();
+  return (
+    <button
+      className={cn(
+        "ico-hit grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted outline-none",
+        "transition-[background-color,color] duration-[var(--dur-popover)] ease-[var(--ease-dialog)]",
+        "hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-accent",
+        props.current && "bg-hover text-ink",
+      )}
+      type="button"
+      aria-label={props.label}
+      aria-current={props.current ? "page" : undefined}
+      {...press}
+    >
+      {props.children}
+    </button>
   );
 }

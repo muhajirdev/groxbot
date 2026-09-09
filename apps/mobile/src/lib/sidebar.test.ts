@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   compareSidebarBots,
+  filterRooms,
   filterRoster,
   firstLiveBot,
   isArchivedBot,
@@ -55,6 +56,17 @@ describe("sortRoster", () => {
     if (!first) return;
     expect(isPinnedBot(first)).toBe(true);
     expect(ranked.every((bot) => !isArchivedBot(bot))).toBe(true);
+  });
+});
+
+describe("filterRooms", () => {
+  it("matches name or last preview", () => {
+    const rooms = [
+      { name: "Standup", lastPreview: "done", description: "daily" },
+      { name: "Launch", lastPreview: "blocked", description: "" },
+    ];
+    expect(filterRooms(rooms, "stand")).toEqual([rooms[0]]);
+    expect(filterRooms(rooms, "BLOCKED")).toEqual([rooms[1]]);
   });
 });
 

@@ -4,7 +4,7 @@ Source-available **Grok Bot** — Grok, then grox. Teammates with a real compute
 
 Packages live under `@groxbot/*`.
 
-Early scaffold: contracts, Neon Postgres (team data), one Durable Object per bot, Cloudflare Workers for landing + office + API. Live apps (docs / slides / sheets) next to chat. Self-host later.
+Early scaffold: contracts, Neon Postgres (team data), one Durable Object per bot, Cloudflare Workers for landing + office + API. Live apps (docs / slides / sheets / CRM / game) next to chat. Self-host later.
 
 ## Stack (locked)
 
@@ -17,7 +17,7 @@ Early scaffold: contracts, Neon Postgres (team data), one Durable Object per bot
 - Better Auth (magic-link email, Google, GitHub)
 - **Cloudflare first:** Workers (landing, web, API) + Neon. Local = `wrangler dev` + Vite
 - **Computer** — built into each bot (`@cloudflare/computer` Workspace on that bot’s home `RoomActor`). Not a second table or DO.
-- **Apps** — docs / slides / sheets as `AppRuntime` Durable Objects
+- **Apps** — docs / slides / sheets / CRM / game as `AppRuntime` Durable Objects
 - Plugins: Composio (optional)
 - UI: **web first** (Grok Bot-simple) — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). Desktop = Electron around web. Mobile = Expo (`pnpm dev:mobile`).
 

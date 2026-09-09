@@ -13,6 +13,7 @@ function fakeHost(): PiHost {
     subscribe: async () => undefined,
     send: async () => undefined,
     stop: async () => undefined,
+    focus: async () => undefined,
   };
 }
 
@@ -143,5 +144,23 @@ describe("pi-thread-session", () => {
     subscriber.status("submitted");
     expect(session.getSnapshot().error).toBeUndefined();
     expect(session.getSnapshot().view.error).toBe("");
+  });
+
+  it("sets the room live app on the host", async () => {
+    const focus = vi.fn(async () => undefined);
+    const session = ensurePiThread({
+      threadId: "room-focus",
+      rpcUrl: "ws://office/rooms/room-focus/rpc",
+      connect: vi.fn(async (): Promise<PiHost> => ({
+        ...fakeHost(),
+        focus,
+      })),
+    });
+    await session.focus("app_q3");
+    expect(session.getSnapshot().view.focusedAppId).toBe("app_q3");
+    expect(focus).toHaveBeenCalledWith("app_q3");
+    await session.focus("");
+    expect(session.getSnapshot().view.focusedAppId).toBe("");
+    expect(focus).toHaveBeenCalledWith("");
   });
 });

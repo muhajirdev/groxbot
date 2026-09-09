@@ -1,5 +1,9 @@
+import { crmClientJs } from "./generated/crm.client.js";
+import { crmServerJs } from "./generated/crm.server.js";
 import { docsClientJs } from "./generated/docs.client.js";
 import { docsServerJs } from "./generated/docs.server.js";
+import { gameClientJs } from "./generated/game.client.js";
+import { gameServerJs } from "./generated/game.server.js";
 import { sheetsClientJs } from "./generated/sheets.client.js";
 import { sheetsServerJs } from "./generated/sheets.server.js";
 import { slidesClientJs } from "./generated/slides.client.js";
@@ -23,6 +27,16 @@ export const APP_TEMPLATES = {
     clientJs: sheetsClientJs,
     serverJs: sheetsServerJs,
     title: "Untitled sheet",
+  },
+  crm: {
+    clientJs: crmClientJs,
+    serverJs: crmServerJs,
+    title: "Untitled CRM",
+  },
+  game: {
+    clientJs: gameClientJs,
+    serverJs: gameServerJs,
+    title: "Tic-tac-toe",
   },
 } as const;
 

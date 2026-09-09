@@ -1,9 +1,9 @@
 export const OFFICE_COLOR_KEY = "groxbot.officeColor";
 
 export const OFFICE_COLORS = [
-  { id: "linear", label: "Linear", blurb: "Charcoal, quiet chrome", swatch: "#131315", rail: "#0d0d0e", theme: "dark" },
+  { id: "snow", label: "Light", blurb: "Soft chrome, warm white desk", swatch: "#fffefa", rail: "#f2f1ed", theme: "light" },
+  { id: "linear", label: "Dark", blurb: "Charcoal, quiet chrome", swatch: "#131315", rail: "#0d0d0e", theme: "dark" },
   { id: "night", label: "Night", blurb: "Navy desk", swatch: "#0c152c", rail: "#060a18", theme: "dark" },
-  { id: "snow", label: "Snow", blurb: "Dark rail, white pane", swatch: "#ffffff", rail: "#0d0d0e", theme: "light" },
   { id: "paper", label: "Paper", blurb: "Kraft and cream", swatch: "#f7f0e4", rail: "#d4c4ae", theme: "light" },
   { id: "blush", label: "Blush", blurb: "Rose", swatch: "#f3c2d2", rail: "#e89ab4", theme: "light" },
 ] as const;
@@ -11,6 +11,8 @@ export const OFFICE_COLORS = [
 export type OfficeColorId = (typeof OFFICE_COLORS)[number]["id"];
 
 export const DEFAULT_OFFICE_COLOR: OfficeColorId = "linear";
+export const LIGHT_OFFICE_COLOR: OfficeColorId = "snow";
+export const DARK_OFFICE_COLOR: OfficeColorId = "linear";
 
 const BY_ID = Object.fromEntries(
   OFFICE_COLORS.map((color) => [color.id, color]),
@@ -60,11 +62,22 @@ export function readOfficeColor(): OfficeColorId {
   return DEFAULT_OFFICE_COLOR;
 }
 
-export function applyOfficeColor(id: OfficeColorId): void {
+export function officeColorForAppearance(
+  appearance: "light" | "dark",
+  current: OfficeColorId,
+): OfficeColorId {
+  if (BY_ID[current].theme === appearance) return current;
+  return appearance === "light" ? LIGHT_OFFICE_COLOR : DARK_OFFICE_COLOR;
+}
+
+export function applyOfficeColor(
+  id: OfficeColorId,
+  opts?: { theme?: "system" | "light" | "dark" },
+): void {
   const spec = BY_ID[id];
   try {
     localStorage.setItem(OFFICE_COLOR_KEY, id);
-    localStorage.setItem("groxbot.theme", spec.theme);
+    localStorage.setItem("groxbot.theme", opts?.theme ?? spec.theme);
   } catch {
     // Ignore quota / private mode.
   }

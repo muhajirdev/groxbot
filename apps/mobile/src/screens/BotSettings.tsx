@@ -76,6 +76,7 @@ export function BotSettingsScreen({ navigation, route }: Props) {
     try {
       const nextModel =
         model === CUSTOM_MODEL_SENTINEL ? customModel.trim() : model;
+      const modelChanged = nextModel !== current.model;
       await client.bots.update({
         botId,
         name: name.trim() || current.name,
@@ -83,6 +84,7 @@ export function BotSettingsScreen({ navigation, route }: Props) {
         avatarShape: shape,
         model: nextModel,
         effort,
+        compactOffice: modelChanged || undefined,
       });
       await queryClient.invalidateQueries({ queryKey: orpc.bots.get.key() });
       await queryClient.invalidateQueries({ queryKey: orpc.bots.list.key() });
@@ -229,6 +231,32 @@ export function BotSettingsScreen({ navigation, route }: Props) {
         </Pressable>
       ))}
       <Button label="Save" onPress={() => void save()} busy={busy} />
+      <Button
+        label={
+          bot.visibility === "shared" ? "Make private" : "Share with office"
+        }
+        tone="ghost"
+        onPress={() => {
+          void client.bots
+            .update({
+              botId,
+              visibility: bot.visibility === "shared" ? "private" : "shared",
+            })
+            .then(() =>
+              Promise.all([
+                queryClient.invalidateQueries({
+                  queryKey: orpc.bots.get.key(),
+                }),
+                queryClient.invalidateQueries({
+                  queryKey: orpc.bots.list.key(),
+                }),
+              ]),
+            )
+            .catch((caught) =>
+              setError(userFacingError(caught, "Could not update visibility")),
+            );
+        }}
+      />
       <Button
         label={pinned ? "Unpin" : "Pin"}
         tone="ghost"

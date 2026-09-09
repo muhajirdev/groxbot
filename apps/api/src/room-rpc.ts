@@ -20,6 +20,7 @@ type RoomChatActor = {
     user: OfficeUserMeta | null,
   ): Promise<void>;
   stopRoom(): Promise<void>;
+  setAppFocus(appId: string): Promise<void>;
 };
 
 export class RoomChatHost extends RpcTarget {
@@ -46,6 +47,11 @@ export class RoomChatHost extends RpcTarget {
 
   stop(): Promise<void> {
     return this.actor.stopRoom();
+  }
+
+  focus(appId: unknown): Promise<void> {
+    const next = typeof appId === "string" ? appId : "";
+    return this.actor.setAppFocus(next);
   }
 }
 

@@ -4,6 +4,7 @@ import {
   DEFAULT_OFFICE_COLOR,
   OFFICE_COLOR_KEY,
   OFFICE_COLORS,
+  officeColorForAppearance,
   readOfficeColor,
 } from "./office-color";
 
@@ -62,22 +63,29 @@ describe("office color", () => {
     expect(readOfficeColor()).toBe("snow");
   });
 
+  it("moves incompatible looks to the first-class light or dark defaults", () => {
+    expect(officeColorForAppearance("light", "night")).toBe("snow");
+    expect(officeColorForAppearance("dark", "paper")).toBe("linear");
+    expect(officeColorForAppearance("light", "paper")).toBe("paper");
+    expect(officeColorForAppearance("dark", "night")).toBe("night");
+  });
+
   it("lists office looks", () => {
     expect(OFFICE_COLORS.map((color) => color.id)).toEqual([
+      "snow",
       "linear",
       "night",
-      "snow",
       "paper",
       "blush",
     ]);
     expect(OFFICE_COLORS.find((color) => color.id === "linear")?.blurb).toBe(
       "Charcoal, quiet chrome",
     );
-    expect(OFFICE_COLORS.find((color) => color.id === "snow")?.blurb).toBe(
-      "Dark rail, white pane",
+    expect(OFFICE_COLORS.find((color) => color.id === "snow")?.label).toBe(
+      "Light",
     );
     expect(OFFICE_COLORS.find((color) => color.id === "snow")?.rail).toBe(
-      "#0d0d0e",
+      "#f2f1ed",
     );
   });
 });

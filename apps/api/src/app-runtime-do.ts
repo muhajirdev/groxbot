@@ -35,8 +35,11 @@ type FacetState = {
 
 type GadgetFacet = {
   getDocument(): Promise<Record<string, unknown>>;
+  setDocument(args: unknown): Promise<unknown>;
   getDeck(): Promise<Record<string, unknown>>;
   setDeck(deck: unknown): Promise<void>;
+  getGame(): Promise<Record<string, unknown>>;
+  setGame(state: unknown): Promise<unknown>;
   initializeBlocks(args: unknown): Promise<unknown>;
   applyOperation(operation: unknown): Promise<unknown>;
   [key: string]: unknown;
@@ -45,6 +48,15 @@ type GadgetFacet = {
 type AppRuntimeEnv = {
   LOADER: WorkerLoader;
 };
+
+const GADGET_BLOCKED = new Set([
+  "constructor",
+  "fetch",
+  "alarm",
+  "webSocketMessage",
+  "webSocketClose",
+  "webSocketError",
+]);
 
 /** Browser-facing host. Do not expose init on this object. */
 class AppHost extends RpcTarget {
@@ -97,6 +109,27 @@ export class AppRuntime extends DurableObject<AppRuntimeEnv> {
         return (...args: unknown[]) => Reflect.apply(method, facet, args);
       },
     });
+  }
+
+  async callGadget(
+    method: string,
+    args: unknown[],
+    workspaceId: string,
+  ): Promise<unknown> {
+    const claimed = await this.ctx.storage.get<string>("workspaceId");
+    if (!claimed || claimed !== workspaceId) {
+      throw new Error("Forbidden");
+    }
+    const name = method.trim();
+    if (!name || GADGET_BLOCKED.has(name)) {
+      throw new Error(`Unknown gadget method ${name || method}`);
+    }
+    const facet = this.gadgetFacet();
+    const fn = facet[name];
+    if (typeof fn !== "function") {
+      throw new Error(`Unknown gadget method ${name}`);
+    }
+    return Reflect.apply(fn, facet, Array.isArray(args) ? args : []);
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -153,6 +186,14 @@ export class AppRuntime extends DurableObject<AppRuntimeEnv> {
     const rec = state as Record<string, unknown>;
     if (templateId === "slides") {
       await facet.setDeck(state);
+      return;
+    }
+    if (templateId === "crm") {
+      await facet.setDocument(state);
+      return;
+    }
+    if (templateId === "game") {
+      await facet.setGame(state);
       return;
     }
     if (templateId === "sheets") {

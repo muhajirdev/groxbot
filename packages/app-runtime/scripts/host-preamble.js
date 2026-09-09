@@ -70,6 +70,26 @@ function hydrateFromPersist(state) {
     __storage.map.content = state.html;
     return;
   }
+  if (Array.isArray(state.contacts)) {
+    __storage.map.crm = {
+      title: state.title || "Untitled CRM",
+      revision: state.revision || 1,
+      contacts: state.contacts,
+      lastModified: Date.now(),
+    };
+    return;
+  }
+  if (Array.isArray(state.board) && state.board.length === 9) {
+    __storage.map.game = {
+      title: state.title || "Tic-tac-toe",
+      board: state.board,
+      turn: state.turn === "O" ? "O" : "X",
+      winner: state.winner || null,
+      revision: state.revision || 1,
+      lastModified: Date.now(),
+    };
+    return;
+  }
   if (Array.isArray(state.blocks) || state.revision != null) {
     __storage.map["document:v2"] = state;
     return;

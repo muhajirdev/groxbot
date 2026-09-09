@@ -4,7 +4,7 @@ import { evalSheet } from "./sheets-engine.js";
 
 describe("app templates", () => {
   it("stamps Cloudflare OS client and Gadget server per template", () => {
-    for (const id of ["docs", "slides", "sheets"] as const) {
+    for (const id of ["docs", "slides", "sheets", "crm", "game"] as const) {
       const files = filesForTemplate(id);
       expect(files["client.js"]).toContain("gadget.subscribe");
       expect(files["server.js"]).toContain("export class Gadget");
@@ -14,6 +14,10 @@ describe("app templates", () => {
     expect(filesForTemplate("docs")["client.js"]).toContain("applyOperation");
     expect(filesForTemplate("slides")["client.js"]).toContain("getDeck");
     expect(filesForTemplate("sheets")["client.js"]).toContain("applyOperation");
+    expect(filesForTemplate("crm")["client.js"]).toContain("upsertContact");
+    expect(filesForTemplate("crm")["server.js"]).toContain("moveContact");
+    expect(filesForTemplate("game")["client.js"]).toContain("gadget.move");
+    expect(filesForTemplate("game")["server.js"]).toContain("emptyGame");
   });
 
   it("inits an in-memory app id for tests", async () => {

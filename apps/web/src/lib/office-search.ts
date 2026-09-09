@@ -75,6 +75,34 @@ export function deskApp(appId: string): OfficeSearch {
   return { pane: "app", app: appId };
 }
 
+/** Computer / settings / library — looking away from the room's live app. */
+export function deskLeavesRoomApp(current: OfficeSearch): boolean {
+  return (
+    current.pane === "computer" ||
+    current.pane === "settings" ||
+    Boolean(current.library) ||
+    current.pane === "knowledge"
+  );
+}
+
+/**
+ * Shared room activity. `focusedAppId` is the table's live app.
+ * Local computer/settings/library stays put; otherwise every client matches.
+ */
+export function deskFromRoomAppFocus(
+  current: OfficeSearch,
+  focusedAppId: string,
+): OfficeSearch | null {
+  const focus = focusedAppId.trim();
+  if (focus) {
+    if (deskLeavesRoomApp(current)) return null;
+    if (current.pane === "app" && current.app === focus) return null;
+    return deskApp(focus);
+  }
+  if (current.pane !== "app") return null;
+  return officeSearch({ bot: current.bot });
+}
+
 export function deskPeek(path: string): OfficeSearch {
   return officeSearch({ pane: "knowledge", knowledge: path });
 }

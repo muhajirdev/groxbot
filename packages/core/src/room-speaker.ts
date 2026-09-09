@@ -73,7 +73,7 @@ export function piGroupLoopMessages(
       if (!skipTools) out.push(message);
       continue;
     }
-    if (message.role !== "assistant") continue;
+    if (message.role !== "assistant" || !("content" in message)) continue;
     const speaker = parseRoomSpeaker(row.metadata);
     if (!speaker || speaker.botId === selfId) {
       skipTools = false;
@@ -81,7 +81,7 @@ export function piGroupLoopMessages(
       continue;
     }
     skipTools = true;
-    const text = assistantPlainText(message);
+    const text = assistantPlainText(message as PiAssistantMessage);
     if (!text) continue;
     out.push({
       role: "user",

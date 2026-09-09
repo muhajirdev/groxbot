@@ -1,3 +1,7 @@
+import {
+  filterSkillsStore,
+  SKILLS_STORE_CATALOG,
+} from "@groxbot/contracts";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -48,7 +52,7 @@ export function KnowledgeScreen({ navigation, route }: Props) {
   const graphQuery = useQuery(orpc.knowledge.graph.queryOptions());
   const [query, setQuery] = useState("");
   const [searchNeedle, setSearchNeedle] = useState("");
-  const [tab, setTab] = useState<"library" | "graph">("library");
+  const [tab, setTab] = useState<"library" | "graph" | "store">("library");
   const [selected, setSelected] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [path, setPath] = useState("");
@@ -187,14 +191,14 @@ export function KnowledgeScreen({ navigation, route }: Props) {
     }
   }
 
-  async function importSkill() {
-    if (!importSource.trim()) return;
+  async function importSkill(source = importSource) {
+    if (!source.trim()) return;
     setBusy(true);
     setError("");
     setNotice("");
     try {
       const result = await client.knowledge.importSkill({
-        source: importSource.trim(),
+        source: source.trim(),
       });
       const summary = skillImportSummary(result);
       if (result.imported.length === 0) {
@@ -296,7 +300,17 @@ export function KnowledgeScreen({ navigation, route }: Props) {
         <Pressable onPress={() => setTab("graph")} style={styles.tab}>
           <Text style={tab === "graph" ? styles.on : styles.meta}>Graph</Text>
         </Pressable>
+        <Pressable onPress={() => setTab("store")} style={styles.tab}>
+          <Text style={tab === "store" ? styles.on : styles.meta}>Store</Text>
+        </Pressable>
       </View>
+      {tab === "store" ? (
+        <SkillsStore
+          query={query}
+          busy={busy}
+          onInstall={(source) => void importSkill(source)}
+        />
+      ) : null}
       <Field placeholder="Search notes…" value={query} onChangeText={setQuery} />
       {searchStatus ? (
         <Text
@@ -306,7 +320,7 @@ export function KnowledgeScreen({ navigation, route }: Props) {
           {searchStatus.label}
         </Text>
       ) : null}
-      {tab === "graph" ? (
+      {tab === "store" ? null : tab === "graph" ? (
         <GraphList
           index={graphIndex}
           query={query}
@@ -520,6 +534,44 @@ function Tree({
           </View>
         );
       })}
+    </View>
+  );
+}
+
+function SkillsStore(props: {
+  query: string;
+  busy: boolean;
+  onInstall: (source: string) => void;
+}) {
+  const live = useQuery({
+    ...orpc.knowledge.searchSkills.queryOptions({
+      input: { query: props.query.trim() || undefined },
+    }),
+    enabled: true,
+  });
+  const cards = live.data?.skills?.length
+    ? live.data.skills
+    : filterSkillsStore(SKILLS_STORE_CATALOG, props.query, null);
+  return (
+    <View>
+      <Text style={styles.meta}>
+        Featured playbooks. Install copies them into this office library.
+      </Text>
+      {cards.map((row) => (
+        <View key={row.id} style={styles.card}>
+          <Text style={styles.fileName}>{row.name}</Text>
+          <Text style={styles.body}>{row.blurb}</Text>
+          <Text style={styles.meta}>
+            {row.category} · {row.trust}
+          </Text>
+          <Button
+            label="Install"
+            tone="ghost"
+            busy={props.busy}
+            onPress={() => props.onInstall(row.source)}
+          />
+        </View>
+      ))}
     </View>
   );
 }

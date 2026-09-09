@@ -194,10 +194,74 @@ export function ComputerScreen({ navigation, route }: Props) {
       ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Text style={styles.section}>Routines</Text>
+      {filesQuery.data?.truncated ? (
+        <Text style={styles.meta}>
+          File list is truncated. Search to find a path.
+        </Text>
+      ) : null}
       {(routinesQuery.data ?? []).map((row) => (
         <View key={row.id} style={styles.card}>
           <Text style={styles.name}>{row.name}</Text>
-          <Text style={styles.meta}>{row.cron}</Text>
+          <Text style={styles.meta}>
+            {row.cron}
+            {row.active ? "" : " · paused"}
+          </Text>
+          {row.prompt ? (
+            <Text style={styles.body} numberOfLines={3}>
+              {row.prompt}
+            </Text>
+          ) : null}
+          <View style={styles.row}>
+            <Pressable
+              onPress={() =>
+                void (row.active
+                  ? client.routines.pause({ botId, id: row.id })
+                  : client.routines.resume({ botId, id: row.id })
+                )
+                  .then(() =>
+                    queryClient.invalidateQueries({
+                      queryKey: ["routines", botId],
+                    }),
+                  )
+                  .catch((caught) =>
+                    setError(
+                      userFacingError(caught, "Could not update routine"),
+                    ),
+                  )
+              }
+            >
+              <Text style={styles.link}>{row.active ? "Pause" : "Resume"}</Text>
+            </Pressable>
+            <Pressable
+              onPress={() =>
+                void client.routines
+                  .run({ botId, id: row.id })
+                  .catch((caught) =>
+                    setError(userFacingError(caught, "Could not run routine")),
+                  )
+              }
+            >
+              <Text style={styles.link}>Run</Text>
+            </Pressable>
+            <Pressable
+              onPress={() =>
+                void client.routines
+                  .remove({ botId, id: row.id })
+                  .then(() =>
+                    queryClient.invalidateQueries({
+                      queryKey: ["routines", botId],
+                    }),
+                  )
+                  .catch((caught) =>
+                    setError(
+                      userFacingError(caught, "Could not delete routine"),
+                    ),
+                  )
+              }
+            >
+              <Text style={styles.danger}>Delete</Text>
+            </Pressable>
+          </View>
         </View>
       ))}
       {creating ? (
@@ -317,4 +381,6 @@ const styles = StyleSheet.create({
   meta: { color: colors.muted },
   on: { color: colors.accent, fontWeight: "600" },
   error: { color: colors.danger },
+  row: { flexDirection: "row", gap: 16 },
+  danger: { color: colors.danger, fontWeight: "600" },
 });

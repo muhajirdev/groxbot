@@ -32,7 +32,39 @@ export type SheetsState = {
   cells: Record<string, string>;
 };
 
-export type AppState = DocsState | SlidesState | SheetsState;
+export type CrmStage = "lead" | "talking" | "won" | "lost";
+
+export type CrmContact = {
+  id: string;
+  name: string;
+  company: string;
+  email: string;
+  note: string;
+  stage: CrmStage;
+  updatedAt: number;
+};
+
+export type CrmState = {
+  title: string;
+  revision: number;
+  contacts: CrmContact[];
+};
+
+export type GameMark = "X" | "O";
+
+export type GameState = {
+  title: string;
+  board: Array<GameMark | null>;
+  turn: GameMark;
+  winner: GameMark | "draw" | null;
+};
+
+export type AppState =
+  | DocsState
+  | SlidesState
+  | SheetsState
+  | CrmState
+  | GameState;
 
 function coverSlide(title: string): Slide {
   return {
@@ -83,6 +115,17 @@ export function initialState(templateId: TemplateId): AppState {
     return {
       themeVersion: "workspace.1",
       slides: [coverSlide("Untitled deck")],
+    };
+  }
+  if (templateId === "crm") {
+    return { title: "Untitled CRM", revision: 1, contacts: [] };
+  }
+  if (templateId === "game") {
+    return {
+      title: "Tic-tac-toe",
+      board: [null, null, null, null, null, null, null, null, null],
+      turn: "X",
+      winner: null,
     };
   }
   return { cells: { A1: "Item", B1: "Amount", A2: "", B2: "" } };

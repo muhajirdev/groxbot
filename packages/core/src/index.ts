@@ -26,6 +26,7 @@ export * from "./markdown.js";
 export * from "./mcp-connections.js";
 export * from "./mcp-oauth.js";
 export * from "./models.js";
+export * from "./office-ask.js";
 export * from "./office-away.js";
 export * from "./office-chat.js";
 export * from "./office-compact.js";

@@ -31,6 +31,11 @@ import {
   Text,
   View,
 } from "react-native";
+import {
+  approvalSummary,
+  parsePendingApprovals,
+  type PendingApproval,
+} from "../lib/approvals";
 import { appCardsFromOfficeMessage } from "../lib/app-cards";
 import { createWorkspaceAttachmentAdapter } from "../lib/attachment-adapter";
 import { sessionCookie } from "../lib/auth";
@@ -38,9 +43,11 @@ import { lastUiPreview } from "../lib/chat-messages";
 import { composerBannerError } from "../lib/errors";
 import { officeAppUrl } from "../lib/host";
 import { FIRST_TASK } from "../lib/jobs";
+import { peekOfficeMessages, setOfficeMessages } from "../lib/office-cache";
 import { officeUserMessageSender } from "../lib/office-sender";
 import { orpc, queryClient } from "../lib/orpc";
 import { pickOfficeFiles, pickOfficePhotos } from "../lib/pick-file";
+import { type RoomMentionSeat } from "../lib/room-mention";
 import { client } from "../lib/rpc";
 import { createImmediateSteerQueue } from "../lib/thread-steer-queue";
 import { isWaitingForAssistantTurn } from "../lib/thread-waiting";
@@ -52,6 +59,7 @@ import { AppCard } from "./AppCard";
 import { ChatMarkdown } from "./ChatMarkdown";
 import { OfficeSkillSlash } from "./OfficeSkillSlash";
 import { PresentCard } from "./PresentCard";
+import { RoomMentionMenu } from "./RoomMentionMenu";
 
 async function copyToClipboard(text: string) {
   const didCopy = await Clipboard.setStringAsync(text);
@@ -60,13 +68,21 @@ async function copyToClipboard(text: string) {
 
 export function OfficeThread(props: {
   botId: string;
+  roomId?: string;
   botName: string;
   archived: boolean;
   needsModel: boolean;
+  needsHostedPlan?: boolean;
   placeholder?: string;
+  description?: string;
+  kind?: "office" | "room";
+  members?: readonly RoomMentionSeat[];
+  targetBotId?: string;
   userId?: string;
   userName?: string;
   onNeedsModel: () => void;
+  onNeedsHostedPlan?: () => void;
+  onOpenPath?: (path: string) => void;
   onUnarchive: () => void;
 }) {
   const [error, setError] = useState("");
@@ -74,15 +90,23 @@ export function OfficeThread(props: {
     <View style={styles.fill}>
       <OfficeThreadRuntime
         botId={props.botId}
+        roomId={props.roomId}
         botName={props.botName}
         archived={props.archived}
         needsModel={props.needsModel}
+        needsHostedPlan={Boolean(props.needsHostedPlan)}
         placeholder={props.placeholder || FIRST_TASK}
+        description={props.description}
+        kind={props.kind ?? "office"}
+        members={props.members ?? []}
+        targetBotId={props.targetBotId}
         userId={props.userId}
         userName={props.userName}
         error={error}
         onError={setError}
         onNeedsModel={props.onNeedsModel}
+        onNeedsHostedPlan={props.onNeedsHostedPlan}
+        onOpenPath={props.onOpenPath}
       />
       {error ? <Text style={styles.banner}>{error}</Text> : null}
       {props.archived ? (
@@ -101,15 +125,23 @@ export function OfficeThread(props: {
 
 function OfficeThreadRuntime(props: {
   botId: string;
+  roomId?: string;
   botName: string;
   archived: boolean;
   needsModel: boolean;
+  needsHostedPlan: boolean;
   placeholder: string;
+  description?: string;
+  kind: "office" | "room";
+  members: readonly RoomMentionSeat[];
+  targetBotId?: string;
   userId?: string;
   userName?: string;
   error: string;
   onError: (error: string) => void;
   onNeedsModel: () => void;
+  onNeedsHostedPlan?: () => void;
+  onOpenPath?: (path: string) => void;
 }) {
   const [cookie, setCookie] = useState("");
   useEffect(() => {
@@ -119,10 +151,14 @@ function OfficeThreadRuntime(props: {
   onErrorRef.current = props.onError;
   const onNeedsModelRef = useRef(props.onNeedsModel);
   onNeedsModelRef.current = props.onNeedsModel;
+  const onNeedsHostedPlanRef = useRef(props.onNeedsHostedPlan);
+  onNeedsHostedPlanRef.current = props.onNeedsHostedPlan;
   const archivedRef = useRef(props.archived);
   archivedRef.current = props.archived;
   const needsModelRef = useRef(props.needsModel);
   needsModelRef.current = props.needsModel;
+  const needsHostedPlanRef = useRef(props.needsHostedPlan);
+  needsHostedPlanRef.current = props.needsHostedPlan;
   const botIdRef = useRef(props.botId);
   botIdRef.current = props.botId;
   const sender = officeUserFromActor({
@@ -132,10 +168,15 @@ function OfficeThreadRuntime(props: {
   const senderRef = useRef(sender);
   senderRef.current = sender;
   const setWorking = useSetWorking();
+  const chatId = props.roomId || props.botId;
+  const seed = useRef(peekOfficeMessages(chatId) ?? []).current;
 
   const chat = useOfficeChat({
     botId: props.botId,
+    roomId: props.roomId,
+    targetBotId: props.targetBotId,
     cookie,
+    seed,
   });
   const {
     status,
@@ -146,16 +187,57 @@ function OfficeThreadRuntime(props: {
     messages,
     isStreaming,
     connectionError,
+    connected,
+    pendingApprovals: loadPendingApprovals,
+    approveApproval,
+    rejectApproval,
   } = chat;
   const busy = status === "submitted" || status === "streaming" || isStreaming;
   const [pending, setPending] = useState(false);
   const abortSendRef = useRef<AbortController | null>(null);
   const inFlight = busy || pending;
 
+  const [approvals, setApprovals] = useState<PendingApproval[]>([]);
+  const [resolvingApproval, setResolvingApproval] = useState("");
+
+  const refreshApprovals = useCallback(async () => {
+    try {
+      setApprovals(parsePendingApprovals(await loadPendingApprovals()));
+    } catch {
+      // Reconnect will retry.
+    }
+  }, [loadPendingApprovals]);
+
+  useEffect(() => {
+    if (!connected) return;
+    void refreshApprovals();
+    const timer = setInterval(() => void refreshApprovals(), 3_000);
+    return () => clearInterval(timer);
+  }, [connected, refreshApprovals, status]);
+
+  const resolveApproval = useCallback(
+    async (action: PendingApproval, approved: boolean) => {
+      setResolvingApproval(action.executionId);
+      try {
+        if (approved) await approveApproval(action.executionId);
+        else await rejectApproval(action.executionId, action.seq);
+      } finally {
+        setResolvingApproval("");
+        await refreshApprovals();
+      }
+    },
+    [approveApproval, refreshApprovals, rejectApproval],
+  );
+
   const send = useCallback(
     async (message: Parameters<typeof onNew>[0]) => {
       if (archivedRef.current) {
         return Promise.reject(new Error("Archived"));
+      }
+      if (needsHostedPlanRef.current) {
+        onNeedsHostedPlanRef.current?.();
+        onErrorRef.current("Subscribe to Pro to use this workspace.");
+        return Promise.reject(new Error("Hosted plan required"));
       }
       if (needsModelRef.current) {
         onNeedsModelRef.current();
@@ -231,15 +313,24 @@ function OfficeThreadRuntime(props: {
   }, [inFlight, props.botId, setWorking]);
 
   useEffect(() => {
+    setOfficeMessages(chatId, messages);
     const preview = lastUiPreview(messages);
     if (!preview) return;
     queryClient.setQueryData(orpc.bots.list.queryOptions().queryKey, (rows) => {
       if (!rows) return rows;
       return rows.map((row) =>
-        row.id === props.botId ? { ...row, lastPreview: preview } : row,
+        row.id === props.botId || row.homeRoomId === chatId
+          ? { ...row, lastPreview: preview }
+          : row,
       );
     });
-  }, [messages, props.botId]);
+    queryClient.setQueryData(orpc.rooms.list.queryOptions().queryKey, (rows) => {
+      if (!rows) return rows;
+      return rows.map((row) =>
+        row.id === chatId ? { ...row, lastPreview: preview } : row,
+      );
+    });
+  }, [chatId, messages, props.botId]);
 
   const banner = composerBannerError({
     inFlight,
@@ -262,13 +353,40 @@ function OfficeThreadRuntime(props: {
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
+      {approvals.length > 0 ? (
+        <View style={styles.approvals}>
+          {approvals.map((action) => (
+            <View key={action.executionId} style={styles.approval}>
+              <Text style={styles.approvalCopy}>{approvalSummary(action)}</Text>
+              <View style={styles.approvalActions}>
+                <Pressable
+                  disabled={resolvingApproval === action.executionId}
+                  onPress={() => void resolveApproval(action, false)}
+                >
+                  <Text style={styles.barLabel}>Skip</Text>
+                </Pressable>
+                <Pressable
+                  disabled={resolvingApproval === action.executionId}
+                  onPress={() => void resolveApproval(action, true)}
+                >
+                  <Text style={styles.link}>Approve</Text>
+                </Pressable>
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : null}
       <OfficeThreadView
         botId={props.botId}
         botName={props.botName}
         hideComposer={props.archived}
         placeholder={props.placeholder}
+        description={props.description}
+        kind={props.kind}
+        members={props.members}
         viewerUserId={props.userId}
         pending={pending}
+        onOpenPath={props.onOpenPath}
       />
     </AssistantRuntimeProvider>
   );
@@ -279,10 +397,20 @@ function OfficeThreadView(props: {
   botName: string;
   hideComposer: boolean;
   placeholder: string;
+  description?: string;
+  kind: "office" | "room";
+  members: readonly RoomMentionSeat[];
   viewerUserId?: string;
   pending?: boolean;
+  onOpenPath?: (path: string) => void;
 }) {
   const pending = Boolean(props.pending);
+  const welcome =
+    props.kind === "room"
+      ? props.description?.trim()
+        ? props.description
+        : "This log is the table. Say something and everyone answers. @name someone to talk to one person."
+      : "First message is a real task. A good handoff has an outcome, sources, and when to stop.";
   return (
     <ThreadPrimitive.Root style={styles.fill}>
       <ThreadPrimitive.MessagesFlatList
@@ -290,10 +418,7 @@ function OfficeThreadView(props: {
         contentContainerStyle={styles.messages}
         ListHeaderComponent={
           <AuiIf condition={(s) => s.thread.isEmpty}>
-            <Text style={styles.welcome}>
-              First message is a real task. A good handoff has an outcome,
-              sources, and when to stop.
-            </Text>
+            <Text style={styles.welcome}>{welcome}</Text>
           </AuiIf>
         }
         ListFooterComponent={
@@ -321,11 +446,16 @@ function OfficeThreadView(props: {
             botId={props.botId}
             botName={props.botName}
             viewerUserId={props.viewerUserId}
+            onOpenPath={props.onOpenPath}
           />
         )}
       </ThreadPrimitive.MessagesFlatList>
       {props.hideComposer ? null : (
-        <Composer placeholder={props.placeholder} pending={pending} />
+        <Composer
+          placeholder={props.placeholder}
+          pending={pending}
+          members={props.members}
+        />
       )}
     </ThreadPrimitive.Root>
   );
@@ -358,19 +488,41 @@ function ThreadMessage(props: {
   botId: string;
   botName: string;
   viewerUserId?: string;
+  onOpenPath?: (path: string) => void;
 }) {
   const role = useAuiState((s) => s.message.role);
   const editing = useAuiState((s) => s.message.composer.isEditing);
   if (editing) return <EditComposer />;
   if (role === "user") {
-    return <UserMessage viewerUserId={props.viewerUserId} />;
+    return (
+      <UserMessage
+        viewerUserId={props.viewerUserId}
+        onOpenPath={props.onOpenPath}
+      />
+    );
   }
-  return <AssistantMessage botId={props.botId} botName={props.botName} />;
+  return (
+    <AssistantMessage
+      botId={props.botId}
+      botName={props.botName}
+      onOpenPath={props.onOpenPath}
+    />
+  );
 }
 
-function UserMessage(props: { viewerUserId?: string }) {
+function UserMessage(props: {
+  viewerUserId?: string;
+  onOpenPath?: (path: string) => void;
+}) {
   const metadata = useAuiState((s) => s.message.metadata);
   const sender = officeUserMessageSender(metadata, props.viewerUserId);
+  const UserText: TextMessagePartComponent = ({ text }) => (
+    <ChatMarkdown
+      text={text}
+      officePaths
+      onOpenPath={props.onOpenPath}
+    />
+  );
   return (
     <MessagePrimitive.Root style={styles.userWrap}>
       {sender ? <Text style={styles.who}>{sender.label}</Text> : null}
@@ -390,7 +542,11 @@ function UserMessage(props: { viewerUserId?: string }) {
   );
 }
 
-function AssistantMessage(props: { botId: string; botName: string }) {
+function AssistantMessage(props: {
+  botId: string;
+  botName: string;
+  onOpenPath?: (path: string) => void;
+}) {
   const runningEmpty = useAuiState((s) => {
     if (s.message.status?.type !== "running") return false;
     return !s.message.parts?.some(
@@ -407,7 +563,13 @@ function AssistantMessage(props: { botId: string; botName: string }) {
         </View>
       ) : null}
       <MessagePrimitive.Content
-        renderText={({ part }) => <ChatMarkdown text={part.text} />}
+        renderText={({ part }) => (
+          <ChatMarkdown
+            text={part.text}
+            officePaths
+            onOpenPath={props.onOpenPath}
+          />
+        )}
         renderToolCall={({ part }) =>
           part.toolName === PRESENT_TOOL_NAME ? (
             <PresentCard tree={part.args} botId={props.botId} />
@@ -445,10 +607,6 @@ function AssistantMessage(props: { botId: string; botName: string }) {
     </MessagePrimitive.Root>
   );
 }
-
-const UserText: TextMessagePartComponent = ({ text }) => (
-  <ChatMarkdown text={text} />
-);
 
 function Reasoning(props: { text: string }) {
   const [open, setOpen] = useState(false);
@@ -582,10 +740,17 @@ function AttachmentChip() {
   );
 }
 
-function Composer(props: { placeholder: string; pending?: boolean }) {
+function Composer(props: {
+  placeholder: string;
+  pending?: boolean;
+  members: readonly RoomMentionSeat[];
+}) {
   const pending = Boolean(props.pending);
   return (
     <ComposerPrimitive.Root style={styles.composer}>
+      {props.members.length > 0 ? (
+        <RoomMentionMenu seats={props.members} />
+      ) : null}
       <OfficeSkillSlash />
       <ComposerAttachments />
       <ComposerQueue />
@@ -857,5 +1022,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     paddingVertical: 4,
+  },
+  approvals: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    gap: 8,
+  },
+  approval: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    padding: 10,
+    backgroundColor: colors.card,
+    gap: 8,
+  },
+  approvalCopy: { color: colors.text, fontWeight: "600" },
+  approvalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 16,
   },
 });

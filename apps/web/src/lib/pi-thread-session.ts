@@ -27,6 +27,7 @@ export type PiHost = {
     targetBotId?: string;
   }): Promise<void>;
   stop(): Promise<void>;
+  focus?(appId: string): Promise<void>;
   pendingApprovals?(): Promise<unknown>;
   approveApproval?(executionId: string): Promise<unknown>;
   rejectApproval?(executionId: string, seq: number): Promise<unknown>;
@@ -198,6 +199,17 @@ export class PiThreadSession {
 
   async stop(): Promise<void> {
     await this.host?.stop();
+  }
+
+  async focus(appId: string): Promise<void> {
+    const next = appId.trim();
+    this.patchView((current) =>
+      current.focusedAppId === next ? current : { ...current, focusedAppId: next },
+    );
+    await this.waitReady();
+    const host = this.host;
+    if (!host?.focus) return;
+    await host.focus(next);
   }
 
   async pendingApprovals(): Promise<unknown> {

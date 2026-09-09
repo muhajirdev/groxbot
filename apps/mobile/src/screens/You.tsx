@@ -1,4 +1,6 @@
 import type { ModelProvider, ThinkingEffort } from "@groxbot/contracts";
+import * as Clipboard from "expo-clipboard";
+import * as Linking from "expo-linking";
 import {
   CLOUDFLARE_PROVIDER,
   CUSTOM_MODEL_SENTINEL,
@@ -13,7 +15,7 @@ import {
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Button } from "../components/Button";
 import { Field } from "../components/Field";
 import { Header } from "../components/Header";
@@ -21,7 +23,9 @@ import { Screen } from "../components/Screen";
 import { authClient } from "../lib/auth";
 import { userFacingError } from "../lib/errors";
 import { orpc } from "../lib/orpc";
+import { AUTO_TIMEZONE, defaultTimezone, readTimezonePref, writeTimezonePref } from "../lib/prefs";
 import { client } from "../lib/rpc";
+import { resetRpcWorkspace, setRpcWorkspaceId } from "../lib/rpc-workspace";
 import type { RootStackParamList } from "../navigation";
 import { colors } from "../theme";
 
@@ -46,12 +50,22 @@ export function YouScreen({ navigation }: Props) {
   const [effort, setEffort] = useState<ThinkingEffort>("off");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [memberName, setMemberName] = useState(meQuery.data?.name ?? "");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteSent, setInviteSent] = useState("");
+  const [timezone, setTimezone] = useState(readTimezonePref);
+  const [newWorkspace, setNewWorkspace] = useState("");
+  const workspacesQuery = useQuery(orpc.workspaces.list.queryOptions());
+  const membersQuery = useQuery(orpc.workspaces.members.queryOptions());
+  const inviteLinkQuery = useQuery(orpc.workspaces.inviteLink.queryOptions());
+  const billingQuery = useQuery(orpc.billing.status.queryOptions());
 
   useEffect(() => {
     if (meQuery.data?.workspaceName) {
       setWorkspaceName(meQuery.data.workspaceName);
     }
-  }, [meQuery.data?.workspaceName]);
+    if (meQuery.data?.name) setMemberName(meQuery.data.name);
+  }, [meQuery.data?.workspaceName, meQuery.data?.name]);
 
   useEffect(() => {
     const settings = modelsQuery.data;
@@ -152,7 +166,136 @@ export function YouScreen({ navigation }: Props) {
     }
   }
 
+  async function saveName() {
+    const name = memberName.trim();
+    if (!name) return;
+    setBusy(true);
+    setError("");
+    try {
+      await client.account.update({ name });
+      await queryClient.invalidateQueries({ queryKey: orpc.me.key() });
+      await queryClient.invalidateQueries({
+        queryKey: orpc.workspaces.members.key(),
+      });
+    } catch (caught) {
+      setError(userFacingError(caught, "Could not update your name"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sendInvite() {
+    const email = inviteEmail.trim();
+    if (!email.includes("@")) return;
+    setBusy(true);
+    setError("");
+    try {
+      const invite = await client.workspaces.invite({ email });
+      setInviteSent(invite.url);
+      setInviteEmail("");
+    } catch (caught) {
+      setError(userFacingError(caught, "Could not send invite"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createInviteLink() {
+    setBusy(true);
+    setError("");
+    try {
+      await client.workspaces.createInviteLink();
+      await queryClient.invalidateQueries({
+        queryKey: orpc.workspaces.inviteLink.key(),
+      });
+    } catch (caught) {
+      setError(userFacingError(caught, "Could not create an invite link"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteInviteLink() {
+    setBusy(true);
+    setError("");
+    try {
+      await client.workspaces.deleteInviteLink();
+      await queryClient.invalidateQueries({
+        queryKey: orpc.workspaces.inviteLink.key(),
+      });
+    } catch (caught) {
+      setError(userFacingError(caught, "Could not delete the invite link"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function switchWorkspace(workspaceId: string) {
+    setBusy(true);
+    setError("");
+    try {
+      setRpcWorkspaceId(workspaceId);
+      await client.workspaces.activate({ workspaceId });
+      queryClient.clear();
+      await queryClient.invalidateQueries({ queryKey: orpc.me.key() });
+      navigation.navigate("Roster");
+    } catch (caught) {
+      setError(userFacingError(caught, "Could not switch workspace"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createWorkspace() {
+    const name = newWorkspace.trim();
+    if (!name) return;
+    setBusy(true);
+    setError("");
+    try {
+      const workspace = await client.workspaces.create({ name });
+      setRpcWorkspaceId(workspace.id);
+      await client.workspaces.activate({ workspaceId: workspace.id });
+      setNewWorkspace("");
+      queryClient.clear();
+      await queryClient.invalidateQueries({ queryKey: orpc.me.key() });
+      navigation.navigate("Roster");
+    } catch (caught) {
+      setError(userFacingError(caught, "Could not create workspace"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function confirmDeleteWorkspace() {
+    Alert.alert(
+      "Delete this workspace?",
+      "Teammates, rooms, and this office go away.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            void client.workspaces.delete().then(async (result) => {
+              if (result.next) {
+                setRpcWorkspaceId(result.next.id);
+                await client.workspaces.activate({
+                  workspaceId: result.next.id,
+                });
+              } else {
+                resetRpcWorkspace();
+              }
+              queryClient.clear();
+              navigation.navigate("Roster");
+            });
+          },
+        },
+      ],
+    );
+  }
+
   async function signOut() {
+    resetRpcWorkspace();
     await authClient.signOut();
     queryClient.clear();
   }
@@ -163,15 +306,138 @@ export function YouScreen({ navigation }: Props) {
       <Text style={styles.body}>{meQuery.data?.email}</Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Field
+        label="Your name"
+        value={memberName}
+        onChangeText={setMemberName}
+        autoCapitalize="words"
+      />
+      <Button label="Save your name" onPress={() => void saveName()} busy={busy} />
+      <Field
         label="Workspace"
         value={workspaceName}
         onChangeText={setWorkspaceName}
         autoCapitalize="words"
       />
       <Button
-        label="Save name"
+        label="Save workspace name"
         onPress={() => void saveWorkspace()}
         busy={busy}
+      />
+      <Text style={styles.section}>Workspaces</Text>
+      {(workspacesQuery.data ?? []).map((workspace) => (
+        <Pressable
+          key={workspace.id}
+          onPress={() => void switchWorkspace(workspace.id)}
+          style={styles.option}
+        >
+          <Text
+            style={
+              workspace.id === meQuery.data?.workspaceId ? styles.on : styles.body
+            }
+          >
+            {workspace.name}
+          </Text>
+        </Pressable>
+      ))}
+      <Field
+        label="New workspace"
+        value={newWorkspace}
+        onChangeText={setNewWorkspace}
+        placeholder="Acme"
+      />
+      <Button
+        label="Create workspace"
+        tone="ghost"
+        onPress={() => void createWorkspace()}
+        busy={busy}
+      />
+      <Text style={styles.section}>People</Text>
+      {(membersQuery.data ?? []).map((member) => (
+        <Text key={member.userId} style={styles.meta}>
+          {member.name} · {member.email}
+          {member.mine ? " · you" : ""}
+        </Text>
+      ))}
+      <Field
+        label="Invite by email"
+        value={inviteEmail}
+        onChangeText={setInviteEmail}
+        keyboardType="email-address"
+        placeholder="friend@company.com"
+      />
+      <Button label="Send invite" onPress={() => void sendInvite()} busy={busy} />
+      {inviteSent ? (
+        <Pressable
+          onPress={() => void Clipboard.setStringAsync(inviteSent)}
+        >
+          <Text style={styles.on}>Invite sent — tap to copy</Text>
+        </Pressable>
+      ) : null}
+      {inviteLinkQuery.data?.url ? (
+        <>
+          <Text style={styles.meta} selectable>
+            {inviteLinkQuery.data.url}
+          </Text>
+          <Button
+            label="Copy invite link"
+            tone="ghost"
+            onPress={() =>
+              void Clipboard.setStringAsync(inviteLinkQuery.data?.url ?? "")
+            }
+          />
+          <Button
+            label="Delete invite link"
+            tone="ghost"
+            onPress={() => void deleteInviteLink()}
+            busy={busy}
+          />
+        </>
+      ) : (
+        <Button
+          label="Create invite link"
+          tone="ghost"
+          onPress={() => void createInviteLink()}
+          busy={busy}
+        />
+      )}
+      <Text style={styles.section}>Usage & Billing</Text>
+      <Text style={styles.body}>
+        {billingQuery.data
+          ? billingQuery.data.enabled
+            ? `Plan: ${billingQuery.data.plan}`
+            : "Billing is off on this host."
+          : "Loading…"}
+      </Text>
+      <Button
+        label="Open billing"
+        tone="ghost"
+        onPress={() => navigation.navigate("Billing")}
+      />
+      <Text style={styles.section}>Timezone</Text>
+      <Pressable
+        onPress={() => {
+          writeTimezonePref(AUTO_TIMEZONE);
+          setTimezone(AUTO_TIMEZONE);
+        }}
+        style={styles.option}
+      >
+        <Text style={timezone === AUTO_TIMEZONE ? styles.on : styles.body}>
+          Auto ({defaultTimezone()})
+        </Text>
+      </Pressable>
+      <Pressable
+        onPress={() => {
+          writeTimezonePref("UTC");
+          setTimezone("UTC");
+        }}
+        style={styles.option}
+      >
+        <Text style={timezone === "UTC" ? styles.on : styles.body}>UTC</Text>
+      </Pressable>
+      <Button
+        label="Support"
+        tone="ghost"
+        onPress={() => void Linking.openURL("https://groxbot.com")}
       />
       <Text style={styles.section}>Default model</Text>
       <Text style={styles.body}>
@@ -287,6 +553,11 @@ export function YouScreen({ navigation }: Props) {
       />
       <Field label="Gateway id" value={cfGateway} onChangeText={setCfGateway} />
       <Button label="Save keys" onPress={() => void saveModels()} busy={busy} />
+      <Button
+        label="Delete workspace"
+        tone="danger"
+        onPress={confirmDeleteWorkspace}
+      />
       <Button label="Sign out" tone="ghost" onPress={() => void signOut()} />
     </Screen>
   );

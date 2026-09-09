@@ -46,6 +46,27 @@ describe("applyAppTitle", () => {
     expect(next.slides[0]?.title).toBe("Q3");
     expect(next.slides[0]?.blocks[0]?.props.text).toBe("Q3");
   });
+
+  it("sets the CRM title", () => {
+    expect(
+      applyAppTitle("crm", { title: "Untitled CRM", contacts: [] }, "Acme"),
+    ).toEqual({ title: "Acme", contacts: [] });
+  });
+
+  it("sets the game title", () => {
+    expect(
+      applyAppTitle(
+        "game",
+        {
+          title: "Tic-tac-toe",
+          board: [null, null, null, null, null, null, null, null, null],
+          turn: "X",
+          winner: null,
+        },
+        "Duel",
+      ),
+    ).toMatchObject({ title: "Duel", turn: "X" });
+  });
 });
 
 describe("appsFromMessageBlocks", () => {
