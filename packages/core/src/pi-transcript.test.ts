@@ -140,6 +140,43 @@ describe("applyPiOfficeEvent", () => {
     expect(next.status).toBe("ready");
   });
 
+  it("drops a transient failed assistant row on an authoritative snapshot", () => {
+    const view = {
+      ...emptyPiOfficeView("room-1"),
+      messages: [
+        {
+          id: "u1",
+          message: { role: "user" as const, content: "test", timestamp: 1 },
+        },
+        {
+          id: "a-error",
+          message: {
+            role: "assistant" as const,
+            content: [],
+            timestamp: 2,
+            stopReason: "error" as const,
+            errorMessage: "Response validation failed",
+          },
+        },
+        {
+          id: "u-optimistic",
+          message: { role: "user" as const, content: "retry", timestamp: 3 },
+        },
+      ],
+    };
+    const next = applyPiOfficeEvent(view, {
+      threadId: "room-1",
+      seq: 1,
+      type: "snapshot",
+      snapshot: {
+        metadata: { id: "room-1", status: "idle" },
+        messages: [view.messages[0]!],
+      },
+    });
+
+    expect(next.messages.map((row) => row.id)).toEqual(["u1", "u-optimistic"]);
+  });
+
   it("replaces on snapshot and streams then commits", () => {
     let view = emptyPiOfficeView("room-1");
     view = applyPiOfficeEvent(view, {

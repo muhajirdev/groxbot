@@ -7,8 +7,14 @@ import {
   SKILLS_STORE_CATALOG,
   filterSkillsStore,
   getSkillsStoreListing,
+  type SkillsStoreDetail,
   type SkillsStoreListing,
 } from "@groxbot/contracts";
+import {
+  createSkillImportHttp,
+  readRemoteSkill,
+  type SkillImportHttp,
+} from "./skill-import.js";
 
 export const SKILLS_SH_SEARCH_URL = "https://skills.sh/api/search";
 export const SKILLS_SH_SEARCH_MIN = 2;
@@ -218,6 +224,39 @@ export function resolveSkillsStoreListing(
     source: trimmed,
     trust: skillsShTrust(owner),
     homepage: `https://skills.sh/${trimmed}`,
+  };
+}
+
+export async function readSkillsStoreSkill(
+  idOrSource: string,
+  opts?: { http?: SkillImportHttp },
+): Promise<SkillsStoreDetail> {
+  const trimmed = idOrSource.trim();
+  const resolved = resolveSkillsStoreListing(trimmed);
+  const listing: SkillsStoreListing = resolved ?? {
+    id: trimmed,
+    name: trimmed.split("/").filter(Boolean).at(-1) || "skill",
+    blurb: "Open skill",
+    category: "Skills",
+    source: trimmed,
+    trust: skillsShTrust(trimmed.split("/")[0] || ""),
+    homepage: `https://github.com/${trimmed}`,
+  };
+
+  const http = opts?.http ?? createSkillImportHttp();
+  const loaded = await readRemoteSkill({ source: listing.source }, http);
+
+  return {
+    id: listing.id,
+    name: listing.name || loaded.name,
+    blurb: listing.blurb,
+    category: listing.category,
+    source: listing.source,
+    trust: listing.trust,
+    homepage: listing.homepage,
+    description: loaded.description || listing.blurb,
+    content: loaded.content,
+    resources: loaded.resources,
   };
 }
 

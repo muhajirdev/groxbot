@@ -27,6 +27,9 @@ export type PiHost = {
     targetBotId?: string;
   }): Promise<void>;
   stop(): Promise<void>;
+  pendingApprovals?(): Promise<unknown>;
+  approveApproval?(executionId: string): Promise<unknown>;
+  rejectApproval?(executionId: string, seq: number): Promise<unknown>;
   [Symbol.dispose]?: () => void;
 };
 
@@ -197,6 +200,23 @@ export class PiThreadSession {
     await this.host?.stop();
   }
 
+  async pendingApprovals(): Promise<unknown> {
+    await this.waitReady();
+    return this.host?.pendingApprovals?.() ?? [];
+  }
+
+  async approveApproval(executionId: string): Promise<unknown> {
+    await this.waitReady();
+    if (!this.host?.approveApproval) throw new Error(REACH);
+    return this.host.approveApproval(executionId);
+  }
+
+  async rejectApproval(executionId: string, seq: number): Promise<unknown> {
+    await this.waitReady();
+    if (!this.host?.rejectApproval) throw new Error(REACH);
+    return this.host.rejectApproval(executionId, seq);
+  }
+
   async fetchSnapshot(): Promise<PiBoundMessage[] | undefined> {
     const host = this.host;
     if (!host?.snapshot) return undefined;
@@ -297,7 +317,12 @@ export class PiThreadSession {
       },
       onStatus: (next) => {
         if (!live() || !isOfficeChatStatus(next)) return;
-        this.patchView((current) => ({ ...current, status: next }));
+        if (next !== "error") this.error = undefined;
+        this.patchView((current) => ({
+          ...current,
+          status: next,
+          ...(next !== "error" ? { error: "" } : {}),
+        }));
       },
       onError: (message) => {
         if (!live() || !message) return;

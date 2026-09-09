@@ -18,7 +18,9 @@ import {
   isSkillName,
   parseSkillMarkdown,
   skillFilePath,
+  skillResourceKind,
   skillResourcePathError,
+  type SkillResourceKind,
 } from "./skills.js";
 
 export class SkillImportError extends Error {
@@ -55,6 +57,13 @@ export type SkillImportSkip = {
 export type SkillImportResult = {
   imported: SkillImportHit[];
   skipped: SkillImportSkip[];
+};
+
+export type RemoteSkillLoaded = {
+  name: string;
+  description: string;
+  content: string;
+  resources: Array<{ path: string; kind: SkillResourceKind; size?: number }>;
 };
 
 export type SkillImportHttp = {
@@ -278,6 +287,71 @@ export async function importOfficeSkills(
     throw new SkillImportError("No valid SKILL.md in that repo.");
   }
   return { imported, skipped };
+}
+
+export async function readRemoteSkill(
+  input: SkillImportInput,
+  http: SkillImportHttp,
+): Promise<RemoteSkillLoaded> {
+  const parsed = parseSkillImportSource(input.source);
+  const skillFilter = input.name?.trim() || parsed.skill;
+  if (skillFilter && !isSkillName(skillFilter)) {
+    throw new SkillImportError("That skill name is not valid.");
+  }
+  const ref =
+    parsed.ref || (await defaultBranch(http, parsed.owner, parsed.repo));
+  const tree = await repoTree(http, parsed.owner, parsed.repo, ref);
+  const skillFiles = discoverSkillMarkdownPaths(tree, parsed.path);
+  if (skillFiles.length === 0) {
+    throw new SkillImportError("No SKILL.md in that repo.");
+  }
+
+  const sortedFiles = [...skillFiles].sort((a, b) => {
+    if (!skillFilter) return 0;
+    const aMatch = leafSkillName(a) === skillFilter;
+    const bMatch = leafSkillName(b) === skillFilter;
+    if (aMatch && !bMatch) return -1;
+    if (!aMatch && bMatch) return 1;
+    return 0;
+  });
+
+  for (const skillPath of sortedFiles) {
+    const rawBytes = await http.getBytes(
+      rawUrl(parsed.owner, parsed.repo, ref, skillPath),
+    );
+    if (rawBytes.byteLength > MAX_SKILL_BYTES) continue;
+    const raw = new TextDecoder().decode(rawBytes);
+    const skill = parseSkillMarkdown(raw);
+    if (!skill) continue;
+    if (
+      skillFilter &&
+      skill.name !== skillFilter &&
+      leafSkillName(skillPath) !== skillFilter
+    ) {
+      continue;
+    }
+
+    const directory =
+      skillPath === SKILL_FILE
+        ? ""
+        : skillPath.slice(0, -`/${SKILL_FILE}`.length);
+    const resources = resourcePaths(tree, directory).map((r) => ({
+      path: r.rel,
+      kind: skillResourceKind(r.rel),
+    }));
+
+    return {
+      name: skill.name,
+      description: skill.description,
+      content: raw,
+      resources,
+    };
+  }
+
+  if (skillFilter) {
+    throw new SkillImportError(`No skill named ${skillFilter} in that repo.`);
+  }
+  throw new SkillImportError("No valid SKILL.md in that repo.");
 }
 
 function parseOwnerRepo(pathname: string): SkillImportSource {

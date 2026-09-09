@@ -52,6 +52,46 @@ function OfficeWelcome() {
 
 const THREAD_COMPONENTS = { Welcome: OfficeWelcome };
 
+type PendingApproval = {
+  executionId: string;
+  seq: number;
+  connector: string;
+  method: string;
+  args: unknown;
+};
+
+function pendingApprovals(value: unknown): PendingApproval[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((row) => {
+    if (!row || typeof row !== "object") return [];
+    const action = row as Record<string, unknown>;
+    return typeof action.executionId === "string" &&
+      typeof action.seq === "number" &&
+      typeof action.connector === "string" &&
+      typeof action.method === "string"
+      ? [
+          {
+            executionId: action.executionId,
+            seq: action.seq,
+            connector: action.connector,
+            method: action.method,
+            args: action.args,
+          },
+        ]
+      : [];
+  });
+}
+
+function approvalSummary(action: PendingApproval): string {
+  if (action.connector === "bots" && action.method === "hire") {
+    const args = action.args as { name?: unknown; title?: unknown } | null;
+    const name = typeof args?.name === "string" ? args.name : "this teammate";
+    const title = typeof args?.title === "string" ? ` — ${args.title}` : "";
+    return `Hire ${name}${title}`;
+  }
+  return `${action.connector}.${action.method}`;
+}
+
 export const KeptOfficeThread = memo(function KeptOfficeThread(props: {
   botId: string;
   roomId?: string;
@@ -255,6 +295,9 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
     isStreaming,
     connectionError,
     connected,
+    pendingApprovals: loadPendingApprovals,
+    approveApproval,
+    rejectApproval,
   } = chat;
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
@@ -263,6 +306,37 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
   const [pending, setPending] = useState(false);
   const abortSendRef = useRef<AbortController | null>(null);
   const inFlight = busy || pending;
+  const [approvals, setApprovals] = useState<PendingApproval[]>([]);
+  const [resolvingApproval, setResolvingApproval] = useState("");
+
+  const refreshApprovals = useCallback(async () => {
+    try {
+      setApprovals(pendingApprovals(await loadPendingApprovals()));
+    } catch {
+      // The next status update or poll will retry after a reconnect.
+    }
+  }, [loadPendingApprovals]);
+
+  useEffect(() => {
+    if (!connected) return;
+    void refreshApprovals();
+    const timer = window.setInterval(() => void refreshApprovals(), 3_000);
+    return () => window.clearInterval(timer);
+  }, [connected, refreshApprovals, status]);
+
+  const resolveApproval = useCallback(
+    async (action: PendingApproval, approved: boolean) => {
+      setResolvingApproval(action.executionId);
+      try {
+        if (approved) await approveApproval(action.executionId);
+        else await rejectApproval(action.executionId, action.seq);
+      } finally {
+        setResolvingApproval("");
+        await refreshApprovals();
+      }
+    },
+    [approveApproval, refreshApprovals, rejectApproval],
+  );
 
   const send = useCallback(
     async (message: Parameters<typeof onNew>[0]) => {
@@ -416,6 +490,41 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
             components={THREAD_COMPONENTS}
           />
         </div>
+        {approvals.length > 0 ? (
+          <div className="mx-5 mb-3 rounded-xl border border-line bg-card p-3 text-[13px]">
+            {approvals.map((action) => {
+              const resolving = resolvingApproval === action.executionId;
+              return (
+                <div
+                  key={`${action.executionId}:${action.seq}`}
+                  className="flex items-center justify-between gap-3"
+                >
+                  <span>
+                    <span className="font-medium">Approval needed:</span>{" "}
+                    {approvalSummary(action)}
+                  </span>
+                  <div className="flex shrink-0 gap-2">
+                    <Button
+                      variant="ghost"
+                      size="tiny"
+                      disabled={Boolean(resolvingApproval)}
+                      onClick={() => void resolveApproval(action, false)}
+                    >
+                      Reject
+                    </Button>
+                    <Button
+                      size="tiny"
+                      disabled={Boolean(resolvingApproval)}
+                      onClick={() => void resolveApproval(action, true)}
+                    >
+                      {resolving ? "Approving…" : "Approve"}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
       </AssistantRuntimeProvider>
     </div>
   );

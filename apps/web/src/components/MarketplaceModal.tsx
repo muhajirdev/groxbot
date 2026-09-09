@@ -37,6 +37,7 @@ import {
 } from "./Icons";
 import type { HireMarketplaceInput } from "../lib/hire-marketplace";
 import { PluginsModal } from "./PluginsModal";
+import { SkillStoreDetailView } from "./SkillStoreDetailView";
 
 export type { HireMarketplaceInput };
 
@@ -466,6 +467,7 @@ function SkillsMarketplacePane(props: {
   onPasteImport?: () => void;
   onInstalled?: (path: string) => void;
 }) {
+  const [selectedSkill, setSelectedSkill] = useState<SkillsStoreListing | null>(null);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string | null>(null);
   const [featuredOnly, setFeaturedOnly] = useState(false);
@@ -478,6 +480,7 @@ function SkillsMarketplacePane(props: {
 
   useEffect(() => {
     if (!props.open) return;
+    setSelectedSkill(null);
     setQuery("");
     setCategory(null);
     setFeaturedOnly(false);
@@ -549,6 +552,18 @@ function SkillsMarketplacePane(props: {
     } finally {
       setBusyId(null);
     }
+  }
+
+  if (selectedSkill) {
+    return (
+      <SkillStoreDetailView
+        listing={selectedSkill}
+        onBack={() => setSelectedSkill(null)}
+        onInstall={install}
+        busy={busyId === selectedSkill.id}
+        installed={installedIds.has(selectedSkill.id)}
+      />
+    );
   }
 
   return (
@@ -698,7 +713,8 @@ function SkillsMarketplacePane(props: {
                   return (
                     <article
                       key={item.id}
-                      className="flex items-center gap-3 rounded-[14px] px-1 py-2"
+                      className="flex cursor-pointer items-center gap-3 rounded-[14px] px-2 py-2 transition-colors hover:bg-hover"
+                      onClick={() => setSelectedSkill(item)}
                     >
                       <span className="grid size-11 shrink-0 place-items-center rounded-[12px] bg-card-2 text-ink">
                         <SkillsIcon className="size-5" />
@@ -724,7 +740,10 @@ function SkillsMarketplacePane(props: {
                           className="mini shrink-0"
                           type="button"
                           disabled={Boolean(busyId)}
-                          onClick={() => void install(item)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void install(item);
+                          }}
                         >
                           {busy ? "…" : "Add"}
                         </button>

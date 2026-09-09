@@ -24,6 +24,22 @@ export const SkillsStoreSearchSchema = z.object({
 });
 export type SkillsStoreSearch = z.infer<typeof SkillsStoreSearchSchema>;
 
+export const SkillsStoreResourceSchema = z.object({
+  path: z.string().min(1).max(240),
+  kind: z.enum(["reference", "script", "asset", "file"]),
+  size: z.number().int().optional(),
+});
+export type SkillsStoreResource = z.infer<typeof SkillsStoreResourceSchema>;
+
+export const SkillsStoreDetailSchema = SkillsStoreListingSchema.extend({
+  description: z.string().max(2000).default(""),
+  /** Raw markdown of SKILL.md. */
+  content: z.string(),
+  /** Auxiliary reference/script files included in the skill. */
+  resources: z.array(SkillsStoreResourceSchema).default([]),
+});
+export type SkillsStoreDetail = z.infer<typeof SkillsStoreDetailSchema>;
+
 /**
  * Featured seed when search is empty. Longer queries hit the open skills
  * directory under the hood; install still copies from GitHub.

@@ -1,9 +1,9 @@
 import { Menu } from "@base-ui/react/menu";
 import { cn } from "../ui";
-import { PlusIcon } from "./Icons";
+import { BoardIcon, BotIcon, FolderIcon, PlusIcon } from "./Icons";
 
 const itemClass = cn(
-  "flex w-full cursor-pointer items-center rounded-md px-2 py-1.5 text-[13px] text-ink outline-none select-none",
+  "flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-ink outline-none select-none",
   "data-highlighted:bg-hover",
   "data-disabled:cursor-not-allowed data-disabled:opacity-50",
 );
@@ -45,13 +45,16 @@ export function SidebarCreateMenu(props: {
               disabled={props.disabled}
               onClick={props.onNewBot}
             >
-              New bot
+              <BotIcon className="size-3.5 shrink-0 text-muted" />
+              <span>New bot</span>
             </Menu.Item>
             <Menu.Item className={itemClass} onClick={props.onNewRoom}>
-              New task
+              <BoardIcon className="size-3.5 shrink-0 text-muted" />
+              <span>New task</span>
             </Menu.Item>
             <Menu.Item className={itemClass} onClick={props.onNewSection}>
-              New section
+              <FolderIcon className="size-3.5 shrink-0 text-muted" />
+              <span>New section</span>
             </Menu.Item>
           </Menu.Popup>
         </Menu.Positioner>

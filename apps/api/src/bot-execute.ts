@@ -190,6 +190,17 @@ export function createOfficeExecuteTool(opts: {
   connectors?: CodemodeConnector[];
   name?: string;
 }): AgentTool {
+  return bindOfficeExecuteTool(createOfficeExecuteRuntime(opts).tool());
+}
+
+/** The durable runtime is also used by the office approval RPC. */
+export function createOfficeExecuteRuntime(opts: {
+  ctx: DurableObjectState;
+  executor: Executor;
+  page?: PageToolsOpts;
+  connectors?: CodemodeConnector[];
+  name?: string;
+}) {
   const connectors: CodemodeConnector[] = [];
   if (opts.page) {
     connectors.push(
@@ -200,11 +211,10 @@ export function createOfficeExecuteTool(opts: {
     );
   }
   if (opts.connectors) connectors.push(...opts.connectors);
-  const runtime = createCodemodeRuntime({
+  return createCodemodeRuntime({
     ctx: opts.ctx,
     executor: opts.executor,
     connectors,
     name: opts.name ?? "execute",
   });
-  return bindOfficeExecuteTool(runtime.tool());
 }

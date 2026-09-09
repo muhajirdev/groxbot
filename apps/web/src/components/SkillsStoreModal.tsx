@@ -13,6 +13,7 @@ import {
 } from "../lib/skills-store";
 import { Button, ModalShell, cn } from "../ui";
 import { CloseIcon, SearchIcon } from "./Icons";
+import { SkillStoreDetailView } from "./SkillStoreDetailView";
 
 const CATEGORIES = skillsStoreCategories(SKILLS_STORE_CATALOG);
 
@@ -25,6 +26,7 @@ export function SkillsStoreModal(props: {
   /** Called after a successful install with the first imported path. */
   onInstalled?: (path: string) => void;
 }) {
+  const [selectedSkill, setSelectedSkill] = useState<SkillsStoreListing | null>(null);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -38,6 +40,7 @@ export function SkillsStoreModal(props: {
 
   useEffect(() => {
     if (!props.open) return;
+    setSelectedSkill(null);
     setQuery("");
     setCategory(null);
     setBusyId(null);
@@ -101,102 +104,117 @@ export function SkillsStoreModal(props: {
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 border-b border-line px-[18px] py-2">
-        <label className="search-field compact min-w-[160px] flex-1">
-          <SearchIcon />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Find a skill"
-            autoComplete="off"
-            aria-label="Find a skill"
-          />
-        </label>
-        {props.onPasteImport ? (
-          <Button
-            className="px-3 py-1.5 text-[13px]"
-            variant="ghost"
-            type="button"
-            onClick={() => {
-              props.onClose();
-              props.onPasteImport?.();
-            }}
-          >
-            Paste import
-          </Button>
-        ) : null}
-      </div>
-
-      {query.trim().length < 2 ? (
-        <div className="flex flex-wrap gap-1.5 border-b border-line px-[18px] py-2">
-          {CATEGORIES.map((label) => {
-            const active =
-              label === "All" ? category === null : category === label;
-            return (
-              <button
-                key={label}
+      {selectedSkill ? (
+        <SkillStoreDetailView
+          listing={selectedSkill}
+          onBack={() => setSelectedSkill(null)}
+          onInstall={install}
+          busy={busyId === selectedSkill.id}
+        />
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-2 border-b border-line px-[18px] py-2">
+            <label className="search-field compact min-w-[160px] flex-1">
+              <SearchIcon />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Find a skill"
+                autoComplete="off"
+                aria-label="Find a skill"
+              />
+            </label>
+            {props.onPasteImport ? (
+              <Button
+                className="px-3 py-1.5 text-[13px]"
+                variant="ghost"
                 type="button"
-                className={cn("chip", active && "on")}
-                onClick={() => setCategory(label === "All" ? null : label)}
+                onClick={() => {
+                  props.onClose();
+                  props.onPasteImport?.();
+                }}
               >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-
-      {status ? (
-        <p
-          className={cn(
-            "m-0 border-b border-line px-[18px] py-2 text-[12px]",
-            error ? "text-danger" : "text-muted",
-          )}
-          aria-live="polite"
-        >
-          {status}
-        </p>
-      ) : null}
-
-      <div className="min-h-0 flex-1 overflow-auto px-[18px] py-4">
-        {cards.length === 0 ? (
-          <p className="muted py-10 text-center">
-            {loading
-              ? "Searching…"
-              : query.trim()
-                ? `No skills match “${query.trim()}”.`
-                : "No skills in this category."}
-          </p>
-        ) : (
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-2.5">
-            {cards.map((item) => {
-              const busy = busyId === item.id;
-              return (
-                <article
-                  key={item.id}
-                  className="flex items-start justify-between gap-2.5 rounded-[14px] bg-card-2 p-3"
-                >
-                  <div className="min-w-0">
-                    <strong className="mb-1 block">{item.name}</strong>
-                    <p className="muted m-0 text-xs">{item.blurb}</p>
-                    <p className="muted m-0 mt-1.5 text-[11px]">
-                      {skillsStoreTrustLabel(item.trust)} · {item.category}
-                    </p>
-                  </div>
-                  <button
-                    className="mini shrink-0"
-                    type="button"
-                    disabled={Boolean(busyId)}
-                    onClick={() => void install(item)}
-                  >
-                    {busy ? "…" : "Install"}
-                  </button>
-                </article>
-              );
-            })}
+                Paste import
+              </Button>
+            ) : null}
           </div>
-        )}
-      </div>
+
+          {query.trim().length < 2 ? (
+            <div className="flex flex-wrap gap-1.5 border-b border-line px-[18px] py-2">
+              {CATEGORIES.map((label) => {
+                const active =
+                  label === "All" ? category === null : category === label;
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    className={cn("chip", active && "on")}
+                    onClick={() => setCategory(label === "All" ? null : label)}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
+          {status ? (
+            <p
+              className={cn(
+                "m-0 border-b border-line px-[18px] py-2 text-[12px]",
+                error ? "text-danger" : "text-muted",
+              )}
+              aria-live="polite"
+            >
+              {status}
+            </p>
+          ) : null}
+
+          <div className="min-h-0 flex-1 overflow-auto px-[18px] py-4">
+            {cards.length === 0 ? (
+              <p className="muted py-10 text-center">
+                {loading
+                  ? "Searching…"
+                  : query.trim()
+                    ? `No skills match “${query.trim()}”.`
+                    : "No skills in this category."}
+              </p>
+            ) : (
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-2.5">
+                {cards.map((item) => {
+                  const busy = busyId === item.id;
+                  return (
+                    <article
+                      key={item.id}
+                      className="flex cursor-pointer items-start justify-between gap-2.5 rounded-[14px] bg-card-2 p-3 transition-colors hover:bg-hover"
+                      onClick={() => setSelectedSkill(item)}
+                    >
+                      <div className="min-w-0">
+                        <strong className="mb-1 block">{item.name}</strong>
+                        <p className="muted m-0 text-xs">{item.blurb}</p>
+                        <p className="muted m-0 mt-1.5 text-[11px]">
+                          {skillsStoreTrustLabel(item.trust)} · {item.category}
+                        </p>
+                      </div>
+                      <button
+                        className="mini shrink-0"
+                        type="button"
+                        disabled={Boolean(busyId)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void install(item);
+                        }}
+                      >
+                        {busy ? "…" : "Install"}
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </ModalShell>
   );
 }

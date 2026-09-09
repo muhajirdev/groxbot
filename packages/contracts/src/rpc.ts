@@ -64,7 +64,10 @@ import {
   SaveModelSettingsInput,
   WakeupKind,
 } from "./models.js";
-import { SkillsStoreSearchSchema } from "./skills-store.js";
+import {
+  SkillsStoreDetailSchema,
+  SkillsStoreSearchSchema,
+} from "./skills-store.js";
 import {
   AdminDeleteUserInput,
   AdminDeleteWorkspaceInput,
@@ -308,6 +311,15 @@ export const appContract = oc.router({
         }),
       )
       .output(SkillsStoreSearchSchema),
+    /** Load and read a skill listing from the store / GitHub before installing. */
+    readSkill: oc
+      .input(
+        z.object({
+          id: z.string().min(1).max(240).optional(),
+          source: z.string().min(1).max(500).optional(),
+        }),
+      )
+      .output(SkillsStoreDetailSchema),
     read: oc
       .input(z.object({ path: z.string().min(1).max(240) }))
       .output(KnowledgeFileSchema),

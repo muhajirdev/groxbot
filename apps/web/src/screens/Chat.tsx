@@ -16,6 +16,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import {
   type CSSProperties,
+  type DragEvent,
   type MouseEvent,
   memo,
   useCallback,
@@ -257,6 +258,9 @@ function botRowLabel(item: Bot, pinned: boolean, working: boolean): string {
   return bits.join(", ");
 }
 
+const SIDEBAR_BOT_DRAG = "application/x-groxbot-sidebar-bot";
+const UNASSIGNED_DROP = "__unassigned__";
+
 const BotRow = memo(function BotRow(props: {
   item: Bot;
   selected: boolean;
@@ -266,6 +270,8 @@ const BotRow = memo(function BotRow(props: {
   workspaceSlug: string;
   onMenu: (event: MouseEvent, bot: Bot) => void;
   onPick?: () => void;
+  onDragStart?: (event: DragEvent<HTMLAnchorElement>, bot: Bot) => void;
+  onDragEnd?: () => void;
 }) {
   const item = props.item;
   const pinned = isPinnedBot(item);
@@ -280,8 +286,12 @@ const BotRow = memo(function BotRow(props: {
         search={deskAwayFromLibrary(props.desk)}
         preload="intent"
         preloadDelay={300}
+        draggable={Boolean(props.onDragStart)}
+        onDragStart={(event) => props.onDragStart?.(event, item)}
+        onDragEnd={props.onDragEnd}
         className={cn(
           "chat-conv grid min-w-0 grid-cols-[44px_minmax(0,1fr)] items-center gap-2.5 rounded-[14px] border-0 bg-transparent px-2 py-2.5 text-left text-inherit no-underline",
+          props.onDragStart && "cursor-grab active:cursor-grabbing",
           props.selected && "bg-selected",
           props.muted && "opacity-70",
         )}
@@ -459,7 +469,7 @@ const SectionHeader = memo(function SectionHeader(props: {
     <div className="group/section relative">
       <button
         type="button"
-        className="flex w-full items-center gap-1.5 rounded-[10px] border-0 bg-transparent px-2 py-1.5 text-left text-[11px] text-muted hover:bg-hover"
+        className="flex w-full items-center gap-1.5 rounded-[10px] border-0 bg-transparent px-2 py-1.5 text-left text-[9px] text-muted/80 hover:bg-hover hover:text-muted"
         aria-expanded={!props.collapsed}
         onClick={props.onToggle}
         onContextMenu={(event) => {
@@ -467,30 +477,20 @@ const SectionHeader = memo(function SectionHeader(props: {
           props.onMenu(event);
         }}
       >
-        <ChevronDownIcon
-          className={cn(
-            "size-3 shrink-0 transition-transform",
-            props.collapsed && "-rotate-90",
-          )}
-        />
-        <span className="min-w-0 flex-1 truncate font-medium tracking-wide uppercase">
+        <span className="min-w-0 flex-1 truncate font-normal">
           {props.name}
         </span>
-        <span className="shrink-0 group-hover/section:invisible">
-          {props.count}
+        <span className="relative grid size-3 shrink-0 place-items-center">
+          <span className="text-[8px] tabular-nums text-muted/50 transition-opacity group-hover/section:opacity-0">
+            {props.count}
+          </span>
+          <ChevronDownIcon
+            className={cn(
+              "absolute size-3 opacity-0 transition-[transform,opacity] group-hover/section:opacity-80",
+              props.collapsed && "-rotate-90",
+            )}
+          />
         </span>
-      </button>
-      <button
-        className="absolute top-0.5 right-0.5 grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted opacity-0 group-hover/section:opacity-100 hover:bg-hover hover:text-ink focus-visible:opacity-100 max-[720px]:opacity-100"
-        type="button"
-        aria-label={`${props.name} actions`}
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          props.onMenu(event);
-        }}
-      >
-        <MoreIcon />
       </button>
     </div>
   );
@@ -583,6 +583,8 @@ export function Chat(props: {
   const [collapsedIds, setCollapsedIds] = useState(
     () => new Set(readCollapsedSections(props.workspace.id)),
   );
+  const [draggedBotId, setDraggedBotId] = useState<string | null>(null);
+  const [dropSectionId, setDropSectionId] = useState<string | null>(null);
   const [botMenu, setBotMenu] = useState<{
     bot: Bot;
     x: number;
@@ -1410,6 +1412,59 @@ export function Chat(props: {
     [props.workspace.id],
   );
 
+  const startBotDrag = useCallback(
+    (event: DragEvent<HTMLAnchorElement>, item: Bot) => {
+      event.dataTransfer.setData(SIDEBAR_BOT_DRAG, item.id);
+      event.dataTransfer.setData("text/plain", item.id);
+      event.dataTransfer.effectAllowed = "move";
+      setDraggedBotId(item.id);
+      setDropSectionId(null);
+      setBotMenu(null);
+      setSectionMenu(null);
+    },
+    [],
+  );
+
+  const finishBotDrag = useCallback(() => {
+    setDraggedBotId(null);
+    setDropSectionId(null);
+  }, []);
+
+  const dragOverSection = useCallback(
+    (event: DragEvent<HTMLDivElement>, sectionId: string) => {
+      if (!draggedBotId) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      if (dropSectionId !== sectionId) setDropSectionId(sectionId);
+    },
+    [draggedBotId, dropSectionId],
+  );
+
+  const leaveSectionDrop = useCallback(
+    (event: DragEvent<HTMLDivElement>, sectionId: string) => {
+      if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
+        return;
+      }
+      setDropSectionId((current) =>
+        current === sectionId ? null : current,
+      );
+    },
+    [],
+  );
+
+  const dropBotInSection = useCallback(
+    (event: DragEvent<HTMLDivElement>, sectionId: string | null) => {
+      event.preventDefault();
+      const botId =
+        event.dataTransfer.getData(SIDEBAR_BOT_DRAG) || draggedBotId;
+      const item = liveBots.find((candidate) => candidate.id === botId);
+      finishBotDrag();
+      if (!item || item.sectionId === sectionId) return;
+      void moveBotToSection(item, sectionId);
+    },
+    [draggedBotId, finishBotDrag, liveBots, moveBotToSection],
+  );
+
   const toggleSectionCollapsed = useCallback(
     (sectionId: string) => {
       setCollapsedIds((prev) => {
@@ -1880,6 +1935,25 @@ export function Chat(props: {
                 />
               </div>
               <div className="grid flex-1 content-start gap-1 overflow-auto px-1">
+                {draggedBotId ? (
+                  <div
+                    className={cn(
+                      "mx-1 flex min-h-9 items-center justify-between rounded-[10px] border border-dashed border-line px-2.5 text-[11px] text-muted transition-[background-color,border-color,color] duration-[var(--dur-popover)]",
+                      dropSectionId === UNASSIGNED_DROP &&
+                        "border-accent/60 bg-selected text-ink",
+                    )}
+                    onDragOver={(event) =>
+                      dragOverSection(event, UNASSIGNED_DROP)
+                    }
+                    onDragLeave={(event) =>
+                      leaveSectionDrop(event, UNASSIGNED_DROP)
+                    }
+                    onDrop={(event) => dropBotInSection(event, null)}
+                  >
+                    <span>Unassigned</span>
+                    <span className="text-[10px]">Drop here</span>
+                  </div>
+                ) : null}
                 {ungroupedLive.map((row) =>
                   row.kind === "bot" ? (
                     <BotRow
@@ -1891,6 +1965,8 @@ export function Chat(props: {
                       workspaceSlug={props.workspace.slug}
                       onMenu={openBotMenu}
                       onPick={closeRoster}
+                      onDragStart={startBotDrag}
+                      onDragEnd={finishBotDrag}
                     />
                   ) : (
                     <RoomRow
@@ -1910,7 +1986,24 @@ export function Chat(props: {
                     collapsedIds.has(bucket.section.id) &&
                     bot?.sectionId !== bucket.section.id;
                   return (
-                    <div key={bucket.section.id} className="mt-1">
+                    <div
+                      key={bucket.section.id}
+                      className={cn(
+                        "mt-1 rounded-[12px] transition-[background-color,box-shadow] duration-[var(--dur-popover)]",
+                        draggedBotId && "bg-hover/20",
+                        dropSectionId === bucket.section.id &&
+                          "bg-hover shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--accent)_45%,transparent)]",
+                      )}
+                      onDragOver={(event) =>
+                        dragOverSection(event, bucket.section.id)
+                      }
+                      onDragLeave={(event) =>
+                        leaveSectionDrop(event, bucket.section.id)
+                      }
+                      onDrop={(event) =>
+                        dropBotInSection(event, bucket.section.id)
+                      }
+                    >
                       <SectionHeader
                         name={bucket.section.name}
                         count={bucket.bots.length}
@@ -1947,6 +2040,8 @@ export function Chat(props: {
                               workspaceSlug={props.workspace.slug}
                               onMenu={openBotMenu}
                               onPick={closeRoster}
+                              onDragStart={startBotDrag}
+                              onDragEnd={finishBotDrag}
                             />
                           ))}
                     </div>

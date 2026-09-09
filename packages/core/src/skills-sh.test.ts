@@ -4,12 +4,13 @@ import {
   formatSkillsShInstalls,
   mapSkillsShHit,
   parseSkillsShSearch,
+  readSkillsStoreSkill,
   resolveSkillsStoreListing,
+  type SkillsShSearchHttp,
   searchSkillsStore,
   skillsShInstallSource,
   skillsShSearchUrl,
   skillsShTrust,
-  type SkillsShSearchHttp,
 } from "./skills-sh.js";
 
 describe("skillsShSearchUrl", () => {
@@ -135,9 +136,9 @@ describe("searchSkillsStore", () => {
     const found = await searchSkillsStore("pdf", { limit: 8, http });
     expect(found.source).toBe("directory");
     expect(found.skills[0]?.id).toBe("anthropic-pdf");
-    expect(
-      found.skills.some((row) => row.id === "openai/skills/pdf"),
-    ).toBe(true);
+    expect(found.skills.some((row) => row.id === "openai/skills/pdf")).toBe(
+      true,
+    );
   });
 
   it("falls back to curated when the directory is down", async () => {
@@ -167,6 +168,49 @@ describe("resolveSkillsStoreListing", () => {
   });
 });
 
+describe("readSkillsStoreSkill", () => {
+  it("reads a searched directory listing without installing it", async () => {
+    const http = {
+      async getJson(url: string) {
+        if (url === "https://api.github.com/repos/openai/skills") {
+          return { default_branch: "main" };
+        }
+        if (
+          url ===
+          "https://api.github.com/repos/openai/skills/git/trees/main?recursive=1"
+        ) {
+          return {
+            tree: [
+              {
+                path: "skills/create-pr/SKILL.md",
+                type: "blob",
+              },
+            ],
+          };
+        }
+        throw new Error(`Unexpected URL: ${url}`);
+      },
+      async getBytes(url: string) {
+        expect(url).toBe(
+          "https://raw.githubusercontent.com/openai/skills/main/skills/create-pr/SKILL.md",
+        );
+        return new TextEncoder().encode(
+          "---\nname: create-pr\ndescription: Open a pull request.\n---\n\n# Create a PR",
+        );
+      },
+    };
+
+    await expect(
+      readSkillsStoreSkill("openai/skills/create-pr", { http }),
+    ).resolves.toMatchObject({
+      id: "openai/skills/create-pr",
+      source: "openai/skills/create-pr",
+      name: "create-pr",
+      content: expect.stringContaining("# Create a PR"),
+    });
+  });
+});
+
 describe("helpers", () => {
   it("formats installs and trust", () => {
     expect(formatSkillsShInstalls(1)).toBe("1 install");
@@ -179,8 +223,8 @@ describe("helpers", () => {
     const http = createSkillsShSearchHttp(async () =>
       Response.json({ skills: [] }),
     );
-    await expect(http.getJson("https://skills.sh/api/search?q=x")).resolves.toEqual(
-      { skills: [] },
-    );
+    await expect(
+      http.getJson("https://skills.sh/api/search?q=x"),
+    ).resolves.toEqual({ skills: [] });
   });
 });

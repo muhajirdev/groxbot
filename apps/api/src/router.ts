@@ -34,6 +34,7 @@ import {
   revokeKnowledgeShare,
   revokeKnowledgeSharesForPrefix,
   SkillImportError,
+  readSkillsStoreSkill,
   saveModelSettings,
   searchSkillsStore,
   sleep,
@@ -825,6 +826,23 @@ export const appRouter = os.router({
           owner: input.owner,
           category: input.category,
         });
+      } catch (error) {
+        throwKnowledgeError(error);
+      }
+    }),
+    readSkill: os.knowledge.readSkill.handler(async ({ context, input }) => {
+      await requireActor(context);
+      const target = (input.id || input.source || "").trim();
+      if (!target) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "Specify a skill id or source.",
+        });
+      }
+      try {
+        if (!context.knowledge) {
+          return await readSkillsStoreSkill(target);
+        }
+        return await context.knowledge.readSkill(target);
       } catch (error) {
         throwKnowledgeError(error);
       }

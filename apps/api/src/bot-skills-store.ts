@@ -9,6 +9,7 @@ import {
   createSkillImportHttp,
   importOfficeSkills,
   KnowledgePathError,
+  readSkillsStoreSkill,
   resolveSkillsStoreListing,
   searchSkillsStore,
   type KnowledgeDisk,
@@ -31,7 +32,7 @@ export class SkillsStoreConnector extends CodemodeConnector {
   protected override instructions() {
     return [
       "Agent Skills store — featured skills plus a searchable open directory.",
-      "Search with skills_store.search({ query }), then install with skills_store.install({ id }) — install needs approval.",
+      "Search with skills_store.search({ query }), read details and instructions with skills_store.read({ id }), then install with skills_store.install({ id }) — install needs approval.",
       "Ids from search are either featured (anthropic-pdf) or owner/repo/skill paths (anthropics/skills/pdf).",
       "Installed skills land in office knowledge as skills/<name>/SKILL.md and show up in <available_skills> on the next turn.",
       "Not Plugins. Hire a teammate with bots.search / bots.hire, not this store. Prefer the store over inventing a playbook when a listing already fits.",
@@ -69,6 +70,23 @@ export class SkillsStoreConnector extends CodemodeConnector {
             categories: [...SKILLS_STORE_CATEGORIES],
             skills: found.skills.map(skillRow),
           };
+        },
+      },
+      read: {
+        description:
+          "Read and inspect a skill listing from the store before installing. Returns the full SKILL.md content, description, trust, resources, and source.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            id: { type: "string", minLength: 1, maxLength: 240 },
+          },
+          required: ["id"],
+        },
+        replay: "reexecute",
+        execute: async (args) => {
+          const id = stringArg(args, "id", true);
+          const detail = await readSkillsStoreSkill(id);
+          return detail;
         },
       },
       install: {

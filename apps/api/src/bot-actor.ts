@@ -134,6 +134,7 @@ import { createBotComputer } from "./bot-computer-workspace.js";
 import { BotsConnector } from "./bot-bots-connector.js";
 import {
   createBundlingExecutor,
+  createOfficeExecuteRuntime,
   createOfficeExecuteTool,
 } from "./bot-execute.js";
 import { HistoryConnector } from "./bot-history.js";
@@ -499,6 +500,21 @@ export class RoomHome extends Agent<WorkerEnv> {
     return this.getAgentTools();
   }
 
+  private async officeExecuteRuntime() {
+    await this.ensureWorkspaceMcp();
+    await this.ensureWorkspacePlugins();
+    return createOfficeExecuteRuntime({
+      ctx: this.ctx,
+      executor: createBundlingExecutor(this.env.LOADER, { timeout: 120_000 }),
+      page: {
+        workspace: this.workspace,
+        convert: bindToMarkdown(this.env.AI),
+        tinyfishKeys: this.pageTinyfishPool(),
+      },
+      connectors: this.executeConnectors(),
+    });
+  }
+
   /** Worker shell HOST (`WorkspaceServiceProxy`) reaches this DO’s Computer VFS. */
   async __getWorkspaceStub() {
     await this.computer.ready();
@@ -708,6 +724,32 @@ export class RoomHome extends Agent<WorkerEnv> {
     }
     this.officeStatus = "ready";
     await this.broadcastOfficeStatus();
+  }
+
+  /** Code Mode persists paused runs; expose them to the office UI. */
+  async officePendingApprovals(): Promise<unknown> {
+    return (await this.officeExecuteRuntime()).pending();
+  }
+
+  async officeApproveApproval(executionId: string): Promise<unknown> {
+    const id = executionId.trim();
+    if (!id) throw new Error("Missing approval execution id.");
+    const result = await (
+      await this.officeExecuteRuntime()
+    ).approve({ executionId: id });
+    return result;
+  }
+
+  async officeRejectApproval(
+    executionId: string,
+    seq: number,
+  ): Promise<unknown> {
+    const id = executionId.trim();
+    if (!id || !Number.isSafeInteger(seq)) throw new Error("Invalid approval.");
+    const rejected = await (
+      await this.officeExecuteRuntime()
+    ).reject({ executionId: id, seq });
+    return { rejected };
   }
 
   async appendOfficeUserAndRun(input: {

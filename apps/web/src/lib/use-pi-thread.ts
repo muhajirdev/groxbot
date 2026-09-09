@@ -75,6 +75,20 @@ export function usePiThread(options: {
     await session.stop();
   }, [session]);
 
+  const pendingApprovals = useCallback(
+    () => session.pendingApprovals(),
+    [session],
+  );
+  const approveApproval = useCallback(
+    (executionId: string) => session.approveApproval(executionId),
+    [session],
+  );
+  const rejectApproval = useCallback(
+    (executionId: string, seq: number) =>
+      session.rejectApproval(executionId, seq),
+    [session],
+  );
+
   return {
     view,
     messages: view.messages,
@@ -89,5 +103,8 @@ export function usePiThread(options: {
     onNew,
     send,
     stop,
+    pendingApprovals,
+    approveApproval,
+    rejectApproval,
   };
 }

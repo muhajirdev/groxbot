@@ -98,4 +98,50 @@ describe("pi-thread-session", () => {
       },
     ]);
   });
+
+  it("forwards a pending approval decision to the live host", async () => {
+    const approveApproval = vi.fn(async () => ({ status: "completed" }));
+    const rejectApproval = vi.fn(async () => ({ rejected: true }));
+    const pendingApprovals = vi.fn(async () => [
+      { executionId: "exec_1", seq: 2, connector: "bots", method: "hire" },
+    ]);
+    const session = ensurePiThread({
+      threadId: "room-approval",
+      rpcUrl: "ws://office/rooms/room-approval/rpc",
+      connect: vi.fn(async () => ({
+        ...fakeHost(),
+        pendingApprovals,
+        approveApproval,
+        rejectApproval,
+      })),
+    });
+    await session.waitReady(2_000);
+    await expect(session.pendingApprovals()).resolves.toHaveLength(1);
+    await session.approveApproval("exec_1");
+    await session.rejectApproval("exec_1", 2);
+    expect(approveApproval).toHaveBeenCalledWith("exec_1");
+    expect(rejectApproval).toHaveBeenCalledWith("exec_1", 2);
+  });
+
+  it("clears a turn error when the actor starts or completes a later turn", async () => {
+    let subscriber!: PiThreadSubscriber;
+    const session = ensurePiThread({
+      threadId: "room-error",
+      rpcUrl: "ws://office/rooms/room-error/rpc",
+      connect: vi.fn(async (_url: string, next: PiThreadSubscriber) => {
+        subscriber = next;
+        return fakeHost();
+      }),
+    });
+    await session.waitReady(2_000);
+
+    subscriber.error("Response validation failed");
+    expect(session.getSnapshot().error?.message).toBe(
+      "Response validation failed",
+    );
+
+    subscriber.status("submitted");
+    expect(session.getSnapshot().error).toBeUndefined();
+    expect(session.getSnapshot().view.error).toBe("");
+  });
 });

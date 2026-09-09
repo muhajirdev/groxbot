@@ -46,6 +46,18 @@ export class OfficeChatHost extends RpcTarget {
   stop(): Promise<void> {
     return this.actor.stopOffice();
   }
+
+  pendingApprovals(): Promise<unknown> {
+    return this.actor.officePendingApprovals();
+  }
+
+  approveApproval(executionId: string): Promise<unknown> {
+    return this.actor.officeApproveApproval(executionId);
+  }
+
+  rejectApproval(executionId: string, seq: number): Promise<unknown> {
+    return this.actor.officeRejectApproval(executionId, seq);
+  }
 }
 
 export function officeRpcResponse(

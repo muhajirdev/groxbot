@@ -394,14 +394,16 @@ export function takePiAssistantDraft(
   return id;
 }
 
-/** Keep optimistic rows when the first socket snapshot is still empty. */
+/** Keep optimistic user rows, but let an authoritative snapshot remove transient assistant failures. */
 export function mergeSnapshotMessages(
   current: readonly PiBoundMessage[],
   incoming: readonly PiBoundMessage[],
 ): PiBoundMessage[] {
   if (incoming.length === 0) return current as PiBoundMessage[];
   const seen = new Set(incoming.map((row) => row.id));
-  const extras = current.filter((row) => !seen.has(row.id));
+  const extras = current.filter(
+    (row) => !seen.has(row.id) && row.message.role === "user",
+  );
   return extras.length === 0 ? [...incoming] : [...incoming, ...extras];
 }
 

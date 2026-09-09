@@ -6,6 +6,7 @@ import {
   discoverSkillMarkdownPaths,
   importOfficeSkills,
   parseSkillImportSource,
+  readRemoteSkill,
   type SkillImportHttp,
 } from "./skill-import.js";
 
@@ -284,6 +285,49 @@ describe("importOfficeSkills", () => {
     );
     expect(result.imported.map((row) => row.name)).toEqual(["beta"]);
     expect(disk.files.has("ws_office/skills/alpha/SKILL.md")).toBe(false);
+  });
+});
+
+describe("readRemoteSkill", () => {
+  it("reads skill markdown, frontmatter, and auxiliary resources without modifying disk", async () => {
+    const http = new MemoryHttp();
+    githubTree(http, "acme", "playbooks", "main", [
+      "skills/pdf/SKILL.md",
+      "skills/pdf/scripts/fill.py",
+      "skills/pdf/references/spec.md",
+    ]);
+    const markdown = skillDoc("pdf", "Work with PDF files.", "Instructions here.");
+    http.skill("acme", "playbooks", "main", "skills/pdf/SKILL.md", markdown);
+
+    const loaded = await readRemoteSkill(
+      { source: "acme/playbooks/pdf" },
+      http,
+    );
+    expect(loaded.name).toBe("pdf");
+    expect(loaded.description).toBe("Work with PDF files.");
+    expect(loaded.content).toBe(markdown);
+    expect(loaded.resources).toEqual([
+      { path: "scripts/fill.py", kind: "script" },
+      { path: "references/spec.md", kind: "reference" },
+    ]);
+  });
+
+  it("throws when skill is not found", async () => {
+    const http = new MemoryHttp();
+    githubTree(http, "acme", "playbooks", "main", [
+      "skills/pdf/SKILL.md",
+    ]);
+    http.skill(
+      "acme",
+      "playbooks",
+      "main",
+      "skills/pdf/SKILL.md",
+      skillDoc("pdf", "PDF"),
+    );
+
+    await expect(
+      readRemoteSkill({ source: "acme/playbooks/nonexistent" }, http),
+    ).rejects.toThrow(/No skill named nonexistent/);
   });
 });
 
