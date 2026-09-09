@@ -491,7 +491,7 @@ const AssistantMessage: FC = () => {
                   <div data-slot="aui_chain-of-thought">
                     <ReasoningRoot variant="ghost" streaming={streaming}>
                       <ReasoningTrigger active={streaming} />
-                      <ReasoningContent aria-busy={streaming}>
+                      <ReasoningContent className="mt-1" aria-busy={streaming}>
                         <div className="flex flex-col items-start gap-1">
                           {children}
                         </div>
