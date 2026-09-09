@@ -41,6 +41,7 @@ const PHRASES: Record<string, { running: string; done: string }> = {
     done: "Took a screenshot",
   },
   present: { running: "Putting it on the page", done: "Put it on the page" },
+  ask: { running: "Asking you", done: "Asked you" },
   skill_manage: { running: "Saving a playbook", done: "Saved a playbook" },
   room_list: { running: "Looking at papers", done: "Looked at papers" },
   room_read: { running: "Reading a paper", done: "Read a paper" },

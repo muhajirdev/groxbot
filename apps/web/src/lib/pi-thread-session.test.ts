@@ -124,6 +124,30 @@ describe("pi-thread-session", () => {
     expect(rejectApproval).toHaveBeenCalledWith("exec_1", 2);
   });
 
+  it("forwards an ask answer to the live host", async () => {
+    const pendingAsks = vi.fn(async () => [
+      { toolCallId: "call_1", questions: [{ prompt: "Tone?" }] },
+    ]);
+    const answerAsk = vi.fn(async () => ({ ok: true, skipped: false }));
+    const skipAsk = vi.fn(async () => ({ ok: true, skipped: true }));
+    const session = ensurePiThread({
+      threadId: "room-ask",
+      rpcUrl: "ws://office/rooms/room-ask/rpc",
+      connect: vi.fn(async () => ({
+        ...fakeHost(),
+        pendingAsks,
+        answerAsk,
+        skipAsk,
+      })),
+    });
+    await session.waitReady(2_000);
+    await expect(session.pendingAsks()).resolves.toHaveLength(1);
+    await session.answerAsk("call_1", { selected: "casual" });
+    await session.skipAsk("call_1");
+    expect(answerAsk).toHaveBeenCalledWith("call_1", { selected: "casual" });
+    expect(skipAsk).toHaveBeenCalledWith("call_1");
+  });
+
   it("clears a turn error when the actor starts or completes a later turn", async () => {
     let subscriber!: PiThreadSubscriber;
     const session = ensurePiThread({

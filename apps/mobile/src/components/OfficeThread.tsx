@@ -19,6 +19,7 @@ import {
   PRESENT_TOOL_NAME,
   withOfficeUserMetadata,
 } from "@groxbot/contracts";
+import { OFFICE_ASK_TOOL_NAME } from "@groxbot/core/browser";
 import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -56,6 +57,7 @@ import { projectedToThreadMessage } from "../lib/use-pi-thread";
 import { colors, radius } from "../theme";
 import { useSetWorking } from "../working";
 import { AppCard } from "./AppCard";
+import { AskCard, OfficeAskActionsContext } from "./AskCard";
 import { ChatMarkdown } from "./ChatMarkdown";
 import { OfficeSkillSlash } from "./OfficeSkillSlash";
 import { PresentCard } from "./PresentCard";
@@ -191,6 +193,8 @@ function OfficeThreadRuntime(props: {
     pendingApprovals: loadPendingApprovals,
     approveApproval,
     rejectApproval,
+    answerAsk,
+    skipAsk,
   } = chat;
   const busy = status === "submitted" || status === "streaming" || isStreaming;
   const [pending, setPending] = useState(false);
@@ -227,6 +231,26 @@ function OfficeThreadRuntime(props: {
       }
     },
     [approveApproval, refreshApprovals, rejectApproval],
+  );
+
+  const askActions = useMemo(
+    () => ({
+      answer: async (toolCallId: string, answers: unknown) => {
+        try {
+          await answerAsk(toolCallId, answers);
+        } catch {
+          // Already answered or the socket dropped.
+        }
+      },
+      skip: async (toolCallId: string) => {
+        try {
+          await skipAsk(toolCallId);
+        } catch {
+          // Already skipped or the socket dropped.
+        }
+      },
+    }),
+    [answerAsk, skipAsk],
   );
 
   const send = useCallback(
@@ -353,6 +377,7 @@ function OfficeThreadRuntime(props: {
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
+      <OfficeAskActionsContext.Provider value={askActions}>
       {approvals.length > 0 ? (
         <View style={styles.approvals}>
           {approvals.map((action) => (
@@ -388,6 +413,7 @@ function OfficeThreadRuntime(props: {
         pending={pending}
         onOpenPath={props.onOpenPath}
       />
+      </OfficeAskActionsContext.Provider>
     </AssistantRuntimeProvider>
   );
 }
@@ -571,7 +597,13 @@ function AssistantMessage(props: {
           />
         )}
         renderToolCall={({ part }) =>
-          part.toolName === PRESENT_TOOL_NAME ? (
+          part.toolName === OFFICE_ASK_TOOL_NAME ? (
+            <AskCard
+              toolCallId={part.toolCallId}
+              args={part.args}
+              result={part.result}
+            />
+          ) : part.toolName === PRESENT_TOOL_NAME ? (
             <PresentCard tree={part.args} botId={props.botId} />
           ) : (
             <ToolFallback

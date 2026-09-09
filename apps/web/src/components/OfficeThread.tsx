@@ -32,7 +32,9 @@ import { useOfficeChat } from "../lib/use-office-chat";
 import { projectedToThreadMessage } from "../lib/use-pi-thread";
 import { cn } from "../lib/utils";
 import { Button } from "../ui";
+import { AskToolUI } from "./AskToolUI";
 import { PresentToolUI } from "./PresentToolUI";
+import { OfficeAskActionsContext } from "../lib/office-ask-actions";
 
 function rememberPreview(botId: string, roomId: string, messages: PiBoundMessage[]) {
   setOfficeMessages(roomId, messages);
@@ -304,6 +306,8 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
     pendingApprovals: loadPendingApprovals,
     approveApproval,
     rejectApproval,
+    answerAsk,
+    skipAsk,
   } = chat;
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
@@ -347,6 +351,26 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
       }
     },
     [approveApproval, refreshApprovals, rejectApproval],
+  );
+
+  const askActions = useMemo(
+    () => ({
+      answer: async (toolCallId: string, answers: unknown) => {
+        try {
+          await answerAsk(toolCallId, answers);
+        } catch {
+          // Already answered or the socket dropped.
+        }
+      },
+      skip: async (toolCallId: string) => {
+        try {
+          await skipAsk(toolCallId);
+        } catch {
+          // Already skipped or the socket dropped.
+        }
+      },
+    }),
+    [answerAsk, skipAsk],
   );
 
   const send = useCallback(
@@ -488,7 +512,9 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <AssistantRuntimeProvider runtime={runtime}>
+        <OfficeAskActionsContext.Provider value={askActions}>
         <PresentToolUI />
+        <AskToolUI />
         <div className="flex min-h-0 flex-1 flex-col">
           <Thread
             autoFocus={false}
@@ -536,6 +562,7 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
             })}
           </div>
         ) : null}
+        </OfficeAskActionsContext.Provider>
       </AssistantRuntimeProvider>
     </div>
   );

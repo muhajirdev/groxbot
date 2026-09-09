@@ -17,6 +17,8 @@ describe("toolActivityCopy", () => {
     expect(toolActivityCopy("render_screenshot", "complete")).toBe(
       "Took a screenshot",
     );
+    expect(toolActivityCopy("ask", "running")).toBe("Asking you");
+    expect(toolActivityCopy("ask", "complete")).toBe("Asked you");
   });
 
   it("softens cancel and unknown names", () => {
