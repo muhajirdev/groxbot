@@ -123,8 +123,33 @@ export function toRoutineDto(
   };
 }
 
+/** Visible first line of a firing — must read as execute-now, not “please schedule this”. */
+export const ROUTINE_KICK_PREFIX = "Run now — scheduled job:";
+/** Older kicks still in a live window after deploy. */
+export const LEGACY_ROUTINE_KICK_PREFIX = "Scheduled routine:";
+
+export const OFFICE_ROUTINE_KICK_INSTRUCTIONS = [
+  "This turn is a scheduled job that just fired — not a human asking you to design, clarify, or create a routine.",
+  "Execute the instructions in the user message with tools. Do not call routines.create, routines.update, or routines.run.",
+  "Do not ask clarifying questions. If a tool or API cannot do one step, skip that step and finish the rest. Then summarize what you did.",
+].join(" ");
+
 export function formatRoutinePrompt(name: string, prompt: string): string {
-  return `Scheduled routine: ${name}\n\n${prompt}`;
+  return `${ROUTINE_KICK_PREFIX} ${name.trim()}\n\n${prompt.trim()}`;
+}
+
+export function isRoutineKickText(text: string): boolean {
+  const line = text.trim();
+  return (
+    line.startsWith(ROUTINE_KICK_PREFIX) ||
+    line.startsWith(LEGACY_ROUTINE_KICK_PREFIX)
+  );
+}
+
+export function withOfficeRoutineKick(system: string): string {
+  const block = `<scheduled_job>\n${OFFICE_ROUTINE_KICK_INSTRUCTIONS}\n</scheduled_job>`;
+  if (system.includes("<scheduled_job>")) return system;
+  return `${system.trimEnd()}\n\n${block}`;
 }
 
 /** Cron when it fits; `scheduleEvery` for intervals cron cannot express. */

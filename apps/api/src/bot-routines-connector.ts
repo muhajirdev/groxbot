@@ -41,9 +41,11 @@ export class RoutinesConnector extends CodemodeConnector {
 
   protected override instructions() {
     return [
-      "This bot’s recurring jobs. Use when someone asks you to do something on a schedule.",
+      "This bot’s recurring jobs. Create or edit only when a human asks to start or change a schedule.",
+      "name is a short label, not the work. prompt is the job this bot will execute when the alarm fires.",
       "Schedules: “every day at 09:00”, “every weekday at 9:00 AM”, “every week on monday at 09:00”, “every 30 minutes”.",
       "Do not pass timezone unless they name a zone; the office clock is Settings → General.",
+      "If this turn’s user message is a scheduled job firing (it starts with “Run now — scheduled job”), do that work. Do not call create, update, or run.",
     ].join(" ");
   }
 
@@ -57,7 +59,7 @@ export class RoutinesConnector extends CodemodeConnector {
       },
       create: {
         description:
-          "Create a recurring job this bot will run even if nobody is in the office.",
+          "Create a recurring job this bot will run even if nobody is in the office. name is a short label. prompt is the work to do when it fires.",
         inputSchema: {
           type: "object",
           properties: {
