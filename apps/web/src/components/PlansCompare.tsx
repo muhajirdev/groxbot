@@ -34,7 +34,7 @@ const PRO_FEATURES = [
   "Knowledge that grows as you work",
   "Plugins",
   "$20 hosted models / month",
-  "Live apps — coming soon",
+  "Live apps",
   "Goal and task management — coming soon",
   "Mobile — coming soon",
 ];

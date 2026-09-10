@@ -19,17 +19,19 @@ import {
 import {
   HOSTED_STARTER_MODEL,
   labelForModel,
-  officeUserFromHeaders,
   type OpenAiCodexAuth,
-  reasoningFromEffort,
+  officeUserFromHeaders,
   type Routine,
+  reasoningFromEffort,
   stampIncomingOfficeUser,
+  type TemplateId,
   type ThinkingEffort,
   WORKSPACE_PLAN_REQUIRED_MESSAGE,
 } from "@groxbot/contracts";
 import {
   applyOfficeReviewTurn,
   applyOfficeSkillsToSystem,
+  assertWorkspacePlanAllowed,
   awayOfficeExcerpt,
   buildOfficeSystemPrompt,
   ComputerFileError,
@@ -39,6 +41,7 @@ import {
   composeSoul,
   computerWorkerShell,
   countPiToolCallsSinceLastUser,
+  createSkillImportHttp,
   DEFAULT_ROUTINE_TIMEZONE,
   decodeComputerBytes,
   diskFromComputerFs,
@@ -47,15 +50,14 @@ import {
   encryptionSecret,
   ensureComputerHome,
   formatRoutinePrompt,
-  isoUnixSeconds,
   isContextOverflowError,
+  isoUnixSeconds,
   isThoughtSignatureError,
   jsonClone,
   lastOfficeHumanUserId,
   lastOfficeUserIsIntro,
   lastPiAssistantText,
   listComputerEntries,
-  readComputerFile,
   listConnectedPluginAccounts,
   loadOfficeSkillCatalog,
   mcpCatalogForExecute,
@@ -68,13 +70,12 @@ import {
   OFFICE_REVIEW_STORAGE,
   OFFICE_WORKSPACE_HEADER,
   type OfficeChatMessage,
+  OfficeHireError,
   type OfficeHistorySearch,
   officeCanReadSkills,
-  officeMarketplaceHits,
   officeHiredBotProjection,
-  OfficeHireError,
-  resolveOfficeHire,
   officeIntroTurnTools,
+  officeMarketplaceHits,
   officeModelContextWindow,
   officeReviewAnnounce,
   officeReviewDue,
@@ -93,17 +94,19 @@ import {
   parseTinyfishKeys,
   parseVisibility,
   patchComputerWorkspace,
+  persistOpenAiCodexAuth,
   piAssistantTurnSettled,
   piLogShouldRun,
-  persistOpenAiCodexAuth,
   piQueuedUserBound,
   prepareRoutineCreate,
   RoutineError,
   RoutineNotFoundError,
   RoutineScheduleError,
+  readComputerFile,
+  recordAppChatCard,
   recordComputerUsage,
+  resolveOfficeHire,
   resolveRunModel,
-  assertWorkspacePlanAllowed,
   type StoredRoutine,
   searchOfficeHistory,
   shouldArmAwayOfficePing,
@@ -111,27 +114,29 @@ import {
   shouldSendAwayOfficePing,
   soulOverlayFromWrite,
   TinyfishKeyPool,
+  TOOL_TRUNCATE_MAX_BYTES,
+  TOOL_TRUNCATE_MAX_LINES,
   takePiAssistantDraft,
   teammatePrompt,
   tinyfishPoolStart,
-  TOOL_TRUNCATE_MAX_BYTES,
-  TOOL_TRUNCATE_MAX_LINES,
   toRoutineDto,
   withComputerOfficeTools,
   withOfficeExecuteDescription,
   writeInboxFile,
-  createSkillImportHttp,
 } from "@groxbot/core";
 import { bots, mcpConnections, member, organization, user } from "@groxbot/db";
 import { createNeonHttpDb } from "@groxbot/db/neon";
+import { ORPCError } from "@orpc/server";
 import { Agent } from "agents";
 import { AgentContextProvider } from "agents/experimental/memory/session";
 import { and, eq, isNull, or } from "drizzle-orm";
 import { z } from "zod";
-import { ORPCError } from "@orpc/server";
-import { createBot } from "./bots.js";
-import { createBotComputer } from "./bot-computer-workspace.js";
+import { DurableObjectAppStore } from "./app-runtime-do.js";
+import { createRoomAppTool } from "./bot-app.js";
+import { createAskTool, OfficeAskBoard } from "./bot-ask.js";
 import { BotsConnector } from "./bot-bots-connector.js";
+import { createBrowserAgentTools } from "./bot-browser.js";
+import { createBotComputer } from "./bot-computer-workspace.js";
 import {
   createBundlingExecutor,
   createOfficeExecuteRuntime,
@@ -139,21 +144,28 @@ import {
 } from "./bot-execute.js";
 import { HistoryConnector } from "./bot-history.js";
 import { KnowledgeConnector } from "./bot-knowledge.js";
-import { SkillsStoreConnector } from "./bot-skills-store.js";
-import { createAskTool, OfficeAskBoard } from "./bot-ask.js";
-import { createBrowserAgentTools } from "./bot-browser.js";
-import { bindToMarkdown, createPageAgentTools, runToMarkdownTool } from "./bot-markdown.js";
+import {
+  bindToMarkdown,
+  createPageAgentTools,
+  runToMarkdownTool,
+} from "./bot-markdown.js";
 import { WorkspaceMcpConnector } from "./bot-mcp-connector.js";
 import {
   type OfficeChatSubscriber,
   officeRpcResponse,
 } from "./bot-office-rpc.js";
-import { aiToolsToPi, officeAgentTool, wrapAgentToolsForComputerUsage } from "./bot-office-tools.js";
+import {
+  aiToolsToPi,
+  officeAgentTool,
+  wrapAgentToolsForComputerUsage,
+} from "./bot-office-tools.js";
 import { PluginsConnector } from "./bot-plugins.js";
 import { createPresentTool } from "./bot-present.js";
-import { createRoomAppTool } from "./bot-app.js";
 import { RoutinesConnector } from "./bot-routines-connector.js";
 import { createSkillTool } from "./bot-skill.js";
+import { SkillsStoreConnector } from "./bot-skills-store.js";
+import { createStampAppTool } from "./bot-stamp.js";
+import { createBot } from "./bots.js";
 import { agentRuntimeSource, productEnv, type RuntimeSource } from "./env.js";
 import { knowledgeAccess } from "./knowledge.js";
 import { r2KnowledgeDisk } from "./knowledge-r2.js";
@@ -482,6 +494,7 @@ export class RoomHome extends Agent<WorkerEnv> {
         : []),
       createPresentTool(),
       createAskTool(this.officeAsk),
+      ...this.stampAppTools(),
       this.setContextTool(),
       ...this.roomAppTools(),
       ...(skill ? [skill] : []),
@@ -698,9 +711,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     const existing = (await this.officeBound(session)).find(
       (row) => row.id === id,
     );
-    const running = Boolean(
-      this.officeTurn && !this.officeTurn.signal.aborted,
-    );
+    const running = Boolean(this.officeTurn && !this.officeTurn.signal.aborted);
     this.ctx.waitUntil(this.markOfficeHumanPresent());
     if (running) this.officeTurnTouched = true;
     const stamped = stampIncomingOfficeUser(
@@ -773,9 +784,9 @@ export class RoomHome extends Agent<WorkerEnv> {
   async officeApproveApproval(executionId: string): Promise<unknown> {
     const id = executionId.trim();
     if (!id) throw new Error("Missing approval execution id.");
-    const result = await (
-      await this.officeExecuteRuntime()
-    ).approve({ executionId: id });
+    const result = await (await this.officeExecuteRuntime()).approve({
+      executionId: id,
+    });
     return result;
   }
 
@@ -785,9 +796,10 @@ export class RoomHome extends Agent<WorkerEnv> {
   ): Promise<unknown> {
     const id = executionId.trim();
     if (!id || !Number.isSafeInteger(seq)) throw new Error("Invalid approval.");
-    const rejected = await (
-      await this.officeExecuteRuntime()
-    ).reject({ executionId: id, seq });
+    const rejected = await (await this.officeExecuteRuntime()).reject({
+      executionId: id,
+      seq,
+    });
     return { rejected };
   }
 
@@ -795,7 +807,10 @@ export class RoomHome extends Agent<WorkerEnv> {
     return this.officeAsk.pending();
   }
 
-  async officeAnswerAsk(toolCallId: string, answers: unknown): Promise<unknown> {
+  async officeAnswerAsk(
+    toolCallId: string,
+    answers: unknown,
+  ): Promise<unknown> {
     const id = toolCallId.trim();
     if (!id) throw new Error("Missing question.");
     const result = this.officeAsk.answer(id, answers);
@@ -829,6 +844,46 @@ export class RoomHome extends Agent<WorkerEnv> {
       metadata: input.metadata,
     });
     await this.enqueueOfficeTurn();
+  }
+
+  protected stampAppTools(listingBotId?: string): AgentTool[] {
+    if (!this.env.APP_RUNTIME) return [];
+    return [
+      createStampAppTool({
+        workspaceId: () => this.officeId,
+        initApp: (id, templateId, opts) =>
+          new DurableObjectAppStore(this.env.APP_RUNTIME).init(
+            id,
+            templateId,
+            opts,
+          ),
+        recordCard: (app) => this.recordOfficeAppCard(app, listingBotId),
+      }),
+    ];
+  }
+
+  protected async recordOfficeAppCard(
+    app: {
+      id: string;
+      templateId: TemplateId;
+      title: string;
+    },
+    listingBotId?: string,
+  ): Promise<void> {
+    await this.ensureOfficeId();
+    const botId = (listingBotId ?? this.personId).trim();
+    if (!this.officeId || !botId) return;
+    const env = productEnv(this.env);
+    const { db, close } = createNeonHttpDb(env.databaseUrl);
+    try {
+      await recordAppChatCard(db, {
+        workspaceId: this.officeId,
+        botId,
+        app,
+      });
+    } finally {
+      await close();
+    }
   }
 
   private enqueueOfficeTurn(): Promise<void> {
@@ -898,11 +953,7 @@ export class RoomHome extends Agent<WorkerEnv> {
           error instanceof Error
             ? error.message
             : WORKSPACE_PLAN_REQUIRED_MESSAGE;
-        await this.emitOfficeDebug(
-          turnStartedAt,
-          "error",
-          "plan_blocked",
-        );
+        await this.emitOfficeDebug(turnStartedAt, "error", "plan_blocked");
         await this.broadcastOfficeError();
         await this.broadcastOfficeStatus();
         return;
@@ -991,9 +1042,7 @@ export class RoomHome extends Agent<WorkerEnv> {
               if (!cloned) return;
               await this.broadcastOfficeEvent({
                 ...cloned,
-                ...(queued
-                  ? { id: queued.id, metadata: queued.metadata }
-                  : {}),
+                ...(queued ? { id: queued.id, metadata: queued.metadata } : {}),
               });
               return;
             }
@@ -1074,8 +1123,7 @@ export class RoomHome extends Agent<WorkerEnv> {
       await this.broadcastOfficeStatus();
       const after = await this.officeBound(session);
       if (computerSeconds > 0 && this.officeId && this.personId) {
-        const userId =
-          lastOfficeHumanUserId(after) || this.ownerUserId || "";
+        const userId = lastOfficeHumanUserId(after) || this.ownerUserId || "";
         if (userId) {
           this.ctx.waitUntil(
             this.persistComputerUsage({
@@ -1198,7 +1246,9 @@ export class RoomHome extends Agent<WorkerEnv> {
       toolCallId?: unknown;
     };
     const name = typeof body.name === "string" ? body.name.trim() : "";
-    const tool = (await this.officeAgentTools()).find((row) => row.name === name);
+    const tool = (await this.officeAgentTools()).find(
+      (row) => row.name === name,
+    );
     if (!tool) {
       return Response.json({ error: `Unknown tool ${name}` }, { status: 404 });
     }
@@ -1226,9 +1276,7 @@ export class RoomHome extends Agent<WorkerEnv> {
         identity,
         tools,
         mcp: this.workspaceMcp.map((row) => row.name),
-        plugins: [
-          ...new Set(this.workspacePlugins.map((row) => row.toolkit)),
-        ],
+        plugins: [...new Set(this.workspacePlugins.map((row) => row.toolkit))],
       }),
       messages.map((row) => row.message),
       { canReadSkills: officeCanReadSkills(tools) },
@@ -1373,9 +1421,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     detail?: string,
   ): Promise<void> {
     const ms = Math.max(0, Date.now() - startedAt);
-    const line = detail
-      ? `${phase} +${ms}ms ${detail}`
-      : `${phase} +${ms}ms`;
+    const line = detail ? `${phase} +${ms}ms ${detail}` : `${phase} +${ms}ms`;
     console.log("office turn", this.name, line);
     await this.broadcastOfficeEvent({
       type: "debug_log",
@@ -1985,7 +2031,9 @@ export class RoomHome extends Agent<WorkerEnv> {
     if (result.status !== "completed") return;
     if (this.reviewBusy) return;
     const session = await this.ensureOfficeSession();
-    const tools = countPiToolCallsSinceLastUser(await this.officeBound(session));
+    const tools = countPiToolCallsSinceLastUser(
+      await this.officeBound(session),
+    );
     const current = parseOfficeReviewCounters(
       await this.ctx.storage.get(OFFICE_REVIEW_STORAGE),
     );
@@ -2188,11 +2236,7 @@ export class RoomHome extends Agent<WorkerEnv> {
       ...payload,
       fireOnUnarchive: parked.fireOnUnarchive,
     });
-    return toRoutineDto(
-      this.botKey(),
-      storedRoutine(id, payload, false),
-      null,
-    );
+    return toRoutineDto(this.botKey(), storedRoutine(id, payload, false), null);
   }
 
   async pauseRoutine(id: string): Promise<Routine> {

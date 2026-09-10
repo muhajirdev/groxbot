@@ -30,6 +30,7 @@ type FacetState = {
       name: string,
       create: () => { class: unknown; id?: string },
     ): GadgetFacet;
+    delete(name: string): void;
   };
 };
 
@@ -74,21 +75,78 @@ class AppHost extends RpcTarget {
 }
 
 export class AppRuntime extends DurableObject<AppRuntimeEnv> {
+  private initializing: Promise<void> | null = null;
+
   async init(
     templateId: string,
-    opts: { workspaceId: string; title: string },
+    opts: {
+      workspaceId: string;
+      title: string;
+      files?: { "client.js": string; "server.js": string };
+    },
   ): Promise<void> {
-    const files = filesForTemplate(templateId);
+    const running = this.initializing;
+    if (running) {
+      await running;
+      return this.init(templateId, opts);
+    }
+    const initialize = this.initialize(templateId, opts);
+    this.initializing = initialize;
+    try {
+      await initialize;
+    } finally {
+      if (this.initializing === initialize) this.initializing = null;
+    }
+  }
+
+  private async initialize(
+    templateId: string,
+    opts: {
+      workspaceId: string;
+      title: string;
+      files?: { "client.js": string; "server.js": string };
+    },
+  ): Promise<void> {
+    const workspaceId = opts.workspaceId.trim();
+    if (!workspaceId) throw new Error("App workspace is required");
+    const claimed = await this.ctx.storage.get<string>("workspaceId");
+    if (claimed && claimed !== workspaceId) {
+      throw new Error("App already belongs to another workspace");
+    }
+    const existingTemplate = await this.ctx.storage.get<string>("templateId");
+    if (existingTemplate && existingTemplate !== templateId) {
+      throw new Error("App already uses another template");
+    }
+    if (await this.ctx.storage.get<boolean>("initialized")) return;
+
+    const wasInitializing = await this.ctx.storage.get<boolean>("initializing");
+    if (claimed && existingTemplate && !wasInitializing) {
+      // Apps created before the explicit completion marker are already live.
+      // Never rehydrate them: doing so would replace the user's document.
+      await this.ctx.storage.put("initialized", true);
+      return;
+    }
+
+    const custom = opts.files;
+    const files =
+      custom?.["client.js"]?.trim() && custom?.["server.js"]?.trim()
+        ? { "client.js": custom["client.js"], "server.js": custom["server.js"] }
+        : filesForTemplate(templateId);
+    await this.ctx.storage.put("initializing", true);
     await this.ctx.storage.put("files", files);
     await this.ctx.storage.put("templateId", templateId);
-    await this.ctx.storage.put("workspaceId", opts.workspaceId);
+    await this.ctx.storage.put("workspaceId", workspaceId);
     await this.ctx.storage.put("codeVersion", 1);
-    const titled = applyAppTitle(
-      templateId as TemplateId,
-      initialState(templateId as TemplateId),
-      opts.title,
-    );
-    await this.hydrate(this.gadgetFacet(), titled);
+    if (templateId !== "app") {
+      const titled = applyAppTitle(
+        templateId as TemplateId,
+        initialState(templateId as TemplateId),
+        opts.title,
+      );
+      await this.hydrate(this.gadgetFacet(), titled);
+    }
+    await this.ctx.storage.put("initialized", true);
+    await this.ctx.storage.delete("initializing");
   }
 
   async uiBundle(): Promise<{ jsCode: string } | null> {
@@ -133,7 +191,11 @@ export class AppRuntime extends DurableObject<AppRuntimeEnv> {
   }
 
   async fetch(request: Request): Promise<Response> {
-    if (request.method === "POST" && new URL(request.url).pathname === "/destroy") {
+    if (
+      request.method === "POST" &&
+      new URL(request.url).pathname === "/destroy"
+    ) {
+      (this.ctx as DurableObjectState & FacetState).facets.delete("gadget");
       await this.ctx.storage.deleteAll();
       return Response.json({ ok: true });
     }
@@ -169,7 +231,7 @@ export class AppRuntime extends DurableObject<AppRuntimeEnv> {
       const server = files?.["server.js"];
       if (!server) throw new Error("App has no server.js");
       return {
-        compatibilityDate: "2026-08-16",
+        compatibilityDate: "2026-07-28",
         mainModule: "server.js",
         modules: {
           "server.js": server,
@@ -183,6 +245,7 @@ export class AppRuntime extends DurableObject<AppRuntimeEnv> {
   private async hydrate(facet: GadgetFacet, state: unknown): Promise<void> {
     if (!state || typeof state !== "object") return;
     const templateId = await this.ctx.storage.get<string>("templateId");
+    if (templateId === "app") return;
     const rec = state as Record<string, unknown>;
     if (templateId === "slides") {
       await facet.setDeck(state);
@@ -245,7 +308,11 @@ type AppNamespace = {
   get(id: { toString(): string }): {
     init(
       templateId: string,
-      opts: { workspaceId: string; title: string },
+      opts: {
+        workspaceId: string;
+        title: string;
+        files?: { "client.js": string; "server.js": string };
+      },
     ): Promise<void>;
     fetch(request: Request): Promise<Response>;
   };
@@ -261,7 +328,11 @@ export class DurableObjectAppStore {
   init(
     appId: string,
     templateId: string,
-    opts: { workspaceId: string; title: string },
+    opts: {
+      workspaceId: string;
+      title: string;
+      files?: { "client.js": string; "server.js": string };
+    },
   ): Promise<void> {
     return this.stub(appId).init(templateId, opts);
   }
@@ -278,12 +349,14 @@ export class DurableObjectAppStore {
 
   destroy(appId: string): Promise<void> {
     const stub = this.stub(appId);
-    return stub.fetch(
-      new Request("https://groxbot.internal/destroy", { method: "POST" }),
-    ).then((response) => {
-      if (!response.ok) {
-        throw new Error(`forget app ${response.status}`);
-      }
-    });
+    return stub
+      .fetch(
+        new Request("https://groxbot.internal/destroy", { method: "POST" }),
+      )
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`forget app ${response.status}`);
+        }
+      });
   }
 }

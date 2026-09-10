@@ -22,7 +22,7 @@ export const PRICING_PLANS: PricingPlan[] = [
       "Knowledge that grows as you work",
       "Plugins",
       "Hosted models included",
-      "Live apps — coming soon",
+      "Live apps",
       "Mobile — coming soon",
     ],
   },

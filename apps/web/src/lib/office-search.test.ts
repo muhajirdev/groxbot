@@ -3,6 +3,7 @@ import {
   closeLibrary,
   closePeek,
   deskApp,
+  deskApps,
   deskAwayFromLibrary,
   deskFromRoomAppFocus,
   deskClosed,
@@ -70,6 +71,11 @@ describe("desk helpers", () => {
     });
   });
 
+  it("opens the live apps place", () => {
+    expect(officeSearch({ pane: "apps" })).toEqual({ pane: "apps" });
+    expect(deskApps()).toBe(officeSearch({ pane: "apps" }));
+  });
+
   it("opens an app by id", () => {
     expect(deskApp("doc-1")).toEqual({ pane: "app", app: "doc-1" });
   });
@@ -88,6 +94,7 @@ describe("deskFromRoomAppFocus", () => {
 
   it("leaves computer and library alone", () => {
     expect(deskFromRoomAppFocus(deskComputer(), "app_q3")).toBeNull();
+    expect(deskFromRoomAppFocus(deskApps(), "app_q3")).toBeNull();
     expect(
       deskFromRoomAppFocus(deskLibrary(deskClosed(), "skills"), "app_q3"),
     ).toBeNull();

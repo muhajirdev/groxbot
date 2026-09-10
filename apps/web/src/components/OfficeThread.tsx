@@ -1,4 +1,7 @@
-import { AssistantRuntimeProvider, useExternalStoreRuntime } from "@assistant-ui/react";
+import {
+  AssistantRuntimeProvider,
+  useExternalStoreRuntime,
+} from "@assistant-ui/react";
 import {
   officeUserFromActor,
   withOfficeUserMetadata,
@@ -23,6 +26,7 @@ import { patchBot } from "../lib/collections";
 import { createWorkspaceAttachmentAdapter } from "../lib/computer-attachment";
 import { composerBannerError } from "../lib/errors";
 import { FIRST_TASK } from "../lib/jobs";
+import { OfficeAskActionsContext } from "../lib/office-ask-actions";
 import { peekOfficeMessages, setOfficeMessages } from "../lib/office-messages";
 import { orpc, queryClient } from "../lib/orpc";
 import { client } from "../lib/rpc";
@@ -34,9 +38,13 @@ import { cn } from "../lib/utils";
 import { Button } from "../ui";
 import { AskToolUI } from "./AskToolUI";
 import { PresentToolUI } from "./PresentToolUI";
-import { OfficeAskActionsContext } from "../lib/office-ask-actions";
+import { StampAppToolUI } from "./StampAppToolUI";
 
-function rememberPreview(botId: string, roomId: string, messages: PiBoundMessage[]) {
+function rememberPreview(
+  botId: string,
+  roomId: string,
+  messages: PiBoundMessage[],
+) {
   setOfficeMessages(roomId, messages);
   const preview = lastProjectedPreview(projectPiBoundMessages(messages));
   if (!preview) return;
@@ -409,7 +417,9 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
                 .join(" ")
             : "";
       if (preview.trim()) {
-        patchBot(botIdRef.current, { lastPreview: preview.trim().slice(0, 140) });
+        patchBot(botIdRef.current, {
+          lastPreview: preview.trim().slice(0, 140),
+        });
       }
 
       const abort = new AbortController();
@@ -513,55 +523,56 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
     <div className="flex min-h-0 flex-1 flex-col">
       <AssistantRuntimeProvider runtime={runtime}>
         <OfficeAskActionsContext.Provider value={askActions}>
-        <PresentToolUI />
-        <AskToolUI />
-        <div className="flex min-h-0 flex-1 flex-col">
-          <Thread
-            autoFocus={false}
-            hideComposer={props.archived}
-            placeholder={props.placeholder || FIRST_TASK}
-            viewerUserId={props.userId}
-            viewerImage={props.userImage}
-            botName={props.botName}
-            pending={pending}
-            components={THREAD_COMPONENTS}
-          />
-        </div>
-        {approvals.length > 0 ? (
-          <div className="mx-5 mb-3 rounded-xl border border-line bg-card p-3 text-[13px]">
-            {approvals.map((action) => {
-              const resolving = resolvingApproval === action.executionId;
-              return (
-                <div
-                  key={`${action.executionId}:${action.seq}`}
-                  className="flex items-center justify-between gap-3"
-                >
-                  <span>
-                    <span className="font-medium">Approval needed:</span>{" "}
-                    {approvalSummary(action)}
-                  </span>
-                  <div className="flex shrink-0 gap-2">
-                    <Button
-                      variant="ghost"
-                      size="tiny"
-                      disabled={Boolean(resolvingApproval)}
-                      onClick={() => void resolveApproval(action, false)}
-                    >
-                      Reject
-                    </Button>
-                    <Button
-                      size="tiny"
-                      disabled={Boolean(resolvingApproval)}
-                      onClick={() => void resolveApproval(action, true)}
-                    >
-                      {resolving ? "Approving…" : "Approve"}
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
+          <PresentToolUI />
+          <StampAppToolUI />
+          <AskToolUI />
+          <div className="flex min-h-0 flex-1 flex-col">
+            <Thread
+              autoFocus={false}
+              hideComposer={props.archived}
+              placeholder={props.placeholder || FIRST_TASK}
+              viewerUserId={props.userId}
+              viewerImage={props.userImage}
+              botName={props.botName}
+              pending={pending}
+              components={THREAD_COMPONENTS}
+            />
           </div>
-        ) : null}
+          {approvals.length > 0 ? (
+            <div className="mx-5 mb-3 rounded-xl border border-line bg-card p-3 text-[13px]">
+              {approvals.map((action) => {
+                const resolving = resolvingApproval === action.executionId;
+                return (
+                  <div
+                    key={`${action.executionId}:${action.seq}`}
+                    className="flex items-center justify-between gap-3"
+                  >
+                    <span>
+                      <span className="font-medium">Approval needed:</span>{" "}
+                      {approvalSummary(action)}
+                    </span>
+                    <div className="flex shrink-0 gap-2">
+                      <Button
+                        variant="ghost"
+                        size="tiny"
+                        disabled={Boolean(resolvingApproval)}
+                        onClick={() => void resolveApproval(action, false)}
+                      >
+                        Reject
+                      </Button>
+                      <Button
+                        size="tiny"
+                        disabled={Boolean(resolvingApproval)}
+                        onClick={() => void resolveApproval(action, true)}
+                      >
+                        {resolving ? "Approving…" : "Approve"}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
         </OfficeAskActionsContext.Provider>
       </AssistantRuntimeProvider>
     </div>

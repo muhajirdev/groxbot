@@ -42,6 +42,10 @@ describe("Computer Worker shell wiring", () => {
     expect(home).not.toMatch(/\/mcp\/tools/);
     expect(home).not.toMatch(/\/mcp\/call/);
     expect(home).not.toMatch(/runRoomTurn/);
+    expect(home).toMatch(/createStampAppTool/);
+    expect(home).not.toMatch(/mergeOfficeAppStamp/);
+    expect(room).toMatch(/stampAppTools/);
+    expect(room).not.toMatch(/mergeOfficeAppStamp/);
   });
 
   it("keeps workspace MCP as Code Mode connectors inside execute", () => {
@@ -120,6 +124,11 @@ describe("Computer Worker shell wiring", () => {
     expect(actor).toMatch(/runOfficeReviewTurn/);
     expect(actor).toMatch(/officeReviewAnnounce/);
     expect(actor).toMatch(/appendOfficeAssistantText/);
+    expect(actor).toMatch(/createStampAppTool/);
+    expect(actor).toMatch(/recordAppChatCard/);
+    expect(actor).toMatch(/DurableObjectAppStore/);
+    expect(actor).not.toMatch(/parseAppIntent/);
+    expect(actor).not.toMatch(/mergeOfficeAppStamp/);
     expect(actor).not.toMatch(/hasActivateSkill/);
     expect(actor).not.toMatch(/activate_skill/);
     expect(readSrc("bot-skill.ts")).toMatch(/SKILL_TOOL_NAME/);
@@ -185,6 +194,17 @@ describe("Computer Worker shell wiring", () => {
     expect(readSrc("bot-knowledge.ts")).toMatch(/readComputer/);
     expect(readSrc("bot-actor.ts")).toMatch(/readFileBytes/);
     expect(readSrc("worker.ts")).toMatch(/bindToMarkdown\(env\.AI\)/);
+  });
+
+  it("loads gadgets at the host Worker compatibility date", () => {
+    const wrangler = readFileSync(join(src, "../wrangler.jsonc"), "utf8");
+    const date = wrangler.match(/"compatibility_date":\s*"([^"]+)"/)?.[1];
+    expect(date).toBeTruthy();
+    const runtime = readSrc("app-runtime-do.ts");
+    expect(runtime).toContain(`compatibilityDate: "${date}"`);
+    expect(runtime).toMatch(/claimed !== workspaceId/);
+    expect(runtime).toMatch(/storage\.put\("initialized", true\)/);
+    expect(runtime).toMatch(/facets\.delete\("gadget"\)/);
   });
 
   it("binds ROOM_ACTOR to the provisioned BotActor class", () => {

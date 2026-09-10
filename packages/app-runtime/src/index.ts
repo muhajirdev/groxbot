@@ -58,8 +58,16 @@ export class MemoryAppStore {
   async init(
     appId: string,
     templateId: string,
-    _opts: { workspaceId: string; title: string },
+    opts: {
+      workspaceId: string;
+      title: string;
+      files?: { "client.js": string; "server.js": string };
+    },
   ): Promise<void> {
+    if (opts.files?.["client.js"]?.trim() && opts.files?.["server.js"]?.trim()) {
+      this.apps.add(appId);
+      return;
+    }
     filesForTemplate(templateId);
     this.apps.add(appId);
   }

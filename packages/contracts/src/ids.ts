@@ -49,6 +49,23 @@ export type GuestKind = z.infer<typeof GuestKind>;
 export const GuestAgentKind = z.enum(["hermes", "openclaw", "generic"]);
 export type GuestAgentKind = z.infer<typeof GuestAgentKind>;
 
+/** Bundled gadget templates. A custom gadget uses `app` plus its own files. */
+export const BuiltinTemplateId = z.enum([
+  "docs",
+  "slides",
+  "sheets",
+  "crm",
+  "game",
+]);
+export type BuiltinTemplateId = z.infer<typeof BuiltinTemplateId>;
+
 /** Workspace-owned document runtimes. Hidden source; UI is the thing. */
-export const TemplateId = z.enum(["docs", "slides", "sheets", "crm", "game"]);
+export const TemplateId = z.enum([
+  "docs",
+  "slides",
+  "sheets",
+  "crm",
+  "game",
+  "app",
+]);
 export type TemplateId = z.infer<typeof TemplateId>;

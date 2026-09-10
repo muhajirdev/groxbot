@@ -1,12 +1,12 @@
-import { AssistantRuntimeProvider, useExternalStoreRuntime } from "@assistant-ui/react";
+import {
+  AssistantRuntimeProvider,
+  useExternalStoreRuntime,
+} from "@assistant-ui/react";
 import {
   officeUserFromActor,
   withOfficeUserMetadata,
 } from "@groxbot/contracts";
-import {
-  roomWorkingName,
-  type PiBoundMessage,
-} from "@groxbot/core/browser";
+import { type PiBoundMessage, roomWorkingName } from "@groxbot/core/browser";
 import {
   type MutableRefObject,
   memo,
@@ -20,14 +20,15 @@ import {
 import { Thread } from "@/components/assistant-ui/elements/thread.aui";
 import { composerBannerError } from "../lib/errors";
 import { FIRST_TASK } from "../lib/jobs";
-import { peekRoomMessages, setRoomMessages } from "../lib/room-messages";
 import type { RoomMentionSeat } from "../lib/room-mention";
-import { patchThreadMeta, OFFICE_WORKING } from "../lib/thread-cache";
+import { peekRoomMessages, setRoomMessages } from "../lib/room-messages";
+import { OFFICE_WORKING, patchThreadMeta } from "../lib/thread-cache";
 import { createImmediateSteerQueue } from "../lib/thread-steer-queue";
-import { useRoomChat } from "../lib/use-room-chat";
 import { projectedToThreadMessage } from "../lib/use-pi-thread";
+import { useRoomChat } from "../lib/use-room-chat";
 import { cn } from "../lib/utils";
 import { PresentToolUI } from "./PresentToolUI";
+import { StampAppToolUI } from "./StampAppToolUI";
 
 function rememberPreview(roomId: string, messages: PiBoundMessage[]) {
   setRoomMessages(roomId, messages);
@@ -37,9 +38,7 @@ function RoomWelcome(props: { description?: string; empty?: boolean }) {
   const body = props.description?.trim();
   return (
     <div className="grid gap-2 px-1 text-left text-[14px] leading-relaxed">
-      {body ? (
-        <p className="m-0 whitespace-pre-wrap text-ink">{body}</p>
-      ) : null}
+      {body ? <p className="m-0 whitespace-pre-wrap text-ink">{body}</p> : null}
       <p className="m-0 text-muted-foreground">
         {props.empty
           ? "This log is the table. Assign a teammate when they should answer."
@@ -158,6 +157,8 @@ export function RoomThread(props: {
         onError={props.onError}
         onNeedsModel={props.onNeedsModel}
         onNeedsHostedPlan={props.onNeedsHostedPlan}
+        active={active}
+        onAppFocus={props.onAppFocus}
         stopHolder={stopHolder}
       />
       {active && props.error ? (
@@ -184,6 +185,8 @@ const RoomThreadRuntime = memo(function RoomThreadRuntime(props: {
   onError: (error: string) => void;
   onNeedsModel: () => void;
   onNeedsHostedPlan?: () => void;
+  active: boolean;
+  onAppFocus?: (threadId: string, appId: string) => void;
   stopHolder: MutableRefObject<(() => void) | null>;
 }) {
   const onErrorRef = useRef(props.onError);
@@ -230,9 +233,9 @@ const RoomThreadRuntime = memo(function RoomThreadRuntime(props: {
   const wasBusy = useRef(false);
 
   useEffect(() => {
-    if (!active) return;
+    if (!props.active) return;
     props.onAppFocus?.(props.roomId, focusedAppId);
-  }, [active, focusedAppId, props.onAppFocus, props.roomId]);
+  }, [focusedAppId, props.active, props.onAppFocus, props.roomId]);
   const [pending, setPending] = useState(false);
   const abortSendRef = useRef<AbortController | null>(null);
   const inFlight = busy || pending;
@@ -340,10 +343,7 @@ const RoomThreadRuntime = memo(function RoomThreadRuntime(props: {
   const components = useMemo(
     () => ({
       Welcome: () => (
-        <RoomWelcome
-          description={props.description}
-          empty={empty}
-        />
+        <RoomWelcome description={props.description} empty={empty} />
       ),
     }),
     [empty, props.description],
@@ -353,6 +353,7 @@ const RoomThreadRuntime = memo(function RoomThreadRuntime(props: {
     <div className="flex min-h-0 flex-1 flex-col">
       <AssistantRuntimeProvider runtime={runtime}>
         <PresentToolUI />
+        <StampAppToolUI />
         <div className="flex min-h-0 flex-1 flex-col">
           <Thread
             autoFocus={false}

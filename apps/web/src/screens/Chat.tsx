@@ -18,8 +18,8 @@ import {
   type CSSProperties,
   type DragEvent,
   type MouseEvent,
-  type ReactNode,
   memo,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -27,7 +27,11 @@ import {
   useState,
 } from "react";
 import { AppPane } from "../components/AppPane";
-import { AppSettings, DEFAULT_SETTINGS_TAB, type SettingsTab } from "../components/AppSettings";
+import {
+  AppSettings,
+  DEFAULT_SETTINGS_TAB,
+  type SettingsTab,
+} from "../components/AppSettings";
 import { AvatarMark, MemberStack, PresenceDot } from "../components/Avatar";
 import { BotContextMenu } from "../components/BotContextMenu";
 import { BotSettingsPane } from "../components/BotSettingsPane";
@@ -37,7 +41,10 @@ import {
 } from "../components/ChatFileLink";
 import { CommandPalette, SearchTrigger } from "../components/CommandPalette";
 import { ComputerPane } from "../components/ComputerPane";
-import { CreateRoomDialog, InviteRoomDialog } from "../components/CreateRoomDialog";
+import {
+  CreateRoomDialog,
+  InviteRoomDialog,
+} from "../components/CreateRoomDialog";
 import { HireMarketplaceModal } from "../components/HireMarketplaceModal";
 import {
   BoardIcon,
@@ -58,6 +65,7 @@ import {
 } from "../components/Icons";
 import { InviteFriendButton } from "../components/InviteFriendButton";
 import { KnowledgeLibrary, KnowledgePeek } from "../components/KnowledgePlace";
+import { LiveAppsPlace } from "../components/LiveAppsPlace";
 import { MarketplaceModal } from "../components/MarketplaceModal";
 import { KeptOfficeThread } from "../components/OfficeThread";
 import { OnboardingDialog } from "../components/OnboardingDialog";
@@ -110,7 +118,6 @@ import {
 import { saveComputerDownload } from "../lib/computer-download";
 import { userFacingError } from "../lib/errors";
 import { scheduleKnowledgeFilePrefetch } from "../lib/file-cache";
-import { useDockLabelsHidden, useIconPress } from "../lib/icon-press";
 import {
   beginHire,
   draftCreatedBot,
@@ -119,7 +126,10 @@ import {
   nextAvatarColor,
   settleCreatedHire,
 } from "../lib/hire";
+import { useDockLabelsHidden, useIconPress } from "../lib/icon-press";
 import type { MarketplaceTab } from "../lib/marketplace";
+import { OfficeAppActionsContext } from "../lib/office-app-actions";
+import { officeRpcUrl } from "../lib/office-chat-rpc";
 import {
   applyOfficeColor,
   type OfficeColorId,
@@ -134,8 +144,6 @@ import {
   forgetOfficeMessages,
   setOfficeMessages,
 } from "../lib/office-messages";
-import { officeRpcUrl } from "../lib/office-chat-rpc";
-import { ensurePiThread, forgetPiThread, peekPiThread } from "../lib/pi-thread-session";
 import {
   BOARD_TO,
   OFFICE_TO,
@@ -147,6 +155,7 @@ import {
   closeLibrary,
   closePeek,
   deskApp,
+  deskApps,
   deskAwayFromLibrary,
   deskClosed,
   deskComputer,
@@ -169,6 +178,11 @@ import {
   usePaneWidth,
 } from "../lib/pane-width";
 import {
+  ensurePiThread,
+  forgetPiThread,
+  peekPiThread,
+} from "../lib/pi-thread-session";
+import {
   onboardingNeedsPlan,
   onboardingPlanReady,
   planGateCopy,
@@ -176,7 +190,12 @@ import {
 import { readCollapsedSections, writeCollapsedSections } from "../lib/prefs";
 import { usePanePresence } from "../lib/presence";
 import { forgetRoomMessages } from "../lib/room-messages";
+import {
+  withoutPendingBotDeletes,
+  withoutPendingRoomDeletes,
+} from "../lib/roster-pending";
 import { client } from "../lib/rpc";
+import { liveCatalogId } from "../lib/rpc-workspace";
 import {
   cacheBot,
   cacheCreatedBot,
@@ -217,11 +236,6 @@ import {
 } from "../lib/thread-cache";
 import { scheduleThreadPrefetch } from "../lib/thread-prefetch";
 import { formatListTime } from "../lib/time";
-import { liveCatalogId } from "../lib/rpc-workspace";
-import {
-  withoutPendingBotDeletes,
-  withoutPendingRoomDeletes,
-} from "../lib/roster-pending";
 import {
   botsListKey,
   knowledgeListQueryOptions,
@@ -549,9 +563,8 @@ export function Chat(props: {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const knowledgeListQuery = useQuery(knowledgeListQueryOptions());
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<SettingsTab>(
-    DEFAULT_SETTINGS_TAB,
-  );
+  const [settingsTab, setSettingsTab] =
+    useState<SettingsTab>(DEFAULT_SETTINGS_TAB);
   const [subscribeOpen, setSubscribeOpen] = useState(false);
   const [marketplaceOpen, setMarketplaceOpen] = useState(false);
   const [marketplaceTab, setMarketplaceTab] =
@@ -1208,7 +1221,9 @@ export function Chat(props: {
               ...(input.marketplaceId
                 ? { marketplaceId: input.marketplaceId }
                 : {}),
-              ...(input.instructions ? { instructions: input.instructions } : {}),
+              ...(input.instructions
+                ? { instructions: input.instructions }
+                : {}),
               ...(input.description ? { description: input.description } : {}),
             }),
           get: (botId) => client.bots.get({ botId }),
@@ -1448,9 +1463,7 @@ export function Chat(props: {
       if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
         return;
       }
-      setDropSectionId((current) =>
-        current === sectionId ? null : current,
-      );
+      setDropSectionId((current) => (current === sectionId ? null : current));
     },
     [],
   );
@@ -1772,9 +1785,7 @@ export function Chat(props: {
     };
   }, [activeId, hiringThis, isRoom]);
 
-  const chatThreadId = isRoom
-    ? props.roomId
-    : bot?.homeRoomId || bot?.id;
+  const chatThreadId = isRoom ? props.roomId : bot?.homeRoomId || bot?.id;
   const [roomFocusedAppId, setRoomFocusedAppId] = useState("");
   const hadRoomApp = useRef(false);
   const onRoomAppFocus = useCallback(
@@ -1804,12 +1815,30 @@ export function Chat(props: {
     void setDesk(next);
   }, [desk, roomFocusedAppId, setDesk]);
   const openDocument = useCallback(
-    (app: { appId: string }) => {
+    (app: {
+      appId: string;
+      title?: string;
+      templateId?: WorkspaceApp["templateId"];
+    }) => {
+      if (app.title && app.templateId) {
+        lastApp.current = {
+          id: app.appId,
+          title: app.title,
+          templateId: app.templateId,
+        };
+        appsCollection.utils.writeUpsert({
+          id: app.appId,
+          title: app.title,
+          templateId: app.templateId,
+          createdAt: new Date().toISOString(),
+        });
+      }
       setDesk(deskApp(app.appId));
       if (chatThreadId) void peekPiThread(chatThreadId)?.focus(app.appId);
     },
     [chatThreadId, setDesk],
   );
+  const appActions = useMemo(() => ({ open: openDocument }), [openDocument]);
   const stopRoomApp = useCallback(() => {
     if (chatThreadId) void peekPiThread(chatThreadId)?.focus("");
     setDesk(deskClosed());
@@ -1853,13 +1882,15 @@ export function Chat(props: {
   const activePane =
     paneMode === "knowledge"
       ? "knowledge"
-      : paneMode === "app" && openApp
-        ? "app"
-        : paneMode === "settings" && bot
-          ? "settings"
-          : paneMode === "computer" && bot
-            ? "computer"
-            : null;
+      : paneMode === "apps"
+        ? "apps"
+        : paneMode === "app" && openApp
+          ? "app"
+          : paneMode === "settings" && bot
+            ? "settings"
+            : paneMode === "computer" && bot
+              ? "computer"
+              : null;
   const pane = usePanePresence(activePane);
   const exitingApp = openApp ?? lastApp.current;
 
@@ -1950,7 +1981,8 @@ export function Chat(props: {
                         sectionOpen
                       }
                       onNewBot={() => {
-                        if (!hiring.current && !isHireInFlight()) setHireOpen(true);
+                        if (!hiring.current && !isHireInFlight())
+                          setHireOpen(true);
                       }}
                       onNewRoom={() => {
                         setRoomDraftStatus(undefined);
@@ -2163,7 +2195,21 @@ export function Chat(props: {
                   >
                     <SkillsIcon className="size-5" />
                   </DockItem>
-                  <LiveAppsDockItem />
+                  <DockItem
+                    label="Live apps"
+                    current={paneMode === "app" || paneMode === "apps"}
+                    onClick={() => {
+                      if (paneMode === "apps") {
+                        setDesk(deskClosed());
+                        return;
+                      }
+                      closeRoster();
+                      setPokeView(null);
+                      setDesk(deskApps());
+                    }}
+                  >
+                    <LiveAppsIcon className="size-5" />
+                  </DockItem>
                   <DockItem
                     label="Plugins"
                     pressed={marketplaceOpen && marketplaceTab === "plugins"}
@@ -2351,157 +2397,164 @@ export function Chat(props: {
                     </Button>
                   </div>
                 ) : null}
-                {pokeView ? (
-                  <>
-                    <div className="min-h-0 flex-1">
-                      <ThreadList
-                        botId="_"
-                        teammateNames={Object.fromEntries(
-                          bots.map((item) => [item.id, item.name]),
-                        )}
-                        messages={pokeMessages}
-                        empty={pokeMessages.length === 0}
-                        working=""
-                        onOpenApp={openDocument}
-                      />
-                    </div>
-                    <div className="px-5 pt-2 pb-4">
-                      {error ? (
-                        <p className="mb-2 text-[13px] text-danger">{error}</p>
-                      ) : null}
-                      <p className="mb-1 px-1 text-[13px] text-muted">
-                        {bot?.name} and {pokeView.peerName} talking. Back to
-                        stay with {bot?.name}.
-                      </p>
-                    </div>
-                  </>
-                ) : props.board ? (
-                  <RoomBoard
-                    rooms={rooms}
-                    workspaceSlug={props.workspace.slug}
-                    desk={desk}
-                    workingIds={workingIds}
-                    onStatus={(item, status) => void setRoomStatus(item, status)}
-                    onMenu={openRoomMenu}
-                    onPick={closeRoster}
-                    onNewRoom={(status) => {
-                      setRoomDraftStatus(status);
-                      setRoomOpen(true);
-                    }}
-                  />
-                ) : isRoom && props.roomId && room ? (
-                  <div className="relative flex min-h-0 flex-1 flex-col">
-                    {mountedRoomIds.map((id) => {
-                      const item = rooms.find((row: Room) => row.id === id);
-                      if (!item) return null;
-                      const isActive = item.id === props.roomId;
-                      const itemMeta = isActive
-                        ? meta
-                        : readThreadMeta(item.id);
-                      const itemError = isActive
-                        ? error
-                        : (itemMeta?.error ?? "");
-                      const members = item.members.map((member) => ({
-                        id: member.botId,
-                        homeRoomId: member.homeRoomId,
-                        name: member.name,
-                        title: member.title,
-                        archivedAt: member.archivedAt,
-                        avatarColor: member.avatarColor,
-                        avatarShape: member.avatarShape,
-                      }));
-                      return (
-                        <KeptRoomThread
-                          key={item.id}
-                          roomId={item.id}
-                          members={members}
-                          active={isActive}
-                          needsModel={Boolean(me?.needsModel)}
-                          needsHostedPlan={needsHostedPlan}
-                          userId={me?.userId}
-                          userName={me?.name}
-                          userImage={me?.image ?? undefined}
-                          placeholder={
-                            needsHostedPlan
-                              ? planCopy.cta
-                              : me?.needsModel
-                                ? "Add a model key to send"
-                                : item.members.length === 0
-                                  ? "Add a note, or assign someone to work it"
-                                  : `Message ${item.name}`
-                          }
-                          description={item.description}
-                          error={itemError}
-                          onNeedsModel={onNeedsModel}
-                          onNeedsHostedPlan={onNeedsHostedPlan}
-                          onAppFocus={onRoomAppFocus}
-                          stopRef={stopOffice}
+                <OfficeAppActionsContext.Provider value={appActions}>
+                  {pokeView ? (
+                    <>
+                      <div className="min-h-0 flex-1">
+                        <ThreadList
+                          botId="_"
+                          teammateNames={Object.fromEntries(
+                            bots.map((item) => [item.id, item.name]),
+                          )}
+                          messages={pokeMessages}
+                          empty={pokeMessages.length === 0}
+                          working=""
+                          onOpenApp={openDocument}
                         />
-                      );
-                    })}
-                  </div>
-                ) : bot ? (
-                  <div className="relative flex min-h-0 flex-1 flex-col">
-                    {mountedOfficeIds.map((id) => {
-                      const item = bots.find((row) => row.id === id);
-                      if (!item) return null;
-                      const isActive = item.id === bot.id;
-                      const itemMeta = isActive
-                        ? meta
-                        : readThreadMeta(item.id);
-                      const itemOpening = Boolean(itemMeta?.opening);
-                      const itemError = isActive
-                        ? error
-                        : (itemMeta?.error ?? "");
-                      return (
-                        <KeptOfficeThread
-                          key={item.id}
-                          botId={item.id}
-                          roomId={item.homeRoomId || item.id}
-                          botName={item.name}
-                          active={isActive}
-                          archived={Boolean(item.archivedAt)}
-                          needsModel={Boolean(me?.needsModel)}
-                          needsHostedPlan={needsHostedPlan}
-                          userId={me?.userId}
-                          userName={me?.name}
-                          userImage={me?.image ?? undefined}
-                          opening={itemOpening}
-                          placeholder={
-                            needsHostedPlan
-                              ? planCopy.cta
-                              : me?.needsModel
-                                ? "Add a model key to send"
-                                : `Job description or first task for ${item.name}`
-                          }
-                          error={itemError}
-                          onNeedsModel={onNeedsModel}
-                          onNeedsHostedPlan={onNeedsHostedPlan}
-                          onUnarchive={onUnarchiveBot}
-                          onAppFocus={onRoomAppFocus}
-                          stopRef={stopOffice}
-                        />
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6">
-                    <p className="m-0 text-[15px] font-semibold tracking-tight text-ink">
-                      No bots yet
-                    </p>
-                    <p className="m-0 max-w-[32ch] text-center text-[13px] text-muted">
-                      Hire one to get started.
-                    </p>
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        if (!hiring.current && !isHireInFlight()) setHireOpen(true);
+                      </div>
+                      <div className="px-5 pt-2 pb-4">
+                        {error ? (
+                          <p className="mb-2 text-[13px] text-danger">
+                            {error}
+                          </p>
+                        ) : null}
+                        <p className="mb-1 px-1 text-[13px] text-muted">
+                          {bot?.name} and {pokeView.peerName} talking. Back to
+                          stay with {bot?.name}.
+                        </p>
+                      </div>
+                    </>
+                  ) : props.board ? (
+                    <RoomBoard
+                      rooms={rooms}
+                      workspaceSlug={props.workspace.slug}
+                      desk={desk}
+                      workingIds={workingIds}
+                      onStatus={(item, status) =>
+                        void setRoomStatus(item, status)
+                      }
+                      onMenu={openRoomMenu}
+                      onPick={closeRoster}
+                      onNewRoom={(status) => {
+                        setRoomDraftStatus(status);
+                        setRoomOpen(true);
                       }}
-                    >
-                      New bot
-                    </Button>
-                  </div>
-                )}
+                    />
+                  ) : isRoom && props.roomId && room ? (
+                    <div className="relative flex min-h-0 flex-1 flex-col">
+                      {mountedRoomIds.map((id) => {
+                        const item = rooms.find((row: Room) => row.id === id);
+                        if (!item) return null;
+                        const isActive = item.id === props.roomId;
+                        const itemMeta = isActive
+                          ? meta
+                          : readThreadMeta(item.id);
+                        const itemError = isActive
+                          ? error
+                          : (itemMeta?.error ?? "");
+                        const members = item.members.map((member) => ({
+                          id: member.botId,
+                          homeRoomId: member.homeRoomId,
+                          name: member.name,
+                          title: member.title,
+                          archivedAt: member.archivedAt,
+                          avatarColor: member.avatarColor,
+                          avatarShape: member.avatarShape,
+                        }));
+                        return (
+                          <KeptRoomThread
+                            key={item.id}
+                            roomId={item.id}
+                            members={members}
+                            active={isActive}
+                            needsModel={Boolean(me?.needsModel)}
+                            needsHostedPlan={needsHostedPlan}
+                            userId={me?.userId}
+                            userName={me?.name}
+                            userImage={me?.image ?? undefined}
+                            placeholder={
+                              needsHostedPlan
+                                ? planCopy.cta
+                                : me?.needsModel
+                                  ? "Add a model key to send"
+                                  : item.members.length === 0
+                                    ? "Add a note, or assign someone to work it"
+                                    : `Message ${item.name}`
+                            }
+                            description={item.description}
+                            error={itemError}
+                            onNeedsModel={onNeedsModel}
+                            onNeedsHostedPlan={onNeedsHostedPlan}
+                            onAppFocus={onRoomAppFocus}
+                            stopRef={stopOffice}
+                          />
+                        );
+                      })}
+                    </div>
+                  ) : bot ? (
+                    <div className="relative flex min-h-0 flex-1 flex-col">
+                      {mountedOfficeIds.map((id) => {
+                        const item = bots.find((row) => row.id === id);
+                        if (!item) return null;
+                        const isActive = item.id === bot.id;
+                        const itemMeta = isActive
+                          ? meta
+                          : readThreadMeta(item.id);
+                        const itemOpening = Boolean(itemMeta?.opening);
+                        const itemError = isActive
+                          ? error
+                          : (itemMeta?.error ?? "");
+                        return (
+                          <KeptOfficeThread
+                            key={item.id}
+                            botId={item.id}
+                            roomId={item.homeRoomId || item.id}
+                            botName={item.name}
+                            active={isActive}
+                            archived={Boolean(item.archivedAt)}
+                            needsModel={Boolean(me?.needsModel)}
+                            needsHostedPlan={needsHostedPlan}
+                            userId={me?.userId}
+                            userName={me?.name}
+                            userImage={me?.image ?? undefined}
+                            opening={itemOpening}
+                            placeholder={
+                              needsHostedPlan
+                                ? planCopy.cta
+                                : me?.needsModel
+                                  ? "Add a model key to send"
+                                  : `Job description or first task for ${item.name}`
+                            }
+                            error={itemError}
+                            onNeedsModel={onNeedsModel}
+                            onNeedsHostedPlan={onNeedsHostedPlan}
+                            onUnarchive={onUnarchiveBot}
+                            onAppFocus={onRoomAppFocus}
+                            stopRef={stopOffice}
+                          />
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6">
+                      <p className="m-0 text-[15px] font-semibold tracking-tight text-ink">
+                        No bots yet
+                      </p>
+                      <p className="m-0 max-w-[32ch] text-center text-[13px] text-muted">
+                        Hire one to get started.
+                      </p>
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          if (!hiring.current && !isHireInFlight())
+                            setHireOpen(true);
+                        }}
+                      >
+                        New bot
+                      </Button>
+                    </div>
+                  )}
+                </OfficeAppActionsContext.Provider>
                 {needsHostedPlan &&
                 !onboardOpen &&
                 !subscribeOpen &&
@@ -2546,6 +2599,18 @@ export function Chat(props: {
                     onLostPointerCapture={paneCol.onPointerUp}
                     onKeyDown={paneCol.onKeyDown}
                     onDoubleClick={paneCol.onDoubleClick}
+                  />
+                ) : null}
+                {pane.rendered === "apps" ? (
+                  <LiveAppsPlace
+                    apps={workspaceApps}
+                    openAppId={openApp?.id}
+                    onOpen={(appId) => {
+                      closeRoster();
+                      setPokeView(null);
+                      openDocument({ appId });
+                    }}
+                    onCollapse={() => setDesk(deskClosed())}
                   />
                 ) : null}
                 {pane.rendered === "app" && exitingApp ? (
@@ -2742,7 +2807,9 @@ export function Chat(props: {
             open={Boolean(roomInvite)}
             roomName={roomInvite?.name ?? "room"}
             bots={liveBots}
-            seatedIds={(roomInvite?.members ?? []).map((member) => member.botId)}
+            seatedIds={(roomInvite?.members ?? []).map(
+              (member) => member.botId,
+            )}
             onClose={() => setRoomInvite(null)}
             onInvite={(memberBotIds) => {
               if (!roomInvite) return;
@@ -2886,28 +2953,6 @@ function YouRow(props: {
           Settings
         </TooltipContent>
       ) : null}
-    </Tooltip>
-  );
-}
-
-function LiveAppsDockItem() {
-  const [open, setOpen] = useState(false);
-  const press = useIconPress();
-  return (
-    <Tooltip open={open} onOpenChange={setOpen}>
-      <TooltipTrigger
-        className="chat-dock-item"
-        type="button"
-        aria-label="Live apps, coming soon"
-        onClick={() => setOpen(true)}
-        {...press}
-      >
-        <LiveAppsIcon className="size-5" />
-        <span>Live apps</span>
-      </TooltipTrigger>
-      <TooltipContent side="top" sideOffset={6}>
-        Coming soon
-      </TooltipContent>
     </Tooltip>
   );
 }

@@ -19,7 +19,10 @@ import {
   PRESENT_TOOL_NAME,
   withOfficeUserMetadata,
 } from "@groxbot/contracts";
-import { OFFICE_ASK_TOOL_NAME } from "@groxbot/core/browser";
+import {
+  OFFICE_ASK_TOOL_NAME,
+  OFFICE_STAMP_APP_TOOL_NAME,
+} from "@groxbot/core/browser";
 import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -32,12 +35,12 @@ import {
   Text,
   View,
 } from "react-native";
+import { appCardsFromOfficeMessage } from "../lib/app-cards";
 import {
   approvalSummary,
-  parsePendingApprovals,
   type PendingApproval,
+  parsePendingApprovals,
 } from "../lib/approvals";
-import { appCardsFromOfficeMessage } from "../lib/app-cards";
 import { createWorkspaceAttachmentAdapter } from "../lib/attachment-adapter";
 import { sessionCookie } from "../lib/auth";
 import { lastUiPreview } from "../lib/chat-messages";
@@ -48,7 +51,7 @@ import { peekOfficeMessages, setOfficeMessages } from "../lib/office-cache";
 import { officeUserMessageSender } from "../lib/office-sender";
 import { orpc, queryClient } from "../lib/orpc";
 import { pickOfficeFiles, pickOfficePhotos } from "../lib/pick-file";
-import { type RoomMentionSeat } from "../lib/room-mention";
+import type { RoomMentionSeat } from "../lib/room-mention";
 import { client } from "../lib/rpc";
 import { createImmediateSteerQueue } from "../lib/thread-steer-queue";
 import { isWaitingForAssistantTurn } from "../lib/thread-waiting";
@@ -348,12 +351,15 @@ function OfficeThreadRuntime(props: {
           : row,
       );
     });
-    queryClient.setQueryData(orpc.rooms.list.queryOptions().queryKey, (rows) => {
-      if (!rows) return rows;
-      return rows.map((row) =>
-        row.id === chatId ? { ...row, lastPreview: preview } : row,
-      );
-    });
+    queryClient.setQueryData(
+      orpc.rooms.list.queryOptions().queryKey,
+      (rows) => {
+        if (!rows) return rows;
+        return rows.map((row) =>
+          row.id === chatId ? { ...row, lastPreview: preview } : row,
+        );
+      },
+    );
   }, [chatId, messages, props.botId]);
 
   const banner = composerBannerError({
@@ -378,41 +384,43 @@ function OfficeThreadRuntime(props: {
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <OfficeAskActionsContext.Provider value={askActions}>
-      {approvals.length > 0 ? (
-        <View style={styles.approvals}>
-          {approvals.map((action) => (
-            <View key={action.executionId} style={styles.approval}>
-              <Text style={styles.approvalCopy}>{approvalSummary(action)}</Text>
-              <View style={styles.approvalActions}>
-                <Pressable
-                  disabled={resolvingApproval === action.executionId}
-                  onPress={() => void resolveApproval(action, false)}
-                >
-                  <Text style={styles.barLabel}>Skip</Text>
-                </Pressable>
-                <Pressable
-                  disabled={resolvingApproval === action.executionId}
-                  onPress={() => void resolveApproval(action, true)}
-                >
-                  <Text style={styles.link}>Approve</Text>
-                </Pressable>
+        {approvals.length > 0 ? (
+          <View style={styles.approvals}>
+            {approvals.map((action) => (
+              <View key={action.executionId} style={styles.approval}>
+                <Text style={styles.approvalCopy}>
+                  {approvalSummary(action)}
+                </Text>
+                <View style={styles.approvalActions}>
+                  <Pressable
+                    disabled={resolvingApproval === action.executionId}
+                    onPress={() => void resolveApproval(action, false)}
+                  >
+                    <Text style={styles.barLabel}>Skip</Text>
+                  </Pressable>
+                  <Pressable
+                    disabled={resolvingApproval === action.executionId}
+                    onPress={() => void resolveApproval(action, true)}
+                  >
+                    <Text style={styles.link}>Approve</Text>
+                  </Pressable>
+                </View>
               </View>
-            </View>
-          ))}
-        </View>
-      ) : null}
-      <OfficeThreadView
-        botId={props.botId}
-        botName={props.botName}
-        hideComposer={props.archived}
-        placeholder={props.placeholder}
-        description={props.description}
-        kind={props.kind}
-        members={props.members}
-        viewerUserId={props.userId}
-        pending={pending}
-        onOpenPath={props.onOpenPath}
-      />
+            ))}
+          </View>
+        ) : null}
+        <OfficeThreadView
+          botId={props.botId}
+          botName={props.botName}
+          hideComposer={props.archived}
+          placeholder={props.placeholder}
+          description={props.description}
+          kind={props.kind}
+          members={props.members}
+          viewerUserId={props.userId}
+          pending={pending}
+          onOpenPath={props.onOpenPath}
+        />
       </OfficeAskActionsContext.Provider>
     </AssistantRuntimeProvider>
   );
@@ -543,11 +551,7 @@ function UserMessage(props: {
   const metadata = useAuiState((s) => s.message.metadata);
   const sender = officeUserMessageSender(metadata, props.viewerUserId);
   const UserText: TextMessagePartComponent = ({ text }) => (
-    <ChatMarkdown
-      text={text}
-      officePaths
-      onOpenPath={props.onOpenPath}
-    />
+    <ChatMarkdown text={text} officePaths onOpenPath={props.onOpenPath} />
   );
   return (
     <MessagePrimitive.Root style={styles.userWrap}>
@@ -605,6 +609,8 @@ function AssistantMessage(props: {
             />
           ) : part.toolName === PRESENT_TOOL_NAME ? (
             <PresentCard tree={part.args} botId={props.botId} />
+          ) : part.toolName === OFFICE_STAMP_APP_TOOL_NAME ? (
+            <View />
           ) : (
             <ToolFallback
               toolName={part.toolName}

@@ -8,6 +8,13 @@ import {
   isOfficeReviewSkip,
   presentPreviewFromParts,
 } from "@groxbot/contracts";
+import {
+  OFFICE_STAMP_APP_TOOL_NAME,
+  type OfficeAppCard,
+  officeAppCardFromMetadata,
+  officeAppCardLine,
+  parseOfficeAppCard,
+} from "./office-app-card.js";
 import type {
   PiAgentMessage,
   PiAssistantMessage,
@@ -87,10 +94,7 @@ function projectedMeta(metadata: unknown): PiProjectedMessage["metadata"] {
 }
 
 function buildToolResultMap(messages: readonly PiBoundMessage[]) {
-  const map = new Map<
-    string,
-    { result: unknown; isError: boolean }
-  >();
+  const map = new Map<string, { result: unknown; isError: boolean }>();
   for (const row of messages) {
     if (row.message.role !== "toolResult") continue;
     const message = row.message as PiToolResultMessage;
@@ -129,7 +133,43 @@ function upsertProjectedToolCall(
   };
 }
 
-function projectUserContent(content: PiUserMessage["content"]): PiProjectedPart[] {
+function stampAppToolCall(
+  card: OfficeAppCard,
+  toolCallId: string,
+): Extract<PiProjectedPart, { type: "tool-call" }> {
+  const args = {
+    appId: card.appId,
+    templateId: card.templateId,
+    title: card.title,
+  };
+  return {
+    type: "tool-call",
+    toolCallId,
+    toolName: OFFICE_STAMP_APP_TOOL_NAME,
+    args,
+    argsText: JSON.stringify(args),
+    result: args,
+  };
+}
+
+function stampAppPreview(content: readonly PiProjectedPart[]): string {
+  for (const part of content) {
+    if (
+      part.type !== "tool-call" ||
+      part.toolName !== OFFICE_STAMP_APP_TOOL_NAME
+    ) {
+      continue;
+    }
+    const card =
+      parseOfficeAppCard(part.args) ?? parseOfficeAppCard(part.result);
+    if (card) return officeAppCardLine(card);
+  }
+  return "";
+}
+
+function projectUserContent(
+  content: PiUserMessage["content"],
+): PiProjectedPart[] {
   if (typeof content === "string") {
     return content ? [{ type: "text", text: content }] : [];
   }
@@ -151,6 +191,7 @@ export function projectPiBoundMessages(
 ): PiProjectedMessage[] {
   const toolResults = buildToolResultMap(messages);
   const out: PiProjectedMessage[] = [];
+  const stamped = new Set<string>();
   let group: {
     id: string;
     parts: PiProjectedPart[];
@@ -158,6 +199,17 @@ export function projectPiBoundMessages(
     createdAt?: number;
     metadata?: unknown;
   } | null = null;
+
+  const attachStamp = (
+    parts: PiProjectedPart[],
+    metadata: unknown,
+    toolCallId: string,
+  ) => {
+    const card = officeAppCardFromMetadata(metadata);
+    if (!card || stamped.has(card.appId)) return;
+    stamped.add(card.appId);
+    upsertProjectedToolCall(parts, stampAppToolCall(card, toolCallId));
+  };
 
   const flush = (isLast: boolean) => {
     if (!group) return;
@@ -181,6 +233,7 @@ export function projectPiBoundMessages(
     } else {
       status = { type: "complete", reason: "stop" };
     }
+    attachStamp(group.parts, group.metadata, `${group.id}:stamp_app`);
     out.push({
       id: group.id,
       role: "assistant",
@@ -220,7 +273,8 @@ export function projectPiBoundMessages(
         } else if (part.type === "thinking") {
           group.parts.push({
             type: "reasoning",
-            text: part.thinking || (part.redacted ? "[reasoning redacted]" : ""),
+            text:
+              part.thinking || (part.redacted ? "[reasoning redacted]" : ""),
           });
         } else if (part.type === "toolCall") {
           const paired = toolResults.get(part.id);
@@ -228,7 +282,7 @@ export function projectPiBoundMessages(
           const result =
             paired?.result ??
             (live
-              ? extractResultText(live.partialResult) ?? live.result
+              ? (extractResultText(live.partialResult) ?? live.result)
               : undefined);
           const isError = paired?.isError ?? live?.status === "error";
           const args = (part.arguments ?? {}) as Record<string, unknown>;
@@ -258,6 +312,18 @@ export function projectPiBoundMessages(
         createdAt: createdAtOf(user),
         metadata: projectedMeta(row.metadata),
       });
+      const card = officeAppCardFromMetadata(row.metadata);
+      if (card && !stamped.has(card.appId)) {
+        stamped.add(card.appId);
+        out.push({
+          id: `${row.id}:stamp_app`,
+          role: "assistant",
+          content: [stampAppToolCall(card, `${row.id}:stamp_app`)],
+          createdAt: createdAtOf(user),
+          status: { type: "complete", reason: "stop" },
+          metadata: projectedMeta({ app: card }),
+        });
+      }
     }
   });
   flush(true);
@@ -278,7 +344,9 @@ export function projectPiOfficeView(view: PiOfficeView): PiProjectedMessage[] {
 
 export function projectedText(message: PiProjectedMessage): string {
   return message.content
-    .filter((part): part is { type: "text"; text: string } => part.type === "text")
+    .filter(
+      (part): part is { type: "text"; text: string } => part.type === "text",
+    )
     .map((part) => part.text)
     .join("");
 }
@@ -326,11 +394,21 @@ export function usedProjectedTools(message: PiProjectedMessage): boolean {
   return message.content.some((part) => part.type === "tool-call");
 }
 
-export function isVisibleProjectedMessage(message: PiProjectedMessage): boolean {
-  if (isHiddenOfficeUserMessage({ role: message.role, metadata: message.metadata })) {
+export function isVisibleProjectedMessage(
+  message: PiProjectedMessage,
+): boolean {
+  if (
+    isHiddenOfficeUserMessage({
+      role: message.role,
+      metadata: message.metadata,
+    })
+  ) {
     return false;
   }
-  if (message.role === "assistant" && isOfficeReviewSkip(projectedText(message))) {
+  if (
+    message.role === "assistant" &&
+    isOfficeReviewSkip(projectedText(message))
+  ) {
     return false;
   }
   if (message.role === "user") {
@@ -347,7 +425,9 @@ export function isVisibleProjectedMessage(message: PiProjectedMessage): boolean 
   );
 }
 
-export function lastProjectedPreview(messages: readonly PiProjectedMessage[]): string {
+export function lastProjectedPreview(
+  messages: readonly PiProjectedMessage[],
+): string {
   for (let i = messages.length - 1; i >= 0; i--) {
     const row = messages[i];
     if (!row || !isVisibleProjectedMessage(row)) continue;
@@ -355,6 +435,8 @@ export function lastProjectedPreview(messages: readonly PiProjectedMessage[]): s
     if (text) return text.slice(0, 140);
     const presented = presentPreviewFromParts(row.content);
     if (presented) return presented;
+    const stampedPreview = stampAppPreview(row.content);
+    if (stampedPreview) return stampedPreview;
   }
   return "";
 }
@@ -448,10 +530,9 @@ export function userBoundFromText(input: {
 
 export function textFromPiAgentMessage(message: PiAgentMessage): string {
   if (message.role === "user") return piUserText(message);
-  if (message.role !== "assistant" || !Array.isArray(message.content)) return "";
+  if (message.role !== "assistant" || !Array.isArray(message.content))
+    return "";
   return message.content
-    .flatMap((part) =>
-      part.type === "text" && part.text ? [part.text] : [],
-    )
+    .flatMap((part) => (part.type === "text" && part.text ? [part.text] : []))
     .join("");
 }

@@ -1,6 +1,12 @@
 import { parseKnowledgeHref } from "./knowledge-link";
 
-export const DESK_PANES = ["settings", "computer", "app", "knowledge"] as const;
+export const DESK_PANES = [
+  "settings",
+  "computer",
+  "app",
+  "knowledge",
+  "apps",
+] as const;
 export type DeskPane = (typeof DESK_PANES)[number];
 
 /** Desk on `/$workspaceSlug/room/$roomId`. */
@@ -16,6 +22,7 @@ export type OfficeSearch = {
 const DESK_CLOSED: OfficeSearch = {};
 const DESK_SETTINGS: OfficeSearch = { pane: "settings" };
 const DESK_COMPUTER: OfficeSearch = { pane: "computer" };
+const DESK_APPS: OfficeSearch = { pane: "apps" };
 
 function libraryFlag(raw: unknown): true | undefined {
   if (raw === true || raw === "true" || raw === 1 || raw === "1") return true;
@@ -40,6 +47,7 @@ export function officeSearch(
   if (pane === "settings") next.pane = "settings";
   else if (pane === "computer") next.pane = "computer";
   else if (pane === "knowledge") next.pane = "knowledge";
+  else if (pane === "apps") next.pane = "apps";
   else if (pane === "app") {
     const app = typeof raw?.app === "string" ? raw.app.trim() : "";
     if (app) {
@@ -55,6 +63,7 @@ export function officeSearch(
     if (!next.pane) return DESK_CLOSED;
     if (next.pane === "settings") return DESK_SETTINGS;
     if (next.pane === "computer") return DESK_COMPUTER;
+    if (next.pane === "apps") return DESK_APPS;
   }
   return next;
 }
@@ -71,6 +80,10 @@ export function deskComputer(): OfficeSearch {
   return DESK_COMPUTER;
 }
 
+export function deskApps(): OfficeSearch {
+  return DESK_APPS;
+}
+
 export function deskApp(appId: string): OfficeSearch {
   return { pane: "app", app: appId };
 }
@@ -81,7 +94,8 @@ export function deskLeavesRoomApp(current: OfficeSearch): boolean {
     current.pane === "computer" ||
     current.pane === "settings" ||
     Boolean(current.library) ||
-    current.pane === "knowledge"
+    current.pane === "knowledge" ||
+    current.pane === "apps"
   );
 }
 
@@ -155,7 +169,7 @@ export function closePeek(current: OfficeSearch): OfficeSearch {
 
 export function toggleDesk(
   current: OfficeSearch,
-  pane: Exclude<DeskPane, "app" | "knowledge">,
+  pane: Exclude<DeskPane, "app" | "knowledge" | "apps">,
 ): OfficeSearch {
   if (current.pane === pane) return deskClosed();
   return pane === "settings" ? deskSettings() : deskComputer();

@@ -6,8 +6,9 @@ import {
 } from "@groxbot/contracts";
 import { type Database, messages, threads } from "@groxbot/db";
 import { eq } from "drizzle-orm";
+import type { GadgetFiles } from "./gadget-files.js";
 import { newId } from "./ids.js";
-import { iso } from "./threads.js";
+import { appendThreadMessage, getHomeThread, iso } from "./threads.js";
 
 function titledSlide(slide: Record<string, unknown>, title: string) {
   const next: Record<string, unknown> = { ...slide, title };
@@ -45,9 +46,11 @@ export function applyAppTitle(
         winner: null,
       };
     }
+    if (templateId === "app") return { title };
     return state;
   }
   if (templateId === "docs") return { ...state, title };
+  if (templateId === "app") return { ...state, title };
   if (templateId === "slides" && "slides" in state) {
     const slides = Array.isArray(state.slides)
       ? state.slides.map((slide, index) => {
@@ -69,14 +72,50 @@ export async function stampApp(opts: {
   workspaceId: string;
   templateId: TemplateId;
   title: string;
+  files?: GadgetFiles;
 }): Promise<{ id: string; templateId: TemplateId; title: string }> {
   const title = opts.title.trim() || "Untitled";
   const id = newId();
   await opts.initApp(id, opts.templateId, {
     workspaceId: opts.workspaceId,
     title,
+    ...(opts.files ? { files: opts.files } : {}),
   });
   return { id, templateId: opts.templateId, title };
+}
+
+/** Postgres chat card so `apps.list` can see office-stamped gadgets. */
+export async function recordAppChatCard(
+  db: Database,
+  opts: {
+    workspaceId: string;
+    botId: string;
+    homeThreadId?: string | null;
+    app: { id: string; templateId: TemplateId; title: string };
+  },
+): Promise<void> {
+  const botId = opts.botId.trim();
+  if (!botId) return;
+  const thread = await getHomeThread(db, {
+    id: botId,
+    homeThreadId: opts.homeThreadId,
+  });
+  if (!thread) return;
+  await appendThreadMessage(db, {
+    workspaceId: opts.workspaceId,
+    threadId: thread.id,
+    botId,
+    actorType: "bot",
+    actorId: botId,
+    blocks: [
+      {
+        kind: "app",
+        appId: opts.app.id,
+        templateId: opts.app.templateId,
+        title: opts.app.title,
+      },
+    ],
+  });
 }
 
 function asIso(value: Date | string): string {

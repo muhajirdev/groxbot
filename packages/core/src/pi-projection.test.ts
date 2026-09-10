@@ -264,4 +264,29 @@ describe("projectPiBoundMessages", () => {
       name: "Steve Jobs",
     });
   });
+
+  it("projects a stamped live app as a stamp_app card after the user", () => {
+    const projected = projectPiBoundMessages([
+      {
+        id: "u1",
+        metadata: {
+          app: { appId: "app_1", templateId: "crm", title: "Acme" },
+        },
+        message: {
+          role: "user",
+          content: "make a CRM for Acme",
+          timestamp: 1,
+        },
+      },
+    ]);
+    expect(projected.map((row) => row.role)).toEqual(["user", "assistant"]);
+    expect(projected[1]?.content).toEqual([
+      expect.objectContaining({
+        type: "tool-call",
+        toolName: "stamp_app",
+        args: { appId: "app_1", templateId: "crm", title: "Acme" },
+      }),
+    ]);
+    expect(lastProjectedPreview(projected)).toBe("CRM · Acme");
+  });
 });

@@ -7,7 +7,14 @@ export type OfficeAppCard = {
   title: string;
 };
 
-const TEMPLATES = new Set<string>(["docs", "slides", "sheets", "crm", "game"]);
+const TEMPLATES = new Set<string>([
+  "docs",
+  "slides",
+  "sheets",
+  "crm",
+  "game",
+  "app",
+]);
 
 function asCard(value: unknown): OfficeAppCard | null {
   if (!value || typeof value !== "object") return null;
@@ -26,6 +33,19 @@ function asCard(value: unknown): OfficeAppCard | null {
 function cardsFromPart(part: OfficePart): OfficeAppCard[] {
   if (part.type === "app" || part.type === "data-app") {
     const card = asCard(part);
+    return card ? [card] : [];
+  }
+  const toolName = String(part.toolName ?? part.name ?? "");
+  if (
+    part.type === "tool-call" ||
+    part.type === "tool-stamp_app" ||
+    toolName === "stamp_app"
+  ) {
+    const card =
+      asCard(part.args) ??
+      asCard(part.result) ??
+      asCard(part.output) ??
+      asCard(part);
     return card ? [card] : [];
   }
   const fromOutput = asCard(part.output) ?? asCard(part.result) ?? asCard(part);

@@ -34,6 +34,18 @@ describe("buildOfficeSystemPrompt", () => {
     expect(prompt).toMatch(/When you write a knowledge file/);
     expect(prompt).toMatch(/\[label\]\(path\/from\/office\/root\.md\)/);
     expect(prompt).not.toMatch(/This turn only has set_context/);
+    expect(prompt).not.toMatch(/- stamp_app:/);
+  });
+
+  it("tells the teammate to call stamp_app for a live app", () => {
+    const prompt = buildOfficeSystemPrompt({
+      identity,
+      tools: [{ name: "stamp_app" }],
+    });
+    expect(prompt).toMatch(/- stamp_app:/);
+    expect(prompt).toMatch(/call stamp_app/);
+    expect(prompt).toMatch(/clientJs, and serverJs/);
+    expect(prompt).toMatch(/Never say an app exists unless stamp_app returned ok/);
   });
 
   it("describes the live app this room is looking at", () => {

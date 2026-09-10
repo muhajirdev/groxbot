@@ -78,6 +78,28 @@ createWakeHandlers({ db, runtime, enqueue, bindRuntime, pluginTools })
 
 Clients share **one oRPC contract**. Desktop loads the web app. Expo later.
 
+## Live apps
+
+Live apps are workspace-owned collaborative documents, not files on a bot's
+computer and not rows in an apps catalog.
+
+1. A teammate calls `stamp_app`; the Worker allocates an `appId` and initializes
+   `AppRuntime` with the authenticated `workspaceId`, template, and title.
+2. `AppRuntime` stamps `client.js` and `server.js`. The latter exports `Gadget`
+   and runs as a Dynamic Worker Facet; its SQLite state is the document source
+   of truth.
+3. The tool result is rendered as an app card in the room log. `apps.list`
+   derives sidebar chrome from those cards; it does not load or save documents.
+4. Open connects the iframe through the parent-held authenticated WebSocket at
+   `/apps/:appId/rpc`. The iframe receives a Cap'n Web `MessagePort`; it never
+   owns credentials or a second in-browser document model.
+
+An `appId` is claimed by its workspace on first initialization. Initialization
+is retry-safe and cannot change the workspace or template after the app becomes
+live. App RPC checks the signed-in actor's workspace before exposing either the
+UI bundle or the `Gadget` RPC target. Workspace purge deletes both the
+`AppRuntime` supervisor state and the facet's separate SQLite database.
+
 ## Out of v1
 
-A separate Computer Durable Object / `computers` table, `SessionManager`, custom `SessionProvider` / `PostgresSessionProvider` as the office catalog, gadgets, gatekeepers, Rivet/agentOS as a deploy target, Polar billing. Group rooms: [docs/rooms-plan.md](./docs/rooms-plan.md) (`RoomActor` coordinator, not the model on the group).
+A separate Computer Durable Object / `computers` table, `SessionManager`, custom `SessionProvider` / `PostgresSessionProvider` as the office catalog, a generic gadget archive/catalog system, gatekeepers, Rivet/agentOS as a deploy target, Polar billing. The v1 `Gadget` class is only the Dynamic Worker Facet behind each `AppRuntime`. Group rooms: [docs/rooms-plan.md](./docs/rooms-plan.md) (`RoomActor` coordinator, not the model on the group).

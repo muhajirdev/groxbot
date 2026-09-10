@@ -26,6 +26,8 @@ describe("browser entry", () => {
     expect([...files.keys()].sort()).toEqual([
       "browser.ts",
       "ids.ts",
+      "office-app-card.ts",
+      "office-ask.ts",
       "office-chat.ts",
       "pi-projection.ts",
       "pi-transcript.ts",

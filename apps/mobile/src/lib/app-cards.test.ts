@@ -44,4 +44,37 @@ describe("appCardsFromOfficeMessage", () => {
       { appId: "app_3", templateId: "game", title: "Duel" },
     ]);
   });
+
+  it("reads a stamp_app tool-call card", () => {
+    expect(
+      appCardsFromOfficeMessage({
+        id: "m3",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-call",
+            toolName: "stamp_app",
+            args: { appId: "app_4", templateId: "slides", title: "Q3" },
+          },
+        ],
+      }),
+    ).toEqual([{ appId: "app_4", templateId: "slides", title: "Q3" }]);
+  });
+
+  it("reads a custom gadget card", () => {
+    expect(
+      appCardsFromOfficeMessage({
+        id: "m4",
+        role: "assistant",
+        parts: [
+          {
+            type: "app",
+            appId: "app_5",
+            templateId: "app",
+            title: "Todo",
+          },
+        ],
+      }),
+    ).toEqual([{ appId: "app_5", templateId: "app", title: "Todo" }]);
+  });
 });

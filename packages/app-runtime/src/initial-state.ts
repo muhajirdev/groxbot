@@ -64,7 +64,8 @@ export type AppState =
   | SlidesState
   | SheetsState
   | CrmState
-  | GameState;
+  | GameState
+  | { title: string };
 
 function coverSlide(title: string): Slide {
   return {
@@ -127,6 +128,9 @@ export function initialState(templateId: TemplateId): AppState {
       turn: "X",
       winner: null,
     };
+  }
+  if (templateId === "app") {
+    return { title: "Untitled" };
   }
   return { cells: { A1: "Item", B1: "Amount", A2: "", B2: "" } };
 }

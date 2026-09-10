@@ -23,6 +23,17 @@ describe("app templates", () => {
   it("inits an in-memory app id for tests", async () => {
     const store = new MemoryAppStore();
     await store.init("app_1", "docs", { workspaceId: "ws_1", title: "Q3" });
+    await store.init("app_2", "app", {
+      workspaceId: "ws_1",
+      title: "Todo",
+      files: {
+        "client.js": "document.body.textContent = 'Hi';",
+        "server.js": "export class Gadget {}",
+      },
+    });
+    await expect(
+      store.init("app_3", "app", { workspaceId: "ws_1", title: "Nope" }),
+    ).rejects.toThrow(/Unknown app template/);
   });
 });
 

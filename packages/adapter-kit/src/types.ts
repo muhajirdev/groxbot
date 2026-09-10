@@ -36,7 +36,11 @@ export type EnqueueJob = (job: WakeupJob) => Promise<void>;
 export type InitApp = (
   appId: string,
   templateId: string,
-  opts: { workspaceId: string; title: string },
+  opts: {
+    workspaceId: string;
+    title: string;
+    files?: { "client.js": string; "server.js": string };
+  },
 ) => Promise<void>;
 
 /** Stamp a RoomActor. `botId` present ⇒ that person’s own room (Pi + computer). Otherwise a group: log only, no Pi. */

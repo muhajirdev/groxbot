@@ -19,31 +19,31 @@ import {
   composePersonDoorSoul,
   emptyPiOfficeView,
   encryptionSecret,
-  persistOpenAiCodexAuth,
+  isThoughtSignatureError,
   jsonClone,
   mentionFromText,
-  officeCanReadSkills,
   OFFICE_GENERATION_STORAGE,
   OFFICE_WORKSPACE_HEADER,
-  parsePiClientEvent,
-  parsePiLogMessages,
-  piGroupLoopMessages,
+  officeCanReadSkills,
   type PiBoundMessage,
   type PiClientEvent,
   type PiOfficeSnapshot,
   type PiSendMessageInput,
-  piLogShouldRun,
   PiSteerQueue,
+  parsePiClientEvent,
+  parsePiLogMessages,
+  persistOpenAiCodexAuth,
+  piGroupLoopMessages,
+  piLogShouldRun,
   piQueuedUserBound,
-  takePiAssistantDraft,
   piUserText,
   piViewMessages,
-  isThoughtSignatureError,
   RoomError,
   resolveRoomTargets,
   resolveRunModel,
   roomTurnSystem,
   sanitizeComputerPath,
+  takePiAssistantDraft,
   teammatePrompt,
   withRoomSpeaker,
 } from "@groxbot/core";
@@ -59,7 +59,11 @@ import {
   personDoorTool,
   personDoorTools,
 } from "./person-door.js";
-import { roomFileOp, type RoomChatSubscriber, roomRpcResponse } from "./room-rpc.js";
+import {
+  type RoomChatSubscriber,
+  roomFileOp,
+  roomRpcResponse,
+} from "./room-rpc.js";
 
 type RoomMemberRow = { id: string; name: string; homeRoomId?: string };
 
@@ -358,10 +362,12 @@ export class RoomActor extends RoomHome {
     const door = await personDoorContext(ns, homeRoomId, workspaceId);
     const members = await this.members();
     const roomName = (await this.ctx.storage.get<string>("name")) || "Room";
+    if (workspaceId) this.officeId = workspaceId;
     const tools: AgentTool[] = [
       ...(await this.guestTools(homeRoomId, workspaceId)),
       ...this.roomFileTools(this.name, workspaceId),
       ...this.roomAppTools(),
+      ...this.stampAppTools(target.id),
     ];
     const system = await this.withOfficeSkills(
       buildOfficeSystemPrompt({
@@ -417,9 +423,7 @@ export class RoomActor extends RoomHome {
                 ...cloned,
                 threadId: this.name,
                 seq: this.roomSeq + 1,
-                ...(queued
-                  ? { id: queued.id, metadata: queued.metadata }
-                  : {}),
+                ...(queued ? { id: queued.id, metadata: queued.metadata } : {}),
               });
               if (!parsed) return;
               this.applyTurnEvent(parsed);

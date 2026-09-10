@@ -67,6 +67,12 @@ describe("applyAppTitle", () => {
       ),
     ).toMatchObject({ title: "Duel", turn: "X" });
   });
+
+  it("sets a custom gadget title", () => {
+    expect(applyAppTitle("app", { title: "Untitled" }, "Todo")).toEqual({
+      title: "Todo",
+    });
+  });
 });
 
 describe("appsFromMessageBlocks", () => {
