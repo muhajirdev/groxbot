@@ -4,6 +4,7 @@
  * SPA. Clients import this entry instead.
  */
 export * from "./office-app-card.js";
+export * from "./office-approval.js";
 export * from "./office-ask.js";
 export * from "./office-chat.js";
 export * from "./pi-projection.js";

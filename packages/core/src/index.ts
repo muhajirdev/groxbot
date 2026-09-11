@@ -28,6 +28,7 @@ export * from "./mcp-connections.js";
 export * from "./mcp-oauth.js";
 export * from "./models.js";
 export * from "./office-app-card.js";
+export * from "./office-approval.js";
 export * from "./office-ask.js";
 export * from "./office-away.js";
 export * from "./office-chat.js";

@@ -1,4 +1,5 @@
 import type { Bot, Room } from "@groxbot/contracts";
+import { hiredBotFromCodeResult } from "@groxbot/core/browser";
 import type { QueryClient } from "@tanstack/react-query";
 import {
   botsCollection,
@@ -6,6 +7,7 @@ import {
   upsertBot,
 } from "./collections";
 import { OFFICE_TO, WORKSPACE_TO, officeParams } from "./office-route";
+import { client } from "./rpc";
 import { sessionQueryKey, sessionQueryOptions } from "./session-query";
 import {
   listedBots,
@@ -124,6 +126,24 @@ export function cacheBot(bot: Bot) {
 export async function cacheCreatedBot(bot: Bot) {
   if (!botsCollection.isReady()) await botsCollection.preload();
   upsertBot(bot);
+}
+
+/** After Code Mode hire approval, paint the new teammate on the sidebar. */
+export async function cacheHiredTeammate(result: unknown): Promise<boolean> {
+  const hired = hiredBotFromCodeResult(result);
+  if (!hired) return false;
+  try {
+    const bot = await client.bots.get({ botId: hired.id });
+    await cacheCreatedBot(bot);
+    return true;
+  } catch {
+    try {
+      await botsCollection.utils.refetch();
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }
 
 export async function loadBotsForRoute(requiredBotId?: string): Promise<Bot[]> {

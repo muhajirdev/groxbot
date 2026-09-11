@@ -113,6 +113,11 @@ describe("Computer Worker shell wiring", () => {
     expect(actor).toMatch(/createSkillTool\(/);
     expect(actor).toMatch(/createAskTool\(/);
     expect(actor).toMatch(/officeAsk\.enterLive/);
+    expect(actor).toMatch(/OfficeApprovalBoard/);
+    expect(actor).toMatch(/onPaused:/);
+    expect(actor).toMatch(/officeApproval\.wait/);
+    expect(actor).toMatch(/officeApproval\.resume/);
+    expect(actor).toMatch(/officeApproval\.reject/);
     expect(readSrc("bot-ask.ts")).toMatch(/OFFICE_ASK_TOOL_NAME/);
     expect(actor).toMatch(/applyOfficeSkillsToSystem/);
     expect(actor).toMatch(/loadOfficeSkillCatalog/);

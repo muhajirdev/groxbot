@@ -15,6 +15,7 @@ import {
   looksLikeToolCrash,
   officeShellCommandRefusal,
   OFFICE_CODE_TOOL_NAME,
+  parseCodeModeOutput,
   persistOfficeToolPayload,
   resolveAiSdkToolResult,
   rewriteComputerToolArgs,
@@ -108,7 +109,15 @@ type OfficeExecuteRaw = {
  * Code Mode's Standard Schema is `{ code }`. Models still send `command`
  * (computer shell). Coerce before the runtime does `code.length`.
  */
-export function bindOfficeExecuteTool(raw: OfficeExecuteRaw): AgentTool {
+export type OfficeExecutePause = (
+  executionId: string,
+  signal?: AbortSignal,
+) => Promise<unknown>;
+
+export function bindOfficeExecuteTool(
+  raw: OfficeExecuteRaw,
+  onPaused?: OfficeExecutePause,
+): AgentTool {
   const execute = raw.execute.bind(raw);
   const wrapped = aiToolToPi(OFFICE_CODE_TOOL_NAME, {
     ...raw,
@@ -120,7 +129,11 @@ export function bindOfficeExecuteTool(raw: OfficeExecuteRaw): AgentTool {
       if (!code) {
         throw new Error(MISSING_EXECUTE_CODE);
       }
-      return execute({ code }, options);
+      const out = await execute({ code }, options);
+      if (!onPaused) return out;
+      const paused = parseCodeModeOutput(out);
+      if (paused?.status !== "paused" || !paused.executionId) return out;
+      return onPaused(paused.executionId, options.abortSignal);
     },
   });
   if (!wrapped) throw new Error("Code Mode code tool is missing execute()");

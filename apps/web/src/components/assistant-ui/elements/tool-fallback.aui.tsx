@@ -24,6 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toolActivityCopy, type ToolActivityKind } from "@/lib/tool-copy";
+import { isPausedCodeOutput } from "@groxbot/core/browser";
 import { SpiralLoader } from "./spiral-loader";
 
 const ANIMATION_DURATION = 200;
@@ -274,7 +275,7 @@ function ToolFallbackResult({
 }: React.ComponentProps<"div"> & {
   result?: unknown;
 }) {
-  if (result === undefined) return null;
+  if (result === undefined || isPausedCodeOutput(result)) return null;
 
   return (
     <div

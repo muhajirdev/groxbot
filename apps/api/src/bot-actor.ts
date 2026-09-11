@@ -134,6 +134,7 @@ import { z } from "zod";
 import { DurableObjectAppStore } from "./app-runtime-do.js";
 import { createRoomAppTool } from "./bot-app.js";
 import { createAskTool, OfficeAskBoard } from "./bot-ask.js";
+import { OfficeApprovalBoard } from "./bot-approval.js";
 import { BotsConnector } from "./bot-bots-connector.js";
 import { createBrowserAgentTools } from "./bot-browser.js";
 import { createBotComputer } from "./bot-computer-workspace.js";
@@ -385,6 +386,7 @@ export class RoomHome extends Agent<WorkerEnv> {
   private officeQueue: Promise<void> = Promise.resolve();
   private officeSteer = new PiSteerQueue();
   private officeAsk = new OfficeAskBoard();
+  private officeApproval = new OfficeApprovalBoard();
   private officeSession: Session | null = null;
   private officeSeq = 0;
   private tinyfishKeys: TinyfishKeyPool | null = null;
@@ -446,6 +448,8 @@ export class RoomHome extends Agent<WorkerEnv> {
       executor: createBundlingExecutor(this.env.LOADER, { timeout: 120_000 }),
       page,
       connectors,
+      onPaused: (executionId, signal) =>
+        this.officeApproval.wait(executionId, signal),
     });
     const mcp = this.workspaceMcp.map((row) => row.name);
     const plugins = [
@@ -787,6 +791,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     const result = await (await this.officeExecuteRuntime()).approve({
       executionId: id,
     });
+    this.officeApproval.resume(id, result);
     return result;
   }
 
@@ -800,6 +805,7 @@ export class RoomHome extends Agent<WorkerEnv> {
       executionId: id,
       seq,
     });
+    this.officeApproval.reject(id);
     return { rejected };
   }
 
