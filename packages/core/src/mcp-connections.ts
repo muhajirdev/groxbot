@@ -69,7 +69,7 @@ export function parseMcpBearer(
 ): string | undefined {
   const raw = typeof value === "string" ? value.trim() : "";
   if (!raw) return undefined;
-  const token = raw.replace(/^bearer\s+/i, "").trim();
+  const token = raw.replace(/^bearer(?:\s+|$)/i, "").trim();
   if (!token) {
     throw new McpError("Paste a bearer token, or leave it blank for OAuth.");
   }
