@@ -27,10 +27,11 @@ import type { OwnedPiLine, OwnedPiTurn } from "@groxbot/adapter-kit";
 import {
   DEFAULT_AI_GATEWAY_ID,
   HOSTED_STARTER_MODEL,
-  OPENAI_CODEX_PROVIDER,
   hostedAiEnabled,
-  providerForModel,
+  isNativeCompatProvider,
+  OPENAI_CODEX_PROVIDER,
   type OpenAiCodexAuth,
+  providerForModel,
 } from "@groxbot/contracts";
 import {
   HOSTED_OFFICE_CONTEXT_WINDOW,
@@ -56,9 +57,14 @@ import {
   resolvePiAiCodexModel,
   codexFetchFromEnv,
 } from "./pi-codex-stream.js";
+import {
+  createNativeCompatStreamFn,
+  missingNativeCompatStreamFn,
+  nativeCompatApiKeyFromEnv,
+  resolveNativeCompatModel,
+} from "./pi-native-compat.js";
 import type { WorkersAiBinding } from "./workers-ai.js";
 
-export type { StreamFn };
 export {
   createGatewayStreamFn,
   piAiGatewayModelId,
@@ -70,6 +76,12 @@ export {
   openaiCodexTurn,
   resolvePiAiCodexModel,
 } from "./pi-codex-stream.js";
+export {
+  createNativeCompatStreamFn,
+  nativeCompatTurn,
+  resolveNativeCompatModel,
+} from "./pi-native-compat.js";
+export type { StreamFn };
 
 export function emptyPiUsage(): Usage {
   return {
@@ -159,7 +171,9 @@ function convertToLlm(messages: AgentMessage[]): Message[] {
   }
 }
 
-async function transformContext(messages: AgentMessage[]): Promise<AgentMessage[]> {
+async function transformContext(
+  messages: AgentMessage[],
+): Promise<AgentMessage[]> {
   try {
     return pruneLiveToolResults(messages);
   } catch {
@@ -174,7 +188,9 @@ export interface PiTurnResult {
   errorMessage?: string;
 }
 
-function isPiMessage(value: OwnedPiLine | Message | AgentMessage): value is Message {
+function isPiMessage(
+  value: OwnedPiLine | Message | AgentMessage,
+): value is Message {
   return "timestamp" in value;
 }
 
@@ -755,6 +771,15 @@ export function resolvePiStreamFn(
       fetch: codexFetchFromEnv(source),
     });
   }
+  const nativeProvider = providerForModel(modelId);
+  if (isNativeCompatProvider(nativeProvider)) {
+    const apiKey = nativeCompatApiKeyFromEnv(source, nativeProvider);
+    if (!apiKey) return missingNativeCompatStreamFn(modelId);
+    return createNativeCompatStreamFn({
+      provider: nativeProvider,
+      apiKey,
+    });
+  }
   if (gatewayConfigured(source)) {
     return createGatewayStreamFn(loadGatewayConfig(source), options?.metadata);
   }
@@ -773,6 +798,9 @@ export function resolveOfficePiModel(
 ): Model<Api> {
   if (providerForModel(modelId) === OPENAI_CODEX_PROVIDER) {
     return resolvePiAiCodexModel(modelId);
+  }
+  if (isNativeCompatProvider(providerForModel(modelId))) {
+    return resolveNativeCompatModel(modelId);
   }
   if (gatewayConfigured(source)) {
     return resolvePiAiModel(loadGatewayConfig(source), modelId);

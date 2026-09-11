@@ -1,3 +1,4 @@
+import type { Api, Model } from "@earendil-works/pi-ai";
 import type {
   AdapterContext,
   AgentRunRequest,
@@ -5,10 +6,21 @@ import type {
   AgentRuntimeEvent,
 } from "@groxbot/adapter-kit";
 import { ownedPiTurnFromRun } from "@groxbot/adapter-kit";
-import type { GatewayConfig } from "./gateway.js";
+import {
+  isNativeCompatProvider,
+  OPENROUTER_PROVIDER,
+  providerForModel,
+} from "@groxbot/contracts";
+import {
+  type GatewayConfig,
+  gatewayConfigured,
+  loadGatewayConfig,
+} from "./gateway.js";
 import { resolvePiAiModel } from "./pi-ai-stream.js";
 import {
   createGatewayStreamFn,
+  resolveOfficePiModel,
+  resolvePiStreamFn,
   runOwnedPiTurn,
   type StreamFn,
 } from "./pi-turn.js";
@@ -19,6 +31,7 @@ export class PiAgentRuntime implements AgentRuntime {
   constructor(
     private readonly config: GatewayConfig,
     private readonly streamFn?: StreamFn,
+    private readonly resolveModel?: (modelId: string) => Model<Api>,
   ) {}
 
   async abort(runId: string): Promise<void> {
@@ -34,10 +47,10 @@ export class PiAgentRuntime implements AgentRuntime {
     const signal = mergeSignals(context.signal, controller.signal);
     yield { type: "progress", text: "working…" };
     const turn = ownedPiTurnFromRun(request);
-    const model = resolvePiAiModel(
-      this.config,
-      request.model?.trim() || this.config.model,
-    );
+    const modelId = request.model?.trim() || this.config.model;
+    const model = this.resolveModel
+      ? this.resolveModel(modelId)
+      : resolvePiAiModel(this.config, modelId);
     const streamFn =
       this.streamFn ??
       createGatewayStreamFn(this.config, {
@@ -98,4 +111,38 @@ function mergeSignals(
 ): AbortSignal {
   if (!left) return right;
   return AbortSignal.any([left, right]);
+}
+
+function unusedGatewayConfig(
+  source: NodeJS.ProcessEnv,
+  modelId: string,
+  fetchImpl?: typeof fetch,
+): GatewayConfig {
+  if (gatewayConfigured(source)) {
+    return loadGatewayConfig(source, { fetch: fetchImpl });
+  }
+  return {
+    provider: OPENROUTER_PROVIDER,
+    apiKey: "unused",
+    model: modelId,
+    referer: "",
+    title: "Groxbot",
+    fetch: fetchImpl ?? fetch,
+  };
+}
+
+/** Native z.ai / Moonshot BYOK wins over hosted grox-gateway for that catalog id. */
+export function nativeCompatAgentRuntime(
+  overlay: { env: NodeJS.ProcessEnv; model: string },
+  fetchImpl?: typeof fetch,
+): PiAgentRuntime | null {
+  const modelId = overlay.model.trim();
+  if (!isNativeCompatProvider(providerForModel(modelId))) return null;
+  const streamFn = resolvePiStreamFn(overlay.env, { modelId });
+  if (!streamFn) return null;
+  return new PiAgentRuntime(
+    unusedGatewayConfig(overlay.env, modelId, fetchImpl),
+    streamFn,
+    (id) => resolveOfficePiModel(overlay.env, id || modelId),
+  );
 }

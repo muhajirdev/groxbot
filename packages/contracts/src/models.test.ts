@@ -4,45 +4,50 @@ import {
   asHostedGroxbotModelId,
   CLOUDFLARE_PROVIDER,
   CUSTOM_MODEL_SENTINEL,
+  catalogGroupLabel,
   DEFAULT_AI_GATEWAY_ID,
-  gatewayModelId,
-  gatewayRequestModel,
-  HOSTED_AI_ENV,
-  HOSTED_AI_FLAG,
-  hostedCloudflareGateway,
   GROXBOT_AUTO_ALLOWED_MODELS,
   GROXBOT_AUTO_LUNA_MODEL,
   GROXBOT_AUTO_MODEL,
   GROXBOT_AUTO_TARGET_LABEL,
   GROXBOT_LUNA_MODEL,
+  gatewayModelId,
+  gatewayRequestModel,
+  HOSTED_AI_ENV,
+  HOSTED_AI_FLAG,
+  hostedCloudflareGateway,
   hostedStarterModel,
   isAutoRouterModel,
   isGroxbotAutoModel,
+  isNativeCompatProvider,
   isOpenRouterAutoModel,
-  openRouterAutoPlugin,
-  OPENROUTER_AUTO_MODEL,
   labelForModel,
   MODEL_CATALOG,
-  modelUsesThinkingEffort,
+  MOONSHOT_CHAT_BASE_URL,
+  MOONSHOT_PROVIDER,
   ModelSettingsSchema,
   missingProviderMessage,
   modelIsRunnable,
+  modelUsesThinkingEffort,
+  OPENAI_CODEX_SETUP_STEPS,
+  OPENROUTER_AUTO_MODEL,
   OPENROUTER_PROVIDER,
+  openRouterAutoPlugin,
   openRouterIdFromHostedGroxbot,
   PRODUCT_RUNTIME,
-  catalogGroupLabel,
-  pickerCatalog,
-  providerForModel,
   parseBotEffort,
   parseThinkingEffort,
+  pickerCatalog,
+  providerForModel,
   reasoningFromEffort,
   resolveGroxbotAutoModel,
-  resolveTurnEffort,
-  OPENAI_CODEX_SETUP_STEPS,
   resolveStoredModelId,
+  resolveTurnEffort,
   validateCloudflareAccountId,
   validateModelId,
   validateProviderSecret,
+  ZAI_CHAT_BASE_URL,
+  ZAI_PROVIDER,
 } from "./models.js";
 
 describe("model catalog", () => {
@@ -65,11 +70,21 @@ describe("model catalog", () => {
     expect(providerForModel("openai-codex/gpt-5.6-luna")).toBe("openai-codex");
     expect(providerForModel("openai-codex/gpt-6-astra")).toBe("openai-codex");
     expect(providerForModel("openai/gpt-4o")).toBe("openai");
+    expect(providerForModel("zai/glm-5.3")).toBe(ZAI_PROVIDER);
+    expect(providerForModel("zai/glm-5.3-flash")).toBe(ZAI_PROVIDER);
+    expect(providerForModel("moonshot/kimi-k2.6")).toBe(MOONSHOT_PROVIDER);
+    expect(isNativeCompatProvider(ZAI_PROVIDER)).toBe(true);
+    expect(isNativeCompatProvider(MOONSHOT_PROVIDER)).toBe(true);
+    expect(isNativeCompatProvider(OPENROUTER_PROVIDER)).toBe(false);
     expect(providerForModel("groxbot/auto")).toBe(CLOUDFLARE_PROVIDER);
     expect(providerForModel("groxbot/free")).toBe(CLOUDFLARE_PROVIDER);
     expect(providerForModel("auto")).toBe(CLOUDFLARE_PROVIDER);
-    expect(OPENAI_CODEX_SETUP_STEPS[0]?.detail).toMatch(/npx @openai\/codex login/);
-    expect(OPENAI_CODEX_SETUP_STEPS[1]?.detail).toMatch(/~\/\.codex\/auth\.json/);
+    expect(OPENAI_CODEX_SETUP_STEPS[0]?.detail).toMatch(
+      /npx @openai\/codex login/,
+    );
+    expect(OPENAI_CODEX_SETUP_STEPS[1]?.detail).toMatch(
+      /~\/\.codex\/auth\.json/,
+    );
   });
 
   it("normalizes Cloudflare ids for the hosted gateway", () => {
@@ -77,7 +92,9 @@ describe("model catalog", () => {
       "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-flash-0731",
     );
     expect(
-      gatewayModelId("cloudflare-ai-gateway/workers-ai/@cf/moonshotai/kimi-k2.6"),
+      gatewayModelId(
+        "cloudflare-ai-gateway/workers-ai/@cf/moonshotai/kimi-k2.6",
+      ),
     ).toBe("cloudflare-ai-gateway/workers-ai/@cf/moonshotai/kimi-k2.6");
     expect(gatewayModelId("openrouter/deepseek/deepseek-v4-flash-0731")).toBe(
       "openrouter/deepseek/deepseek-v4-flash",
@@ -144,6 +161,8 @@ describe("model catalog", () => {
     expect(gatewayRequestModel("openrouter/deepseek/deepseek-v4-flash")).toBe(
       "deepseek/deepseek-v4-flash",
     );
+    expect(gatewayRequestModel("zai/glm-5.3")).toBe("glm-5.3");
+    expect(gatewayRequestModel("moonshot/kimi-k2.6")).toBe("kimi-k2.6");
   });
 
   it("keeps catalog Auto and skips effort; Luna is the allowlist only", () => {
@@ -221,19 +240,16 @@ describe("model catalog", () => {
     ).toBe(true);
     expect(catalogGroupLabel(CLOUDFLARE_PROVIDER)).toBe("Groxbot");
     expect(catalogGroupLabel(OPENROUTER_PROVIDER)).toBe("OpenRouter");
-    const groxOnly = pickerCatalog(
-      MODEL_CATALOG,
-      "groxbot/auto",
-    );
+    const groxOnly = pickerCatalog(MODEL_CATALOG, "groxbot/auto");
     expect(
       groxOnly.every((item) => item.provider === CLOUDFLARE_PROVIDER),
     ).toBe(true);
-    expect(
-      groxOnly.some((item) => item.provider === OPENROUTER_PROVIDER),
-    ).toBe(false);
-    expect(
-      groxOnly.some((item) => item.provider === ANTHROPIC_PROVIDER),
-    ).toBe(false);
+    expect(groxOnly.some((item) => item.provider === OPENROUTER_PROVIDER)).toBe(
+      false,
+    );
+    expect(groxOnly.some((item) => item.provider === ANTHROPIC_PROVIDER)).toBe(
+      false,
+    );
     expect(
       pickerCatalog(MODEL_CATALOG, "openrouter/deepseek/deepseek-v4-flash"),
     ).toHaveLength(MODEL_CATALOG.length);
@@ -245,6 +261,11 @@ describe("model catalog", () => {
         "openai-codex/gpt-5.6-terra",
         "openai-codex/gpt-5.6-sol",
         "openai-codex/gpt-6-astra",
+        "zai/glm-5.3",
+        "zai/glm-5.3-flash",
+        "zai/glm-5.2",
+        "moonshot/kimi-k2.6",
+        "moonshot/kimi-k2.5",
         "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-flash-0731",
         "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-pro-0813",
         "cloudflare-ai-gateway/workers-ai/@cf/zai-org/glm-4.7-flash",
@@ -276,6 +297,14 @@ describe("model catalog", () => {
         { hostedGateway: true },
       ),
     ).toBe(true);
+    expect(modelIsRunnable("zai/glm-5.3", [ZAI_PROVIDER])).toBe(true);
+    expect(modelIsRunnable("zai/glm-5.3", [OPENROUTER_PROVIDER])).toBe(false);
+    expect(modelIsRunnable("moonshot/kimi-k2.6", [MOONSHOT_PROVIDER])).toBe(
+      true,
+    );
+    expect(modelIsRunnable("moonshot/kimi-k2.6", [CLOUDFLARE_PROVIDER])).toBe(
+      false,
+    );
   });
 
   it("validates provider secrets", () => {
@@ -299,10 +328,20 @@ describe("model catalog", () => {
         }),
       ),
     ).toBe(undefined);
-    expect(validateProviderSecret("openai-codex", "sk-abcdefghijklmnopqrstuvwxyz")).toMatch(
-      /auth.json/,
+    expect(
+      validateProviderSecret("openai-codex", "sk-abcdefghijklmnopqrstuvwxyz"),
+    ).toMatch(/auth.json/);
+    expect(validateProviderSecret(ZAI_PROVIDER, "zai-test-key-123456")).toBe(
+      undefined,
     );
-    expect(validateCloudflareAccountId("not-an-id")).toMatch(/32 hex/);
+    expect(validateProviderSecret(ZAI_PROVIDER, "sk-or-1234567890")).toMatch(
+      /another provider/,
+    );
+    expect(validateProviderSecret(MOONSHOT_PROVIDER, "sk-moonshotkey12")).toBe(
+      undefined,
+    );
+    expect(ZAI_CHAT_BASE_URL).toBe("https://api.z.ai/api/paas/v4");
+    expect(MOONSHOT_CHAT_BASE_URL).toBe("https://api.moonshot.ai/v1");
     expect(
       validateCloudflareAccountId("0123456789abcdef0123456789abcdef"),
     ).toBe(undefined);
@@ -317,6 +356,12 @@ describe("model catalog", () => {
     ).toBe("openrouter/foo");
     expect(missingProviderMessage("anthropic/claude-sonnet-4-6")).toBe(
       "Claude Sonnet 4.6 needs an Anthropic key.",
+    );
+    expect(missingProviderMessage("zai/glm-5.3")).toBe(
+      "GLM 5.3 needs a z.ai (GLM) key.",
+    );
+    expect(missingProviderMessage("moonshot/kimi-k2.6")).toBe(
+      "Kimi K2.6 needs a Moonshot (Kimi) key.",
     );
     expect(
       missingProviderMessage("openrouter/deepseek/deepseek-v4-flash"),

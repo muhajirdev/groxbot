@@ -1,7 +1,7 @@
 import type { AgentRuntime } from "@groxbot/adapter-kit";
 import { DEFAULT_AI_GATEWAY_ID } from "@groxbot/contracts";
 import type { GatewayEnv } from "./gateway.js";
-import { PiAgentRuntime } from "./pi-runtime.js";
+import { nativeCompatAgentRuntime, PiAgentRuntime } from "./pi-runtime.js";
 import {
   createHostedAgentRuntime,
   GatewayAgentRuntime,
@@ -15,8 +15,8 @@ export type { WorkersAiBinding };
 export {
   createHostedAgentRuntime,
   GatewayAgentRuntime,
-  parsePokePrompt,
   PiAgentRuntime,
+  parsePokePrompt,
   resolveAgentRuntimeKind,
   ScriptedAgentRuntime,
   WorkersAiRuntime,
@@ -41,7 +41,10 @@ export function bindEdgeAgentRuntime(
         overlay.env.CLOUDFLARE_AI_GATEWAY_ID?.trim() || DEFAULT_AI_GATEWAY_ID,
     });
   }
-  return createHostedAgentRuntime(overlay.env, {
-    fetch: options?.fetch,
-  });
+  return (
+    nativeCompatAgentRuntime(overlay, options?.fetch) ??
+    createHostedAgentRuntime(overlay.env, {
+      fetch: options?.fetch,
+    })
+  );
 }

@@ -8,14 +8,12 @@ import type {
 } from "@groxbot/contracts";
 import {
   ANTHROPIC_PROVIDER,
+  asHostedGroxbotModelId,
   CLOUDFLARE_PROVIDER,
   CUSTOM_MODEL_SENTINEL,
   DEFAULT_AI_GATEWAY_ID,
   GROXBOT_AUTO_MODEL,
   GROXBOT_FREE_MODEL,
-  asHostedGroxbotModelId,
-  modelUsesThinkingEffort,
-  resolveGroxbotAutoModel,
   gatewayModelId,
   groxHostedGateway,
   HOSTED_AI_ENV,
@@ -25,26 +23,32 @@ import {
   hostedCloudflareGateway,
   hostedStarterModel,
   MODEL_CATALOG,
+  MOONSHOT_API_KEY_ENV,
+  MOONSHOT_PROVIDER,
   missingProviderMessage,
   modelIsRunnable,
+  modelUsesThinkingEffort,
   OPENAI_CODEX_AUTH_ENV,
   OPENAI_CODEX_PROVIDER,
   OPENAI_PROVIDER,
   OPENROUTER_PROVIDER,
   openAiCodexHint,
-  parseThinkingEffort,
   PRODUCT_RUNTIME,
   PROVIDER_META,
   PROVIDER_ORDER,
   packOpenAiCodexAuth,
   parseOpenAiCodexAuth,
+  parseThinkingEffort,
   providerForModel,
+  resolveGroxbotAutoModel,
   resolveStoredModelId,
   resolveTurnEffort,
   SUGGESTED_STARTER_MODEL,
   validateCloudflareAccountId,
   validateModelId,
   validateProviderSecret,
+  ZAI_API_KEY_ENV,
+  ZAI_PROVIDER,
 } from "@groxbot/contracts";
 import type { Database } from "@groxbot/db";
 import { secrets, userModelCredentials, workspaceModels } from "@groxbot/db";
@@ -71,6 +75,8 @@ export const PROVIDER_ENV: Record<
   [ANTHROPIC_PROVIDER]: "ANTHROPIC_API_KEY",
   [OPENAI_PROVIDER]: "OPENAI_API_KEY",
   [OPENROUTER_PROVIDER]: "OPENROUTER_API_KEY",
+  [ZAI_PROVIDER]: ZAI_API_KEY_ENV,
+  [MOONSHOT_PROVIDER]: MOONSHOT_API_KEY_ENV,
 };
 
 /** Cleared from process env on each run so only Settings → Models keys apply. */
@@ -80,6 +86,8 @@ const PROCESS_MODEL_ENV = [
   "OPENAI_API_KEY",
   OPENAI_CODEX_AUTH_ENV,
   "OPENROUTER_API_KEY",
+  ZAI_API_KEY_ENV,
+  MOONSHOT_API_KEY_ENV,
   "CLOUDFLARE_API_TOKEN",
   "CLOUDFLARE_AI_GATEWAY_TOKEN",
   "CLOUDFLARE_AUTH_TOKEN",
@@ -335,8 +343,7 @@ export async function loadModelSettings(
     if (groxGateway) return true;
     return item.id !== GROXBOT_AUTO_MODEL && item.id !== GROXBOT_FREE_MODEL;
   }).map((item) => {
-    const viaGateway =
-      groxGateway && item.provider === OPENROUTER_PROVIDER;
+    const viaGateway = groxGateway && item.provider === OPENROUTER_PROVIDER;
     return {
       id: viaGateway ? asHostedGroxbotModelId(item.id) : item.id,
       label: item.label,
@@ -674,9 +681,7 @@ export async function resolveRunModel(
   const hostedGateway = Boolean(groxHostedGateway(baseEnv));
   const runModel = hostedGateway
     ? resolveGroxbotAutoModel(
-        model.startsWith("openrouter/")
-          ? asHostedGroxbotModelId(model)
-          : model,
+        model.startsWith("openrouter/") ? asHostedGroxbotModelId(model) : model,
         { hostedGateway: true },
       )
     : model;
@@ -699,7 +704,11 @@ async function loadStoredEnv(
   db: Database,
   workspaceId: string,
   secret: string,
-): Promise<{ env: NodeJS.ProcessEnv; defaultModel: string; effort: ThinkingEffort }> {
+): Promise<{
+  env: NodeJS.ProcessEnv;
+  defaultModel: string;
+  effort: ThinkingEffort;
+}> {
   const creds = await db
     .select()
     .from(userModelCredentials)

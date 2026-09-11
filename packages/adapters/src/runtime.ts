@@ -7,6 +7,8 @@ import {
   loadGatewayConfig,
 } from "./gateway.js";
 import { openaiCodexAuthFromEnv } from "./pi-codex-stream.js";
+import { nativeCompatKeyConfigured } from "./pi-native-compat.js";
+import { nativeCompatAgentRuntime } from "./pi-runtime.js";
 import { GatewayAgentRuntime } from "./runtime-core.js";
 
 export { openObjectParameters } from "./office-pi.js";
@@ -40,7 +42,10 @@ export function bindAgentRuntime(
   overlay: { env: NodeJS.ProcessEnv; model: string; hosted?: boolean },
   fetchImpl?: typeof fetch,
 ): AgentRuntime {
-  return createHostedAgentRuntime(overlay.env, { fetch: fetchImpl });
+  return (
+    nativeCompatAgentRuntime(overlay, fetchImpl) ??
+    createHostedAgentRuntime(overlay.env, { fetch: fetchImpl })
+  );
 }
 
 export function agentRuntimeNeedsModel(
@@ -54,7 +59,11 @@ export function agentRuntimeNeedsModel(
     runtime === "pi" ||
     isGatewayProvider(runtime)
   ) {
-    return !gatewayConfigured(source) && !openaiCodexAuthFromEnv(source);
+    return (
+      !gatewayConfigured(source) &&
+      !openaiCodexAuthFromEnv(source) &&
+      !nativeCompatKeyConfigured(source)
+    );
   }
   return true;
 }
