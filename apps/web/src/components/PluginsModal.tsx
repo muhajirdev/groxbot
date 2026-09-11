@@ -86,6 +86,7 @@ export function PluginsModal(props: {
   const [error, setError] = useState("");
   const [mcpName, setMcpName] = useState("");
   const [mcpUrl, setMcpUrl] = useState("");
+  const [mcpBearer, setMcpBearer] = useState("");
   const [mcpPrivate, setMcpPrivate] = useState(false);
   const [mcpFormOpen, setMcpFormOpen] = useState(false);
   const [probes, setProbes] = useState<Record<string, McpProbeResult>>({});
@@ -303,6 +304,7 @@ export function PluginsModal(props: {
   async function addRemoteMcp() {
     const name = mcpName.trim();
     const url = mcpUrl.trim();
+    const bearer = mcpBearer.trim();
     if (!name || !url) return;
     setError("");
     setBusy({ key: "mcp-add", authName: name });
@@ -312,10 +314,12 @@ export function PluginsModal(props: {
         name,
         url,
         visibility: mcpPrivate ? "private" : "shared",
+        ...(bearer ? { bearer } : {}),
       });
       mcpCollection.utils.writeUpsert(result.connection);
       setMcpName("");
       setMcpUrl("");
+      setMcpBearer("");
       setMcpPrivate(false);
       setMcpFormOpen(false);
       if (result.redirectUrl) {
@@ -746,11 +750,13 @@ export function PluginsModal(props: {
                     <McpAddForm
                       name={mcpName}
                       url={mcpUrl}
+                      bearer={mcpBearer}
                       asPrivate={mcpPrivate}
                       busy={isBusy(busy, "mcp-add")}
                       opening={isOpeningAuth(busy, "mcp-add")}
                       onName={setMcpName}
                       onUrl={setMcpUrl}
+                      onBearer={setMcpBearer}
                       onPrivate={setMcpPrivate}
                       onSubmit={() => void addRemoteMcp()}
                     />
@@ -1073,11 +1079,13 @@ function CustomMcpSearchCard(props: { onAdd: () => void }) {
 function McpAddForm(props: {
   name: string;
   url: string;
+  bearer: string;
   asPrivate: boolean;
   busy: boolean;
   opening: boolean;
   onName: (value: string) => void;
   onUrl: (value: string) => void;
+  onBearer: (value: string) => void;
   onPrivate: (value: boolean) => void;
   onSubmit: () => void;
 }) {
@@ -1096,7 +1104,7 @@ function McpAddForm(props: {
       >
         {props.opening
           ? pluginAuthOpeningCopy(props.name)
-          : "Paste the server URL. Name is what you’ll see on Installed."}
+          : "Paste the server URL. Bearer is optional — use it when the server wants a static token instead of OAuth."}
       </p>
       <Field label="Name" className="mb-0">
         <Input
@@ -1115,6 +1123,17 @@ function McpAddForm(props: {
           autoComplete="off"
           inputMode="url"
           onValueChange={props.onUrl}
+        />
+      </Field>
+      <Field label="Bearer token" className="mb-0">
+        <Input
+          type="password"
+          value={props.bearer}
+          placeholder="Optional"
+          maxLength={4000}
+          autoComplete="off"
+          spellCheck={false}
+          onValueChange={props.onBearer}
         />
       </Field>
       <div className="flex flex-wrap items-center justify-between gap-2">

@@ -629,6 +629,10 @@ export const McpUrl = z
   }, "Paste an https MCP URL.");
 export type McpUrl = z.infer<typeof McpUrl>;
 
+/** Optional static token. Empty means OAuth (or no auth) as before. */
+export const McpBearer = z.string().max(4000);
+export type McpBearer = z.infer<typeof McpBearer>;
+
 export const McpConnectionSchema = z.object({
   id: Id,
   name: McpName,

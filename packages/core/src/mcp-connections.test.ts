@@ -10,6 +10,7 @@ import {
   mcpProbeError,
   mcpServersForExecute,
   mcpToolNames,
+  parseMcpBearer,
   parseMcpName,
   parseMcpUrl,
   mcpServerId,
@@ -41,6 +42,17 @@ describe("mcp connections", () => {
     expect(() => parseMcpUrl("https://user:pass@mcp.example.com/mcp")).toThrow(
       McpError,
     );
+  });
+
+  it("accepts an optional bearer token and strips the header prefix", () => {
+    expect(parseMcpBearer(undefined)).toBeUndefined();
+    expect(parseMcpBearer("")).toBeUndefined();
+    expect(parseMcpBearer("  ")).toBeUndefined();
+    expect(parseMcpBearer("sk-live-1")).toBe("sk-live-1");
+    expect(parseMcpBearer("Bearer sk-live-1")).toBe("sk-live-1");
+    expect(parseMcpBearer("bearer   sk-live-1")).toBe("sk-live-1");
+    expect(() => parseMcpBearer("Bearer")).toThrow(McpError);
+    expect(() => parseMcpBearer("x".repeat(4001))).toThrow(McpError);
   });
 
   it("recognizes the Worker MCP OAuth callback path", () => {

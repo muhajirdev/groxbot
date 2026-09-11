@@ -46,6 +46,7 @@ export function PluginsScreen({ navigation, route }: Props) {
   const [tab, setTab] = useState<Tab>("search");
   const [mcpName, setMcpName] = useState("");
   const [mcpUrl, setMcpUrl] = useState("");
+  const [mcpBearer, setMcpBearer] = useState("");
   const [probes, setProbes] = useState<Record<string, McpProbeResult>>({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -158,6 +159,7 @@ export function PluginsScreen({ navigation, route }: Props) {
   async function addRemoteMcp() {
     const name = mcpName.trim();
     const url = mcpUrl.trim();
+    const bearer = mcpBearer.trim();
     if (!name || !url) return;
     setBusy("mcp-add");
     setError("");
@@ -166,9 +168,11 @@ export function PluginsScreen({ navigation, route }: Props) {
         ...(botId ? { botId } : {}),
         name,
         url,
+        ...(bearer ? { bearer } : {}),
       });
       setMcpName("");
       setMcpUrl("");
+      setMcpBearer("");
       await queryClient.invalidateQueries({ queryKey: orpc.mcp.list.key() });
       if (result.redirectUrl) {
         await WebBrowser.openBrowserAsync(result.redirectUrl);
@@ -320,8 +324,8 @@ export function PluginsScreen({ navigation, route }: Props) {
         <View style={styles.card}>
           <Text style={styles.name}>Custom MCP</Text>
           <Text style={styles.body}>
-            Connect a remote server by URL. Shared with the team unless you make
-            it private.
+            Connect a remote server by URL. Bearer is optional when the server
+            wants a static token instead of OAuth.
           </Text>
           <Field label="Name" value={mcpName} onChangeText={setMcpName} />
           <Field
@@ -329,6 +333,14 @@ export function PluginsScreen({ navigation, route }: Props) {
             value={mcpUrl}
             onChangeText={setMcpUrl}
             keyboardType="url"
+          />
+          <Field
+            label="Bearer token"
+            value={mcpBearer}
+            onChangeText={setMcpBearer}
+            placeholder="Optional"
+            secure
+            autoComplete="off"
           />
           <Button
             label={busy === "mcp-add" ? "Opening…" : "Add"}
