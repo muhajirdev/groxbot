@@ -6774,10 +6774,6 @@ html.electron .pane-head {
     padding-left: 8px;
   }
 
-  .chat-conv {
-    padding-right: 48px;
-  }
-
   .chat-conv-more {
     top: 50%;
     transform: translateY(-50%);

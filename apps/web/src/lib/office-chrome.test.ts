@@ -357,9 +357,6 @@ describe("office chrome", () => {
       /chat-conv-more[^"]*max-\[720px\]:top-1\/2[^"]*max-\[720px\]:-translate-y-1\/2/,
     );
     expect(css).toMatch(
-      /@media \(max-width: 720px\) \{[\s\S]*?\.chat-conv\s*\{[^}]*padding-right:\s*48px/,
-    );
-    expect(css).toMatch(
       /@media \(max-width: 720px\) \{[\s\S]*?\.chat-conv-more\s*\{[^}]*top:\s*50%[^}]*translateY\(-50%\)/,
     );
   });
