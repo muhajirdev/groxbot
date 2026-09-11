@@ -75,11 +75,10 @@
 	],
 	"d1_databases": [
 		{
-			// Local: wrangler uses this name under .wrangler/state. Hosted:
-			// wrangler d1 create groxbot, then put the real database_id here.
+			// Hosted catalog. Local wrangler still uses --local under .wrangler/state.
 			"binding": "DB",
 			"database_name": "groxbot",
-			"database_id": "00000000-0000-4000-8000-000000000001",
+			"database_id": "7402e840-25b5-4be0-a5c3-96626a7956bc",
 			"migrations_dir": "../../packages/db/drizzle"
 		}
 	],
