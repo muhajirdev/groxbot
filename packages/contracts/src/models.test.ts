@@ -3,6 +3,7 @@ import {
   ANTHROPIC_PROVIDER,
   asHostedGroxbotModelId,
   CLOUDFLARE_PROVIDER,
+  CURSOR_PROVIDER,
   CUSTOM_MODEL_SENTINEL,
   canSaveDefaultModelChoice,
   catalogGroupLabel,
@@ -29,6 +30,7 @@ import {
   ModelSettingsSchema,
   missingProviderMessage,
   modelIsRunnable,
+  modelsForProviders,
   modelUsesThinkingEffort,
   OPENAI_CODEX_SETUP_STEPS,
   OPENROUTER_AUTO_MODEL,
@@ -241,6 +243,7 @@ describe("model catalog", () => {
     ).toBe(true);
     expect(catalogGroupLabel(CLOUDFLARE_PROVIDER)).toBe("Groxbot");
     expect(catalogGroupLabel(OPENROUTER_PROVIDER)).toBe("OpenRouter");
+    expect(catalogGroupLabel(CURSOR_PROVIDER)).toBe("Cursor");
     const groxOnly = pickerCatalog(MODEL_CATALOG, "groxbot/auto");
     expect(
       groxOnly.every((item) => item.provider === CLOUDFLARE_PROVIDER),
@@ -341,6 +344,14 @@ describe("model catalog", () => {
     expect(validateProviderSecret(MOONSHOT_PROVIDER, "sk-moonshotkey12")).toBe(
       undefined,
     );
+    expect(validateProviderSecret(CURSOR_PROVIDER, "key_cursor_cloud1")).toBe(
+      undefined,
+    );
+    expect(validateProviderSecret(CURSOR_PROVIDER, "sk-or-1234567890")).toMatch(
+      /another provider/,
+    );
+    expect(modelIsRunnable("vendor/custom", [CURSOR_PROVIDER])).toBe(false);
+    expect(modelsForProviders([CURSOR_PROVIDER])).toEqual([]);
     expect(ZAI_CHAT_BASE_URL).toBe("https://api.z.ai/api/paas/v4");
     expect(MOONSHOT_CHAT_BASE_URL).toBe("https://api.moonshot.ai/v1");
     expect(

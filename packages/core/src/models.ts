@@ -10,6 +10,8 @@ import {
   ANTHROPIC_PROVIDER,
   asHostedGroxbotModelId,
   CLOUDFLARE_PROVIDER,
+  CURSOR_API_KEY_ENV,
+  CURSOR_PROVIDER,
   CUSTOM_MODEL_SENTINEL,
   DEFAULT_AI_GATEWAY_ID,
   GROXBOT_AUTO_MODEL,
@@ -22,6 +24,7 @@ import {
   hostedAiEnabled,
   hostedCloudflareGateway,
   hostedStarterModel,
+  isChatModelProvider,
   MODEL_CATALOG,
   MOONSHOT_API_KEY_ENV,
   MOONSHOT_PROVIDER,
@@ -77,6 +80,7 @@ export const PROVIDER_ENV: Record<
   [OPENROUTER_PROVIDER]: "OPENROUTER_API_KEY",
   [ZAI_PROVIDER]: ZAI_API_KEY_ENV,
   [MOONSHOT_PROVIDER]: MOONSHOT_API_KEY_ENV,
+  [CURSOR_PROVIDER]: CURSOR_API_KEY_ENV,
 };
 
 /** Cleared from process env on each run so only Settings → Models keys apply. */
@@ -88,6 +92,7 @@ const PROCESS_MODEL_ENV = [
   "OPENROUTER_API_KEY",
   ZAI_API_KEY_ENV,
   MOONSHOT_API_KEY_ENV,
+  CURSOR_API_KEY_ENV,
   "CLOUDFLARE_API_TOKEN",
   "CLOUDFLARE_AI_GATEWAY_TOKEN",
   "CLOUDFLARE_AUTH_TOKEN",
@@ -234,7 +239,9 @@ export function fallbackRunnableModel(
 }
 
 function configuredProviders(keys: ModelKeyStatus[]): ModelProvider[] {
-  return keys.filter((item) => item.configured).map((item) => item.provider);
+  return keys
+    .filter((item) => item.configured && isChatModelProvider(item.provider))
+    .map((item) => item.provider);
 }
 
 export async function loadModelSettings(
@@ -669,8 +676,9 @@ export async function resolveRunModel(
   const settings = await loadStoredEnv(db, bot.workspaceId, secret);
   Object.assign(env, settings.env);
   const usedHosted = applyHostedCloudflareEnv(env, hosted);
-  const providers: ModelProvider[] = PROVIDERS.filter((provider) =>
-    envKeyConfigured(provider, env),
+  const providers: ModelProvider[] = PROVIDERS.filter(
+    (provider) =>
+      isChatModelProvider(provider) && envKeyConfigured(provider, env),
   );
   const model = fallbackRunnableModel(
     bot.model?.trim() || settings.defaultModel,

@@ -84,6 +84,34 @@ describe("officeApprovalCopy", () => {
     ).toBe("Hire Talent Scout");
   });
 
+  it("names a Cursor Cloud Agents dispatch", () => {
+    expect(
+      officeApprovalCopy({
+        executionId: "exec_c",
+        seq: 0,
+        connector: "cursor",
+        method: "launch",
+        args: {
+          repo: "acme/app",
+          prompt: "Fix the failing tests",
+        },
+      }),
+    ).toMatchObject({
+      title: "Dispatch Cursor on acme/app",
+      confirm: "Dispatch",
+      deny: "Don't",
+    });
+    expect(
+      officeApprovalSummary({
+        executionId: "exec_c",
+        seq: 0,
+        connector: "cursor",
+        method: "launch",
+        args: { repo: "acme/app", prompt: "Fix the failing tests" },
+      }),
+    ).toBe("Dispatch Cursor on acme/app");
+  });
+
   it("falls back to connector.method", () => {
     expect(
       officeApprovalCopy({

@@ -55,6 +55,7 @@ describe("withOfficeExecuteDescription", () => {
     "- `history`",
     "- `routines`",
     "- `bots`",
+    "- `cursor`",
     "- `github`",
   ].join("\n");
 
@@ -79,6 +80,17 @@ describe("withOfficeExecuteDescription", () => {
     expect(next).toMatch(/bots\.hire\(\{ marketplaceId \}\)/);
     expect(next).toMatch(/needs approval/);
     expect(next).not.toMatch(/^- `bots`$/m);
+  });
+
+  it("hints cursor so a teammate can dispatch a Cloud Agent", () => {
+    const next = withOfficeExecuteDescription(generated, false, {
+      cursor: true,
+    });
+    expect(next).toMatch(/- `cursor` — Cursor Cloud Agents/);
+    expect(next).toMatch(/cursor\.launch\(\{ repo, prompt \}\)/);
+    expect(next).toMatch(/Needs approval/);
+    expect(next).toMatch(/Not this computer/);
+    expect(next).not.toMatch(/^- `cursor`$/m);
   });
 
   it("hints routines so the bot can schedule work", () => {
@@ -126,9 +138,7 @@ describe("withOfficeExecuteDescription", () => {
     const next = withOfficeExecuteDescription(generated, false, {
       plugins: true,
     });
-    expect(next).toMatch(
-      /- `plugins` — connected accounts on this workspace/,
-    );
+    expect(next).toMatch(/- `plugins` — connected accounts on this workspace/);
     expect(next).toMatch(/plugins\.search\(\{ query \}\)/);
     expect(next).not.toMatch(/GMAIL_FETCH_EMAILS/);
     expect(next).toMatch(/plugins\.execute\(\{ slug, arguments \}\)/);

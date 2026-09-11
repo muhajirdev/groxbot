@@ -29,10 +29,12 @@ describe("buildOfficeSystemPrompt", () => {
     expect(prompt).toMatch(/Call set_context as a top-level tool/);
     expect(prompt).toMatch(/not a global inside code/);
     expect(prompt).toMatch(
-      /knowledge, routines, history, and bots live inside code/,
+      /knowledge, routines, history, bots, and cursor live inside code/,
     );
     expect(prompt).toMatch(/from` for a computer PDF/);
     expect(prompt).toMatch(/bots\.hire\(\{ marketplaceId \}\)/);
+    expect(prompt).toMatch(/cursor\.launch\(\{ repo, prompt \}\)/);
+    expect(prompt).toMatch(/bots, cursor, and page helpers/);
     expect(prompt).toMatch(/When you write a knowledge file/);
     expect(prompt).toMatch(/\[label\]\(path\/from\/office\/root\.md\)/);
     expect(prompt).not.toMatch(/This turn only has set_context/);

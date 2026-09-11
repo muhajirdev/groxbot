@@ -12,6 +12,7 @@ export * from "./computer-fs.js";
 export * from "./computer-tool-result.js";
 export * from "./tool-truncate.js";
 export * from "./connector-args.js";
+export * from "./cursor-cloud.js";
 export * from "./execute-imports.js";
 export * from "./guest-http.js";
 export * from "./guest-hub.js";

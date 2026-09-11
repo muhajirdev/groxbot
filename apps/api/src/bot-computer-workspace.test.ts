@@ -89,6 +89,13 @@ describe("Computer Worker shell wiring", () => {
     );
     expect(readSrc("bot-bots-connector.ts")).toMatch(/requiresApproval: true/);
     expect(readSrc("bot-bots-connector.ts")).toMatch(/bots\.hire/);
+    expect(readSrc("bot-cursor-connector.ts")).toMatch(
+      /class CursorConnector extends CodemodeConnector/,
+    );
+    expect(readSrc("bot-cursor-connector.ts")).toMatch(
+      /requiresApproval: true/,
+    );
+    expect(readSrc("bot-cursor-connector.ts")).toMatch(/cursor\.launch/);
   });
 
   it("constructs Computer with WorkerShellBackend, not Think bash", () => {
@@ -146,6 +153,17 @@ describe("Computer Worker shell wiring", () => {
     expect(actor).toMatch(/BotsConnector/);
     expect(actor).toMatch(/hireTeammate/);
     expect(actor).toMatch(/bots:\s*true/);
+    expect(actor).toMatch(/CursorConnector/);
+    expect(actor).toMatch(/launchCursorAgent/);
+    expect(actor).toMatch(/pollCursorCloudAgent/);
+    expect(actor).toMatch(/cursor:\s*true/);
+    expect(readSrc("bot-cursor-connector.ts")).toMatch(
+      /class CursorConnector extends CodemodeConnector/,
+    );
+    expect(readSrc("bot-cursor-connector.ts")).toMatch(
+      /requiresApproval: true/,
+    );
+    expect(readSrc("bot-cursor-connector.ts")).toMatch(/cursor\.launch/);
     expect(actor).toMatch(/PluginsConnector/);
     expect(actor).toMatch(/officeHistorySearch/);
     expect(actor).toMatch(/ensureComputerHome/);
