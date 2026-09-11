@@ -66,6 +66,7 @@ import {
   type ComponentType,
   type FC,
   type PropsWithChildren,
+  type ReactNode,
 } from "react";
 
 export type ThreadGroupPart = MessagePrimitive.GroupedParts.GroupPart;
@@ -101,6 +102,8 @@ export type ThreadProps = {
   mentionSeats?: readonly RoomMentionSeat[] | undefined;
   /** Composer sent; chat status has not reached submitted yet. */
   pending?: boolean | undefined;
+  /** Code Mode approvals — sit in the transcript, not under the composer. */
+  approvals?: ReactNode;
 };
 
 const EMPTY_COMPONENTS: ThreadComponents = {};
@@ -116,6 +119,7 @@ const ThreadChromeContext = createContext({
   botName: "",
   mentionSeats: [] as readonly RoomMentionSeat[],
   pending: false,
+  approvals: null as ReactNode,
 });
 
 // Empty office thread: still a chat — composer stays docked at the bottom.
@@ -172,6 +176,7 @@ export const Thread: FC<ThreadProps> = ({
   botName = "",
   mentionSeats = [],
   pending = false,
+  approvals = null,
 }) => {
   return (
     <ThreadComponentsContext.Provider value={components}>
@@ -184,6 +189,7 @@ export const Thread: FC<ThreadProps> = ({
           botName,
           mentionSeats,
           pending,
+          approvals,
         }}
       >
         <ThreadRoot autoFocus={autoFocus} />
@@ -194,7 +200,7 @@ export const Thread: FC<ThreadProps> = ({
 
 const ThreadRoot: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
   const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
-  const { hideComposer, pending } = useContext(ThreadChromeContext);
+  const { hideComposer, pending, approvals } = useContext(ThreadChromeContext);
   const waiting = isWaitingForAssistantMessage(pending);
 
   return (
@@ -228,6 +234,11 @@ const ThreadRoot: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
             <ThreadPrimitive.Messages>
               {() => <ThreadMessage />}
             </ThreadPrimitive.Messages>
+            {approvals ? (
+              <div data-slot="office-approvals" className="px-1">
+                {approvals}
+              </div>
+            ) : null}
             <AuiIf condition={waiting}>
               <div className="px-2" data-slot="aui_assistant-waiting">
                 <AssistantWorkingStatus />

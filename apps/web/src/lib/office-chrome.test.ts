@@ -531,6 +531,8 @@ describe("office chrome", () => {
     expect(toolFallback).not.toContain("useShowToolCalls");
     expect(toolFallback).not.toContain('data-expandable="false"');
     expect(toolFallback).toContain("toolActivityCopy");
+    expect(toolFallback).toContain("isPausedCodeOutput");
+    expect(threadAui).toContain('data-slot="office-approvals"');
     expect(toolFallback).not.toContain("Used tool");
   });
 

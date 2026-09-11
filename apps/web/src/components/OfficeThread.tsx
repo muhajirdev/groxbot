@@ -8,6 +8,8 @@ import {
 } from "@groxbot/contracts";
 import {
   lastProjectedPreview,
+  parseOfficePendingActions,
+  type OfficePendingAction,
   type PiBoundMessage,
   projectPiBoundMessages,
 } from "@groxbot/core/browser";
@@ -24,19 +26,20 @@ import {
 import { Thread } from "@/components/assistant-ui/elements/thread.aui";
 import { patchBot } from "../lib/collections";
 import { createWorkspaceAttachmentAdapter } from "../lib/computer-attachment";
-import { composerBannerError } from "../lib/errors";
+import { composerBannerError, userFacingError } from "../lib/errors";
 import { FIRST_TASK } from "../lib/jobs";
+import { OfficeApprovalActionsContext } from "../lib/office-approval-actions";
 import { OfficeAskActionsContext } from "../lib/office-ask-actions";
 import { peekOfficeMessages, setOfficeMessages } from "../lib/office-messages";
 import { orpc, queryClient } from "../lib/orpc";
 import { client } from "../lib/rpc";
 import { OFFICE_WORKING, patchThreadMeta } from "../lib/thread-cache";
-import { createImmediateSteerQueue } from "../lib/thread-steer-queue";
+import { cacheHiredTeammate } from "../lib/session";
 import { useOfficeChat } from "../lib/use-office-chat";
 import { projectedToThreadMessage } from "../lib/use-pi-thread";
 import { cn } from "../lib/utils";
-import { Button } from "../ui";
 import { AskToolUI } from "./AskToolUI";
+import { OfficeApprovalCard } from "./OfficeApprovalCard";
 import { PresentToolUI } from "./PresentToolUI";
 import { StampAppToolUI } from "./StampAppToolUI";
 
@@ -61,46 +64,6 @@ function OfficeWelcome() {
 }
 
 const THREAD_COMPONENTS = { Welcome: OfficeWelcome };
-
-type PendingApproval = {
-  executionId: string;
-  seq: number;
-  connector: string;
-  method: string;
-  args: unknown;
-};
-
-function pendingApprovals(value: unknown): PendingApproval[] {
-  if (!Array.isArray(value)) return [];
-  return value.flatMap((row) => {
-    if (!row || typeof row !== "object") return [];
-    const action = row as Record<string, unknown>;
-    return typeof action.executionId === "string" &&
-      typeof action.seq === "number" &&
-      typeof action.connector === "string" &&
-      typeof action.method === "string"
-      ? [
-          {
-            executionId: action.executionId,
-            seq: action.seq,
-            connector: action.connector,
-            method: action.method,
-            args: action.args,
-          },
-        ]
-      : [];
-  });
-}
-
-function approvalSummary(action: PendingApproval): string {
-  if (action.connector === "bots" && action.method === "hire") {
-    const args = action.args as { name?: unknown; title?: unknown } | null;
-    const name = typeof args?.name === "string" ? args.name : "this teammate";
-    const title = typeof args?.title === "string" ? ` — ${args.title}` : "";
-    return `Hire ${name}${title}`;
-  }
-  return `${action.connector}.${action.method}`;
-}
 
 export const KeptOfficeThread = memo(function KeptOfficeThread(props: {
   botId: string;
@@ -324,7 +287,7 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
   const [pending, setPending] = useState(false);
   const abortSendRef = useRef<AbortController | null>(null);
   const inFlight = busy || pending;
-  const [approvals, setApprovals] = useState<PendingApproval[]>([]);
+  const [approvals, setApprovals] = useState<OfficePendingAction[]>([]);
   const [resolvingApproval, setResolvingApproval] = useState("");
 
   useEffect(() => {
@@ -334,7 +297,7 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
 
   const refreshApprovals = useCallback(async () => {
     try {
-      setApprovals(pendingApprovals(await loadPendingApprovals()));
+      setApprovals(parseOfficePendingActions(await loadPendingApprovals()));
     } catch {
       // The next status update or poll will retry after a reconnect.
     }
@@ -343,22 +306,42 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
   useEffect(() => {
     if (!connected) return;
     void refreshApprovals();
-    const timer = window.setInterval(() => void refreshApprovals(), 3_000);
+    const ms = inFlight ? 800 : 3_000;
+    const timer = window.setInterval(() => void refreshApprovals(), ms);
     return () => window.clearInterval(timer);
-  }, [connected, refreshApprovals, status]);
+  }, [connected, inFlight, refreshApprovals, status]);
 
   const resolveApproval = useCallback(
-    async (action: PendingApproval, approved: boolean) => {
+    async (action: OfficePendingAction, approved: boolean) => {
       setResolvingApproval(action.executionId);
       try {
-        if (approved) await approveApproval(action.executionId);
-        else await rejectApproval(action.executionId, action.seq);
+        if (approved) {
+          const result = await approveApproval(action.executionId);
+          await cacheHiredTeammate(result);
+        } else {
+          await rejectApproval(action.executionId, action.seq);
+        }
+      } catch (caught) {
+        onErrorRef.current(
+          userFacingError(
+            caught,
+            approved ? "Could not hire that teammate." : "Could not reject.",
+          ),
+        );
       } finally {
         setResolvingApproval("");
         await refreshApprovals();
       }
     },
     [approveApproval, refreshApprovals, rejectApproval],
+  );
+
+  const approvalActions = useMemo(
+    () => ({
+      approve: (action: OfficePendingAction) => resolveApproval(action, true),
+      reject: (action: OfficePendingAction) => resolveApproval(action, false),
+    }),
+    [resolveApproval],
   );
 
   const askActions = useMemo(
@@ -523,56 +506,36 @@ const OfficeThreadRuntime = memo(function OfficeThreadRuntime(props: {
     <div className="flex min-h-0 flex-1 flex-col">
       <AssistantRuntimeProvider runtime={runtime}>
         <OfficeAskActionsContext.Provider value={askActions}>
-          <PresentToolUI />
-          <StampAppToolUI />
-          <AskToolUI />
-          <div className="flex min-h-0 flex-1 flex-col">
-            <Thread
-              autoFocus={false}
-              hideComposer={props.archived}
-              placeholder={props.placeholder || FIRST_TASK}
-              viewerUserId={props.userId}
-              viewerImage={props.userImage}
-              botName={props.botName}
-              pending={pending}
-              components={THREAD_COMPONENTS}
-            />
-          </div>
-          {approvals.length > 0 ? (
-            <div className="mx-5 mb-3 rounded-xl border border-line bg-card p-3 text-[13px]">
-              {approvals.map((action) => {
-                const resolving = resolvingApproval === action.executionId;
-                return (
-                  <div
-                    key={`${action.executionId}:${action.seq}`}
-                    className="flex items-center justify-between gap-3"
-                  >
-                    <span>
-                      <span className="font-medium">Approval needed:</span>{" "}
-                      {approvalSummary(action)}
-                    </span>
-                    <div className="flex shrink-0 gap-2">
-                      <Button
-                        variant="ghost"
-                        size="tiny"
-                        disabled={Boolean(resolvingApproval)}
-                        onClick={() => void resolveApproval(action, false)}
-                      >
-                        Reject
-                      </Button>
-                      <Button
-                        size="tiny"
-                        disabled={Boolean(resolvingApproval)}
-                        onClick={() => void resolveApproval(action, true)}
-                      >
-                        {resolving ? "Approving…" : "Approve"}
-                      </Button>
+          <OfficeApprovalActionsContext.Provider value={approvalActions}>
+            <PresentToolUI />
+            <StampAppToolUI />
+            <AskToolUI />
+            <div className="flex min-h-0 flex-1 flex-col">
+              <Thread
+                autoFocus={false}
+                hideComposer={props.archived}
+                placeholder={props.placeholder || FIRST_TASK}
+                viewerUserId={props.userId}
+                viewerImage={props.userImage}
+                botName={props.botName}
+                pending={pending}
+                components={THREAD_COMPONENTS}
+                approvals={
+                  approvals.length > 0 ? (
+                    <div className="flex flex-col gap-2">
+                      {approvals.map((action) => (
+                        <OfficeApprovalCard
+                          key={`${action.executionId}:${action.seq}`}
+                          action={action}
+                          resolving={resolvingApproval === action.executionId}
+                        />
+                      ))}
                     </div>
-                  </div>
-                );
-              })}
+                  ) : null
+                }
+              />
             </div>
-          ) : null}
+          </OfficeApprovalActionsContext.Provider>
         </OfficeAskActionsContext.Provider>
       </AssistantRuntimeProvider>
     </div>

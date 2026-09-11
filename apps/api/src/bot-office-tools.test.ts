@@ -143,6 +143,41 @@ describe("bindOfficeExecuteTool", () => {
       /write/,
     );
   });
+
+  it("parks a paused hire until onPaused returns", async () => {
+    const onPaused = vi.fn(async () => ({
+      status: "completed",
+      result: { id: "bot_1", name: "CEO", homeRoomId: "room_1" },
+    }));
+    const tool = bindOfficeExecuteTool(
+      {
+        execute: async () => ({
+          status: "paused",
+          executionId: "exec_hire",
+          pending: [
+            {
+              executionId: "exec_hire",
+              seq: 0,
+              connector: "bots",
+              method: "hire",
+              args: { name: "CEO" },
+            },
+          ],
+        }),
+      },
+      onPaused,
+    );
+    const result = await tool.execute("call_1", {
+      code: "return await bots.hire({ name: 'CEO' })",
+    });
+    expect(onPaused).toHaveBeenCalledWith("exec_hire", undefined);
+    const text = result.content[0];
+    expect(text?.type).toBe("text");
+    if (text?.type === "text") {
+      expect(text.text).toContain("bot_1");
+      expect(text.text).not.toContain("paused");
+    }
+  });
 });
 
 describe("officeAgentTool", () => {

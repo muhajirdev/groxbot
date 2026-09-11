@@ -25,7 +25,10 @@ import {
   WEB_SEARCH_DESCRIPTION,
   webSearchParameters,
 } from "./bot-markdown.js";
-import { bindOfficeExecuteTool } from "./bot-office-tools.js";
+import {
+  bindOfficeExecuteTool,
+  type OfficeExecutePause,
+} from "./bot-office-tools.js";
 
 type LoaderWorker = {
   getEntrypoint: () => {
@@ -189,8 +192,12 @@ export function createOfficeExecuteTool(opts: {
   page?: PageToolsOpts;
   connectors?: CodemodeConnector[];
   name?: string;
+  onPaused?: OfficeExecutePause;
 }): AgentTool {
-  return bindOfficeExecuteTool(createOfficeExecuteRuntime(opts).tool());
+  return bindOfficeExecuteTool(
+    createOfficeExecuteRuntime(opts).tool(),
+    opts.onPaused,
+  );
 }
 
 /** The durable runtime is also used by the office approval RPC. */
