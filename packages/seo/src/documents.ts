@@ -435,7 +435,7 @@ Stay offline: construct ScriptedAgentRuntime in tests. No live OpenRouter, Cloud
 
 ## Source layout
 
-apps/web desktop mobile api worker guest
+apps/web desktop mobile ios api worker guest
 packages/contracts rpc adapter-kit core db auth adapters seo
 
 ## Contact

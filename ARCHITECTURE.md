@@ -76,7 +76,7 @@ createWakeHandlers({ db, runtime, enqueue, bindRuntime, pluginTools })
 | Auth email | Worker `EMAIL` (`send_email`) |
 | Hosted models | Worker `AI` through AI Gateway |
 
-Clients share **one oRPC contract**. Desktop loads the web app. Expo later.
+Clients share **one oRPC contract**. Desktop loads the web app. Product mobile is Expo. `apps/ios` is a native SwiftUI companion on the same `/rpc` + Cap’n Web office path.
 
 ## Live apps
 

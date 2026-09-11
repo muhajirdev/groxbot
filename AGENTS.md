@@ -16,7 +16,7 @@
 - Hosted models: grox-gateway (Polar). Catalog ids `groxbot/auto` and `groxbot/free`. Self-host uses the Worker `AI` binding. Workspace BYOK wins. Hosted usage percent comes from grox-gateway (Settings → Usage & Billing). Computer time still lands in `model_usage`.
 - Auth email: Worker `EMAIL` binding (`send_email`). `EMAIL_FROM` is the from address.
 - Guest runtimes (Hermes/OpenClaw) are opt-in per bot, off by default.
-- v1 surface is **web** (Vite + TanStack Router). Desktop is Electron around web. Mobile is Expo later. All three call **oRPC** via `@groxbot/rpc`.
+- v1 surface is **web** (Vite + TanStack Router). Desktop is Electron around web. Product mobile is Expo; a native Swift companion lives in `apps/ios` for side-by-side comparison. All clients call **oRPC** via `@groxbot/rpc` (Swift uses the same `/rpc` contract).
 - **Instant paint.** Chrome never waits on a fetch. Show last-known Query / IndexedDB data and refresh in the background. Office Cap’n Web sessions live in a process map (`ensurePiThread`) — React only subscribes; hire starts the session before the Thread mounts. Settings (General, Updates, Usage & Billing) is the reference: dialog stays mounted, body fills from cache. Do not bundle catalogs into source; first open may fetch, then IndexedDB is the hot cache. See [docs/caching.md](./docs/caching.md).
 - See `docs/grok-bot-ui.md`, `docs/computers.md`, `docs/knowledge-search.md`, `docs/caching.md`, and `docs/rooms-plan.md`.
 

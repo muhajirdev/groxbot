@@ -19,6 +19,7 @@
     "dev:desktop": "turbo dev --filter=@groxbot/api --filter=@groxbot/web --filter=@groxbot/desktop",
     "dist:desktop": "pnpm --filter @groxbot/desktop run dist",
     "dev:mobile": "pnpm --filter @groxbot/mobile start",
+    "test:ios": "swift test --package-path apps/ios",
     "build": "turbo build",
     "check": "turbo check",
     "lint": "biome check .",

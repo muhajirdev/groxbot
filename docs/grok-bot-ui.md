@@ -171,7 +171,7 @@ Sidebar: Pin, Hide (work continues), Show hidden, Duplicate (profile only, not h
 
 ## iOS (later, same objects)
 
-Home = Bot list. Message, dictate, photo, `@`, threads, reactions. Computer from the conversation for watch/takeover. Routines: pause/resume on mobile; edit schedule on desktop. Same Bots as desktop.
+Product mobile is Expo. `apps/ios` is a SwiftUI companion on the same oRPC + Cap’n Web office path for comparing native feel. Home = Bot list. Message, dictate, photo, `@`, threads, reactions. Computer from the conversation. Routines: pause/resume on mobile; edit schedule on desktop. Same Bots as desktop.
 
 v1 web can ignore iOS chrome; keep the **contact list + thread + computer** mental model so mobile is not a rewrite.
 

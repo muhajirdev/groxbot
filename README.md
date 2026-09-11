@@ -19,7 +19,7 @@ Early scaffold: contracts, Neon Postgres (team data), one Durable Object per bot
 - **Computer** — built into each bot (`@cloudflare/computer` Workspace on that bot’s home `RoomActor`). Not a second table or DO.
 - **Apps** — docs / slides / sheets / CRM / game as `AppRuntime` Durable Objects
 - Plugins: Composio (optional)
-- UI: **web first** (Grok Bot-simple) — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). Desktop = Electron around web. Mobile = Expo (`pnpm dev:mobile`).
+- UI: **web first** (Grok Bot-simple) — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). Desktop = Electron around web. Mobile = Expo (`pnpm dev:mobile`). Native iOS companion (SwiftUI) = `apps/ios` (`swift test --package-path apps/ios`).
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) and [docs/computers.md](./docs/computers.md).
 
@@ -108,6 +108,15 @@ Mobile (Expo):
 pnpm dev:mobile
 ```
 
+Native iOS (Swift, comparison build — Expo stays the product mobile app):
+
+```bash
+swift test --package-path apps/ios
+open apps/ios/Groxbot.xcodeproj
+```
+
+See [apps/ios/README.md](./apps/ios/README.md). Scheme is `groxbot-ios://` so it can sit next to Expo’s `groxbot://`.
+
 The phone is the same office: roster, assistant-ui thread (Cap’n Web `/rooms/:roomId/rpc` streaming Pi snapshots + events — markdown, copy/edit/retry, branches, attachments, follow-ups), this bot’s computer, knowledge (library + graph), plugins, and settings. Live docs / slides / sheets still open in the web office.
 
 On a device, set `EXPO_PUBLIC_API_URL` to this machine’s LAN address (`http://192.168.x.x:3100`) and `EXPO_PUBLIC_WEB_URL` to the office (`http://192.168.x.x:5173`). Magic-link and Google callbacks use the `groxbot://` scheme. Live docs / slides / sheets still open in the web office.
@@ -115,7 +124,7 @@ On a device, set `EXPO_PUBLIC_API_URL` to this machine’s LAN address (`http://
 ## Layout
 
 ```
-apps/web desktop mobile landing guest api worker
+apps/web desktop mobile ios landing guest api worker
 packages/contracts rpc adapter-kit core db auth adapters mascot seo
 infra/compose
 docs/
