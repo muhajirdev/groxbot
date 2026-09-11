@@ -7,6 +7,7 @@ import {
   HOSTED_STARTER_MODEL,
   OPENROUTER_PROVIDER,
   PRODUCT_RUNTIME,
+  ZAI_API_KEY_ENV,
 } from "@groxbot/contracts";
 import { describe, expect, it } from "vitest";
 import {
@@ -53,11 +54,14 @@ const adapterContext = {
   signal: new AbortController().signal,
 };
 
-function sseResponse(content = "Hello from DeepSeek", usage?: {
-  prompt_tokens: number;
-  completion_tokens: number;
-  total_tokens: number;
-}) {
+function sseResponse(
+  content = "Hello from DeepSeek",
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  },
+) {
   const payload = [
     `data: ${JSON.stringify({
       id: "chunk-1",
@@ -543,6 +547,11 @@ describe("createAgentRuntime", () => {
     expect(
       agentRuntimeNeedsModel(PRODUCT_RUNTIME, {
         [HOSTED_AI_ENV]: HOSTED_AI_FLAG,
+      }),
+    ).toBe(false);
+    expect(
+      agentRuntimeNeedsModel(PRODUCT_RUNTIME, {
+        [ZAI_API_KEY_ENV]: "zai-test-key-123456",
       }),
     ).toBe(false);
   });

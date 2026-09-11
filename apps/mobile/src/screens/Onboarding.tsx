@@ -7,6 +7,7 @@ import {
   CLOUDFLARE_PROVIDER,
   catalogGroupLabel,
   DEFAULT_AI_GATEWAY_ID,
+  MOONSHOT_PROVIDER,
   OPENAI_CODEX_PROVIDER,
   OPENROUTER_PROVIDER,
   PROVIDER_META,
@@ -14,6 +15,7 @@ import {
   pickerCatalog,
   providerForModel,
   SUGGESTED_STARTER_MODEL,
+  ZAI_PROVIDER,
 } from "@groxbot/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -90,6 +92,8 @@ export function OnboardingScreen({
   const [openrouterKey, setOpenrouterKey] = useState("");
   const [anthropicKey, setAnthropicKey] = useState("");
   const [openaiKey, setOpenaiKey] = useState("");
+  const [zaiKey, setZaiKey] = useState("");
+  const [moonshotKey, setMoonshotKey] = useState("");
   const [openaiCodexAuth, setOpenaiCodexAuth] = useState("");
   const [cloudflareToken, setCloudflareToken] = useState("");
   const [cfAccount, setCfAccount] = useState("");
@@ -128,9 +132,13 @@ export function OnboardingScreen({
         ? anthropicKey
         : selectedProvider === "openai"
           ? openaiKey
-          : selectedProvider === OPENAI_CODEX_PROVIDER
-            ? openaiCodexAuth
-            : cloudflareToken;
+          : selectedProvider === ZAI_PROVIDER
+            ? zaiKey
+            : selectedProvider === MOONSHOT_PROVIDER
+              ? moonshotKey
+              : selectedProvider === OPENAI_CODEX_PROVIDER
+                ? openaiCodexAuth
+                : cloudflareToken;
   const providerStatus = settings?.keys.find(
     (item) => item.provider === selectedProvider,
   );
@@ -207,6 +215,12 @@ export function OnboardingScreen({
       }
       if (openaiKey.trim()) {
         keys.push({ provider: "openai", secret: openaiKey.trim() });
+      }
+      if (zaiKey.trim()) {
+        keys.push({ provider: ZAI_PROVIDER, secret: zaiKey.trim() });
+      }
+      if (moonshotKey.trim()) {
+        keys.push({ provider: MOONSHOT_PROVIDER, secret: moonshotKey.trim() });
       }
       if (openaiCodexAuth.trim()) {
         keys.push({
@@ -480,7 +494,11 @@ export function OnboardingScreen({
                   ? setOpenrouterKey
                   : selectedProvider === "anthropic"
                     ? setAnthropicKey
-                    : setOpenaiKey
+                    : selectedProvider === ZAI_PROVIDER
+                      ? setZaiKey
+                      : selectedProvider === MOONSHOT_PROVIDER
+                        ? setMoonshotKey
+                        : setOpenaiKey
               }
               secure
               placeholder={PROVIDER_META[selectedProvider].placeholder}
@@ -561,7 +579,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     fontSize: 13,
   },
-  title: { color: colors.text, fontSize: 28, fontWeight: "600", letterSpacing: -0.6 },
+  title: {
+    color: colors.text,
+    fontSize: 28,
+    fontWeight: "600",
+    letterSpacing: -0.6,
+  },
   body: { color: colors.muted, fontSize: 16, lineHeight: 22 },
   error: { color: colors.danger },
   block: { gap: 10 },

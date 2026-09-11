@@ -1,13 +1,13 @@
 import * as z from "zod";
 
-import {
-  parseOpenAiCodexAuth,
-} from "./openai-codex-auth.js";
+import { parseOpenAiCodexAuth } from "./openai-codex-auth.js";
 
 export const ANTHROPIC_PROVIDER = "anthropic" as const;
 export const OPENAI_PROVIDER = "openai" as const;
 export const OPENAI_CODEX_PROVIDER = "openai-codex" as const;
 export const OPENROUTER_PROVIDER = "openrouter" as const;
+export const ZAI_PROVIDER = "zai" as const;
+export const MOONSHOT_PROVIDER = "moonshot" as const;
 export const CLOUDFLARE_PROVIDER = "cloudflare" as const;
 
 export const ModelProvider = z.enum([
@@ -15,6 +15,8 @@ export const ModelProvider = z.enum([
   OPENAI_PROVIDER,
   OPENAI_CODEX_PROVIDER,
   OPENROUTER_PROVIDER,
+  ZAI_PROVIDER,
+  MOONSHOT_PROVIDER,
   CLOUDFLARE_PROVIDER,
 ]);
 export type ModelProvider = z.infer<typeof ModelProvider>;
@@ -24,9 +26,30 @@ export const PROVIDER_ORDER: ModelProvider[] = [
   OPENROUTER_PROVIDER,
   ANTHROPIC_PROVIDER,
   OPENAI_PROVIDER,
+  ZAI_PROVIDER,
+  MOONSHOT_PROVIDER,
   OPENAI_CODEX_PROVIDER,
   CLOUDFLARE_PROVIDER,
 ];
+
+/** OpenAI-compatible first-party BYOK (API keys, not chat/subscription logins). */
+export const NATIVE_COMPAT_PROVIDERS = [
+  ZAI_PROVIDER,
+  MOONSHOT_PROVIDER,
+] as const;
+export type NativeCompatProvider = (typeof NATIVE_COMPAT_PROVIDERS)[number];
+
+export const ZAI_API_KEY_ENV = "ZAI_API_KEY" as const;
+export const MOONSHOT_API_KEY_ENV = "MOONSHOT_API_KEY" as const;
+/** General z.ai OpenAI Chat Completions URL — not the Coding Plan endpoint. */
+export const ZAI_CHAT_BASE_URL = "https://api.z.ai/api/paas/v4" as const;
+export const MOONSHOT_CHAT_BASE_URL = "https://api.moonshot.ai/v1" as const;
+
+export function isNativeCompatProvider(
+  provider: ModelProvider | undefined,
+): provider is NativeCompatProvider {
+  return provider === ZAI_PROVIDER || provider === MOONSHOT_PROVIDER;
+}
 
 export const ModelKeySource = z.enum(["workspace", "env", "none"]);
 export type ModelKeySource = z.infer<typeof ModelKeySource>;
@@ -224,6 +247,18 @@ export const PROVIDER_META: Record<
     docsUrl: "https://platform.openai.com/api-keys",
     hint: "Direct OpenAI models.",
   },
+  [ZAI_PROVIDER]: {
+    label: "z.ai (GLM)",
+    placeholder: "API key",
+    docsUrl: "https://z.ai/manage-apikey/apikey-list",
+    hint: "Direct GLM. OpenAI-compatible key from the z.ai API console.",
+  },
+  [MOONSHOT_PROVIDER]: {
+    label: "Moonshot (Kimi)",
+    placeholder: "sk-…",
+    docsUrl: "https://platform.moonshot.ai/console/api-keys",
+    hint: "Direct Kimi. OpenAI-compatible key from the Moonshot API console.",
+  },
   [OPENAI_CODEX_PROVIDER]: {
     label: "ChatGPT (Codex)",
     placeholder: '{ "tokens": { "refresh_token": "…" } }',
@@ -248,10 +283,9 @@ export function catalogGroupLabel(provider: ModelProvider): string {
 /** Groxbot picker: hide unpaid vendor catalogs while a Groxbot model is selected.
  * Keep keyed providers visible. OpenRouter only appears when that provider is
  * selected (or has a key) — on hosted, OpenRouter models are listed under Groxbot. */
-export function pickerCatalog<T extends { id: string; provider: ModelProvider }>(
-  catalog: readonly T[],
-  selectedModelId: string,
-): T[] {
+export function pickerCatalog<
+  T extends { id: string; provider: ModelProvider },
+>(catalog: readonly T[], selectedModelId: string): T[] {
   const selected = selectedModelId.trim();
   if (!selected || selected === CUSTOM_MODEL_SENTINEL) return [...catalog];
   const listed = catalog.find((item) => item.id === selected);
@@ -260,7 +294,8 @@ export function pickerCatalog<T extends { id: string; provider: ModelProvider }>
   return catalog.filter((item) => {
     if (item.provider === CLOUDFLARE_PROVIDER) return true;
     return (
-      "available" in item && Boolean((item as { available?: boolean }).available)
+      "available" in item &&
+      Boolean((item as { available?: boolean }).available)
     );
   });
 }
@@ -310,6 +345,31 @@ export const MODEL_CATALOG = [
     id: "openai/gpt-4o-mini",
     label: "GPT-4o mini",
     provider: OPENAI_PROVIDER,
+  },
+  {
+    id: "zai/glm-5.3",
+    label: "GLM 5.3",
+    provider: ZAI_PROVIDER,
+  },
+  {
+    id: "zai/glm-5.3-flash",
+    label: "GLM 5.3 Flash",
+    provider: ZAI_PROVIDER,
+  },
+  {
+    id: "zai/glm-5.2",
+    label: "GLM 5.2",
+    provider: ZAI_PROVIDER,
+  },
+  {
+    id: "moonshot/kimi-k2.6",
+    label: "Kimi K2.6",
+    provider: MOONSHOT_PROVIDER,
+  },
+  {
+    id: "moonshot/kimi-k2.5",
+    label: "Kimi K2.5",
+    provider: MOONSHOT_PROVIDER,
   },
   {
     id: "openai-codex/gpt-5.4",
@@ -523,7 +583,7 @@ export const SaveModelKeyInput = z.object({
 });
 
 export const SaveModelSettingsInput = z.object({
-  keys: z.array(SaveModelKeyInput).max(10),
+  keys: z.array(SaveModelKeyInput).max(12),
   defaultModel: z.string().min(1).max(200),
   customModel: z.string().max(200).optional(),
   /** Omitted keeps the stored workspace effort. */
@@ -568,6 +628,8 @@ export function providerForModel(model: string): ModelProvider | undefined {
   if (trimmed.startsWith("openai-codex/")) return OPENAI_CODEX_PROVIDER;
   if (trimmed.startsWith("openai/")) return OPENAI_PROVIDER;
   if (trimmed.startsWith("openrouter/")) return OPENROUTER_PROVIDER;
+  if (trimmed.startsWith("zai/")) return ZAI_PROVIDER;
+  if (trimmed.startsWith("moonshot/")) return MOONSHOT_PROVIDER;
   if (
     trimmed.startsWith("groxbot/") ||
     trimmed === "auto" ||
@@ -594,6 +656,10 @@ export function gatewayRequestModel(model: string): string {
   if (cfIndex >= 0) return trimmed.slice(cfIndex);
   if (trimmed.startsWith("openrouter/")) {
     return trimmed.slice("openrouter/".length);
+  }
+  if (trimmed.startsWith("zai/")) return trimmed.slice("zai/".length);
+  if (trimmed.startsWith("moonshot/")) {
+    return trimmed.slice("moonshot/".length);
   }
   if (trimmed.startsWith("cloudflare-ai-gateway/")) {
     const rest = trimmed.slice("cloudflare-ai-gateway/".length);
@@ -629,10 +695,7 @@ export function gatewayModelId(model: string): string {
 
 export function labelForModel(model: string): string {
   const trimmed = model.trim();
-  if (
-    trimmed === GROXBOT_LUNA_MODEL ||
-    trimmed === GROXBOT_AUTO_LUNA_MODEL
-  ) {
+  if (trimmed === GROXBOT_LUNA_MODEL || trimmed === GROXBOT_AUTO_LUNA_MODEL) {
     return GROXBOT_AUTO_TARGET_LABEL;
   }
   const listed = MODEL_CATALOG.find((item) => item.id === trimmed);
@@ -731,6 +794,18 @@ export function validateProviderSecret(
   }
   if (provider === OPENAI_PROVIDER && !value.startsWith("sk-")) {
     return "OpenAI keys start with sk-.";
+  }
+  if (
+    provider === ZAI_PROVIDER &&
+    (value.startsWith("sk-ant-") || value.startsWith("sk-or-"))
+  ) {
+    return "That key belongs to another provider.";
+  }
+  if (
+    provider === MOONSHOT_PROVIDER &&
+    (value.startsWith("sk-ant-") || value.startsWith("sk-or-"))
+  ) {
+    return "That key belongs to another provider.";
   }
   if (provider === CLOUDFLARE_PROVIDER && value.length < 20) {
     return "That Cloudflare token is too short.";

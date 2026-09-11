@@ -1,20 +1,22 @@
 import type { ModelProvider, ThinkingEffort } from "@groxbot/contracts";
-import * as Clipboard from "expo-clipboard";
-import * as Linking from "expo-linking";
 import {
   CLOUDFLARE_PROVIDER,
   CUSTOM_MODEL_SENTINEL,
   catalogGroupLabel,
   DEFAULT_AI_GATEWAY_ID,
+  isGroxbotRouterModel,
+  MOONSHOT_PROVIDER,
   OPENAI_CODEX_PROVIDER,
   PROVIDER_META,
   PROVIDER_ORDER,
-  isGroxbotRouterModel,
   pickerCatalog,
   THINKING_EFFORT_OPTIONS,
+  ZAI_PROVIDER,
 } from "@groxbot/contracts";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import * as Clipboard from "expo-clipboard";
+import * as Linking from "expo-linking";
 import { useEffect, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Button } from "../components/Button";
@@ -24,7 +26,12 @@ import { Screen } from "../components/Screen";
 import { authClient } from "../lib/auth";
 import { userFacingError } from "../lib/errors";
 import { orpc } from "../lib/orpc";
-import { AUTO_TIMEZONE, defaultTimezone, readTimezonePref, writeTimezonePref } from "../lib/prefs";
+import {
+  AUTO_TIMEZONE,
+  defaultTimezone,
+  readTimezonePref,
+  writeTimezonePref,
+} from "../lib/prefs";
 import { client } from "../lib/rpc";
 import { resetRpcWorkspace, setRpcWorkspaceId } from "../lib/rpc-workspace";
 import type { RootStackParamList } from "../navigation";
@@ -42,6 +49,8 @@ export function YouScreen({ navigation }: Props) {
   const [openrouterKey, setOpenrouterKey] = useState("");
   const [anthropicKey, setAnthropicKey] = useState("");
   const [openaiKey, setOpenaiKey] = useState("");
+  const [zaiKey, setZaiKey] = useState("");
+  const [moonshotKey, setMoonshotKey] = useState("");
   const [openaiCodexAuth, setOpenaiCodexAuth] = useState("");
   const [cloudflareToken, setCloudflareToken] = useState("");
   const [cfAccount, setCfAccount] = useState("");
@@ -126,6 +135,12 @@ export function YouScreen({ navigation }: Props) {
       if (openaiKey.trim()) {
         keys.push({ provider: "openai", secret: openaiKey.trim() });
       }
+      if (zaiKey.trim()) {
+        keys.push({ provider: ZAI_PROVIDER, secret: zaiKey.trim() });
+      }
+      if (moonshotKey.trim()) {
+        keys.push({ provider: MOONSHOT_PROVIDER, secret: moonshotKey.trim() });
+      }
       if (openaiCodexAuth.trim()) {
         keys.push({
           provider: OPENAI_CODEX_PROVIDER,
@@ -158,6 +173,8 @@ export function YouScreen({ navigation }: Props) {
       setOpenrouterKey("");
       setAnthropicKey("");
       setOpenaiKey("");
+      setZaiKey("");
+      setMoonshotKey("");
       setOpenaiCodexAuth("");
       setCloudflareToken("");
     } catch (caught) {
@@ -312,7 +329,11 @@ export function YouScreen({ navigation }: Props) {
         onChangeText={setMemberName}
         autoCapitalize="words"
       />
-      <Button label="Save your name" onPress={() => void saveName()} busy={busy} />
+      <Button
+        label="Save your name"
+        onPress={() => void saveName()}
+        busy={busy}
+      />
       <Field
         label="Workspace"
         value={workspaceName}
@@ -333,7 +354,9 @@ export function YouScreen({ navigation }: Props) {
         >
           <Text
             style={
-              workspace.id === meQuery.data?.workspaceId ? styles.on : styles.body
+              workspace.id === meQuery.data?.workspaceId
+                ? styles.on
+                : styles.body
             }
           >
             {workspace.name}
@@ -366,11 +389,13 @@ export function YouScreen({ navigation }: Props) {
         keyboardType="email-address"
         placeholder="friend@company.com"
       />
-      <Button label="Send invite" onPress={() => void sendInvite()} busy={busy} />
+      <Button
+        label="Send invite"
+        onPress={() => void sendInvite()}
+        busy={busy}
+      />
       {inviteSent ? (
-        <Pressable
-          onPress={() => void Clipboard.setStringAsync(inviteSent)}
-        >
+        <Pressable onPress={() => void Clipboard.setStringAsync(inviteSent)}>
           <Text style={styles.on}>Invite sent — tap to copy</Text>
         </Pressable>
       ) : null}
@@ -536,6 +561,18 @@ export function YouScreen({ navigation }: Props) {
         label="OpenAI key"
         value={openaiKey}
         onChangeText={setOpenaiKey}
+        secure
+      />
+      <Field
+        label="z.ai (GLM) key"
+        value={zaiKey}
+        onChangeText={setZaiKey}
+        secure
+      />
+      <Field
+        label="Moonshot (Kimi) key"
+        value={moonshotKey}
+        onChangeText={setMoonshotKey}
         secure
       />
       <Field

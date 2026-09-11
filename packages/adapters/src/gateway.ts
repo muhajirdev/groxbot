@@ -3,12 +3,12 @@ import {
   BINDING_STARTER_MODEL,
   CLOUD_LANDING_ORIGIN,
   CLOUDFLARE_PROVIDER,
+  gatewayRequestModel as catalogGatewayRequestModel,
   DEFAULT_AI_GATEWAY_ID,
   HOSTED_AI_ENV,
   HOSTED_STARTER_MODEL,
   OPENAI_CODEX_AUTH_ENV,
   OPENROUTER_PROVIDER,
-  gatewayRequestModel as catalogGatewayRequestModel,
 } from "@groxbot/contracts";
 
 export const GATEWAY_PROVIDERS = [
@@ -50,6 +50,8 @@ export interface GatewayEnv {
   [OPENAI_CODEX_AUTH_ENV]?: string;
   [HOSTED_AI_ENV]?: string;
   OPENROUTER_API_KEY?: string;
+  ZAI_API_KEY?: string;
+  MOONSHOT_API_KEY?: string;
   WEB_ORIGIN?: string;
 }
 
