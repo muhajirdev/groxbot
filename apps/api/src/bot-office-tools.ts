@@ -11,12 +11,11 @@ import {
   failedToolMessage,
   isComputerMeterTool,
   isFailedToolValue,
-  isOfficeImageToolResult,
   jsonClone,
   looksLikeToolCrash,
   officeShellCommandRefusal,
   OFFICE_CODE_TOOL_NAME,
-  persistToolPayload,
+  persistOfficeToolPayload,
   resolveAiSdkToolResult,
   rewriteComputerToolArgs,
   shapeComputerToolResult,
@@ -77,22 +76,19 @@ function finishOfficeTool(
   >;
   details: unknown;
 } {
-  if (isOfficeImageToolResult(result)) {
-    return result;
-  }
-  const persisted = persistToolPayload(result, opts?.maxChars, {
+  const persisted = persistOfficeToolPayload(result, opts?.maxChars, {
     retain: opts?.retain,
   });
-  if (
-    isFailedToolValue(result) ||
-    looksLikeToolCrash(persisted.text)
-  ) {
+  const text = persisted.content
+    .filter(
+      (part): part is { type: "text"; text: string } => part.type === "text",
+    )
+    .map((part) => part.text)
+    .join("");
+  if (isFailedToolValue(result) || looksLikeToolCrash(text)) {
     throw new Error(failedToolMessage(result));
   }
-  return {
-    content: [{ type: "text", text: persisted.text }],
-    details: persisted.details,
-  };
+  return persisted;
 }
 
 const MISSING_EXECUTE_CODE =
