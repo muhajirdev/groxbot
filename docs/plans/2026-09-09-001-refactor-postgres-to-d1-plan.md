@@ -12,17 +12,38 @@ execution: code
 
 ## Goal Capsule
 
-- **Objective:** Replace Neon Postgres as the shared-team SQL catalog with one Cloudflare D1 database, accessed from Workers and Durable Objects through Drizzle plus D1 Sessions.
+- **Objective:** Replace Neon Postgres as the shared-team SQL catalog with one Cloudflare D1 database, accessed from Workers and Durable Objects through Drizzle on a D1 binding. D1 Sessions (`withSession`) are additive for replica routing, not a cutover blocker.
 - **Authority:** Product behavior follows this plan’s Product Contract. Actor split follows `AGENTS.md` and `docs/rooms-plan.md` except the catalog store: team data moves to D1; office transcripts, computers, and routines stay on the home `RoomActor`; knowledge stays on R2.
 - **Stop when:** Hosted API Worker has no `DATABASE_URL`. Catalog reads/writes go through a D1 binding. Drizzle schema is SQLite. Offline tests pass without Docker Postgres. Docs no longer say team data lives in Postgres. A freeze-and-copy runbook exists for hosted data.
 - **Execution profile:** Deep data-store migration. Schema dialect first, then adapter, then Worker wire, then cutover. Offline vitest. No live OpenRouter, Computer, TinyFish, or production D1 in CI.
 - **Out of scope for this run:** Per-workspace D1 sharding, Turso/libSQL as a second dialect, Hyperdrive, moving office Pi logs or R2 knowledge into D1, product feature work.
 
+## Feasibility (checked 2026-09-11 against `origin/main` `20e0a32`)
+
+The dialect + binding migration **will work**. It is not a drop-in, and regional Sessions are not “just works.”
+
+**Works / is routine**
+
+- sqlite-core schema, JSON as text, integer timestamps, partial unique indexes, `.returning()`, `onConflictDoNothing` / `onConflictDoUpdate`, SQLite `CASE` in usage mirroring.
+- D1 binding on the Worker **and** Durable Objects (`env.DB`).
+- Better Auth `provider: "sqlite"` (align timestamp types with Drizzle).
+- Same-request write-then-read on the primary without Sessions.
+
+**Latest `main` does not invalidate the catalog plan.** Since this plan branch (`b17c3bd`): office ask UI/RPC, stamp any live gadget (CRM / tic-tac-toe), custom MCP static bearer, landing nav, mobile roster padding. **No new Postgres tables.** `packages/db` journal is still `0021`. AGENTS.md still says team data is Postgres. Apps listing is still “no Postgres apps catalog.” MCP bearer stores `auth_kind` in the existing OAuth KV blob — a catalog rewrite target, not a schema fork. Implement against current `origin/main` (rebase); `bot-actor.ts` has more `createNeonHttpDb` sites than when this plan was first written.
+
+**Do not overclaim**
+
+1. Sessions are optional for “D1 works.” Replica routing needs dashboard/REST `read_replication.mode: auto` **plus** `withSession`. Without that, D1 is still one primary (same geographic class as Neon HTTP, but Cloudflare-internal). `drizzle-orm#4776` is still a draft.
+2. Admin `db.transaction` cannot move as-is. D1 has no interactive `BEGIN`. Drizzle’s D1 `transaction()` emits `BEGIN`/`COMMIT` and will fail. `commitAdminUserDelete` reads leftover bots inside the tx then branches — read first, then one write batch. Hosted Worker Neon HTTP already has no transactions; D1 `batch` is stricter than today’s Worker, not a regression vs Neon HTTP. Node postgres.js *does* have transactions today.
+3. One D1 = one SQLite writer, 10 GB, 1000 queries/invocation Paid, 100 bound params, 30 s query. Usage metering + hire spikes serialize. Not a boot blocker.
+4. Cutover is mechanical and easy to get wrong: JSONB/timestamptz transform; D1 import file cap 5 GB; freeze window.
+5. Two sqlite drivers: Worker `drizzle-orm/d1` vs Node better-sqlite3/libsql; one schema. Vitest importing Worker modules needs Cloudflare types.
+
 ## Product Contract
 
 ### Summary
 
-Hosted Groxbot talks to Neon over HTTP for auth, workspaces, roster, rooms, billing, MCP, and poke threads. This plan moves that catalog to Cloudflare D1 so the Worker uses a native binding and regional read replicas via Sessions. Office chat and knowledge placement do not change.
+Hosted Groxbot talks to Neon over HTTP for auth, workspaces, roster, rooms, billing, MCP, and poke threads. This plan moves that catalog to Cloudflare D1 so the Worker uses a native binding instead of a second-vendor HTTP hop. Regional read replicas via Sessions are optional (replication is still public beta and opt-in per database). Office chat and knowledge placement do not change.
 
 ### Problem Frame
 
@@ -39,7 +60,7 @@ The API Worker and `RoomActor` open Neon HTTP on every catalog access (`createNe
 #### Access path
 
 - R4. The API Worker and Durable Objects reach the catalog through a D1 binding, not `DATABASE_URL`.
-- R5. Catalog queries that should use replicas go through D1 Sessions (`withSession`). Stock `drizzle(env.DB)` (primary only) is not the hosted path.
+- R5. v1 hosted path may be stock `drizzle(env.DB)` (primary only). That is enough for cutover. Replica routing via `env.DB.withSession(...)` is a follow-up once read replication is enabled on the database. Do not block the dialect swap on first-class Drizzle Sessions (`drizzle-orm#4776` is still a draft; duck-typing `drizzle(session)` works at runtime with a TypeScript error).
 - R6. Local `wrangler dev` uses a local D1 database. Docker Postgres is not required for the default dev loop.
 
 #### Self-host and tests
@@ -64,11 +85,11 @@ The API Worker and `RoomActor` open Neon HTTP on every catalog access (`createNe
 - F1. Hosted catalog read
   - **Trigger:** Member opens the office; Worker serves `me` / bots / rooms.
   - **Actors:** A1
-  - **Steps:** Worker starts a D1 session → Drizzle select → JSON to the client. Client still paints from Query/IndexedDB first (R3).
+  - **Steps:** Worker Drizzle-selects on `env.DB` (primary in v1) → JSON to the client. Client still paints from Query/IndexedDB first (R3).
   - **Covered by:** R1, R4, R5, R3
 - F2. Hosted catalog write then read
   - **Trigger:** Member hires a bot or updates billing-adjacent rows in one request.
-  - **Steps:** Same D1 session for the request; writes go to the primary; later statements in that session see them (R5).
+  - **Steps:** Same request hits the D1 primary; later statements in that request see the write. Replica bookmarks are not required for this (R5).
   - **Covered by:** R5, R10
 - F3. Room turn overlay
   - **Trigger:** `RoomActor` loads a bot row and model overlay.
@@ -90,18 +111,18 @@ The API Worker and `RoomActor` open Neon HTTP on every catalog access (`createNe
 
 - AE1. Covers R1, R4, R5. Given a local wrangler API with a D1 binding, when the Worker lists bots for a workspace, then rows come from D1 and `DATABASE_URL` is unset.
 - AE2. Covers R2. Given an office turn after cutover, when the member sends a message, then the transcript is still on the home `RoomActor` SQLite log, not a D1 table.
-- AE3. Covers R5, F2. Given hire in one Worker request, when the same request reads the new bot, then the row is visible (same D1 session).
+- AE3. Covers R5, F2. Given hire in one Worker request, when the same request reads the new bot, then the row is visible (primary in v1; same-request session if replicas are on).
 - AE4. Covers R8. Given CI with no Postgres container, when `pnpm test` and `pnpm check` run, then they pass.
 - AE5. Covers R9, R10. Given a freeze-and-copy of a fixture workspace, when the Worker points at D1, then that workspace’s users, bots, `homeRoomId`s, and rooms still match.
 
 ### Scope Boundaries
 
-- In: Drizzle SQLite schema, D1 Sessions adapter, Worker/DO/MCP/Node call sites, Better Auth sqlite provider, admin batch, wrangler D1, migrate/cutover tooling, doc updates.
+- In: Drizzle SQLite schema, D1 binding adapter, Worker/DO/MCP/Node call sites, Better Auth sqlite provider, admin batch, wrangler D1, migrate/cutover tooling, doc updates.
 - Out: Per-workspace D1, Turso, Hyperdrive, office/knowledge store moves, new product APIs, D1 FTS5 for knowledge search.
 
 #### Deferred to Follow-Up Work
 
-- Cross-request D1 bookmark headers on oRPC (optional; IndexedDB and cookie cache cover most lag).
+- Enable D1 read replication (`read_replication.mode: auto`) and duck-type `drizzle(env.DB.withSession(...))` for regional reads. Cross-request bookmark headers on oRPC stay optional (IndexedDB and cookie cache cover most lag).
 - Per-workspace D1 if one database approaches 10 GB.
 - Remove `infra/compose` Postgres after self-host SQLite has been used in anger.
 
@@ -111,8 +132,8 @@ Hosted Groxbot has one SQL catalog on D1. Office and knowledge placement are unc
 
 ### Dependencies
 
-- Cloudflare Workers Paid D1 (10 GB per database, Sessions API on the Worker binding, not REST).
-- `drizzle-orm` D1 driver (`prepare` / `batch` on `D1DatabaseSession`).
+- Cloudflare Workers Paid D1 (10 GB per database). Worker binding `DB`. Sessions API is optional and Worker-binding-only.
+- `drizzle-orm` D1 driver (`prepare` / `batch` on `D1Database`).
 - Existing freeze window for hosted writes (operator-run).
 
 ## Planning Contract
@@ -121,7 +142,8 @@ Hosted Groxbot has one SQL catalog on D1. Office and knowledge placement are unc
 
 - One D1 database per Cloudflare account/deployment for v1. Not one D1 per workspace. Catalog size stays under 10 GB until a later shard plan.
 - User chose D1 over Turso after comparing portability vs Worker-native reads. Turso is not a dual dialect in this plan.
-- Default session constraint is `first-unconstrained`. Auth-critical paths that cannot tolerate replica lag use `first-primary` in the same request.
+- v1 ships on the D1 primary (`drizzle(env.DB)`). Replication is still public beta and off by default; Sessions are a follow-up, not a cutover gate.
+- If Sessions are enabled later, default constraint is `first-unconstrained`. Auth-critical paths that cannot tolerate replica lag use `first-primary` in the same request.
 - Cross-request bookmarks are not required for v1 (R3 instant paint; Better Auth cookie cache is 5 minutes).
 - Node self-host uses better-sqlite3 or `@libsql/client` against a file. Same Drizzle schema. No Postgres adapter left in `@groxbot/db`.
 - Hosted cutover is operator-run, not a product UI.
@@ -130,9 +152,9 @@ Hosted Groxbot has one SQL catalog on D1. Office and knowledge placement are unc
 
 - KTD1. Use Cloudflare D1 as the only shared-team SQL store. (session-settled: user-directed — chosen over Turso/libSQL: Worker binding and regional Sessions reads beat another HTTP vendor; self-host keeps SQLite via a file driver.)
 - KTD2. One D1 per deployment. Rejected: D1 per workspace in v1 (breaks shared billing/pricing catalog and admin purge; extra binding topology). Document the 10 GB hard cap as a follow-up trigger.
-- KTD3. Hosted Drizzle is `drizzle(env.DB.withSession(constraint), { schema })`. Keep the session object to call `getBookmark()`. Rejected: `drizzle(env.DB)` (primary only; no replica routing). Drizzle has no first-class Sessions wrapper; duck-typing `prepare`/`batch` is enough (`drizzle-team/drizzle-orm#4522`).
+- KTD3. Hosted Drizzle v1 is `drizzle(env.DB, { schema })` (primary). Replica routing via `drizzle(env.DB.withSession(constraint) as D1Database, { schema })` is follow-up after dashboard/REST `read_replication.mode: auto`. Do not wait on `drizzle-orm#4776` (still draft as of 2026-09-11). Duck-typing works at runtime; TypeScript still wants `D1Database` (`drizzle-orm#2226`, `#4522`).
 - KTD4. Rewrite `packages/db` schema from `drizzle-orm/pg-core` to `drizzle-orm/sqlite-core`. `jsonb` columns (`messages.blocks`, `events.payload`) become `text` with JSON mode. Timestamps become integer milliseconds (Drizzle sqlite timestamp mode). Partial unique indexes stay as SQLite partial indexes. Reset Drizzle snapshots (`pnpm db:generate` on empty sqlite out dir). Do not hand-write `packages/db/drizzle/*.sql`.
-- KTD5. Replace interactive `db.transaction` in `packages/core/src/admin.ts` with Drizzle `db.batch` (D1 atomic batch). Rejected: keep `db.transaction` (D1 disallows `BEGIN`).
+- KTD5. Replace interactive `db.transaction` in `packages/core/src/admin.ts` with Drizzle `db.batch`. D1 has no SQL `BEGIN`. Drizzle’s D1 driver still implements `db.transaction()` as `BEGIN`/`COMMIT` (`SQLiteD1Session.transaction`) — that path fails on D1; do not call it. `commitAdminUserDelete` currently **reads leftover bots inside the tx then branches**; `batch` cannot do that. Read first, then one write batch (TOCTOU vs Node postgres.js today). This is **not** a hosted regression: Worker Neon HTTP already throws “No transactions support,” so hosted admin purge/user-delete is already non-atomic. Node self-host (`apps/api/src/index.ts` + postgres.js) *does* have transactions today and must switch to the same read-then-batch shape.
 - KTD6. Drop `DATABASE_URL` from Worker `loadEnv`. Binding name `DB`. Tests construct Drizzle against in-memory SQLite or a Miniflare D1. `apps/api/src/env.test.ts` stops requiring a Postgres URL.
 - KTD7. Freeze-and-copy cutover. Rejected: dual-write (two dialects and two sources of truth during the window).
 - KTD8. `docs/rooms-plan.md` “Do not add D1” becomes: D1 is the team catalog; do not put office history or knowledge search in D1. AGENTS.md kernel line follows the same split.
@@ -146,12 +168,12 @@ flowchart LR
     ORPC[oRPC / Capn Web]
   end
   subgraph worker [API Worker isolate]
-    Sess["env.DB.withSession"]
-    Driz[drizzle session]
+    Bind[env.DB]
+    Driz[drizzle D1]
     Auth[Better Auth sqlite]
   end
   subgraph d1 [D1]
-    Replica[Read replica]
+    Replica[Read replica optional]
     Primary[Primary]
   end
   subgraph room [RoomActor]
@@ -163,10 +185,10 @@ flowchart LR
     Know[workspaceId prefix]
   end
   IDB --> ORPC
-  ORPC --> Sess
-  Sess --> Driz
-  Driz --> Replica
+  ORPC --> Bind
+  Bind --> Driz
   Driz --> Primary
+  Driz -.-> Replica
   Auth --> Driz
   Door --> Driz
   ORPC --> Office
@@ -174,7 +196,7 @@ flowchart LR
   ORPC --> Know
 ```
 
-Worker HTTP isolate and Durable Objects both receive the `DB` binding. Each request or actor method that hits the catalog creates a session, then Drizzle. Writes go to the primary. Replica reads require that session (KTD3). Office I/O never uses D1 (R2).
+Worker HTTP isolate and Durable Objects both receive the `DB` binding. Each request or actor method that hits the catalog constructs Drizzle on `env.DB`. Writes always go to the primary. Replica reads need replication enabled **and** `withSession` (KTD3, follow-up). Office I/O never uses D1 (R2).
 
 ### Sequencing
 
@@ -189,12 +211,16 @@ U1 schema → U2 adapters → U3 env/wrangler → U4 call sites → U5 auth/admi
 
 ### Risks & Dependencies
 
-- Risk: 10 GB / single-writer D1. Mitigation: one catalog DB; index hot paths; batch large admin deletes; shard later if size or queue overload appears.
-- Risk: Replica lag without bookmarks. Mitigation: same-request session (AE3); `first-primary` for auth session load if a stale row is unsafe; client cache (R3).
-- Risk: Drizzle `transaction` leftovers. Mitigation: U5 grep for `.transaction(` and `pg-core`.
+- Risk: 10 GB / single-writer D1 / 1000 queries per invocation / 100 bound params / 30 s query. Hire spikes and usage metering serialize on one writer. Mitigation: one catalog DB; index hot paths; batch large admin deletes; shard later if size or queue overload appears. Not a boot blocker.
+- Risk: Treating Sessions as required. Mitigation: ship on primary (R5); enable replication later. `withSession` without `read_replication.mode: auto` still hits primary.
+- Risk: Drizzle `db.transaction()` on D1. The driver emits `BEGIN`/`COMMIT`, which D1 rejects. Mitigation: U5 grep for `.transaction(`; use `db.batch` only.
+- Risk: `commitAdminUserDelete` read-inside-tx. Mitigation: select leftover bots first, then one write batch. Hosted Worker is already non-transactional (neon-http).
 - Risk: Better Auth sqlite column types. Mitigation: follow Better Auth drizzle sqlite schema (integer timestamps) in U1/U5 together.
 - Risk: `drizzle-kit` D1 HTTP has no Sessions API. Acceptable: migrations always hit primary.
+- Risk: Cutover transform (JSONB / timestamptz / 5 GB D1 import cap). Mitigation: fixture vitest in U7; freeze window; batch inserts under 100 params.
+- Risk: Implementation branch lag. This plan was cut from `main` at `b17c3bd`. Implement against current `origin/main` (rebase first). Latest catalog check 2026-09-11 (`20e0a32`): no new Postgres tables; more Neon HTTP call sites.
 - Dependency: Wrangler 4.x already in the workspace (`pnpm.overrides.wrangler`).
+- Dependency: Cloudflare Workers Paid D1 (10 GB per database). Sessions API on the Worker binding only, not REST — and only after replication is turned on.
 
 ### System-Wide Impact
 
@@ -212,10 +238,12 @@ U1 schema → U2 adapters → U3 env/wrangler → U4 call sites → U5 auth/admi
 ### Sources & Research
 
 - Cloudflare D1 limits: 10 GB/db, 1000 queries/invocation Paid, 100 bound parameters, 30 s query duration, single-threaded writer. https://developers.cloudflare.com/d1/platform/limits/
-- D1 Sessions / read replicas (six regions; off unless `withSession`). https://developers.cloudflare.com/d1/best-practices/read-replication/
+- D1 Sessions / read replicas (six regions; off unless replication is enabled **and** `withSession` is used). Still public beta as of 2026-08. https://developers.cloudflare.com/d1/best-practices/read-replication/
 - `D1DatabaseSession` is `prepare` + `batch` + `getBookmark` (no `exec`). https://developers.cloudflare.com/d1/worker-api/d1-database/
-- Drizzle official D1 guide still uses `drizzle(env.DB)` (primary only). Sessions are duck-typed.
+- Drizzle official D1 guide still uses `drizzle(env.DB)` (primary only). First-class Sessions: `drizzle-orm#4776` draft, `#4522` / `#2226` open. Users report `drizzle(env.DB.withSession())` works at runtime with a TypeScript error.
+- Drizzle `SQLiteD1Session.transaction` runs SQL `BEGIN`/`COMMIT` — invalid on D1. Use `db.batch`.
 - Current factories: `packages/db/src/neon.ts`, `packages/db/src/node.ts`, `packages/db/src/types.ts`. Worker: `apps/api/src/worker.ts`. Env: `apps/api/src/env.ts`. Schema: `packages/db/src/schema/{auth,product}.ts`. Admin tx: `packages/core/src/admin.ts`. Policy: `docs/rooms-plan.md`, `AGENTS.md`.
+- Latest `origin/main` catalog check (2026-09-11, `20e0a32`): `packages/db` schema unchanged (journal still `0021`). New Neon HTTP call sites in `bot-actor.ts` (office overlay/hire). MCP static bearer stores `auth_kind` in the existing OAuth KV blob, not a new table. Office ask / stamp_app / live gadgets stay on actors and chat cards — still “no Postgres apps catalog.” AGENTS.md kernel still says Postgres (Neon).
 
 ## Implementation Units
 
@@ -245,13 +273,13 @@ U1 schema → U2 adapters → U3 env/wrangler → U4 call sites → U5 auth/admi
 - **Files:** `packages/db/src/types.ts`, `packages/db/src/d1.ts` (new), `packages/db/src/node.ts`, `packages/db/src/neon.ts` (remove), `packages/db/src/index.ts`, `packages/db/package.json`
 - **Approach:**
   1. `Database` type is the sqlite Drizzle database (D1 and better-sqlite3/libsql share schema).
-  2. `createD1Db(binding, constraintOrBookmark?)` calls `binding.withSession(...)` then `drizzle(session, { schema })`. Return `{ db, close, getBookmark }` so callers can keep the session bookmark (KTD3).
+  2. `createD1Db(binding)` is `drizzle(binding, { schema })` for v1. Optional later: `createD1Db(binding, constraintOrBookmark?)` that calls `binding.withSession(...)` and casts to `D1Database`, returning `{ db, close, getBookmark }` (KTD3).
   3. Node `createDb(path)` uses a file or `:memory:` sqlite driver with the same schema.
   4. Delete `createNeonHttpDb` and `@neondatabase/serverless` / `postgres` deps.
-- **Patterns to follow:** Current `DbHandles` `{ db, close }` plus optional `getBookmark`.
+- **Patterns to follow:** Current `DbHandles` `{ db, close }` plus optional `getBookmark` only if Sessions land.
 - **Test scenarios:**
   - In-memory Node sqlite: insert bot + select by id.
-  - Factory defaults to `first-unconstrained` when bookmark omitted.
+  - Factory does not require a bookmark.
   - Package no longer imports `drizzle-orm/neon-http` or `postgres`.
 - **Verification:** `pnpm exec vitest run packages/db` (new tests in U6 may land here).
 - **Execution note:** Adapter tests first against `:memory:` sqlite so U4 is not blocked on wrangler.
@@ -279,15 +307,16 @@ U1 schema → U2 adapters → U3 env/wrangler → U4 call sites → U5 auth/admi
 - **Dependencies:** U2, U3
 - **Files:** `apps/api/src/worker.ts`, `apps/api/src/room-actor.ts`, `apps/api/src/bot-actor.ts`, `apps/api/src/mcp-http.ts`, `apps/api/src/index.ts`, `apps/worker/src/index.ts`, any remaining `createNeonHttpDb` / `databaseUrl` catalog uses (`rg createNeonHttpDb`, `rg databaseUrl`)
 - **Approach:**
-  1. Worker `fetch`: one `createD1Db(env.DB)` per request; pass `db` into `createApp` as today.
-  2. `RoomActor` overlay load uses `this.env.DB` with a session, not Neon HTTP.
-  3. MCP OAuth KV load/save uses the same binding.
-  4. Node entrypoints use `createDb` with `DATABASE_PATH` or similar file path (R7).
-  5. Do not route office `sessions`/`entries` or R2 knowledge through D1.
+  1. Rebase the implementation branch onto current `origin/main` before editing. As of 2026-09-11 (`20e0a32`) `bot-actor.ts` has more Neon HTTP sites (office overlay/hire) than this plan’s original `main`.
+  2. Worker `fetch`: one `createD1Db(env.DB)` per request; pass `db` into `createApp` as today.
+  3. `RoomActor` overlay load uses `this.env.DB`, not Neon HTTP.
+  4. MCP OAuth KV load/save uses the same binding. Carry extra KV keys added on main (`auth_kind` for static bearer vs OAuth) — not a new table.
+  5. Node entrypoints use `createDb` with `DATABASE_PATH` or similar file path (R7).
+  6. Do not route office `sessions`/`entries` or R2 knowledge through D1. Office ask, stamp_app, and live gadgets stay on actors / chat cards.
 - **Test scenarios:**
   - `rg createNeonHttpDb` and `rg @groxbot/db/neon` are empty.
   - Room overlay select is still a catalog read (unit or actor test with sqlite fake).
-  - MCP load/save still round-trips ciphertext keys.
+  - MCP load/save still round-trips ciphertext keys **and** `auth_kind`.
 - **Verification:** `pnpm exec vitest run` on touched API tests; grep gates in review.
 
 ### U5. Better Auth sqlite and admin batch
@@ -298,8 +327,8 @@ U1 schema → U2 adapters → U3 env/wrangler → U4 call sites → U5 auth/admi
 - **Files:** `packages/auth/src/index.ts`, `packages/core/src/admin.ts`, `packages/core/src/admin.ts` tests if present, `apps/api/src/admin-purge.ts`
 - **Approach:**
   1. `drizzleAdapter(db, { provider: "sqlite", schema: … })`.
-  2. Rewrite `commitAdminUserDelete` and `purgeDeploymentData` as ordered `db.batch([...])` statements that preserve today’s semantics (KTD5). Sidecar DO/R2 cleanup stays outside the batch (`admin-purge.ts`).
-  3. Health check `sql\`select 1\`` stays valid on SQLite.
+  2. Rewrite `commitAdminUserDelete` and `purgeDeploymentData` as ordered `db.batch([...])` (KTD5). Select leftover bots **before** the write batch; do not read inside `batch`. Sidecar DO/R2 cleanup stays outside the batch (`admin-purge.ts`). Do not call Drizzle `db.transaction()` on D1.
+  3. Health check `sql\`select 1\`` stays valid on SQLite. Confirm D1 drizzle uses `.run()` / `.all()`, not a Postgres-style `.execute()` that the session does not map.
 - **Test scenarios:**
   - Auth adapter provider is `sqlite`.
   - User delete: sole workspaces removed; shared rooms reassigned; user row gone; all-or-nothing if a statement fails (batch abort).
@@ -330,7 +359,7 @@ U1 schema → U2 adapters → U3 env/wrangler → U4 call sites → U5 auth/admi
 - **Files:** `packages/db/drizzle.config.ts` (d1-http credentials for apply), `apps/api/.dev.vars.example`, `infra/compose/docker-compose.yml` (stop being required; comment or leave unused), new operator doc section in U8, optional `packages/db` dump/transform script (no secrets in repo)
 - **Approach:**
   1. `wrangler d1 create` + local `--local` execute of generated SQL for `pnpm dev`.
-  2. Remote apply via `drizzle-kit` `driver: "d1-http"` or `wrangler d1 execute --file` on generated SQL. Primary only (KTD3 does not apply to kit).
+  2. Remote apply via `drizzle-kit` `driver: "d1-http"` or `wrangler d1 execute --file` on generated SQL. Always primary.
   3. Cutover script: read Postgres dump, coerce JSON/timestamps, insert in batched statements under the 100-parameter and 30 s limits. Idempotent on primary keys.
   4. Covers F4 / AE5 against a fixture, not production, in CI if the fixture is tiny; otherwise a documented dry-run command.
 - **Test scenarios:**
@@ -364,7 +393,7 @@ U1 schema → U2 adapters → U3 env/wrangler → U4 call sites → U5 auth/admi
 
 ## Definition of Done
 
-- Hosted Worker catalog path is D1 Sessions + Drizzle (KTD1, KTD3). `DATABASE_URL` is gone from Worker env (R4).
+- Hosted Worker catalog path is D1 + Drizzle (KTD1, KTD3). `DATABASE_URL` is gone from Worker env (R4). Sessions/replicas are not required for Done.
 - Schema is sqlite-core with generated snapshots (KTD4).
 - Admin deletes use batch (KTD5). Better Auth is sqlite (U5).
 - Office transcripts and R2 knowledge are unchanged (R2, AE2).
