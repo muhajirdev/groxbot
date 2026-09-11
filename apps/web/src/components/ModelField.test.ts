@@ -4,14 +4,11 @@ import { fileURLToPath } from "node:url";
 import {
   CLOUDFLARE_PROVIDER,
   CUSTOM_MODEL_SENTINEL,
-  OPENROUTER_PROVIDER,
   type ModelCatalogItem,
+  OPENROUTER_PROVIDER,
 } from "@groxbot/contracts";
 import { describe, expect, it } from "vitest";
-import {
-  modelPickerGroups,
-  modelPickerItemMatches,
-} from "./ModelField";
+import { modelPickerGroups, modelPickerItemMatches } from "./ModelField";
 
 const root = dirname(fileURLToPath(import.meta.url));
 

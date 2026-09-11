@@ -1,19 +1,24 @@
-import type { Me, ModelProvider, ThinkingEffort, WorkspaceMember } from "@groxbot/contracts";
+import type {
+  Me,
+  ModelProvider,
+  ThinkingEffort,
+  WorkspaceMember,
+} from "@groxbot/contracts";
 import {
-  canSaveDefaultModelChoice,
   CLOUDFLARE_PROVIDER,
   CUSTOM_MODEL_SENTINEL,
+  canSaveDefaultModelChoice,
   DEFAULT_AI_GATEWAY_ID,
+  isGroxbotRouterModel,
+  isOpenAiCodexModel,
   missingProviderMessage,
   OPENAI_CODEX_PROVIDER,
   OPENAI_CODEX_SETUP_STEPS,
-  isOpenAiCodexModel,
   PRO_TRIAL_INTERVAL_COUNT,
   PROVIDER_META,
   PROVIDER_ORDER,
-  pickerCatalog,
-  isGroxbotRouterModel,
   parseThinkingEffort,
+  pickerCatalog,
   WORKSPACE_PLAN_BELIEVERS,
   WORKSPACE_PLAN_PLUS,
   WORKSPACE_PLAN_PRO,
@@ -26,7 +31,10 @@ import { billingStatusLabel } from "../lib/billing-format";
 import { BUILD_REVISION, shortRevision } from "../lib/build";
 import { readDebugMode, useDebugMode, writeDebugMode } from "../lib/debug-mode";
 import { userFacingError } from "../lib/errors";
-import { modelKeyDraftsReady, modelKeySavePayload } from "../lib/model-settings";
+import {
+  modelKeyDraftsReady,
+  modelKeySavePayload,
+} from "../lib/model-settings";
 import type { OfficeColorId } from "../lib/office-color";
 import { workspaceListQueryOptions } from "../lib/office-persist";
 import { OFFICE_TO, officeParams, WORKSPACE_TO } from "../lib/office-route";
@@ -49,11 +57,11 @@ import {
   writeCachedWorkspace,
 } from "../lib/workspace-switcher";
 import { Button, ModalShell } from "../ui";
+import { EffortField } from "./EffortField";
 import { ChevronDownIcon, CloseIcon } from "./Icons";
+import { ModelField } from "./ModelField";
 import { OfficeLookList } from "./OfficeColorPicker";
 import { PersonAvatar } from "./PersonAvatar";
-import { EffortField } from "./EffortField";
-import { ModelField } from "./ModelField";
 import { TimezoneField } from "./TimezoneField";
 
 type Tab = "general" | "appearance" | "models" | "billing" | "updates";
@@ -606,7 +614,9 @@ function WorkspaceSettings(props: {
                           maxLength={80}
                           aria-label="Your name"
                           disabled={savingMember}
-                          onChange={(event) => setMemberName(event.target.value)}
+                          onChange={(event) =>
+                            setMemberName(event.target.value)
+                          }
                         />
                         <button
                           className="mini"
@@ -818,7 +828,9 @@ function BillingTab() {
                     {statusLabel}
                   </p>
                 ) : billing.plan === "none" ? (
-                  <p className="muted billing-plan-status">No hosted plan yet</p>
+                  <p className="muted billing-plan-status">
+                    No hosted plan yet
+                  </p>
                 ) : null}
               </div>
               {billing.portalAvailable && billing.plan !== "none" ? (
@@ -932,8 +944,8 @@ function CodexSetupSteps(props: { connected: boolean }) {
         </p>
       ) : (
         <p className="hint">
-          This is not an API key. ChatGPT Plus or Pro, then paste the login
-          file from your computer.
+          This is not an API key. ChatGPT Plus or Pro, then paste the login file
+          from your computer.
         </p>
       )}
       <ol className="codex-setup-steps">
@@ -1106,7 +1118,7 @@ function ModelsTab() {
     void persist({ keys, clearDrafts: true });
   }
 
-  async function clear(provider: ModelProvider) {
+  function clear(provider: ModelProvider) {
     if (!settings) return;
     if (
       !window.confirm(
@@ -1116,25 +1128,11 @@ function ModelsTab() {
       )
     )
       return;
-    setBusy(true);
-    setError("");
-    try {
-      const next = await client.models.save({
-        defaultModel: selectedModel || settings.defaultModel,
-        customModel: custom,
-        keys: [{ provider, clear: true }],
-      });
-      queryClient.setQueryData(orpc.models.get.queryOptions().queryKey, next);
-      await queryClient.invalidateQueries({ queryKey: orpc.me.key() });
-      if (provider === CLOUDFLARE_PROVIDER) {
-        setAccountId("");
-        setGatewayId("");
-      }
-    } catch (caught) {
-      setError(userFacingError(caught, "Could not clear"));
-    } finally {
-      setBusy(false);
+    if (provider === CLOUDFLARE_PROVIDER) {
+      setAccountId("");
+      setGatewayId("");
     }
+    void persist({ keys: [{ provider, clear: true }] });
   }
 
   if (!settings) {
@@ -1186,7 +1184,9 @@ function ModelsTab() {
                 }}
               />
             </label>
-            <p className="hint">How hard the model thinks. Off skips reasoning.</p>
+            <p className="hint">
+              How hard the model thinks. Off skips reasoning.
+            </p>
           </>
         )}
         {selectedModel === CUSTOM_MODEL_SENTINEL ? (
@@ -1300,9 +1300,8 @@ function ModelsTab() {
                     {provider === OPENAI_CODEX_PROVIDER ? (
                       selectedCodexModel ? (
                         <p className="hint">
-                          Paste the whole{" "}
-                          <code>~/.codex/auth.json</code> file. It saves
-                          when you leave the box.
+                          Paste the whole <code>~/.codex/auth.json</code> file.
+                          It saves when you leave the box.
                         </p>
                       ) : (
                         <CodexSetupSteps

@@ -1,7 +1,4 @@
-import {
-  CLOUDFLARE_PROVIDER,
-  OPENROUTER_PROVIDER,
-} from "@groxbot/contracts";
+import { CLOUDFLARE_PROVIDER, OPENROUTER_PROVIDER } from "@groxbot/contracts";
 import { describe, expect, it } from "vitest";
 import {
   canSaveCloudflareSettings,
@@ -17,9 +14,9 @@ describe("providerSecretDraftsDirty", () => {
     expect(providerSecretDraftsDirty({ [OPENROUTER_PROVIDER]: "  " })).toBe(
       false,
     );
-    expect(
-      providerSecretDraftsDirty({ [CLOUDFLARE_PROVIDER]: "token" }),
-    ).toBe(false);
+    expect(providerSecretDraftsDirty({ [CLOUDFLARE_PROVIDER]: "token" })).toBe(
+      false,
+    );
     expect(
       providerSecretDraftsDirty({ [OPENROUTER_PROVIDER]: "sk-or-key" }),
     ).toBe(true);
