@@ -34,9 +34,18 @@ export type ModelKeySource = z.infer<typeof ModelKeySource>;
 /** One-key starter. Native Anthropic/OpenAI stay available when those keys exist. */
 export const SUGGESTED_STARTER_MODEL = "openrouter/deepseek/deepseek-v4-flash";
 
-/** Groxbot hosted routers. The proprietary gateway owns what they run. */
+/** Groxbot hosted routers. Free stays a gateway slug; Auto is OpenRouter Auto. */
 export const GROXBOT_AUTO_MODEL = "groxbot/auto" as const;
 export const GROXBOT_FREE_MODEL = "groxbot/free" as const;
+/** OpenRouter Auto Router wire slug. Catalog / picker stay `groxbot/auto`. */
+export const OPENROUTER_AUTO_MODEL = "openrouter/auto" as const;
+export const OPENROUTER_AUTO_PLUGIN_ID = "auto-router" as const;
+/** Current Auto allowlist — widen later without changing the picker. */
+export const GROXBOT_AUTO_LUNA_MODEL = "openai/gpt-5.6-luna" as const;
+export const GROXBOT_AUTO_ALLOWED_MODELS = [GROXBOT_AUTO_LUNA_MODEL] as const;
+export const GROXBOT_AUTO_TARGET_LABEL = "GPT-5.6 Luna" as const;
+/** Hosted catalog id for a pinned Luna. Not what Auto sends as `model`. */
+export const GROXBOT_LUNA_MODEL = "groxbot/openai/gpt-5.6-luna" as const;
 
 /** Self-host Worker AI binding starter. grox-gateway still accepts leftover `@cf/…` ids. */
 export const BINDING_STARTER_MODEL =
@@ -86,14 +95,63 @@ export function isGroxbotRouterModel(model: string): boolean {
   );
 }
 
+export function isGroxbotAutoModel(model: string): boolean {
+  const trimmed = model.trim();
+  return trimmed === GROXBOT_AUTO_MODEL || trimmed === "auto";
+}
+
+export function isOpenRouterAutoModel(model: string): boolean {
+  return model.trim() === OPENROUTER_AUTO_MODEL;
+}
+
+/** Catalog Auto or the OpenRouter Auto Router wire slug. */
+export function isAutoRouterModel(model: string): boolean {
+  return isGroxbotAutoModel(model) || isOpenRouterAutoModel(model);
+}
+
+export function openRouterAutoPlugin(
+  allowed: readonly string[] = GROXBOT_AUTO_ALLOWED_MODELS,
+): { id: typeof OPENROUTER_AUTO_PLUGIN_ID; allowed_models: string[] } {
+  return {
+    id: OPENROUTER_AUTO_PLUGIN_ID,
+    allowed_models: [...allowed],
+  };
+}
+
+/** Effort is for a pinned model. Auto / Free do not send reasoning. */
+export function modelUsesThinkingEffort(model: string): boolean {
+  const trimmed = model.trim();
+  return (
+    Boolean(trimmed) &&
+    !isGroxbotRouterModel(trimmed) &&
+    !isOpenRouterAutoModel(trimmed)
+  );
+}
+
+/**
+ * Catalog Auto stays `groxbot/auto`. The stream layer sends
+ * {@link OPENROUTER_AUTO_MODEL} plus {@link openRouterAutoPlugin}.
+ */
+export function resolveGroxbotAutoModel(
+  model: string,
+  opts?: { hostedGateway?: boolean },
+): string {
+  const trimmed = model.trim();
+  if (opts?.hostedGateway === false) return trimmed;
+  if (isGroxbotAutoModel(trimmed)) return GROXBOT_AUTO_MODEL;
+  return trimmed;
+}
+
 /**
  * Hosted grox-gateway catalog ids. OpenRouter-sourced models become
  * `groxbot/openai/…` (not `openrouter/…`) so the product prefix matches the host.
- * Routers stay `groxbot/auto` / `groxbot/free`.
+ * Auto stays `groxbot/auto` (OpenRouter Auto is the wire slug, not a catalog id).
+ * Free stays `groxbot/free`.
  */
 export function asHostedGroxbotModelId(model: string): string {
   const trimmed = model.trim();
   if (!trimmed) return "";
+  if (isOpenRouterAutoModel(trimmed)) return GROXBOT_AUTO_MODEL;
   if (isGroxbotRouterModel(trimmed)) {
     return trimmed.startsWith("groxbot/") ? trimmed : `groxbot/${trimmed}`;
   }
@@ -266,6 +324,26 @@ export const MODEL_CATALOG = [
   {
     id: "openai-codex/gpt-5.5",
     label: "GPT-5.5 (ChatGPT)",
+    provider: OPENAI_CODEX_PROVIDER,
+  },
+  {
+    id: "openai-codex/gpt-5.6-luna",
+    label: "GPT-5.6 Luna (ChatGPT)",
+    provider: OPENAI_CODEX_PROVIDER,
+  },
+  {
+    id: "openai-codex/gpt-5.6-terra",
+    label: "GPT-5.6 Terra (ChatGPT)",
+    provider: OPENAI_CODEX_PROVIDER,
+  },
+  {
+    id: "openai-codex/gpt-5.6-sol",
+    label: "GPT-5.6 Sol (ChatGPT)",
+    provider: OPENAI_CODEX_PROVIDER,
+  },
+  {
+    id: "openai-codex/gpt-6-astra",
+    label: "GPT-6 Astra (ChatGPT)",
     provider: OPENAI_CODEX_PROVIDER,
   },
   {
@@ -551,6 +629,12 @@ export function gatewayModelId(model: string): string {
 
 export function labelForModel(model: string): string {
   const trimmed = model.trim();
+  if (
+    trimmed === GROXBOT_LUNA_MODEL ||
+    trimmed === GROXBOT_AUTO_LUNA_MODEL
+  ) {
+    return GROXBOT_AUTO_TARGET_LABEL;
+  }
   const listed = MODEL_CATALOG.find((item) => item.id === trimmed);
   return listed?.label ?? trimmed;
 }

@@ -203,10 +203,10 @@ export function WorkspaceSwitcher(props: {
           className="group no-drag flex w-full min-w-0 items-center gap-1 rounded-lg border-0 bg-transparent px-1.5 py-1 text-left text-ink outline-none transition-[background-color] duration-[var(--dur-popover)] ease-[var(--ease-dialog)] hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent data-popup-open:bg-hover"
           aria-label="Switch workspace"
         >
-          <span className="min-w-0 truncate text-sm font-semibold">
+          <span className="workspace-switcher-label min-w-0 truncate text-sm font-semibold">
             {label}
           </span>
-          <ChevronDownIcon className="size-3.5 shrink-0 text-muted transition-transform group-data-popup-open:rotate-180" />
+          <ChevronDownIcon className="workspace-switcher-caret size-3.5 shrink-0 text-muted transition-transform group-data-popup-open:rotate-180" />
         </Menu.Trigger>
         <Menu.Portal>
           <Menu.Positioner

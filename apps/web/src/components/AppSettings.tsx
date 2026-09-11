@@ -11,6 +11,7 @@ import {
   PROVIDER_META,
   PROVIDER_ORDER,
   pickerCatalog,
+  isGroxbotRouterModel,
   parseThinkingEffort,
   WORKSPACE_PLAN_BELIEVERS,
   WORKSPACE_PLAN_PLUS,
@@ -1113,15 +1114,19 @@ function ModelsTab() {
             }}
           />
         </label>
-        <label className="field">
-          <span>Effort</span>
-          <EffortField
-            value={selectedEffort}
-            className="bg-card-2"
-            onChange={(next) => setEffort(parseThinkingEffort(next))}
-          />
-        </label>
-        <p className="hint">How hard the model thinks. Off skips reasoning.</p>
+        {isGroxbotRouterModel(selectedModel) ? null : (
+          <>
+            <label className="field">
+              <span>Effort</span>
+              <EffortField
+                value={selectedEffort}
+                className="bg-card-2"
+                onChange={(next) => setEffort(parseThinkingEffort(next))}
+              />
+            </label>
+            <p className="hint">How hard the model thinks. Off skips reasoning.</p>
+          </>
+        )}
         {selectedModel === CUSTOM_MODEL_SENTINEL ? (
           <label className="field">
             <span>Model id</span>

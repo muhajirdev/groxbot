@@ -302,6 +302,28 @@ export function CloseIcon(props: IconProps) {
   return <Glyph icon={Cancel01Icon} {...props} />;
 }
 
+export function ExpandIcon(props: IconProps) {
+  return (
+    <OfficeSvg kind="expand" {...props}>
+      <path d="M9 4H4v5" />
+      <path d="M15 4h5v5" />
+      <path d="M20 15v5h-5" />
+      <path d="M4 15v5h5" />
+    </OfficeSvg>
+  );
+}
+
+export function CompressIcon(props: IconProps) {
+  return (
+    <OfficeSvg kind="compress" {...props}>
+      <path d="M9 4v5H4" />
+      <path d="M15 4v5h5" />
+      <path d="M20 15h-5v5" />
+      <path d="M4 15h5v5" />
+    </OfficeSvg>
+  );
+}
+
 export function ChevronLeftIcon(props: IconProps) {
   return <Glyph icon={ChevronLeftGlyph} {...props} />;
 }

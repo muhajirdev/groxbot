@@ -14,6 +14,8 @@ import {
   GROXBOT_AUTO_MODEL,
   GROXBOT_FREE_MODEL,
   asHostedGroxbotModelId,
+  modelUsesThinkingEffort,
+  resolveGroxbotAutoModel,
   gatewayModelId,
   groxHostedGateway,
   HOSTED_AI_ENV,
@@ -669,18 +671,25 @@ export async function resolveRunModel(
     usedHosted,
     hostedStarterModel(baseEnv),
   );
-  const runModel =
-    groxHostedGateway(baseEnv) && model.startsWith("openrouter/")
-      ? asHostedGroxbotModelId(model)
-      : model;
+  const hostedGateway = Boolean(groxHostedGateway(baseEnv));
+  const runModel = hostedGateway
+    ? resolveGroxbotAutoModel(
+        model.startsWith("openrouter/")
+          ? asHostedGroxbotModelId(model)
+          : model,
+        { hostedGateway: true },
+      )
+    : model;
   if (runModel) env.GROXBOT_MODEL = runModel;
   const configured = modelIsRunnable(runModel, providers, {
-    hostedGateway: Boolean(groxHostedGateway(baseEnv)),
+    hostedGateway,
   });
   return {
     env,
     model: runModel,
-    effort: resolveTurnEffort(bot.effort, settings.effort),
+    effort: modelUsesThinkingEffort(model)
+      ? resolveTurnEffort(bot.effort, settings.effort)
+      : "off",
     configured,
     hosted: usedHosted && providerForModel(runModel) === CLOUDFLARE_PROVIDER,
   };

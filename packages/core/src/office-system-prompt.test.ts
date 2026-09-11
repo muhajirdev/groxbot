@@ -28,7 +28,9 @@ describe("buildOfficeSystemPrompt", () => {
     expect(prompt).not.toMatch(/- present:/);
     expect(prompt).toMatch(/Call set_context as a top-level tool/);
     expect(prompt).toMatch(/not a global inside code/);
-    expect(prompt).toMatch(/knowledge, routines, history, and bots live inside code/);
+    expect(prompt).toMatch(
+      /knowledge, routines, history, and bots live inside code/,
+    );
     expect(prompt).toMatch(/from` for a computer PDF/);
     expect(prompt).toMatch(/bots\.hire\(\{ marketplaceId \}\)/);
     expect(prompt).toMatch(/When you write a knowledge file/);
@@ -45,7 +47,10 @@ describe("buildOfficeSystemPrompt", () => {
     expect(prompt).toMatch(/- stamp_app:/);
     expect(prompt).toMatch(/call stamp_app/);
     expect(prompt).toMatch(/clientJs, and serverJs/);
-    expect(prompt).toMatch(/Never say an app exists unless stamp_app returned ok/);
+    expect(prompt).toMatch(/validation fails.*retry/);
+    expect(prompt).toMatch(
+      /Never say an app exists unless stamp_app returned ok/,
+    );
   });
 
   it("describes the live app this room is looking at", () => {

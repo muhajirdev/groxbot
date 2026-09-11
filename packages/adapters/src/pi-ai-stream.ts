@@ -13,8 +13,12 @@ import { cloudflareAIGatewayProvider } from "@earendil-works/pi-ai/providers/clo
 import { openrouterProvider } from "@earendil-works/pi-ai/providers/openrouter";
 import {
   CLOUDFLARE_PROVIDER,
+  OPENROUTER_AUTO_MODEL,
+  OPENROUTER_AUTO_PLUGIN_ID,
   OPENROUTER_PROVIDER,
+  isAutoRouterModel,
   isGroxbotRouterModel,
+  openRouterAutoPlugin,
 } from "@groxbot/contracts";
 import type { GatewayConfig, GatewayProvider } from "./gateway.js";
 import { withAssistantUsage } from "./pi-context-usage.js";
@@ -92,10 +96,79 @@ export function piAiGatewayModelId(model: string): string {
 
 export function piAiOpenRouterModelId(model: string): string {
   const trimmed = model.trim();
+  if (isAutoRouterModel(trimmed)) return OPENROUTER_AUTO_MODEL;
   if (trimmed.startsWith("openrouter/")) {
     return trimmed.slice("openrouter/".length);
   }
   return trimmed;
+}
+
+function mergeAutoRouterPlugin(plugins: unknown): unknown[] {
+  const list = Array.isArray(plugins) ? [...plugins] : [];
+  const existing = list.find(
+    (row) =>
+      row &&
+      typeof row === "object" &&
+      (row as { id?: unknown }).id === OPENROUTER_AUTO_PLUGIN_ID,
+  ) as { allowed_models?: unknown } | undefined;
+  if (existing) {
+    if (
+      !Array.isArray(existing.allowed_models) ||
+      existing.allowed_models.length === 0
+    ) {
+      existing.allowed_models = openRouterAutoPlugin().allowed_models;
+    }
+    return list;
+  }
+  return [...list, openRouterAutoPlugin()];
+}
+
+/** Rewrite a chat-completions body onto OpenRouter Auto + the Luna allowlist. */
+export function patchOpenRouterAutoBody(
+  body: string,
+  sessionId?: string,
+): string | null {
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(body) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+  const model = typeof parsed.model === "string" ? parsed.model : "";
+  if (!isAutoRouterModel(model) && model !== "auto") return null;
+  parsed.model = OPENROUTER_AUTO_MODEL;
+  parsed.plugins = mergeAutoRouterPlugin(parsed.plugins);
+  const trimmedSession = sessionId?.trim();
+  if (trimmedSession && typeof parsed.session_id !== "string") {
+    parsed.session_id = trimmedSession;
+  }
+  return JSON.stringify(parsed);
+}
+
+export function patchOpenRouterAutoRequest(
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+  sessionId?: string,
+): { input: RequestInfo | URL; init?: RequestInit } {
+  if (typeof init?.body !== "string") return { input, init };
+  const body = patchOpenRouterAutoBody(init.body, sessionId);
+  if (!body) return { input, init };
+  const headers = new Headers(init.headers);
+  const trimmedSession = sessionId?.trim();
+  if (trimmedSession && !headers.has("x-session-id")) {
+    headers.set("x-session-id", trimmedSession);
+  }
+  return { input, init: { ...init, headers, body } };
+}
+
+export function withOpenRouterAutoRouter(
+  fetchFn: typeof fetch,
+  sessionId?: string,
+): typeof fetch {
+  return (input, init) => {
+    const patched = patchOpenRouterAutoRequest(input, init, sessionId);
+    return fetchFn(patched.input, patched.init);
+  };
 }
 
 export function piAiRequestModel(
@@ -246,13 +319,15 @@ export function createGatewayStreamFn(
   return (model, context, options) => {
     try {
       const piModel = resolvePiAiModel(config, model.id || config.model);
+      const sessionId =
+        metadata?.roomId?.trim() || metadata?.sessionId?.trim();
       return getOfficePiModels().streamSimple(
         piModel,
         withAssistantUsage(context),
         {
           ...options,
           apiKey: config.apiKey,
-          fetch: config.fetch,
+          fetch: withOpenRouterAutoRouter(config.fetch, sessionId),
           env: { ...options?.env, ...piAiStreamEnv(config) },
           headers: {
             ...options?.headers,

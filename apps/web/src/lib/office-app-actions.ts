@@ -9,6 +9,7 @@ export type OfficeAppOpen = {
 
 export type OfficeAppActions = {
   open: (app: OfficeAppOpen) => void;
+  remember?: (app: OfficeAppOpen) => void;
 };
 
 export const OfficeAppActionsContext = createContext<OfficeAppActions | null>(

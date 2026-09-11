@@ -1,5 +1,7 @@
 import {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useRef,
   useState,
@@ -50,8 +52,12 @@ export function useIconPress() {
   } as const;
 }
 
+/** Desktop resize rail — same captions-off chrome as the tablet 72px sidebar. */
+export const DockLabelsHiddenContext = createContext(false);
+
 /** True when the 72px rail hides dock captions. */
 export function useDockLabelsHidden() {
+  const rail = useContext(DockLabelsHiddenContext);
   const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
@@ -62,5 +68,5 @@ export function useDockLabelsHidden() {
     return () => media.removeEventListener("change", sync);
   }, []);
 
-  return hidden;
+  return hidden || rail;
 }

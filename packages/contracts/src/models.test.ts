@@ -10,8 +10,20 @@ import {
   HOSTED_AI_ENV,
   HOSTED_AI_FLAG,
   hostedCloudflareGateway,
+  GROXBOT_AUTO_ALLOWED_MODELS,
+  GROXBOT_AUTO_LUNA_MODEL,
+  GROXBOT_AUTO_MODEL,
+  GROXBOT_AUTO_TARGET_LABEL,
+  GROXBOT_LUNA_MODEL,
   hostedStarterModel,
+  isAutoRouterModel,
+  isGroxbotAutoModel,
+  isOpenRouterAutoModel,
+  openRouterAutoPlugin,
+  OPENROUTER_AUTO_MODEL,
+  labelForModel,
   MODEL_CATALOG,
+  modelUsesThinkingEffort,
   ModelSettingsSchema,
   missingProviderMessage,
   modelIsRunnable,
@@ -24,6 +36,7 @@ import {
   parseBotEffort,
   parseThinkingEffort,
   reasoningFromEffort,
+  resolveGroxbotAutoModel,
   resolveTurnEffort,
   OPENAI_CODEX_SETUP_STEPS,
   resolveStoredModelId,
@@ -49,6 +62,8 @@ describe("model catalog", () => {
       CLOUDFLARE_PROVIDER,
     );
     expect(providerForModel("openai-codex/gpt-5.4")).toBe("openai-codex");
+    expect(providerForModel("openai-codex/gpt-5.6-luna")).toBe("openai-codex");
+    expect(providerForModel("openai-codex/gpt-6-astra")).toBe("openai-codex");
     expect(providerForModel("openai/gpt-4o")).toBe("openai");
     expect(providerForModel("groxbot/auto")).toBe(CLOUDFLARE_PROVIDER);
     expect(providerForModel("groxbot/free")).toBe(CLOUDFLARE_PROVIDER);
@@ -131,6 +146,36 @@ describe("model catalog", () => {
     );
   });
 
+  it("keeps catalog Auto and skips effort; Luna is the allowlist only", () => {
+    expect(isGroxbotAutoModel("groxbot/auto")).toBe(true);
+    expect(isGroxbotAutoModel("groxbot/free")).toBe(false);
+    expect(isAutoRouterModel(OPENROUTER_AUTO_MODEL)).toBe(true);
+    expect(isOpenRouterAutoModel(OPENROUTER_AUTO_MODEL)).toBe(true);
+    expect(resolveGroxbotAutoModel("groxbot/auto")).toBe(GROXBOT_AUTO_MODEL);
+    expect(resolveGroxbotAutoModel("auto", { hostedGateway: true })).toBe(
+      GROXBOT_AUTO_MODEL,
+    );
+    expect(
+      resolveGroxbotAutoModel("groxbot/auto", { hostedGateway: false }),
+    ).toBe("groxbot/auto");
+    expect(resolveGroxbotAutoModel("groxbot/free")).toBe("groxbot/free");
+    expect(modelUsesThinkingEffort("groxbot/auto")).toBe(false);
+    expect(modelUsesThinkingEffort("groxbot/free")).toBe(false);
+    expect(modelUsesThinkingEffort(OPENROUTER_AUTO_MODEL)).toBe(false);
+    expect(modelUsesThinkingEffort(GROXBOT_LUNA_MODEL)).toBe(true);
+    expect(labelForModel(GROXBOT_LUNA_MODEL)).toBe(GROXBOT_AUTO_TARGET_LABEL);
+    expect(labelForModel(GROXBOT_AUTO_LUNA_MODEL)).toBe(
+      GROXBOT_AUTO_TARGET_LABEL,
+    );
+    expect(openRouterAutoPlugin()).toEqual({
+      id: "auto-router",
+      allowed_models: [...GROXBOT_AUTO_ALLOWED_MODELS],
+    });
+    expect(asHostedGroxbotModelId(OPENROUTER_AUTO_MODEL)).toBe(
+      GROXBOT_AUTO_MODEL,
+    );
+  });
+
   it("keeps Groxbot routers opaque for grox-gateway", () => {
     expect(gatewayRequestModel("groxbot/auto")).toBe("groxbot/auto");
     expect(gatewayRequestModel("auto")).toBe("groxbot/auto");
@@ -196,6 +241,10 @@ describe("model catalog", () => {
       expect.arrayContaining([
         "groxbot/auto",
         "groxbot/free",
+        "openai-codex/gpt-5.6-luna",
+        "openai-codex/gpt-5.6-terra",
+        "openai-codex/gpt-5.6-sol",
+        "openai-codex/gpt-6-astra",
         "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-flash-0731",
         "cloudflare-ai-gateway/workers-ai/@cf/deepseek-ai/deepseek-v4-pro-0813",
         "cloudflare-ai-gateway/workers-ai/@cf/zai-org/glm-4.7-flash",

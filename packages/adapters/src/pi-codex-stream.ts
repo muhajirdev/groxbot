@@ -2,14 +2,17 @@ import type { StreamFn } from "@earendil-works/pi-agent-core";
 import {
   createAssistantMessageEventStream,
   createModels,
+  createProvider,
   type Api,
   type AssistantMessage,
   type Credential,
   type CredentialInfo,
   type CredentialStore,
   type Model,
+  type OAuthAuth,
   type OAuthCredential,
 } from "@earendil-works/pi-ai";
+import { openAICodexResponsesApi } from "@earendil-works/pi-ai/api/openai-codex-responses.lazy";
 import { openaiCodexProvider } from "@earendil-works/pi-ai/providers/openai-codex";
 import {
   OPENAI_CODEX_AUTH_ENV,
@@ -23,6 +26,9 @@ import type { GatewayEnv } from "./gateway.js";
 import { withAssistantUsage } from "./pi-context-usage.js";
 
 const CODEX_PROVIDER = "openai-codex";
+const CODEX_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
+const CODEX_TOKEN_URL = "https://auth.openai.com/oauth/token";
+const JWT_AUTH_CLAIM = "https://api.openai.com/auth";
 
 export function piAiCodexModelId(model: string): string {
   const trimmed = model.trim();
@@ -76,6 +82,124 @@ export function resolvePiAiCodexModel(
     return found as Model<"openai-codex-responses">;
   }
   return fallbackCodexModel(id);
+}
+
+function jwtPayload(token: string): Record<string, unknown> | null {
+  const payload = token.split(".")[1];
+  if (!payload) return null;
+  try {
+    const parsed: unknown = JSON.parse(
+      atob(payload.replace(/-/g, "+").replace(/_/g, "/")),
+    );
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function accountIdFromAccess(access: string): string | undefined {
+  const auth = jwtPayload(access)?.[JWT_AUTH_CLAIM];
+  if (!auth || typeof auth !== "object" || Array.isArray(auth)) return undefined;
+  const id = (auth as Record<string, unknown>).chatgpt_account_id;
+  return typeof id === "string" && id.trim() ? id.trim() : undefined;
+}
+
+/** ChatGPT OAuth refresh that does not load Pi's Node-only OAuth module. */
+export async function refreshOpenAiCodexOAuth(
+  credential: OAuthCredential,
+  signal: AbortSignal,
+  fetchFn: typeof fetch = fetch,
+): Promise<OAuthCredential> {
+  let response: Response;
+  try {
+    response = await fetchFn(CODEX_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: credential.refresh,
+        client_id: CODEX_CLIENT_ID,
+      }),
+      signal,
+    });
+  } catch (error) {
+    throw new Error(
+      `OpenAI Codex token refresh error: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(
+      `OpenAI Codex token refresh failed (${response.status}): ${
+        text || response.statusText
+      }`,
+    );
+  }
+  const json = (await response.json()) as {
+    access_token?: unknown;
+    refresh_token?: unknown;
+    expires_in?: unknown;
+  };
+  if (
+    typeof json.access_token !== "string" ||
+    typeof json.expires_in !== "number"
+  ) {
+    throw new Error(
+      `OpenAI Codex token refresh response missing fields: ${JSON.stringify(json)}`,
+    );
+  }
+  const accountId =
+    accountIdFromAccess(json.access_token) ??
+    (typeof credential.accountId === "string"
+      ? credential.accountId
+      : undefined);
+  if (!accountId) {
+    throw new Error("Failed to extract accountId from token");
+  }
+  return {
+    type: "oauth",
+    access: json.access_token,
+    refresh:
+      typeof json.refresh_token === "string" && json.refresh_token
+        ? json.refresh_token
+        : credential.refresh,
+    expires: Date.now() + json.expires_in * 1000,
+    accountId,
+  };
+}
+
+function workerSafeCodexOAuth(fetchFn?: typeof fetch): OAuthAuth {
+  return {
+    name: "OpenAI (ChatGPT Plus/Pro)",
+    isSubscription: true,
+    async login() {
+      throw new Error(
+        "Paste ~/.codex/auth.json in Settings → Models. Browser login is not available on the server.",
+      );
+    },
+    refresh: (credential, signal) =>
+      refreshOpenAiCodexOAuth(credential, signal, fetchFn ?? fetch),
+    async toAuth(credential) {
+      return { apiKey: credential.access };
+    },
+  };
+}
+
+function groxbotCodexProvider(fetchFn?: typeof fetch) {
+  const stock = openaiCodexProvider();
+  return createProvider({
+    id: stock.id,
+    name: stock.name,
+    baseUrl: stock.baseUrl,
+    auth: { oauth: workerSafeCodexOAuth(fetchFn) },
+    models: stock.getModels(),
+    api: openAICodexResponsesApi(),
+  });
 }
 
 function toOAuthCredential(auth: OpenAiCodexAuth): OAuthCredential {
@@ -188,7 +312,7 @@ export function createCodexStreamFn(options: {
 }): StreamFn {
   const store = new OpenAiCodexCredentialStore(options.auth, options.persist);
   const models = createModels({ credentials: store });
-  models.setProvider(openaiCodexProvider());
+  models.setProvider(groxbotCodexProvider(options.fetch));
   return (model, context, streamOptions) => {
     try {
       const piModel = resolvePiAiCodexModel(model.id);

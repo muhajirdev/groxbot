@@ -15,7 +15,17 @@ export type ColumnWidthConfig = {
   fallback: number;
   /** Handle on the left of the column: drag left to grow. */
   invert?: boolean;
+  clamp?: (value: number) => number;
+  /** Soft clamp while dragging; commit still uses `clamp`. */
+  clampLive?: (value: number) => number;
+  /** When parked at min, a grow key jumps here instead of stepping. */
+  expandMin?: number;
 };
+
+function resolveColumnWidth(config: ColumnWidthConfig, value: number): number {
+  if (config.clamp) return config.clamp(value);
+  return clampColumnWidth(value, config.min, config.max, config.fallback);
+}
 
 export function clampColumnWidth(
   value: number,
@@ -31,12 +41,7 @@ export function readColumnWidth(config: ColumnWidthConfig): number {
   try {
     const raw = localStorage.getItem(config.key);
     if (!raw) return config.fallback;
-    return clampColumnWidth(
-      Number(raw),
-      config.min,
-      config.max,
-      config.fallback,
-    );
+    return resolveColumnWidth(config, Number(raw));
   } catch {
     return config.fallback;
   }
@@ -48,9 +53,7 @@ export function writeColumnWidth(
 ): void {
   localStorage.setItem(
     config.key,
-    String(
-      clampColumnWidth(value, config.min, config.max, config.fallback),
-    ),
+    String(resolveColumnWidth(config, value)),
   );
 }
 
@@ -63,18 +66,16 @@ export function useColumnWidth(config: ColumnWidthConfig) {
   const invert = Boolean(config.invert);
 
   const apply = useCallback(
-    (next: number) => {
-      const clamped = clampColumnWidth(
-        next,
-        config.min,
-        config.max,
-        config.fallback,
-      );
+    (next: number, live = false) => {
+      const clamped =
+        live && config.clampLive
+          ? config.clampLive(next)
+          : resolveColumnWidth(config, next);
       widthRef.current = clamped;
       setWidth(clamped);
       return clamped;
     },
-    [config.fallback, config.max, config.min],
+    [config],
   );
 
   const persist = useCallback(
@@ -100,7 +101,7 @@ export function useColumnWidth(config: ColumnWidthConfig) {
       const start = drag.current;
       if (!start) return;
       const delta = event.clientX - start.x;
-      apply(start.w + (invert ? -delta : delta));
+      apply(start.w + (invert ? -delta : delta), true);
     },
     [apply, invert],
   );
@@ -109,8 +110,8 @@ export function useColumnWidth(config: ColumnWidthConfig) {
     if (!drag.current) return;
     drag.current = null;
     setResizing(false);
-    writeColumnWidth(config, widthRef.current);
-  }, [config]);
+    persist(widthRef.current);
+  }, [persist]);
 
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLButtonElement>) => {
@@ -119,7 +120,12 @@ export function useColumnWidth(config: ColumnWidthConfig) {
       const shrink = invert ? "ArrowRight" : "ArrowLeft";
       if (event.key === grow) {
         event.preventDefault();
-        persist(widthRef.current + step);
+        const atMin = widthRef.current <= config.min;
+        persist(
+          atMin && config.expandMin
+            ? config.expandMin
+            : widthRef.current + step,
+        );
       } else if (event.key === shrink) {
         event.preventDefault();
         persist(widthRef.current - step);
@@ -131,7 +137,7 @@ export function useColumnWidth(config: ColumnWidthConfig) {
         persist(config.max);
       }
     },
-    [config.max, config.min, invert, persist],
+    [config.expandMin, config.max, config.min, invert, persist],
   );
 
   const onDoubleClick = useCallback(() => {

@@ -5,9 +5,10 @@ import {
   parseOpenAiCodexAuth,
 } from "./openai-codex-auth.js";
 
-function jwtWithAccount(accountId: string): string {
+function jwtWithAccount(accountId: string, exp = 1_800_000_000): string {
   const payload = Buffer.from(
     JSON.stringify({
+      exp,
       "https://api.openai.com/auth": { chatgpt_account_id: accountId },
     }),
   ).toString("base64url");
@@ -35,7 +36,31 @@ describe("parseOpenAiCodexAuth", () => {
     expect(parsed.auth.refresh).toBe(refresh);
     expect(parsed.auth.access).toBe(access);
     expect(parsed.auth.accountId).toBe("acct-1234abcd");
+    expect(parsed.auth.expires).toBe(1_800_000_000_000);
     expect(openAiCodexHint(parsed.auth)).toBe("••••abcd");
+  });
+
+  it("uses access JWT exp instead of Codex last_refresh", () => {
+    const access = jwtWithAccount("acct-80825667", 1_789_799_995);
+    const parsed = parseOpenAiCodexAuth(
+      JSON.stringify({
+        auth_mode: "chatgpt",
+        tokens: {
+          id_token: "id",
+          access_token: access,
+          refresh_token: refresh,
+          account_id: "acct-80825667",
+        },
+        last_refresh: "2026-09-09T06:39:55.250995Z",
+      }),
+    );
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.auth.expires).toBe(1_789_799_995_000);
+    expect(parsed.auth.expires).toBeGreaterThan(
+      Date.parse("2026-09-09T06:39:55.250995Z"),
+    );
+    expect(parsed.auth.accountId).toBe("acct-80825667");
   });
 
   it("reads Pi agent auth.json", () => {

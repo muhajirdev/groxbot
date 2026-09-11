@@ -9,6 +9,7 @@ import {
   OPENAI_CODEX_PROVIDER,
   PROVIDER_META,
   PROVIDER_ORDER,
+  isGroxbotRouterModel,
   pickerCatalog,
   THINKING_EFFORT_OPTIONS,
 } from "@groxbot/contracts";
@@ -488,21 +489,25 @@ export function YouScreen({ navigation }: Props) {
           onChangeText={setCustomModel}
         />
       ) : null}
-      <Text style={styles.section}>Effort</Text>
-      <Text style={styles.body}>
-        How hard the model thinks. Off skips reasoning.
-      </Text>
-      {THINKING_EFFORT_OPTIONS.map((item) => (
-        <Pressable
-          key={item.value}
-          onPress={() => setEffort(item.value)}
-          style={styles.option}
-        >
-          <Text style={effort === item.value ? styles.on : styles.body}>
-            {item.label}
+      {isGroxbotRouterModel(defaultModel) ? null : (
+        <>
+          <Text style={styles.section}>Effort</Text>
+          <Text style={styles.body}>
+            How hard the model thinks. Off skips reasoning.
           </Text>
-        </Pressable>
-      ))}
+          {THINKING_EFFORT_OPTIONS.map((item) => (
+            <Pressable
+              key={item.value}
+              onPress={() => setEffort(item.value)}
+              style={styles.option}
+            >
+              <Text style={effort === item.value ? styles.on : styles.body}>
+                {item.label}
+              </Text>
+            </Pressable>
+          ))}
+        </>
+      )}
       <Text style={styles.section}>Keys</Text>
       {PROVIDER_ORDER.map((provider) => {
         const status = modelsQuery.data?.keys.find(

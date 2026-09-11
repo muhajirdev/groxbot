@@ -11,7 +11,7 @@ import {
 export const OFFICE_STAMP_APP_TOOL_NAME = "stamp_app";
 
 export const OFFICE_STAMP_APP_DESCRIPTION =
-  "Create a live workspace app. A card appears in this thread when this returns ok. Any kind: pass title, clientJs, and serverJs. server.js must `import { DurableObject } from \"cloudflare:workers\"` and `export class Gadget extends DurableObject`. The iframe runs client.js; `gadget` is Cap'n Web RPC to that class; `RpcTarget` is available for callbacks (typically `gadget.subscribe`). No fetch or outbound network. Built-in shortcuts with no files: templateId docs, slides, sheets, crm, or game. Never claim an app exists until this returns.";
+  'Create a live workspace app. A card appears in this thread when this returns ok. Any kind: pass title, clientJs, and serverJs as plain JavaScript (no TypeScript or JSX). server.js must `import { DurableObject } from "cloudflare:workers"` and `export class Gadget extends DurableObject`. The iframe runs client.js; `gadget` is Cap\'n Web RPC to that class; `RpcTarget` is available for callbacks (typically `gadget.subscribe`). No fetch or outbound network. Built-in shortcuts with no files: templateId docs, slides, sheets, crm, or game. Never claim an app exists until this returns.';
 
 export const OFFICE_STAMP_APP_TITLES: Record<TemplateId, string> = {
   docs: "Untitled doc",

@@ -3,7 +3,7 @@ import {
   OFFICE_STAMP_APP_TOOL_NAME,
   parseOfficeAppCard,
 } from "@groxbot/core/browser";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import { useOfficeAppActions } from "../lib/office-app-actions";
 import { AppCard } from "./AppCard";
 
@@ -14,6 +14,10 @@ export function StampAppSurface(props: {
   const card =
     parseOfficeAppCard(props.args) ?? parseOfficeAppCard(props.result);
   const actions = useOfficeAppActions();
+  useEffect(() => {
+    if (!card) return;
+    actions?.remember?.(card);
+  }, [actions, card?.appId, card?.templateId, card?.title]);
   if (!card) return null;
   return (
     <AppCard

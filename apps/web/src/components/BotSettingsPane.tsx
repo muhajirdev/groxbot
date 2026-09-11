@@ -1,6 +1,7 @@
 import type { Bot } from "@groxbot/contracts";
 import {
   CUSTOM_MODEL_SENTINEL,
+  modelUsesThinkingEffort,
   parseBotEffort,
   pickerCatalog,
   thinkingEffortLabel,
@@ -63,6 +64,12 @@ export function BotSettingsPane(props: {
   );
   const [customModel, setCustomModel] = useState(listed ? "" : bot.model);
   const [effort, setEffort] = useState(parseBotEffort(bot.effort));
+  const inheritedModel = modelsQuery.data?.defaultModelId ?? "";
+  const selectedRunModel =
+    model === CUSTOM_MODEL_SENTINEL
+      ? customModel
+      : model || inheritedModel;
+  const showEffort = modelUsesThinkingEffort(selectedRunModel);
   const queued = useRef<
     | {
         name?: string;
@@ -228,22 +235,24 @@ export function BotSettingsPane(props: {
                   }}
                 />
               </label>
-              <label className="field">
-                <span>Effort</span>
-                <EffortField
-                  value={effort}
-                  inherit={{
-                    label: thinkingEffortLabel(
-                      modelsQuery.data?.effort ?? "off",
-                    ),
-                  }}
-                  onChange={(next) => {
-                    const value = parseBotEffort(next);
-                    setEffort(value);
-                    void save({ effort: value });
-                  }}
-                />
-              </label>
+              {showEffort ? (
+                <label className="field">
+                  <span>Effort</span>
+                  <EffortField
+                    value={effort}
+                    inherit={{
+                      label: thinkingEffortLabel(
+                        modelsQuery.data?.effort ?? "off",
+                      ),
+                    }}
+                    onChange={(next) => {
+                      const value = parseBotEffort(next);
+                      setEffort(value);
+                      void save({ effort: value });
+                    }}
+                  />
+                </label>
+              ) : null}
               {model === CUSTOM_MODEL_SENTINEL ? (
                 <label className="field">
                   <span>Model id</span>

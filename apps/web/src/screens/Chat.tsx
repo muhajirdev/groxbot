@@ -52,10 +52,8 @@ import {
   ChevronDownIcon,
   ChevronLeftIcon,
   CloseIcon,
-  FileIcon,
   GearIcon,
   KnowledgeIcon,
-  LiveAppsIcon,
   MonitorIcon,
   MoreIcon,
   PeoplePlusIcon,
@@ -65,7 +63,7 @@ import {
 } from "../components/Icons";
 import { InviteFriendButton } from "../components/InviteFriendButton";
 import { KnowledgeLibrary, KnowledgePeek } from "../components/KnowledgePlace";
-import { LiveAppsPlace } from "../components/LiveAppsPlace";
+import { LiveAppsDock } from "../components/LiveAppsDock";
 import { MarketplaceModal } from "../components/MarketplaceModal";
 import { KeptOfficeThread } from "../components/OfficeThread";
 import { OnboardingDialog } from "../components/OnboardingDialog";
@@ -89,7 +87,7 @@ import {
   TooltipTrigger,
 } from "../components/ui/tooltip";
 import { WorkspaceSwitcher } from "../components/WorkspaceSwitcher";
-import { APP_KIND_COLOR, APP_KIND_LABEL } from "../lib/app-kind";
+import { useFreshWorkspaceApps } from "../lib/live-apps-seen";
 import { authClient } from "../lib/auth";
 import {
   appsCollection,
@@ -126,7 +124,11 @@ import {
   nextAvatarColor,
   settleCreatedHire,
 } from "../lib/hire";
-import { useDockLabelsHidden, useIconPress } from "../lib/icon-press";
+import {
+  DockLabelsHiddenContext,
+  useDockLabelsHidden,
+  useIconPress,
+} from "../lib/icon-press";
 import type { MarketplaceTab } from "../lib/marketplace";
 import { OfficeAppActionsContext } from "../lib/office-app-actions";
 import { officeRpcUrl } from "../lib/office-chat-rpc";
@@ -155,7 +157,6 @@ import {
   closeLibrary,
   closePeek,
   deskApp,
-  deskApps,
   deskAwayFromLibrary,
   deskClosed,
   deskComputer,
@@ -205,8 +206,9 @@ import {
   readSession,
 } from "../lib/session";
 import {
+  isSideRail,
   SIDE_WIDTH_MAX,
-  SIDE_WIDTH_MIN,
+  SIDE_WIDTH_RAIL,
   useSideWidth,
 } from "../lib/side-width";
 import {
@@ -237,6 +239,7 @@ import {
 import { scheduleThreadPrefetch } from "../lib/thread-prefetch";
 import { formatListTime } from "../lib/time";
 import {
+  appsListKey,
   botsListKey,
   knowledgeListQueryOptions,
   listedBots,
@@ -437,44 +440,6 @@ const RoomRow = memo(function RoomRow(props: {
   );
 });
 
-const AppRow = memo(function AppRow(props: {
-  item: WorkspaceApp;
-  selected: boolean;
-  onOpen: () => void;
-}) {
-  const item = props.item;
-  return (
-    <button
-      type="button"
-      className={cn(
-        "chat-conv grid min-w-0 grid-cols-[44px_minmax(0,1fr)] items-center gap-2.5 rounded-[14px] border-0 bg-transparent px-2 py-2.5 text-left text-inherit",
-        props.selected && "bg-selected",
-      )}
-      onClick={props.onOpen}
-    >
-      <span
-        className="grid size-11 shrink-0 place-items-center rounded-[10px] text-white"
-        style={{ background: APP_KIND_COLOR[item.templateId] }}
-      >
-        <FileIcon />
-      </span>
-      <span className="chat-conv-copy min-w-0">
-        <span className="flex items-baseline justify-between gap-2">
-          <span className="truncate text-[14px] font-semibold">
-            {item.title}
-          </span>
-          <span className="shrink-0 text-xs whitespace-nowrap text-muted">
-            {formatListTime(item.createdAt)}
-          </span>
-        </span>
-        <div className="mt-0.5 overflow-hidden text-xs text-ellipsis whitespace-nowrap text-muted">
-          {APP_KIND_LABEL[item.templateId]}
-        </div>
-      </span>
-    </button>
-  );
-});
-
 const SectionHeader = memo(function SectionHeader(props: {
   name: string;
   count: number;
@@ -486,7 +451,7 @@ const SectionHeader = memo(function SectionHeader(props: {
     <div className="group/section relative">
       <button
         type="button"
-        className="flex w-full items-center gap-1.5 rounded-[10px] border-0 bg-transparent px-2 py-1.5 text-left text-[8px] text-muted/80 hover:bg-hover hover:text-muted"
+        className="chat-section-head flex w-full items-center gap-1.5 rounded-[10px] border-0 bg-transparent px-2 py-1.5 text-left text-[8px] text-muted/80 hover:bg-hover hover:text-muted"
         aria-expanded={!props.collapsed}
         onClick={props.onToggle}
         onContextMenu={(event) => {
@@ -589,6 +554,7 @@ export function Chat(props: {
     () => window.matchMedia("(max-width: 720px)").matches,
   );
   const side = useSideWidth();
+  const sideRail = isSideRail(side.width);
   const paneCol = usePaneWidth();
   const lastApp = useRef<{
     id: string;
@@ -722,6 +688,11 @@ export function Chat(props: {
   }, [bots]);
   const showArchived = archivedOpen || Boolean(bot?.archivedAt);
   const workspaceApps = appsQuery.data ?? [];
+  const { freshIds, markSeen } = useFreshWorkspaceApps(
+    props.workspace.id,
+    workspaceApps,
+  );
+  const [appFull, setAppFull] = useState(false);
   const openAppRow =
     desk.pane === "app" && desk.app
       ? workspaceApps.find((item) => item.id === desk.app)
@@ -1814,6 +1785,21 @@ export function Chat(props: {
     if (!next) return;
     void setDesk(next);
   }, [desk, roomFocusedAppId, setDesk]);
+  const rememberApp = useCallback(
+    (app: {
+      appId: string;
+      title: string;
+      templateId: WorkspaceApp["templateId"];
+    }) => {
+      appsCollection.utils.writeUpsert({
+        id: app.appId,
+        title: app.title,
+        templateId: app.templateId,
+        createdAt: new Date().toISOString(),
+      });
+    },
+    [],
+  );
   const openDocument = useCallback(
     (app: {
       appId: string;
@@ -1826,23 +1812,39 @@ export function Chat(props: {
           title: app.title,
           templateId: app.templateId,
         };
-        appsCollection.utils.writeUpsert({
-          id: app.appId,
+        rememberApp({
+          appId: app.appId,
           title: app.title,
           templateId: app.templateId,
-          createdAt: new Date().toISOString(),
         });
       }
+      setAppFull(false);
       setDesk(deskApp(app.appId));
       if (chatThreadId) void peekPiThread(chatThreadId)?.focus(app.appId);
     },
-    [chatThreadId, setDesk],
+    [chatThreadId, rememberApp, setDesk],
   );
-  const appActions = useMemo(() => ({ open: openDocument }), [openDocument]);
+  const appActions = useMemo(
+    () => ({ open: openDocument, remember: rememberApp }),
+    [openDocument, rememberApp],
+  );
   const stopRoomApp = useCallback(() => {
     if (chatThreadId) void peekPiThread(chatThreadId)?.focus("");
+    setAppFull(false);
     setDesk(deskClosed());
   }, [chatThreadId, setDesk]);
+  useEffect(() => {
+    setAppFull(false);
+  }, [openApp?.id]);
+  useEffect(() => {
+    if (!appFull) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setAppFull(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [appFull]);
   const [computerFile, setComputerFile] = useState<{
     botId: string;
     path: string;
@@ -1882,15 +1884,13 @@ export function Chat(props: {
   const activePane =
     paneMode === "knowledge"
       ? "knowledge"
-      : paneMode === "apps"
-        ? "apps"
-        : paneMode === "app" && openApp
-          ? "app"
-          : paneMode === "settings" && bot
-            ? "settings"
-            : paneMode === "computer" && bot
-              ? "computer"
-              : null;
+      : paneMode === "app" && openApp
+        ? "app"
+        : paneMode === "settings" && bot
+          ? "settings"
+          : paneMode === "computer" && bot
+            ? "computer"
+            : null;
   const pane = usePanePresence(activePane);
   const exitingApp = openApp ?? lastApp.current;
 
@@ -1903,11 +1903,17 @@ export function Chat(props: {
         onOpen={openKnowledgeFile}
         onDownload={downloadKnowledgeFile}
       >
+        <DockLabelsHiddenContext.Provider value={sideRail}>
         <div
           className={cn(
             "chat-shell relative bg-bg",
+            sideRail && "is-side-rail",
             paneMode === "app" && "is-app",
-            paneMode && paneMode !== "app" && "is-pane",
+            appFull && paneMode === "app" && "is-app-full",
+            (paneMode === "knowledge" ||
+              paneMode === "settings" ||
+              paneMode === "computer") &&
+              "is-pane",
             paneMode === "knowledge" && "is-knowledge",
             desk.library && "is-library",
             rosterOpen && "is-roster",
@@ -1931,7 +1937,8 @@ export function Chat(props: {
               aria-label="Teammates"
               inert={narrow && !rosterOpen ? true : undefined}
             >
-              <div className="flex flex-col gap-2 px-0.5 pt-1.5 pb-2">
+              <div className="side-collapse">
+              <div className="side-head flex flex-col gap-2 px-0.5 pt-1.5 pb-2">
                 <div className="side-chrome drag flex min-h-8 items-center gap-1">
                   <div className="no-drag min-w-0 flex-1">
                     <WorkspaceSwitcher
@@ -1953,7 +1960,7 @@ export function Chat(props: {
                       aria-current={props.board ? "page" : undefined}
                       title="Board"
                       className={cn(
-                        "ico-hit no-drag grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted outline-none no-underline transition-[background-color,color] duration-[var(--dur-popover)] ease-[var(--ease-dialog)] hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-accent",
+                        "side-chrome-extra ico-hit no-drag grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted outline-none no-underline transition-[background-color,color] duration-[var(--dur-popover)] ease-[var(--ease-dialog)] hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-accent",
                         props.board && "bg-hover text-ink",
                       )}
                     >
@@ -2001,11 +2008,12 @@ export function Chat(props: {
                   }}
                 />
               </div>
-              <div className="grid flex-1 content-start gap-1 overflow-auto px-1">
+              </div>
+              <div className="chat-roster grid flex-1 content-start gap-1 overflow-auto px-1">
                 {draggedBotId ? (
                   <div
                     className={cn(
-                      "mx-1 flex min-h-9 items-center justify-between rounded-[10px] border border-dashed border-line px-2.5 text-[11px] text-muted transition-[background-color,border-color,color] duration-[var(--dur-popover)]",
+                      "chat-unassigned mx-1 flex min-h-9 items-center justify-between rounded-[10px] border border-dashed border-line px-2.5 text-[11px] text-muted transition-[background-color,border-color,color] duration-[var(--dur-popover)]",
                       dropSectionId === UNASSIGNED_DROP &&
                         "border-accent/60 bg-selected text-ink",
                     )}
@@ -2120,25 +2128,6 @@ export function Chat(props: {
                 sections.length === 0 ? (
                   <p className="empty">No bots yet.</p>
                 ) : null}
-                {workspaceApps.length > 0 ? (
-                  <div className="mt-2">
-                    <div className="px-1.5 py-1.5 text-[12px] text-muted">
-                      Apps
-                    </div>
-                    {workspaceApps.map((item) => (
-                      <AppRow
-                        key={item.id}
-                        item={item}
-                        selected={paneMode === "app" && openApp?.id === item.id}
-                        onOpen={() => {
-                          closeRoster();
-                          setPokeView(null);
-                          openDocument({ appId: item.id });
-                        }}
-                      />
-                    ))}
-                  </div>
-                ) : null}
                 {archivedBots.length > 0 ? (
                   <div className="mt-2">
                     <button
@@ -2167,6 +2156,7 @@ export function Chat(props: {
                   </div>
                 ) : null}
               </div>
+              <div className="side-collapse side-collapse-foot">
               <div className="chat-foot mt-auto">
                 <nav className="chat-dock" aria-label="Office">
                   <DockItem
@@ -2195,21 +2185,31 @@ export function Chat(props: {
                   >
                     <SkillsIcon className="size-5" />
                   </DockItem>
-                  <DockItem
-                    label="Live apps"
-                    current={paneMode === "app" || paneMode === "apps"}
-                    onClick={() => {
-                      if (paneMode === "apps") {
-                        setDesk(deskClosed());
-                        return;
-                      }
+                  <LiveAppsDock
+                    apps={workspaceApps}
+                    openAppId={openApp?.id}
+                    freshIds={freshIds}
+                    onOpenedList={() => {
+                      markSeen();
+                      void queryClient.invalidateQueries({
+                        queryKey: appsListKey,
+                      });
+                    }}
+                    onOpen={(appId) => {
                       closeRoster();
                       setPokeView(null);
-                      setDesk(deskApps());
+                      const row = workspaceApps.find((item) => item.id === appId);
+                      openDocument(
+                        row
+                          ? {
+                              appId: row.id,
+                              title: row.title,
+                              templateId: row.templateId,
+                            }
+                          : { appId },
+                      );
                     }}
-                  >
-                    <LiveAppsIcon className="size-5" />
-                  </DockItem>
+                  />
                   <DockItem
                     label="Plugins"
                     pressed={marketplaceOpen && marketplaceTab === "plugins"}
@@ -2235,12 +2235,13 @@ export function Chat(props: {
                   />
                 </div>
               </div>
+              </div>
               <button
                 type="button"
                 className="side-resize no-drag"
                 aria-label="Resize teammates list"
                 aria-orientation="vertical"
-                aria-valuemin={SIDE_WIDTH_MIN}
+                aria-valuemin={SIDE_WIDTH_RAIL}
                 aria-valuemax={SIDE_WIDTH_MAX}
                 aria-valuenow={side.width}
                 aria-valuetext={`${side.width} pixels`}
@@ -2601,23 +2602,13 @@ export function Chat(props: {
                     onDoubleClick={paneCol.onDoubleClick}
                   />
                 ) : null}
-                {pane.rendered === "apps" ? (
-                  <LiveAppsPlace
-                    apps={workspaceApps}
-                    openAppId={openApp?.id}
-                    onOpen={(appId) => {
-                      closeRoster();
-                      setPokeView(null);
-                      openDocument({ appId });
-                    }}
-                    onCollapse={() => setDesk(deskClosed())}
-                  />
-                ) : null}
                 {pane.rendered === "app" && exitingApp ? (
                   <AppPane
                     appId={exitingApp.id}
                     title={exitingApp.title}
                     templateId={exitingApp.templateId}
+                    full={appFull}
+                    onToggleFull={() => setAppFull((open) => !open)}
                     onCollapse={stopRoomApp}
                   />
                 ) : null}
@@ -2882,6 +2873,7 @@ export function Chat(props: {
             }}
           />
         </div>
+        </DockLabelsHiddenContext.Provider>
       </KnowledgeFileOpenProvider>
     </ComputerFileOpenProvider>
   );

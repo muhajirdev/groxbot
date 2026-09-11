@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
 import { OFFICE_STAMP_APP_TOOL_NAME } from "@groxbot/core";
+import { describe, expect, it, vi } from "vitest";
 import { createStampAppTool } from "./bot-stamp.js";
 
 const GADGET_SERVER = `import { DurableObject } from "cloudflare:workers";
@@ -22,11 +22,10 @@ describe("createStampAppTool", () => {
       templateId: "crm",
       title: "Acme",
     });
-    expect(initApp).toHaveBeenCalledWith(
-      expect.any(String),
-      "crm",
-      { workspaceId: "ws_1", title: "Acme" },
-    );
+    expect(initApp).toHaveBeenCalledWith(expect.any(String), "crm", {
+      workspaceId: "ws_1",
+      title: "Acme",
+    });
     expect(recordCard).toHaveBeenCalledWith({
       id: expect.any(String),
       templateId: "crm",
@@ -78,5 +77,43 @@ describe("createStampAppTool", () => {
     await expect(
       tool.execute("call_1", { templateId: "calendar" }),
     ).rejects.toThrow(/clientJs and serverJs|templateId/);
+  });
+
+  it("rejects invalid custom JavaScript before initializing an app", async () => {
+    const initApp = vi.fn(async () => undefined);
+    const tool = createStampAppTool({
+      workspaceId: () => "ws_1",
+      initApp,
+      recordCard: async () => undefined,
+    });
+
+    await expect(
+      tool.execute("call_3", {
+        title: "Broken",
+        clientJs: "const broken = ;",
+        serverJs: GADGET_SERVER,
+      }),
+    ).rejects.toThrow(/client\.js is not valid JavaScript/);
+    expect(initApp).not.toHaveBeenCalled();
+  });
+
+  it("does not publish a card when runtime validation fails", async () => {
+    const recordCard = vi.fn(async () => undefined);
+    const tool = createStampAppTool({
+      workspaceId: () => "ws_1",
+      initApp: async () => {
+        throw new Error("Custom app could not load: missing import");
+      },
+      recordCard,
+    });
+
+    await expect(
+      tool.execute("call_4", {
+        title: "Broken",
+        clientJs: GADGET_CLIENT,
+        serverJs: GADGET_SERVER,
+      }),
+    ).rejects.toThrow(/Custom app could not load/);
+    expect(recordCard).not.toHaveBeenCalled();
   });
 });

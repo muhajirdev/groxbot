@@ -1,6 +1,8 @@
 import {
   asHostedGroxbotModelId,
   CLOUDFLARE_PROVIDER,
+  GROXBOT_AUTO_MODEL,
+  resolveGroxbotAutoModel,
   DEFAULT_AI_GATEWAY_ID,
   HOSTED_AI_ENV,
   HOSTED_AI_FLAG,
@@ -84,6 +86,12 @@ describe("hosted Cloudflare overlay", () => {
         true,
       ),
     ).toBe("groxbot/openai/gpt-5.6-luna");
+    expect(
+      resolveGroxbotAutoModel(
+        fallbackRunnableModel("groxbot/auto", [CLOUDFLARE_PROVIDER], true),
+        { hostedGateway: true },
+      ),
+    ).toBe(GROXBOT_AUTO_MODEL);
     expect(emptyModelUsage.requests).toBe(0);
   });
 

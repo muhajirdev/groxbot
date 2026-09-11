@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { APP_KIND_LABEL } from "../lib/app-kind";
 import { appRpcUrl } from "../lib/app-rpc";
 import { appSrcDoc } from "../lib/app-srcdoc";
-import { CloseIcon } from "./Icons";
+import { CloseIcon, CompressIcon, ExpandIcon } from "./Icons";
 
 type AppHost = {
   getUiBundle(): Promise<{ jsCode: string } | null>;
@@ -15,6 +15,8 @@ export function AppPane(props: {
   appId: string;
   title: string;
   templateId: keyof typeof APP_KIND_LABEL;
+  full?: boolean;
+  onToggleFull?: () => void;
   onCollapse: () => void;
 }) {
   return (
@@ -24,6 +26,17 @@ export function AppPane(props: {
           {APP_KIND_LABEL[props.templateId]} · {props.title}
         </span>
         <div className="row tight no-drag">
+          {props.onToggleFull ? (
+            <button
+              className="icon-btn"
+              type="button"
+              aria-label={props.full ? "Exit full screen" : "Full screen"}
+              title={props.full ? "Exit full screen" : "Full screen"}
+              onClick={props.onToggleFull}
+            >
+              {props.full ? <CompressIcon /> : <ExpandIcon />}
+            </button>
+          ) : null}
           <button
             className="icon-btn"
             type="button"

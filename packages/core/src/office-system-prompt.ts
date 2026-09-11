@@ -91,7 +91,7 @@ export const OFFICE_TOOL_PROMPT: Record<string, OfficeToolPromptContribution> =
       snippet:
         "Create any live app. For a custom gadget pass title, clientJs, and serverJs (`export class Gadget`). Built-in templateId docs|slides|sheets|crm|game skips the files. A card appears when this returns.",
       guidelines: [
-        "When they want a live app, call stamp_app. Write client.js and server.js for anything that is not a built-in doc, deck, sheet, CRM, or tic-tac-toe. Do not invent a markdown stand-in. Never say an app exists unless stamp_app returned ok. Open is for the human. Do not ask which kind if they already asked you to make one — pick and stamp.",
+        "When they want a live app, call stamp_app. Write client.js and server.js for anything that is not a built-in doc, deck, sheet, CRM, or tic-tac-toe. Do not invent a markdown stand-in. If validation fails, fix the reported code error and retry. Never say an app exists unless stamp_app returned ok. Open is for the human. Do not ask which kind if they already asked you to make one — pick and stamp.",
       ],
     },
     [OFFICE_ASK_TOOL_NAME]: {

@@ -4,25 +4,15 @@ import { filesForTemplate, initialState } from "@groxbot/app-runtime";
 import type { TemplateId } from "@groxbot/contracts";
 import { applyAppTitle } from "@groxbot/core";
 import { newWorkersRpcResponse, RpcTarget } from "capnweb";
+import {
+  type AppWorkerLoader,
+  appWorkerCode,
+  validateAppWorker,
+} from "./app-runtime-code.js";
 
 export const APP_WORKSPACE_HEADER = "x-groxbot-workspace";
 
-type LoaderWorker = {
-  getDurableObjectClass(name: string): unknown;
-};
-
-type WorkerLoader = {
-  get(
-    name: string,
-    getCode: () => Promise<{
-      compatibilityDate: string;
-      compatibilityFlags?: string[];
-      mainModule: string;
-      modules: Record<string, string>;
-      globalOutbound: null;
-    }>,
-  ): LoaderWorker;
-};
+type LoaderWorker = ReturnType<AppWorkerLoader["load"]>;
 
 type FacetState = {
   facets: {
@@ -47,7 +37,7 @@ type GadgetFacet = {
 };
 
 type AppRuntimeEnv = {
-  LOADER: WorkerLoader;
+  LOADER: AppWorkerLoader;
 };
 
 const GADGET_BLOCKED = new Set([
@@ -132,6 +122,7 @@ export class AppRuntime extends DurableObject<AppRuntimeEnv> {
       custom?.["client.js"]?.trim() && custom?.["server.js"]?.trim()
         ? { "client.js": custom["client.js"], "server.js": custom["server.js"] }
         : filesForTemplate(templateId);
+    if (custom) validateAppWorker(this.env.LOADER, files);
     await this.ctx.storage.put("initializing", true);
     await this.ctx.storage.put("files", files);
     await this.ctx.storage.put("templateId", templateId);
@@ -230,15 +221,10 @@ export class AppRuntime extends DurableObject<AppRuntimeEnv> {
       }>("files");
       const server = files?.["server.js"];
       if (!server) throw new Error("App has no server.js");
-      return {
-        compatibilityDate: "2026-07-28",
-        mainModule: "server.js",
-        modules: {
-          "server.js": server,
-          "client.js": files?.["client.js"] ?? "",
-        },
-        globalOutbound: null,
-      };
+      return appWorkerCode({
+        "server.js": server,
+        "client.js": files?.["client.js"] ?? "",
+      });
     });
   }
 

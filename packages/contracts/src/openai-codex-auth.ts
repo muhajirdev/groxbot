@@ -46,6 +46,10 @@ function accountIdFromAccess(access: string): string | undefined {
   return id || undefined;
 }
 
+function expiresFromAccess(access: string): number {
+  return expiresFrom(decodeJwtPayload(access)?.exp);
+}
+
 function expiresFrom(value: unknown): number {
   if (typeof value === "number" && Number.isFinite(value) && value > 0) {
     return value < 1_000_000_000_000 ? value * 1000 : value;
@@ -74,11 +78,12 @@ function credentialFrom(
     };
   }
   const fromJwt = access ? accountIdFromAccess(access) : undefined;
+  const jwtExpires = access ? expiresFromAccess(access) : 0;
   const auth: OpenAiCodexAuth = {
     type: "oauth",
     access,
     refresh,
-    expires: access ? expires : 0,
+    expires: jwtExpires || (access ? expires : 0),
     accountId: accountId || fromJwt,
   };
   return { ok: true, auth };
@@ -101,7 +106,12 @@ function fromCodexTokens(
 ): ParseOpenAiCodexAuthResult {
   const refresh = asString(tokens.refresh_token ?? tokens.refresh);
   const access = asString(tokens.access_token ?? tokens.access);
-  return credentialFrom(access, refresh, expiresFrom(lastRefresh), accountId);
+  return credentialFrom(
+    access,
+    refresh,
+    expiresFrom(lastRefresh),
+    accountId || asString(tokens.account_id ?? tokens.accountId),
+  );
 }
 
 /**

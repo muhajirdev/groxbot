@@ -2,7 +2,7 @@
 
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import type { InitApp } from "@groxbot/adapter-kit";
-import { type TemplateId, BuiltinTemplateId } from "@groxbot/contracts";
+import { BuiltinTemplateId, type TemplateId } from "@groxbot/contracts";
 import {
   GADGET_FILE_MAX_CHARS,
   GadgetFilesError,
@@ -12,8 +12,18 @@ import {
   parseGadgetFiles,
   stampApp,
 } from "@groxbot/core";
+import { parse } from "acorn";
 import { z } from "zod";
 import { officeAgentTool } from "./bot-office-tools.js";
+
+function validateJavaScript(name: string, source: string): void {
+  try {
+    parse(source, { ecmaVersion: "latest", sourceType: "module" });
+  } catch (caught) {
+    const message = caught instanceof Error ? caught.message : "Syntax error";
+    throw new GadgetFilesError(`${name} is not valid JavaScript: ${message}`);
+  }
+}
 
 export function createStampAppTool(opts: {
   workspaceId: () => string;
@@ -42,13 +52,21 @@ export function createStampAppTool(opts: {
       const files = wantsCustom
         ? parseGadgetFiles({ clientJs, serverJs })
         : undefined;
+      if (files) {
+        validateJavaScript("client.js", files["client.js"]);
+        validateJavaScript("server.js", files["server.js"]);
+      }
       const builtin = BuiltinTemplateId.safeParse(templateId);
-      if (!files && !builtin.success) {
+      let parsed: TemplateId;
+      if (files) {
+        parsed = "app";
+      } else if (builtin.success) {
+        parsed = builtin.data;
+      } else {
         throw new GadgetFilesError(
           "Pass a built-in templateId (docs, slides, sheets, crm, game) or clientJs and serverJs for a custom gadget.",
         );
       }
-      const parsed: TemplateId = files ? "app" : builtin.data!;
       const app = await stampApp({
         initApp: opts.initApp,
         workspaceId,

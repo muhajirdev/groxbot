@@ -1687,6 +1687,7 @@ export class RoomHome extends Agent<WorkerEnv> {
       metadata: {
         workspaceId: this.officeId,
         botId: this.botKey(),
+        roomId: this.name,
       },
       persistCodexAuth: (auth) => this.persistCodexAuth(auth),
     });

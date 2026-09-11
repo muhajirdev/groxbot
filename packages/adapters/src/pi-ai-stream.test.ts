@@ -1,13 +1,18 @@
 import {
   BINDING_STARTER_MODEL,
   CLOUDFLARE_PROVIDER,
+  GROXBOT_AUTO_ALLOWED_MODELS,
   HOSTED_STARTER_MODEL,
+  OPENROUTER_AUTO_MODEL,
   OPENROUTER_PROVIDER,
 } from "@groxbot/contracts";
 import { describe, expect, it } from "vitest";
 import { loadGatewayConfig } from "./gateway.js";
 import {
+  patchOpenRouterAutoBody,
+  patchOpenRouterAutoRequest,
   piAiGatewayModelId,
+  piAiOpenRouterModelId,
   piAiRequestModel,
   resolvePiAiModel,
 } from "./pi-ai-stream.js";
@@ -87,5 +92,63 @@ describe("resolvePiAiModel", () => {
     expect(piAiRequestModel(CLOUDFLARE_PROVIDER, BINDING_STARTER_MODEL)).toBe(
       "workers-ai/@cf/zai-org/glm-5.3-flash",
     );
+    expect(piAiOpenRouterModelId(HOSTED_STARTER_MODEL)).toBe(
+      OPENROUTER_AUTO_MODEL,
+    );
+    expect(piAiOpenRouterModelId(OPENROUTER_AUTO_MODEL)).toBe(
+      OPENROUTER_AUTO_MODEL,
+    );
+  });
+});
+
+describe("patchOpenRouterAutoBody", () => {
+  it("rewrites catalog Auto onto openrouter/auto with the Luna allowlist", () => {
+    const body = patchOpenRouterAutoBody(
+      JSON.stringify({
+        model: "groxbot/auto",
+        messages: [{ role: "user", content: "hey" }],
+      }),
+      "room-1",
+    );
+    expect(body).toBeTruthy();
+    const parsed = JSON.parse(body ?? "") as {
+      model: string;
+      session_id: string;
+      plugins: Array<{ id: string; allowed_models: string[] }>;
+    };
+    expect(parsed.model).toBe(OPENROUTER_AUTO_MODEL);
+    expect(parsed.session_id).toBe("room-1");
+    expect(parsed.plugins).toEqual([
+      { id: "auto-router", allowed_models: [...GROXBOT_AUTO_ALLOWED_MODELS] },
+    ]);
+  });
+
+  it("leaves pinned models alone", () => {
+    const raw = JSON.stringify({
+      model: "groxbot/openai/gpt-5.6-luna",
+      messages: [{ role: "user", content: "hey" }],
+    });
+    expect(patchOpenRouterAutoBody(raw, "room-1")).toBeNull();
+  });
+
+  it("sets x-session-id when rewriting the request", () => {
+    const patched = patchOpenRouterAutoRequest(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          model: "openrouter/auto",
+          messages: [{ role: "user", content: "hey" }],
+        }),
+      },
+      "room-9",
+    );
+    const headers = new Headers(patched.init?.headers);
+    expect(headers.get("x-session-id")).toBe("room-9");
+    expect(JSON.parse(String(patched.init?.body))).toMatchObject({
+      model: OPENROUTER_AUTO_MODEL,
+      session_id: "room-9",
+    });
   });
 });

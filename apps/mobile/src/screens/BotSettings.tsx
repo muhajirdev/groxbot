@@ -5,6 +5,7 @@ import {
   pickerCatalog,
   THINKING_EFFORT_OPTIONS,
   thinkingEffortLabel,
+  modelUsesThinkingEffort,
   parseBotEffort,
 } from "@groxbot/contracts";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -212,24 +213,32 @@ export function BotSettingsScreen({ navigation, route }: Props) {
           onChangeText={setCustomModel}
         />
       ) : null}
-      <Text style={styles.section}>Effort</Text>
-      <Pressable onPress={() => setEffort("")} style={styles.option}>
-        <Text style={effort === "" ? styles.on : styles.body}>
-          Workspace default (
-          {thinkingEffortLabel(modelsQuery.data?.effort ?? "off")})
-        </Text>
-      </Pressable>
-      {THINKING_EFFORT_OPTIONS.map((item) => (
-        <Pressable
-          key={item.value}
-          onPress={() => setEffort(item.value)}
-          style={styles.option}
-        >
-          <Text style={effort === item.value ? styles.on : styles.body}>
-            {item.label}
-          </Text>
-        </Pressable>
-      ))}
+      {modelUsesThinkingEffort(
+        model === CUSTOM_MODEL_SENTINEL
+          ? customModel
+          : model || modelsQuery.data?.defaultModelId || "",
+      ) ? (
+        <>
+          <Text style={styles.section}>Effort</Text>
+          <Pressable onPress={() => setEffort("")} style={styles.option}>
+            <Text style={effort === "" ? styles.on : styles.body}>
+              Workspace default (
+              {thinkingEffortLabel(modelsQuery.data?.effort ?? "off")})
+            </Text>
+          </Pressable>
+          {THINKING_EFFORT_OPTIONS.map((item) => (
+            <Pressable
+              key={item.value}
+              onPress={() => setEffort(item.value)}
+              style={styles.option}
+            >
+              <Text style={effort === item.value ? styles.on : styles.body}>
+                {item.label}
+              </Text>
+            </Pressable>
+          ))}
+        </>
+      ) : null}
       <Button label="Save" onPress={() => void save()} busy={busy} />
       <Button
         label={

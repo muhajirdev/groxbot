@@ -15,6 +15,10 @@ const toolFallback = readFileSync(
   "utf8",
 );
 const chatScreen = readFileSync(join(root, "../screens/Chat.tsx"), "utf8");
+const liveAppsDock = readFileSync(
+  join(root, "../components/LiveAppsDock.tsx"),
+  "utf8",
+);
 const icons = readFileSync(join(root, "../components/Icons.tsx"), "utf8");
 const computerPane = readFileSync(
   join(root, "../components/ComputerPane.tsx"),
@@ -285,6 +289,40 @@ describe("office chrome", () => {
       /\.aui-composer-send:hover:not\(:disabled\)\s*\{[^}]*transform:\s*scale\(1\.05\)/s,
     );
     expect(threadAui).toMatch(/active:scale-100/);
+  });
+
+  it("snaps the roster to an icon rail when dragged past names", () => {
+    expect(chatScreen).toMatch(/is-side-rail/);
+    expect(chatScreen).toMatch(/isSideRail/);
+    expect(chatScreen).toMatch(/SIDE_WIDTH_RAIL/);
+    expect(chatScreen).toMatch(/side-head/);
+    expect(chatScreen).toMatch(/chat-roster/);
+    expect(css).toMatch(
+      /\.chat-shell\.is-side-rail \.side-head/,
+    );
+    expect(css).toMatch(
+      /\.chat-shell\.is-side-rail \.chat-foot/,
+    );
+    expect(css).toMatch(
+      /\.chat-shell\.is-side-rail \.chat-conv\s*\{[^}]*padding-inline:\s*14px/s,
+    );
+    expect(css).toMatch(
+      /\.chat-panel\s*\{[^}]*transition:\s*grid-template-columns/s,
+    );
+    expect(css).not.toMatch(/workspace-switcher-mark/);
+  });
+
+  it("lists live apps from a dock dialog, not the roster", () => {
+    expect(chatScreen).toMatch(/LiveAppsDock/);
+    expect(chatScreen).not.toMatch(/function AppRow/);
+    expect(liveAppsDock).toMatch(/aria-haspopup="dialog"/);
+    expect(liveAppsDock).toMatch(/ModalShell/);
+    expect(chatScreen).toMatch(/is-app-full/);
+    expect(chatScreen).toMatch(/onToggleFull/);
+    expect(css).toMatch(/@keyframes apps-dock-pulse/);
+    expect(css).toMatch(
+      /\.chat-shell\.is-app-full \.chat-stage\s*\{[^}]*margin:\s*8px 12px 12px/s,
+    );
   });
 
   it("lets the office pane share one resizable column", () => {

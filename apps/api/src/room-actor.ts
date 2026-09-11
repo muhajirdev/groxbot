@@ -534,6 +534,7 @@ export class RoomActor extends RoomHome {
       metadata: {
         workspaceId,
         botId,
+        roomId: this.name,
       },
       persistCodexAuth: (auth) =>
         persistOpenAiCodexAuth(
