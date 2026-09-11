@@ -89,6 +89,14 @@ describe("model pickers", () => {
     expect(source).toContain("Save keys");
   });
 
+  it("keeps Codex auth.json behind a disclosure after ChatGPT is picked", () => {
+    const source = readFileSync(join(root, "AppSettings.tsx"), "utf8");
+    expect(source).toContain('<details className="codex-setup">');
+    expect(source).toContain("How to get auth.json");
+    expect(source).toMatch(/selectedCodexModel \? \(\s*<CodexSetupSteps/);
+    expect(source).not.toMatch(/<span>Model<\/span>/);
+  });
+
   it("compacts the desk on a bot model change without a confirm", () => {
     const source = readFileSync(join(root, "BotSettingsPane.tsx"), "utf8");
     expect(source).toContain("compactOffice: true");

@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   FEATURED_PLUGIN_IDS,
@@ -8,6 +11,14 @@ import {
   marketplaceSearchPlaceholder,
 } from "./marketplace";
 import type { PluginCard } from "./plugins";
+
+const modalSrc = readFileSync(
+  join(
+    dirname(fileURLToPath(import.meta.url)),
+    "../components/MarketplaceModal.tsx",
+  ),
+  "utf8",
+);
 
 const gmail: PluginCard = {
   id: "gmail",
@@ -35,9 +46,9 @@ const obscure: PluginCard = {
 
 describe("marketplaceInstalledSummary", () => {
   it("formats installed and private counts", () => {
-    expect(marketplaceInstalledSummary({ installed: 10, privateCount: 2 })).toBe(
-      "10 installed · 2 private",
-    );
+    expect(
+      marketplaceInstalledSummary({ installed: 10, privateCount: 2 }),
+    ).toBe("10 installed · 2 private");
     expect(marketplaceInstalledSummary({ installed: 1, privateCount: 0 })).toBe(
       "1 installed",
     );
@@ -104,5 +115,16 @@ describe("marketplaceSearchPlaceholder", () => {
     expect(marketplaceSearchPlaceholder("plugins")).toContain("plugins");
     expect(marketplaceSearchPlaceholder("bots")).toContain("bots");
     expect(marketplaceSearchPlaceholder("skills")).toContain("skills");
+  });
+});
+
+describe("marketplace sheet chrome", () => {
+  it("keeps the Marketplace title out of the tab row", () => {
+    expect(modalSrc).toContain('className="market-head"');
+    expect(modalSrc).toContain('className="market-title"');
+    expect(modalSrc).toContain("market-head-tools");
+    expect(modalSrc).not.toMatch(
+      /flex-1 text-\[16px\] font-semibold tracking-tight/,
+    );
   });
 });

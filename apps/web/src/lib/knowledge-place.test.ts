@@ -4,7 +4,10 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const src = readFileSync(
-  join(dirname(fileURLToPath(import.meta.url)), "../components/KnowledgePlace.tsx"),
+  join(
+    dirname(fileURLToPath(import.meta.url)),
+    "../components/KnowledgePlace.tsx",
+  ),
   "utf8",
 );
 
@@ -28,7 +31,20 @@ describe("knowledge share toasts", () => {
   it("puts share next to download on the note preview", () => {
     expect(src).toContain("Share publicly");
     expect(src).toContain("Copy public link");
-    expect(src).toMatch(/<ShareIcon \/>[\s\S]*?<DownloadIcon \/>[\s\S]*?<TrashIcon \/>/);
+    expect(src).toMatch(
+      /<ShareIcon \/>[\s\S]*?<DownloadIcon \/>[\s\S]*?<TrashIcon \/>/,
+    );
     expect(src).toContain("workspace.sharePath");
+  });
+});
+
+describe("skills place on a phone", () => {
+  it("drills into a playbook with Back instead of a split pane", () => {
+    expect(src).toContain('detailOpen && "is-detail"');
+    expect(src).toContain("knowledge-back");
+    expect(src).toContain("function closeDetail");
+    expect(src).toContain("props.onPath(folder)");
+    expect(src).toContain("Pick a playbook.");
+    expect(src).not.toContain("on the left");
   });
 });

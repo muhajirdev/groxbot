@@ -122,7 +122,7 @@ export function AppSettings(props: {
               ["appearance", "Appearance"],
               ["general", "General"],
               ["models", "Models"],
-              ["billing", "Usage & Billing"],
+              ["billing", "Usage"],
               ["updates", "Updates"],
             ] as const
           ).map(([id, label]) => (
@@ -936,18 +936,13 @@ function BillingTab() {
 
 function CodexSetupSteps(props: { connected: boolean }) {
   return (
-    <div className="codex-setup">
-      {props.connected ? (
-        <p className="hint">
-          Office turns use your ChatGPT subscription. Tokens refresh on their
-          own. Re-paste the auth file if you log out of Codex.
-        </p>
-      ) : (
-        <p className="hint">
-          This is not an API key. ChatGPT Plus or Pro, then paste the login file
-          from your computer.
-        </p>
-      )}
+    <details className="codex-setup">
+      <summary>
+        {props.connected
+          ? "Connected — re-paste if you log out of Codex"
+          : "How to get auth.json"}
+      </summary>
+      <p className="hint">ChatGPT Plus or Pro. This is not an API key.</p>
       <ol className="codex-setup-steps">
         {OPENAI_CODEX_SETUP_STEPS.map((step) => (
           <li key={step.title}>
@@ -955,7 +950,7 @@ function CodexSetupSteps(props: { connected: boolean }) {
           </li>
         ))}
       </ol>
-    </div>
+    </details>
   );
 }
 
@@ -1144,12 +1139,15 @@ function ModelsTab() {
   return (
     <>
       <section className="set-block">
-        <p className="group-label">Default model</p>
-        <p className="hint set-lede">
-          Every teammate uses this unless you override it on that bot.
-        </p>
-        <label className="field">
-          <span>Model</span>
+        <div className="set-row">
+          <div>
+            <strong>Default model</strong>
+            <p className="muted">
+              Every teammate, unless you override it on that bot.
+            </p>
+          </div>
+        </div>
+        <div className="set-model-pick">
           <ModelField
             value={selectedModel}
             catalog={pickerItems}
@@ -1169,26 +1167,7 @@ function ModelsTab() {
               persistChoice({ defaultModel: next });
             }}
           />
-        </label>
-        {isGroxbotRouterModel(selectedModel) ? null : (
-          <>
-            <label className="field">
-              <span>Effort</span>
-              <EffortField
-                value={selectedEffort}
-                className="bg-card-2"
-                onChange={(next) => {
-                  const value = parseThinkingEffort(next);
-                  setEffort(value);
-                  persistChoice({ effort: value });
-                }}
-              />
-            </label>
-            <p className="hint">
-              How hard the model thinks. Off skips reasoning.
-            </p>
-          </>
-        )}
+        </div>
         {selectedModel === CUSTOM_MODEL_SENTINEL ? (
           <label className="field">
             <span>Model id</span>
@@ -1207,16 +1186,23 @@ function ModelsTab() {
             />
           </label>
         ) : null}
-        {selectedCodexModel ? (
-          <CodexSetupSteps
-            connected={Boolean(
-              settings.keys.find(
-                (item) =>
-                  item.provider === OPENAI_CODEX_PROVIDER && item.configured,
-              ),
-            )}
-          />
-        ) : null}
+        {isGroxbotRouterModel(selectedModel) ? null : (
+          <div className="set-row set-effort-row">
+            <div>
+              <strong>Effort</strong>
+              <p className="muted">Off skips reasoning.</p>
+            </div>
+            <EffortField
+              value={selectedEffort}
+              className="set-inline-select bg-card-2"
+              onChange={(next) => {
+                const value = parseThinkingEffort(next);
+                setEffort(value);
+                persistChoice({ effort: value });
+              }}
+            />
+          </div>
+        )}
         {warning ? <p className="model-warn">{warning}</p> : null}
         {error ||
         busy ||
@@ -1236,8 +1222,7 @@ function ModelsTab() {
       <section className="set-block">
         <p className="group-label">Provider keys</p>
         <p className="hint set-lede">
-          Groxbot includes hosted models so you can start without a key. Paste
-          your own anytime — your key wins when it is on file.
+          Hosted models are included. A pasted key wins.
         </p>
         <div className="provider-keys">
           <div
@@ -1298,16 +1283,17 @@ function ModelsTab() {
                 {expanded ? (
                   <div className="provider-key-body">
                     {provider === OPENAI_CODEX_PROVIDER ? (
-                      selectedCodexModel ? (
+                      <>
                         <p className="hint">
-                          Paste the whole <code>~/.codex/auth.json</code> file.
-                          It saves when you leave the box.
+                          Paste <code>~/.codex/auth.json</code>. Saves when you
+                          leave the box.
                         </p>
-                      ) : (
-                        <CodexSetupSteps
-                          connected={Boolean(status?.configured)}
-                        />
-                      )
+                        {selectedCodexModel ? (
+                          <CodexSetupSteps
+                            connected={Boolean(status?.configured)}
+                          />
+                        ) : null}
+                      </>
                     ) : (
                       <p className="hint">
                         {meta.hint}{" "}

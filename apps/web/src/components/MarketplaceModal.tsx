@@ -69,40 +69,40 @@ export function MarketplaceModal(props: {
       className="market-modal h-[min(86vh,760px)] w-[min(920px,calc(100%-32px))] rounded-[20px] bg-card"
       onClose={props.onClose}
     >
-      <div className="flex items-center gap-3 px-4 pt-3 pb-1.5">
-        <h2 className="m-0 min-w-0 flex-1 text-[16px] font-semibold tracking-tight">
-          Marketplace
-        </h2>
-        <div
-          className="market-segment"
-          role="tablist"
-          aria-label="Marketplace section"
-        >
-          {TABS.map((tab) => {
-            const on = props.tab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={on}
-                className={cn("market-segment-btn", on && "on")}
-                onClick={() => props.onTabChange(tab.id)}
-              >
-                <tab.Icon className="size-3.5" />
-                {tab.label}
-              </button>
-            );
-          })}
+      <div className="market-head">
+        <h2 className="market-title">Marketplace</h2>
+        <div className="market-head-tools">
+          <div
+            className="market-segment"
+            role="tablist"
+            aria-label="Marketplace section"
+          >
+            {TABS.map((tab) => {
+              const on = props.tab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={on}
+                  className={cn("market-segment-btn", on && "on")}
+                  onClick={() => props.onTabChange(tab.id)}
+                >
+                  <tab.Icon className="size-3.5" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+          <button
+            className="icon-btn"
+            type="button"
+            aria-label="Close"
+            onClick={props.onClose}
+          >
+            <CloseIcon />
+          </button>
         </div>
-        <button
-          className="icon-btn"
-          type="button"
-          aria-label="Close"
-          onClick={props.onClose}
-        >
-          <CloseIcon />
-        </button>
       </div>
 
       {props.tab === "plugins" ? (
