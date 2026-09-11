@@ -49,7 +49,7 @@ Brand Name: ${GROXBOT_NAME}
 
 Groxbot should feel like Grok Bot: a messaging app of named teammates, not a workflow builder, IDE, or Discord. ${GROXBOT_TAGLINE} — like Grok Bot, for the team. If OpenClaw is for personal use, Groxbot is the office. Create a Bot, message it, grant access as needed. There isn't anything to learn — it's like bringing on a coworker.
 
-Product API is oRPC. One wakeup queue per bot. Each bot has a computer (@cloudflare/computer Workspace on that actor). Shared team data lives in Postgres. Hosted groxbot.com is three Cloudflare Workers (landing, office SPA, API) plus Neon. Self-host is later. The marketing site is ${web}; the office app is ${office}.
+Product API is oRPC. One wakeup queue per bot. Each bot has a computer (@cloudflare/computer Workspace on that actor). Shared team data lives in Cloudflare D1. Hosted groxbot.com is three Cloudflare Workers (landing, office SPA, API) plus D1. Self-host is later. The marketing site is ${web}; the office app is ${office}.
 
 ## Docs
 
@@ -268,12 +268,12 @@ URL: [${GROXBOT_NAME}](${web}/)
 ---
 
 Q: How is Groxbot different from xAI Grok Bot?
-A: Same motion: talk to named teammates. Groxbot is multiplayer (one office, shared Postgres) and fair-code so you can self-host. Self-host for your organization is free; hosted Groxbot for others is groxbot.com.
+A: Same motion: talk to named teammates. Groxbot is multiplayer (one office, shared D1 catalog) and fair-code so you can self-host. Self-host for your organization is free; hosted Groxbot for others is groxbot.com.
 
 ---
 
 Q: How is Groxbot different from OpenClaw?
-A: OpenClaw is a personal agent on your machine. Groxbot is the office: named teammates, each with a computer, Postgres for team data, and a messaging UI the whole company can sit in.
+A: OpenClaw is a personal agent on your machine. Groxbot is the office: named teammates, each with a computer, D1 for team data, and a messaging UI the whole company can sit in.
 URL: [${GROXBOT_NAME}](${web}/compare/grok-bot-vs-hermes-vs-openclaw-vs-paperclip)
 
 ---
@@ -306,7 +306,7 @@ A: A live doc, deck, or sheet. Talk, then Open from the chat card. Each app is i
 ---
 
 Q: How do I run it locally?
-A: Copy .env.example to .env and apps/api/.dev.vars.example to apps/api/.dev.vars, set a Neon DATABASE_URL, pnpm install, pnpm db:migrate, pnpm dev. Web is http://127.0.0.1:5173, API Worker is http://127.0.0.1:3100.
+A: Copy .env.example to .env and apps/api/.dev.vars.example to apps/api/.dev.vars, pnpm install, pnpm db:migrate, pnpm dev. Web is http://127.0.0.1:5173, API Worker is http://127.0.0.1:3100. Local D1 is the catalog — no Neon URL.
 URL: [README](${GROXBOT_GITHUB}#run-locally)
 
 ---
@@ -330,7 +330,7 @@ URL: [ai.txt](${abs(web, "/ai.txt")})
 ---
 
 Q: Does my data leave the office?
-A: Self-host and the office stays in your Postgres and sandboxes — groxbot.com never sees it. Hosted groxbot.com stores the office for you. Either way, a Bot talking to a model sends the prompt to the provider behind your key. Pick one with a zero-retention agreement if you need that. Groxbot does not claim zero retention: the office is meant to remember.
+A: Self-host and the office stays in your D1/sqlite and sandboxes — groxbot.com never sees it. Hosted groxbot.com stores the office for you. Either way, a Bot talking to a model sends the prompt to the provider behind your key. Pick one with a zero-retention agreement if you need that. Groxbot does not claim zero retention: the office is meant to remember.
 
 ---
 
@@ -414,7 +414,7 @@ pnpm dev
 - API Worker: http://127.0.0.1:3100/health (wrangler dev)
 - oRPC: http://127.0.0.1:3100/rpc
 
-Use 127.0.0.1, not localhost, for OAuth callbacks. Neon DATABASE_URL is required (Worker uses Neon HTTP).
+Use 127.0.0.1, not localhost, for OAuth callbacks. Local wrangler D1 is the catalog (no Neon DATABASE_URL).
 
 ## Public HTTP
 

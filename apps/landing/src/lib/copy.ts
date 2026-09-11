@@ -170,7 +170,7 @@ export const FAQS = [
   },
   {
     q: "How is this different from OpenClaw?",
-    a: "OpenClaw is a personal agent on your machine. Groxbot is the office: named teammates, each with a computer, Postgres for team data, and a messaging UI the whole company can sit in.",
+    a: "OpenClaw is a personal agent on your machine. Groxbot is the office: named teammates, each with a computer, D1 for team data, and a messaging UI the whole company can sit in.",
   },
   {
     q: "How is this different from Hermes?",
@@ -214,7 +214,7 @@ export const FAQS = [
   },
   {
     q: "Does my data leave the office?",
-    a: "Self-host and the office stays in your Postgres and sandboxes — groxbot.com never sees it. Hosted stores it for you. Either way, a Bot talking to a model sends the prompt to the provider behind your key. Pick one with a zero-retention agreement if you need that. We do not claim zero retention: the office is meant to remember.",
+    a: "Self-host and the office stays in your SQLite catalog and Durable Objects — groxbot.com never sees it. Hosted stores it for you. Either way, a Bot talking to a model sends the prompt to the provider behind your key. Pick one with a zero-retention agreement if you need that. We do not claim zero retention: the office is meant to remember.",
   },
   {
     q: "How do I talk to a person?",

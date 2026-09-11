@@ -225,7 +225,7 @@ describe("Computer Worker shell wiring", () => {
     expect(readSrc("mcp.ts")).toMatch(/connectMcpHttp/);
     expect(readSrc("mcp.ts")).not.toMatch(/getMcpHostBot/);
     expect(readSrc("mcp-http.ts")).toMatch(/StreamableHTTPClientTransport/);
-    expect(readSrc("mcp-http.ts")).toMatch(/class PostgresMcpOAuthProvider/);
+    expect(readSrc("mcp-http.ts")).toMatch(/class CatalogMcpOAuthProvider/);
     expect(readSrc("mcp-http.ts")).not.toMatch(/from ["']agents["']/);
     expect(readSrc("mcp-http.ts")).not.toMatch(
       /DurableObjectOAuthClientProvider/,

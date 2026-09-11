@@ -1,1 +1,0 @@
-ALTER TABLE "billing_plans" ADD COLUMN "polar_yearly_product_id" text;

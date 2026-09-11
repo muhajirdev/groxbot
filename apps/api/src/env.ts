@@ -26,7 +26,8 @@ export { DURABLE_OBJECT_WAKEUP, HTTP_WAKEUP, IN_PROCESS_WAKEUP };
 export type OAuthProviderId = "google" | "github";
 
 export interface Env {
-  databaseUrl: string;
+  /** Node self-host sqlite file. Worker uses the `DB` D1 binding instead. */
+  databasePath?: string;
   authSecret: string;
   authUrl: string;
   webOrigin: string;
@@ -102,7 +103,7 @@ function parseOrigins(value: string | undefined, fallback: string[]): string[] {
 
 /** String bindings / test bags. Worker objects (AI, EMAIL, DOs) are not included. */
 export type EnvStrings = {
-  DATABASE_URL?: string;
+  DATABASE_PATH?: string;
   BETTER_AUTH_SECRET?: string;
   NODE_ENV?: string;
   WEB_ORIGIN?: string;
@@ -142,8 +143,7 @@ function read(source: EnvStrings, key: keyof EnvStrings): string | undefined {
 }
 
 export function loadEnv(source: EnvStrings): Env {
-  const databaseUrl = read(source, "DATABASE_URL");
-  if (!databaseUrl) throw new Error("DATABASE_URL is required");
+  const databasePath = read(source, "DATABASE_PATH")?.trim() || undefined;
   const authSecret = read(source, "BETTER_AUTH_SECRET") ?? "";
   if (authSecret.length < 32 && read(source, "NODE_ENV") === "production") {
     throw new Error(
@@ -159,7 +159,7 @@ export function loadEnv(source: EnvStrings): Env {
     TINYFISH_API_KEYS: read(source, "TINYFISH_API_KEYS"),
   });
   return {
-    databaseUrl,
+    databasePath,
     authSecret: authSecret || "development-only-change-me-please-32ch",
     authUrl: read(source, "BETTER_AUTH_URL") ?? "http://127.0.0.1:3100",
     webOrigin,
@@ -232,6 +232,12 @@ export function productEnv(
   loaded.hostedAiBinding = Boolean(env.AI);
   loaded.wakeupKind = DURABLE_OBJECT_WAKEUP;
   return loaded;
+}
+
+/** Fail closed when the Worker bag has no D1 binding. */
+export function requireCatalogDb<T>(env: { DB?: T }): T {
+  if (env.DB == null) throw new Error("DB D1 binding is required");
+  return env.DB;
 }
 
 /** Overlay for resolveRunModel / AI gateway. Hosted CF gateway + encryption. */

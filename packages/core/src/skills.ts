@@ -1,4 +1,4 @@
-/** Agent Skills on this bot’s computer. Not a Postgres catalog. */
+/** Agent Skills on this bot’s computer. Not a D1 catalog. */
 
 export const SKILLS_ROOT = "skills";
 export const SKILL_FILE = "SKILL.md";

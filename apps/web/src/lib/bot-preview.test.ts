@@ -53,7 +53,7 @@ describe("mergeBotList", () => {
     );
   });
 
-  it("keeps a Postgres preview when there is no office cache", () => {
+  it("keeps a catalog preview when there is no office cache", () => {
     const server = [bot("bot-1", "From poke")];
     expect(mergeBotList(server, undefined, new Map())[0]?.lastPreview).toBe(
       "From poke",

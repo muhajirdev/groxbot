@@ -77,7 +77,7 @@ function PrivacyPage() {
             </h2>
             <p>
               If you self-host, office data stays in your deployment (your
-              Postgres, your Durable Objects, your keys). groxbot.com does not
+              SQLite catalog, your Durable Objects, your keys). groxbot.com does not
               see those threads. This policy still covers the marketing site and
               any account you keep on hosted groxbot.com.
             </p>

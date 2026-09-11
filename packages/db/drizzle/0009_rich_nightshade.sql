@@ -1,1 +1,0 @@
-ALTER TABLE "mcp_connections" ADD COLUMN "oauth_ciphertext" text;

@@ -1,9 +1,10 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { DURABLE_OBJECT_WAKEUP, HOSTED_AI_ENV, HOSTED_AI_FLAG } from "@groxbot/contracts";
 import { describe, expect, it } from "vitest";
-import { agentRuntimeSource, loadEnv, productEnv } from "./env.js";
+import { agentRuntimeSource, loadEnv, productEnv, requireCatalogDb } from "./env.js";
 
 const base = {
-  DATABASE_URL: "postgres://groxbot:groxbot@127.0.0.1:5433/groxbot",
   BETTER_AUTH_SECRET: "development-only-change-me-please-32ch",
 };
 
@@ -49,6 +50,26 @@ describe("agentRuntimeSource", () => {
   });
 });
 
+describe("requireCatalogDb", () => {
+  it("fails closed without a DB binding", () => {
+    expect(() => requireCatalogDb({})).toThrow(/DB D1 binding is required/);
+    expect(requireCatalogDb({ DB: { tag: "d1" } })).toEqual({ tag: "d1" });
+  });
+
+  it("binds Worker catalog DB in wrangler.jsonc", () => {
+    const wrangler = readFileSync(
+      join(import.meta.dirname, "../wrangler.jsonc"),
+      "utf8",
+    );
+    expect(wrangler).toMatch(/"binding": "DB"/);
+    expect(wrangler).toMatch(/"database_name": "groxbot"/);
+    expect(wrangler).toMatch(
+      /"migrations_dir": "\.\.\/\.\.\/packages\/db\/drizzle"/,
+    );
+    expect(wrangler).not.toMatch(/DATABASE_URL/);
+  });
+});
+
 describe("productEnv", () => {
   it("reads Worker string bindings and DO wakeup, not process.env", () => {
     const env = productEnv({
@@ -59,7 +80,7 @@ describe("productEnv", () => {
     expect(env.wakeupKind).toBe(DURABLE_OBJECT_WAKEUP);
     expect(env.emailBinding).toBe(true);
     expect(env.hostedAiBinding).toBe(true);
-    expect(env.databaseUrl).toBe(base.DATABASE_URL);
+    expect(env.databasePath).toBeUndefined();
   });
 
   it("turns hosted billing on from Polar Worker secrets", () => {
@@ -76,6 +97,13 @@ describe("productEnv", () => {
 });
 
 describe("loadEnv", () => {
+  it("does not require DATABASE_URL", () => {
+    expect(loadEnv(base).databasePath).toBeUndefined();
+    expect(
+      loadEnv({ ...base, DATABASE_PATH: "data/groxbot.sqlite" }).databasePath,
+    ).toBe("data/groxbot.sqlite");
+  });
+
   it("defaults local auth to wrangler, office to Vite", () => {
     const env = loadEnv(base);
     expect(env.authUrl).toBe("http://127.0.0.1:3100");

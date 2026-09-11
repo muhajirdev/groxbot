@@ -1,3 +1,5 @@
+# Unused. Default local catalog is wrangler D1 (`pnpm db:migrate`).
+# Node self-host uses DATABASE_PATH (sqlite file), not this container.
 services:
   postgres:
     image: postgres:16

@@ -4,6 +4,7 @@ import {
   type bots,
   type Database,
   events,
+  isUniqueViolation,
   messages,
   threads,
 } from "@groxbot/db";
@@ -184,20 +185,7 @@ export async function appendEvent(
 }
 
 function isUniqueSeqConflict(error: unknown): boolean {
-  let current: unknown = error;
-  for (let i = 0; i < 4 && current && typeof current === "object"; i += 1) {
-    const code = "code" in current ? current.code : undefined;
-    const constraint =
-      "constraint_name" in current ? current.constraint_name : undefined;
-    if (code === "23505") return true;
-    if (
-      constraint === "events_thread_seq" ||
-      constraint === "messages_thread_seq"
-    )
-      return true;
-    current = "cause" in current ? current.cause : undefined;
-  }
-  return false;
+  return isUniqueViolation(error);
 }
 
 export async function listEventsAfter(

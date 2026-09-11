@@ -18,7 +18,7 @@ The bot is the **roster person**. A room is a **place**. They share one Durable 
 - Group members still join by `botId`. Wake target is that bot’s **home room id** (door), not a second person instance.
 - The group runs Pi as the seated teammate. Home stays the office + computer + `set_context` blobs. Group calls `/door/context` and `/door/tool`.
 
-Do not bring back a `BotActor` TypeScript class. The provisioned Cloudflare SQLite class is still named `BotActor` (v1) so preview `versions upload` can succeed; the Worker binding and product name are `ROOM_ACTOR` / `RoomActor`. Do not name the person instance by `botId`. Do not move the computer off home. Do not store `rooms.kind`. Do not use Cloudflare Session as the office catalog. Do not add D1.
+Do not bring back a `BotActor` TypeScript class. The provisioned Cloudflare SQLite class is still named `BotActor` (v1) so preview `versions upload` can succeed; the Worker binding and product name are `ROOM_ACTOR` / `RoomActor`. Do not name the person instance by `botId`. Do not move the computer off home. Do not store `rooms.kind`. Do not use Cloudflare Session as the office catalog. D1 is the shared-team SQL catalog (auth, roster, rooms, billing, MCP, poke threads). Do not put office history or knowledge search in D1.
 
 ## Cloudflare OS uses Pi. That does not make Pi the room.
 
@@ -43,14 +43,14 @@ RoomActor  [name = roomId]       group (no matching bot)     log, members, floor
 |---|---|---|---|
 | Bot (person) | yes — own `RoomActor` | `homeRoomId` (DO), `botId` (roster) | yes — Pi |
 | Room (place) | yes — group `RoomActor` | `roomId` | **guest Pi** |
-| Membership / listing | Postgres | workspace | no |
+| Membership / listing | D1 | workspace | no |
 | Computer | built into the person’s room | `botId` oRPC → home instance | `@cloudflare/computer` `Workspace` |
 
-Postgres lists rooms and members (team data). The live transcript and “who has the floor” live on that `RoomActor` (DO SQLite), with `seq` as the order.
+D1 lists rooms and members (team data). The live transcript and “who has the floor” live on that `RoomActor` (DO SQLite), with `seq` as the order.
 
 ## A turn
 
-You speak in the group. The group decides who wakes (`@Steve`, go-around, or fail closed if several members and no target). It runs Pi **here** as Steve: roster prompt from Postgres, overlay/memory/computer through Steve’s home door. Replies stay on the group log. Steve’s home Pi Session stays 1:1 office. Office and group can run at once; file ops on the computer still serialize on home.
+You speak in the group. The group decides who wakes (`@Steve`, go-around, or fail closed if several members and no target). It runs Pi **here** as Steve: roster prompt from D1, overlay/memory/computer through Steve’s home door. Replies stay on the group log. Steve’s home Pi Session stays 1:1 office. Office and group can run at once; file ops on the computer still serialize on home.
 
 Steve and Hormozi in one group share the group isolate (one floor at a time). Nested poke-style waits must not re-enter the caller’s queue.
 
@@ -58,6 +58,6 @@ Computer pane: `focusedBotId`. The group has no screen — papers live on the gr
 
 ## v1
 
-1:1 office is already that bot’s own room with one member. Same URL and Cap’n Web path as a group. Poke (pair thread in Postgres) stays as agent-to-agent off to the side. A panel is not a poke.
+1:1 office is already that bot’s own room with one member. Same URL and Cap’n Web path as a group. Poke (pair thread in D1) stays as agent-to-agent off to the side. A panel is not a poke.
 
 Scripted tests: `poke Lookout: …` still covers pair wake. Group tests send to a room and assert which `botId`s ran — computer/memory go through that bot’s home door.

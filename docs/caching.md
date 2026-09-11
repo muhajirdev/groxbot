@@ -38,7 +38,7 @@ Source of truth is never the browser:
 
 | Data | Truth |
 |---|---|
-| Team, bots, members, models | Postgres |
+| Team, bots, members, models | D1 |
 | Office chat | Pi Session (`sessions` / `entries`) on the home `RoomActor`, streamed over Cap’n Web |
 | Group room chat | DO SQLite `room_chat` on the group `RoomActor`, streamed over Cap’n Web |
 | This bot’s files | `@cloudflare/computer` `Workspace` on the home `RoomActor` |

@@ -71,7 +71,7 @@ function PricingPage() {
             <p className="kicker">Self-host</p>
             <h2>Run it yourself. Free.</h2>
             <p className="lede tight">
-              Your Postgres. Your keys. Source on GitHub. Hosted groxbot.com is
+              Your SQLite catalog. Your keys. Source on GitHub. Hosted groxbot.com is
               the paid product — self-host for your own team costs nothing.
             </p>
             <div className="row">

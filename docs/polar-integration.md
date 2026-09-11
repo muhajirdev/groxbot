@@ -66,7 +66,7 @@ Polar [seat-based pricing](https://polar.sh/docs/features/seat-based-pricing) sp
 
 Do not sync Polar members into Better Auth or the reverse. Two options:
 
-- **v1 hosted (simpler):** one workspace plan (Hobby / Team) with included limits. Polar feature-flag benefits + a Postgres mirror. Member count is a Groxbot cap (`memberCount <= seats`), not Polar seat assignment.
+- **v1 hosted (simpler):** one workspace plan (Hobby / Team) with included limits. Polar feature-flag benefits + a D1 mirror. Member count is a Groxbot cap (`memberCount <= seats`), not Polar seat assignment.
 - **Later:** Polar seats as the paid quantity; Groxbot still owns login. Assign seats by email / `external_member_id` = Better Auth `user.id` only if we want Polar to grant per-human benefits (Discord, license keys). Hosted product access should still be “workspace has an active subscription.”
 
 Polar’s Better Auth docs also allow `referenceId: organizationId` on checkout while keeping the Polar customer as the user. That tracks org purchases on the *user* customer, and `customer.state()` **does not** include parent-org subscriptions. We would have to list orders/subscriptions by `referenceId` on every gate. Worse than workspace-as-customer.
@@ -99,7 +99,7 @@ API (Hono) ── BillingPort ── Polar SDK (hosted only)
         │                         │
         │ webhooks                │ events.ingest
         v                         v
-Postgres workspace_billing     Polar Customer State
+D1 workspace_billing           Polar Customer State
         ^
         └── entitlement checks on hosted sandbox provision, bot caps, hosted models
 ```
@@ -126,7 +126,7 @@ interface BillingPort {
 - **Fake (tests):** in-memory plans, no HTTP.
 - **Polar:** Organization Access Token, sandbox vs production.
 
-Do not call Polar on every `threads.send`. Mirror Customer State into Postgres on `customer.state_changed` (and subscription/order webhooks as backup). Read the mirror in oRPC.
+Do not call Polar on every `threads.send`. Mirror Customer State into D1 on `customer.state_changed` (and subscription/order webhooks as backup). Read the mirror in oRPC.
 
 ### Schema (sketch)
 

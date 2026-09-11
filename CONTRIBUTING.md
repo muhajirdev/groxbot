@@ -1,6 +1,6 @@
 # Contributing
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for locked decisions (one queue per bot, Postgres, oRPC, web-first clients, Cloudflare hosted, computer built into the bot).
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for locked decisions (one queue per bot, D1 catalog, oRPC, web-first clients, Cloudflare hosted, computer built into the bot).
 
 Contributions are under the [Groxbot License](./LICENSE): self-host for your organization is free; the authors may use contributions in groxbot.com and may tighten or relax the license.
 

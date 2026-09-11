@@ -377,7 +377,7 @@ export function Landing(props: { startUrl: string }) {
             <h2>Enterprise ready.</h2>
             <p className="lede tight">
               Keep the office on your machines. groxbot.com never sees the
-              threads. The office still remembers — on your Postgres. Model
+              threads. The office still remembers — on your SQLite catalog. Model
               calls go to the key you paste.
             </p>
             <div className="row">

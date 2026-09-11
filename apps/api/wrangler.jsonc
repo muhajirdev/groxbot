@@ -73,6 +73,15 @@
 			"bucket_name": "groxbot-knowledge"
 		}
 	],
+	"d1_databases": [
+		{
+			// Hosted catalog. Local wrangler still uses --local under .wrangler/state.
+			"binding": "DB",
+			"database_name": "groxbot",
+			"database_id": "7402e840-25b5-4be0-a5c3-96626a7956bc",
+			"migrations_dir": "../../packages/db/drizzle"
+		}
+	],
 	"kv_namespaces": [
 		{
 			// Production: wrangler kv namespace create PRODUCT_CACHE (and --preview)

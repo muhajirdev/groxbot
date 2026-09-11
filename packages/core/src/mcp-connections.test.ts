@@ -246,7 +246,7 @@ describe("mcp connections", () => {
     ]);
   });
 
-  it("binds a connected row that already has Postgres OAuth even without a host bot", () => {
+  it("binds a connected row that already has catalog OAuth even without a host bot", () => {
     expect(
       mcpCatalogForExecute([
         {

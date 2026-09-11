@@ -1,18 +1,16 @@
 import { sql } from "drizzle-orm";
 import {
-  type AnyPgColumn,
-  boolean,
+  type AnySQLiteColumn,
   index,
   integer,
-  jsonb,
-  pgTable,
+  sqliteTable,
   text,
-  timestamp,
   uniqueIndex,
-} from "drizzle-orm/pg-core";
+} from "drizzle-orm/sqlite-core";
 import { organization, user } from "./auth.js";
+import { bool, timestampMs, timestampMsNow } from "./columns.js";
 
-export const bots = pgTable(
+export const bots = sqliteTable(
   "bots",
   {
     id: text("id").primaryKey(),
@@ -41,29 +39,25 @@ export const bots = pgTable(
      */
     visibility: text("visibility").notNull().default("shared"),
     /** Set when the teammate is archived (hidden + paused). Null = active. */
-    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    archivedAt: timestampMs("archived_at"),
     /** Set when the teammate is pinned to the top of the sidebar. Null = unpinned. */
-    pinnedAt: timestamp("pinned_at", { withTimezone: true }),
+    pinnedAt: timestampMs("pinned_at"),
     /** Named sidebar section. Null = ungrouped. */
     sectionId: text("section_id").references(
-      (): AnyPgColumn => sidebarSections.id,
+      (): AnySQLiteColumn => sidebarSections.id,
       { onDelete: "set null" },
     ),
     /** Sidebar office. Extra human↔bot threads for this bot are allowed; v1 never creates them. */
     homeThreadId: text("home_thread_id").references(
-      (): AnyPgColumn => threads.id,
+      (): AnySQLiteColumn => threads.id,
       { onDelete: "set null" },
     ),
     /** That bot’s own RoomActor (`rooms.id`). Instance name is this id, not bots.id. */
-    homeRoomId: text("home_room_id").references((): AnyPgColumn => rooms.id, {
+    homeRoomId: text("home_room_id").references((): AnySQLiteColumn => rooms.id, {
       onDelete: "set null",
     }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestampMsNow("created_at"),
+    updatedAt: timestampMsNow("updated_at"),
   },
   (t) => [
     uniqueIndex("bots_home_thread_id_unique").on(t.homeThreadId),
@@ -72,7 +66,7 @@ export const bots = pgTable(
   ],
 );
 
-export const threads = pgTable(
+export const threads = sqliteTable(
   "threads",
   {
     id: text("id").primaryKey(),
@@ -84,9 +78,7 @@ export const threads = pgTable(
     botId: text("bot_id").references(() => bots.id, { onDelete: "cascade" }),
     aBotId: text("a_bot_id").references(() => bots.id, { onDelete: "cascade" }),
     bBotId: text("b_bot_id").references(() => bots.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestampMsNow("created_at"),
   },
   (t) => [
     index("threads_bot_id").on(t.botId),
@@ -97,7 +89,7 @@ export const threads = pgTable(
 );
 
 /** v1: one human. Later: several humans in the same thread. */
-export const threadMembers = pgTable(
+export const threadMembers = sqliteTable(
   "thread_members",
   {
     id: text("id").primaryKey(),
@@ -108,14 +100,12 @@ export const threadMembers = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     role: text("role").notNull().default("member"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestampMsNow("created_at"),
   },
   (t) => [uniqueIndex("thread_members_thread_user").on(t.threadId, t.userId)],
 );
 
-export const messages = pgTable(
+export const messages = sqliteTable(
   "messages",
   {
     id: text("id").primaryKey(),
@@ -125,16 +115,14 @@ export const messages = pgTable(
     seq: integer("seq").notNull(),
     actorType: text("actor_type").notNull(),
     actorId: text("actor_id"),
-    blocks: jsonb("blocks").notNull().$type<unknown[]>(),
+    blocks: text("blocks", { mode: "json" }).notNull().$type<unknown[]>(),
     runId: text("run_id"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestampMsNow("created_at"),
   },
   (t) => [uniqueIndex("messages_thread_seq").on(t.threadId, t.seq)],
 );
 
-export const events = pgTable(
+export const events = sqliteTable(
   "events",
   {
     id: text("id").primaryKey(),
@@ -147,16 +135,16 @@ export const events = pgTable(
     botId: text("bot_id").notNull(),
     seq: integer("seq").notNull(),
     type: text("type").notNull(),
-    payload: jsonb("payload").notNull().$type<Record<string, unknown>>(),
-    runId: text("run_id"),
-    createdAt: timestamp("created_at", { withTimezone: true })
+    payload: text("payload", { mode: "json" })
       .notNull()
-      .defaultNow(),
+      .$type<Record<string, unknown>>(),
+    runId: text("run_id"),
+    createdAt: timestampMsNow("created_at"),
   },
   (t) => [uniqueIndex("events_thread_seq").on(t.threadId, t.seq)],
 );
 
-export const tasks = pgTable("tasks", {
+export const tasks = sqliteTable("tasks", {
   id: text("id").primaryKey(),
   workspaceId: text("workspace_id")
     .notNull()
@@ -170,15 +158,11 @@ export const tasks = pgTable("tasks", {
   userId: text("user_id").notNull(),
   prompt: text("prompt").notNull(),
   status: text("status").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
+  createdAt: timestampMsNow("created_at"),
+  updatedAt: timestampMsNow("updated_at"),
 });
 
-export const runs = pgTable("runs", {
+export const runs = sqliteTable("runs", {
   id: text("id").primaryKey(),
   workspaceId: text("workspace_id")
     .notNull()
@@ -198,18 +182,14 @@ export const runs = pgTable("runs", {
   error: text("error"),
   leaseOwner: text("lease_owner"),
   leaseFence: integer("lease_fence").notNull().default(0),
-  leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
-  startedAt: timestamp("started_at", { withTimezone: true }),
-  completedAt: timestamp("completed_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
+  leaseExpiresAt: timestampMs("lease_expires_at"),
+  startedAt: timestampMs("started_at"),
+  completedAt: timestampMs("completed_at"),
+  createdAt: timestampMsNow("created_at"),
+  updatedAt: timestampMsNow("updated_at"),
 });
 
-export const memoryDocuments = pgTable(
+export const memoryDocuments = sqliteTable(
   "memory_documents",
   {
     id: text("id").primaryKey(),
@@ -222,12 +202,8 @@ export const memoryDocuments = pgTable(
     path: text("path").notNull(),
     content: text("content").notNull(),
     revision: integer("revision").notNull().default(1),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestampMsNow("created_at"),
+    updatedAt: timestampMsNow("updated_at"),
   },
   (t) => [
     uniqueIndex("memory_workspace_scope_bot_path").on(
@@ -239,7 +215,7 @@ export const memoryDocuments = pgTable(
   ],
 );
 
-export const secrets = pgTable(
+export const secrets = sqliteTable(
   "secrets",
   {
     id: text("id").primaryKey(),
@@ -249,15 +225,13 @@ export const secrets = pgTable(
     workspaceId: text("workspace_id").notNull(),
     kind: text("kind").notNull(),
     ciphertext: text("ciphertext").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestampMsNow("created_at"),
   },
   (t) => [uniqueIndex("secrets_workspace_kind").on(t.workspaceId, t.kind)],
 );
 
 /** Outbound guest (Hermes/OpenClaw) connector for one bot. Token shown once. */
-export const guestConnectors = pgTable("guest_connectors", {
+export const guestConnectors = sqliteTable("guest_connectors", {
   id: text("id").primaryKey(),
   botId: text("bot_id")
     .notNull()
@@ -271,18 +245,14 @@ export const guestConnectors = pgTable("guest_connectors", {
     .references(() => user.id, { onDelete: "cascade" }),
   kind: text("kind").notNull(),
   tokenHash: text("token_hash").notNull(),
-  online: boolean("online").notNull().default(false),
-  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
-  revokedAt: timestamp("revoked_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
+  online: bool("online"),
+  lastSeenAt: timestampMs("last_seen_at"),
+  revokedAt: timestampMs("revoked_at"),
+  createdAt: timestampMsNow("created_at"),
+  updatedAt: timestampMsNow("updated_at"),
 });
 
-export const userModelCredentials = pgTable(
+export const userModelCredentials = sqliteTable(
   "user_model_credentials",
   {
     id: text("id").primaryKey(),
@@ -293,14 +263,10 @@ export const userModelCredentials = pgTable(
     provider: text("provider").notNull(),
     label: text("label").notNull(),
     secretId: text("secret_id").notNull(),
-    isDefault: boolean("is_default").notNull().default(false),
+    isDefault: bool("is_default"),
     defaultModel: text("default_model"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestampMsNow("created_at"),
+    updatedAt: timestampMsNow("updated_at"),
   },
   (t) => [
     uniqueIndex("user_model_credentials_workspace_provider").on(
@@ -311,7 +277,7 @@ export const userModelCredentials = pgTable(
 );
 
 /** Hosted Cloudflare AI Gateway usage. Counted per workspace; userId is for later per-person rollups. */
-export const modelUsage = pgTable(
+export const modelUsage = sqliteTable(
   "model_usage",
   {
     id: text("id").primaryKey(),
@@ -334,9 +300,7 @@ export const modelUsage = pgTable(
     promptTokens: integer("prompt_tokens").notNull().default(0),
     completionTokens: integer("completion_tokens").notNull().default(0),
     totalTokens: integer("total_tokens").notNull().default(0),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestampMsNow("created_at"),
   },
   (t) => [
     index("model_usage_workspace_created").on(t.workspaceId, t.createdAt),
@@ -350,22 +314,20 @@ export const modelUsage = pgTable(
 );
 
 /**
- * Per-model hosted pricing — cents per million tokens. Seeded in Postgres, not in source.
+ * Per-model hosted pricing — cents per million tokens. Seeded in D1, not in source.
  */
-export const modelPricing = pgTable("model_pricing", {
+export const modelPricing = sqliteTable("model_pricing", {
   model: text("model").primaryKey(),
   inputCentsPerMillion: integer("input_cents_per_million").notNull().default(0),
   outputCentsPerMillion: integer("output_cents_per_million").notNull().default(0),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
+  updatedAt: timestampMsNow("updated_at"),
 });
 
 /**
  * Hosted plan catalog — limits and Polar product ids live here, not in env or source.
- * groxbot.com operators seed rows in Postgres (not committed to the public repo).
+ * groxbot.com operators seed rows in D1 (not committed to the public repo).
  */
-export const billingPlans = pgTable("billing_plans", {
+export const billingPlans = sqliteTable("billing_plans", {
   /** pro | plus (Pro Plus) | believers — matches workspace_billing.plan */
   plan: text("plan").primaryKey(),
   label: text("label").notNull(),
@@ -379,13 +341,11 @@ export const billingPlans = pgTable("billing_plans", {
   monthlyIncludedSpendCents: integer("monthly_included_spend_cents"),
   /** Optional legacy token cap when spend is not tracked yet. */
   monthlyTokenLimit: integer("monthly_token_limit"),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
+  updatedAt: timestampMsNow("updated_at"),
 });
 
 /** Workspace billing mirror. Polar updates this; limits gate hosted usage. */
-export const workspaceBilling = pgTable(
+export const workspaceBilling = sqliteTable(
   "workspace_billing",
   {
     workspaceId: text("workspace_id")
@@ -406,13 +366,13 @@ export const workspaceBilling = pgTable(
      * When included pool is exhausted, continue hosted runs as on-demand
      * (same rates, billed in arrears via Polar).
      */
-    onDemandEnabled: boolean("on_demand_enabled").notNull().default(false),
+    onDemandEnabled: bool("on_demand_enabled"),
     /** Optional monthly cap on on-demand spend, in cents. Null = no cap. */
     onDemandSpendCapCents: integer("on_demand_spend_cap_cents"),
     polarCustomerId: text("polar_customer_id"),
-    currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+    currentPeriodEnd: timestampMs("current_period_end"),
     /** UTC month start for mirrored usage counters below. */
-    usagePeriodStart: timestamp("usage_period_start", { withTimezone: true }),
+    usagePeriodStart: timestampMs("usage_period_start"),
     /** Fast gating mirror — reset when usagePeriodStart rolls to a new month. */
     includedSpendCentsUsed: integer("included_spend_cents_used")
       .notNull()
@@ -421,9 +381,7 @@ export const workspaceBilling = pgTable(
       .notNull()
       .default(0),
     includedTokensUsed: integer("included_tokens_used").notNull().default(0),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    updatedAt: timestampMsNow("updated_at"),
   },
   (t) => [
     uniqueIndex("workspace_billing_polar_customer_id").on(t.polarCustomerId),
@@ -431,7 +389,7 @@ export const workspaceBilling = pgTable(
 );
 
 /** Workspace default model. Not a secret — keys live in `secrets`. */
-export const workspaceModels = pgTable("workspace_models", {
+export const workspaceModels = sqliteTable("workspace_models", {
   workspaceId: text("workspace_id")
     .primaryKey()
     .references(() => organization.id, { onDelete: "cascade" }),
@@ -441,9 +399,7 @@ export const workspaceModels = pgTable("workspace_models", {
   updatedBy: text("updated_by")
     .notNull()
     .references(() => user.id),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
+  updatedAt: timestampMsNow("updated_at"),
 });
 
 /**
@@ -451,7 +407,7 @@ export const workspaceModels = pgTable("workspace_models", {
  * Multiple Gmail/Instagram rows are allowed. private = owner only;
  * shared = office phone. Same bind rules as MCP.
  */
-export const pluginConnections = pgTable(
+export const pluginConnections = sqliteTable(
   "plugin_connections",
   {
     id: text("id").primaryKey(),
@@ -470,12 +426,8 @@ export const pluginConnections = pgTable(
     visibility: text("visibility").notNull().default("shared"),
     connectedAccountId: text("connected_account_id"),
     lastError: text("last_error"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestampMsNow("created_at"),
+    updatedAt: timestampMsNow("updated_at"),
   },
   (t) => [
     index("plugin_connections_workspace_id").on(t.workspaceId),
@@ -486,7 +438,7 @@ export const pluginConnections = pgTable(
 );
 
 /** Workspace remote MCP catalog. Encrypted OAuth lives on the row. */
-export const mcpConnections = pgTable(
+export const mcpConnections = sqliteTable(
   "mcp_connections",
   {
     id: text("id").primaryKey(),
@@ -510,12 +462,8 @@ export const mcpConnections = pgTable(
     lastError: text("last_error"),
     /** AES-GCM blob of Agents OAuth KV (tokens, PKCE). Never return on the DTO. */
     oauthCiphertext: text("oauth_ciphertext"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestampMsNow("created_at"),
+    updatedAt: timestampMsNow("updated_at"),
   },
   (t) => [
     uniqueIndex("mcp_connections_workspace_shared_name")
@@ -535,7 +483,7 @@ export const mcpConnections = pgTable(
 );
 
 /** Workspace catalog of places. Transcript lives on RoomActor, not here. */
-export const rooms = pgTable(
+export const rooms = sqliteTable(
   "rooms",
   {
     id: text("id").primaryKey(),
@@ -552,18 +500,14 @@ export const rooms = pgTable(
     createdByUserId: text("created_by_user_id")
       .notNull()
       .references(() => user.id),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestampMsNow("created_at"),
+    updatedAt: timestampMsNow("updated_at"),
   },
   (t) => [index("rooms_workspace_id").on(t.workspaceId)],
 );
 
 /** Bots seated at a room. Unique pair; the live log is on RoomActor. */
-export const roomMembers = pgTable(
+export const roomMembers = sqliteTable(
   "room_members",
   {
     id: text("id").primaryKey(),
@@ -573,9 +517,7 @@ export const roomMembers = pgTable(
     botId: text("bot_id")
       .notNull()
       .references(() => bots.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestampMsNow("created_at"),
   },
   (t) => [
     uniqueIndex("room_members_room_bot").on(t.roomId, t.botId),
@@ -584,7 +526,7 @@ export const roomMembers = pgTable(
 );
 
 /** Workspace-owned sidebar buckets for people. Not a room. */
-export const sidebarSections = pgTable(
+export const sidebarSections = sqliteTable(
   "sidebar_sections",
   {
     id: text("id").primaryKey(),
@@ -593,18 +535,14 @@ export const sidebarSections = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     position: integer("position").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestampMsNow("created_at"),
+    updatedAt: timestampMsNow("updated_at"),
   },
   (t) => [index("sidebar_sections_workspace_id").on(t.workspaceId)],
 );
 
 /** Unlisted public link to an office note or folder. Files stay on R2. */
-export const knowledgeShares = pgTable(
+export const knowledgeShares = sqliteTable(
   "knowledge_shares",
   {
     id: text("id").primaryKey(),
@@ -616,10 +554,8 @@ export const knowledgeShares = pgTable(
     createdByUserId: text("created_by_user_id")
       .notNull()
       .references(() => user.id),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestampMsNow("created_at"),
+    revokedAt: timestampMs("revoked_at"),
   },
   (t) => [
     uniqueIndex("knowledge_shares_workspace_path_live")

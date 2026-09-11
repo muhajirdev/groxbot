@@ -26,7 +26,7 @@ function memoryDb(
   };
 }
 
-describe("mcp oauth postgres kv", () => {
+describe("mcp oauth catalog kv", () => {
   it("reads the Agents server id out of a storage key", () => {
     expect(
       mcpOAuthServerIdFromKey(

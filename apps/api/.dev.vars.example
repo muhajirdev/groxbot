@@ -1,10 +1,10 @@
 # Local wrangler env (overrides wrangler.jsonc vars). Never commit real values.
 # cp .dev.vars.example .dev.vars
 #
-# DATABASE_URL is a Neon pooled URI (same as pnpm db:migrate).
-# The Worker uses Neon HTTP, not Docker Postgres.
+# Catalog is the Worker `DB` D1 binding (wrangler.jsonc d1_databases).
+# Apply schema from the repo root: `pnpm db:migrate` (wrangler d1 --local).
+# Docker Postgres is not required.
 
-DATABASE_URL=
 BETTER_AUTH_SECRET=development-only-change-me-please-32ch
 ENCRYPTION_KEY=replace-with-64-char-hex-or-passphrase
 

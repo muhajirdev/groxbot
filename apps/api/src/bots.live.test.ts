@@ -12,7 +12,7 @@ import {
   toRoutineDto,
   writeInboxFile,
 } from "@groxbot/core";
-import { createDb } from "@groxbot/db/node";
+import { createMigratedDb } from "@groxbot/db/node";
 import { createGroxbotClient } from "@groxbot/rpc";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { type AppHandles, createApp } from "./app.js";
@@ -20,20 +20,6 @@ import type { Env } from "./env.js";
 import { loadRootEnv } from "./load-root-env.js";
 
 loadRootEnv();
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  "postgres://groxbot:groxbot@127.0.0.1:5433/groxbot";
-
-let dbUp = false;
-try {
-  const { client } = createDb(databaseUrl);
-  await client`select 1`;
-  await client.end({ timeout: 2 });
-  dbUp = true;
-} catch {
-  dbUp = false;
-}
 
 const origin = "http://127.0.0.1:5173";
 
@@ -133,9 +119,8 @@ function cookieHeader(response: Response, previous = ""): string {
     .join("; ");
 }
 
-describe.skipIf(!dbUp)("bot thread loop", () => {
+describe("bot thread loop", () => {
   const env: Env = {
-    databaseUrl,
     authSecret: "development-only-change-me-please-32ch",
     authUrl: origin,
     webOrigin: origin,
@@ -153,7 +138,7 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
   const routineStore = new MemoryRoutineStore();
 
   beforeAll(async () => {
-    const { db, close } = createDb(databaseUrl);
+    const { db, close } = createMigratedDb();
     const runtime = new ScriptedAgentRuntime();
     let handlers: ReturnType<typeof createWakeHandlers> | undefined;
     const enqueue = async (job: {
@@ -1033,7 +1018,7 @@ describe.skipIf(!dbUp)("bot thread loop", () => {
 
     const gone = await rpc.rooms.delete({ roomId: board.id });
     expect(gone).toEqual({ ok: true });
-    expect((await rpc.rooms.list()).map((item) => item.id)).toEqual([]);
+    expect((await rpc.rooms.list()).map((item) => item.id)).toEqual([empty.id]);
     await expect(rpc.rooms.get({ roomId: board.id })).rejects.toMatchObject({
       code: "NOT_FOUND",
     });

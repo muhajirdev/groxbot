@@ -82,7 +82,7 @@ export function createAuth(
       },
     },
     database: drizzleAdapter(db, {
-      provider: "pg",
+      provider: "sqlite",
       schema: {
         user,
         session,

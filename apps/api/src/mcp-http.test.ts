@@ -1,6 +1,6 @@
 import { MCP_OAUTH_CLIENT_NAME, McpOAuthKv } from "@groxbot/core";
 import { describe, expect, it } from "vitest";
-import { mcpAuthProvider, PostgresMcpOAuthProvider } from "./mcp-http.js";
+import { mcpAuthProvider, CatalogMcpOAuthProvider } from "./mcp-http.js";
 
 const secret = "test-encryption-secret-32bytes!!";
 
@@ -24,9 +24,9 @@ function memoryKv() {
   });
 }
 
-describe("Postgres MCP OAuth provider", () => {
+describe("Catalog MCP OAuth provider", () => {
   it("stores tokens and OAuth state on the catalog row", async () => {
-    const provider = new PostgresMcpOAuthProvider(
+    const provider = new CatalogMcpOAuthProvider(
       memoryKv(),
       MCP_OAUTH_CLIENT_NAME,
       "https://api.example/api/mcp/oauth",
@@ -46,7 +46,7 @@ describe("Postgres MCP OAuth provider", () => {
   });
 
   it("stores a static bearer without treating it as OAuth", async () => {
-    const provider = new PostgresMcpOAuthProvider(
+    const provider = new CatalogMcpOAuthProvider(
       memoryKv(),
       MCP_OAUTH_CLIENT_NAME,
       "https://api.example/api/mcp/oauth",
@@ -72,7 +72,7 @@ describe("Postgres MCP OAuth provider", () => {
   });
 
   it("keeps OAuth as the default when no bearer is saved", async () => {
-    const provider = new PostgresMcpOAuthProvider(
+    const provider = new CatalogMcpOAuthProvider(
       memoryKv(),
       MCP_OAUTH_CLIENT_NAME,
       "https://api.example/api/mcp/oauth",
@@ -94,7 +94,7 @@ describe("Postgres MCP OAuth provider", () => {
       access_token: "legacy",
       token_type: "Bearer",
     });
-    const provider = new PostgresMcpOAuthProvider(
+    const provider = new CatalogMcpOAuthProvider(
       kv,
       MCP_OAUTH_CLIENT_NAME,
       "https://api.example/api/mcp/oauth",

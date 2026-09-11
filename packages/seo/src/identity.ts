@@ -101,7 +101,7 @@ export const GROXBOT_STACK = [
   "TypeScript, pnpm, Hono, React, Vite, TanStack Router",
   "Marketing, office SPA, and API: Cloudflare Workers",
   "oRPC contract in @groxbot/contracts, client in @groxbot/rpc",
-  "Postgres + Drizzle for team data (Neon on hosted Cloudflare)",
+  "D1 + Drizzle for team data (Cloudflare binding on the API Worker)",
   "Hosted brains: Pi on the home RoomActor (tests: ScriptedAgentRuntime)",
   "One wakeup queue per home room — Durable Object RoomActor",
   "Each bot’s computer is Cloudflare Computer workspace on that actor — not a computers table",

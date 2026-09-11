@@ -66,7 +66,7 @@ export function applyAppTitle(
   return state;
 }
 
-/** Create the App Durable Object. Identity lives on the DO + chat card, not Postgres. */
+/** Create the App Durable Object. Identity lives on the DO + chat card, not D1. */
 export async function stampApp(opts: {
   initApp: InitApp;
   workspaceId: string;
@@ -84,7 +84,7 @@ export async function stampApp(opts: {
   return { id, templateId: opts.templateId, title };
 }
 
-/** Postgres chat card so `apps.list` can see office-stamped gadgets. */
+/** D1 chat card so `apps.list` can see office-stamped gadgets. */
 export async function recordAppChatCard(
   db: Database,
   opts: {

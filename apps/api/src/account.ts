@@ -106,7 +106,7 @@ export async function updateAccount(
         headers: context.headers ?? new Headers(),
       });
     } catch {
-      // Cookie cache can lag; me() and members read Postgres.
+      // Cookie cache can lag; me() and members read D1.
     }
   }
 

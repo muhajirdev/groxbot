@@ -12,7 +12,7 @@ UI: copy Grok Bot simplicity — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). R
           v
   API Worker  (Hono + oRPC)
           |
-          +---- Neon  (team: auth, bots, threads, messages, skills)
+          +---- D1  (team: auth, bots, rooms, poke threads)
           |
           +---- RoomActor [name = roomId]   <-- person: Agent + Pi + Computer
           |       person’s own room (bots.homeRoomId): queue / schedule / one turn
@@ -29,7 +29,7 @@ UI: copy Grok Bot simplicity — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). R
 | --- | --- | --- |
 | Bot | `botId` | The person. Roster/soul/computer oRPC key. Their `RoomActor` is named `homeRoomId`. Pi runs the turn. |
 | Room | `roomId` | A place. Same Durable Object class. Person iff `bots.homeRoomId` matches. Group runs guest Pi as the seated bot; computer/memory stay on home behind a door. 1:1 is that bot’s own room. |
-| Thread | Postgres `threadId` | v1 poke / guest. Listing + membership. |
+| Thread | D1 `threadId` | v1 poke / guest. Listing + membership. |
 | Office log | that home room | Pi Session (`sessions` / `entries`) on DO SQLite. |
 | App | `appId` | Live doc. Own Durable Object. |
 | Computer | `botId` | Built into the home room. `@cloudflare/computer` `Workspace` + Worker shell on `RoomActor`. Sell it. Not a second Durable Object. |
@@ -38,19 +38,19 @@ UI: copy Grok Bot simplicity — [docs/grok-bot-ui.md](./docs/grok-bot-ui.md). R
 
 - **Durable person = that bot’s own `RoomActor`.** `getAgentByName(env.ROOM_ACTOR, homeRoomId)`. Do not name this instance `botId`. Do not bring back `BotActor`. Do not store `rooms.kind`.
 - **Durable group = a different `RoomActor`.** Same class. Person vs group is `loadBot()` / `bots.homeRoomId`. Owns the log, members, floor, and guest Pi. Computer and grown soul stay on home (`/door/*`). See [docs/rooms-plan.md](./docs/rooms-plan.md).
-- **Office log on the person’s room.** Pi Session (`sessions` / `entries`) on DO SQLite. `office_chat` is migrate-only. v1 is **one** own room per bot. A poke is still a Postgres thread that enqueues onto that room. Do not use a session catalog as the office. Pi is the **loop** (`runAgentLoopContinue`); it does not replace the person instance or run on the group.
-- **Each app has its own Durable Object.** Talk → chat card → Open. Listing from cards, not a Postgres apps table.
+- **Office log on the person’s room.** Pi Session (`sessions` / `entries`) on DO SQLite. `office_chat` is migrate-only. v1 is **one** own room per bot. A poke is still a D1 thread that enqueues onto that room. Do not use a session catalog as the office. Pi is the **loop** (`runAgentLoopContinue`); it does not replace the person instance or run on the group.
+- **Each app has its own Durable Object.** Talk → chat card → Open. Listing from cards, not a D1 apps table.
 - **Computer is the bot.** Each teammate has a computer (`@cloudflare/computer` `Workspace` on the home `RoomActor`, Worker shell for bash). Sell that. No `computers` table, no shared vs isolated hire, no takeover, no `computer.sleep`, no Computer DO.
-- **Postgres** is the team catalog (auth, bots, threads, messages, skills). Office UI is assistant-ui over Cap’n Web (`/rooms/:roomId/rpc`).
+- **D1** is the team catalog (auth, bots, rooms, poke threads). Office UI is assistant-ui over Cap’n Web (`/rooms/:roomId/rpc`).
 - **One queue per home room.** Two humans in one office share it. Two bots in a poke are two queues.
-- Product is **Cloudflare Workers** + Neon.
+- Product is **Cloudflare Workers** + D1.
 
 ## Wake a bot
 
 - `run.continue` — user messaged (that bot’s queue)
 - Routines — Agents `this.schedule` on the home `RoomActor`. The office UI and Code Mode `routines` connector call `schedule` / `listSchedules` / `cancelSchedule`; the callback appends a user row and starts a Pi turn.
 
-Do not run the brain from Worker Cron Triggers. Do not store routine clocks in Postgres.
+Do not run the brain from Worker Cron Triggers. Do not store routine clocks in D1.
 
 ## Composition
 
@@ -69,10 +69,10 @@ createWakeHandlers({ db, runtime, enqueue, bindRuntime, pluginTools })
 | --- | --- |
 | Marketing | `apps/landing` |
 | Office SPA | `apps/web` |
-| API | `apps/api` + Neon HTTP. Local: `wrangler dev` |
+| API | `apps/api` + D1 binding. Local: `wrangler dev` |
 | Brain | Pi `runAgentLoopContinue` on the home `RoomActor` for v1 office and owned arrays (poke / guest / REST). Tests: `ScriptedAgentRuntime` |
 | Apps | `AppRuntime` per `appId` |
-| Data | Neon Postgres |
+| Data | Cloudflare D1 |
 | Auth email | Worker `EMAIL` (`send_email`) |
 | Hosted models | Worker `AI` through AI Gateway |
 

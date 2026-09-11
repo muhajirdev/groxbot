@@ -43,7 +43,7 @@ vi.mock("@polar-sh/sdk/webhooks", () => ({
 }));
 
 describe("handlePolarWebhook", () => {
-  it("mirrors customer.state_changed to Postgres and gateway KV", async () => {
+  it("mirrors customer.state_changed to D1 and gateway KV", async () => {
     const { applyPolarCustomerState } = await import("@groxbot/core");
     const { syncGatewayEntitlement } = await import("./gateway-entitlement.js");
 
