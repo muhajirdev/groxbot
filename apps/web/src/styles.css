@@ -6775,6 +6775,8 @@ html.electron .pane-head {
   }
 
   .chat-conv-more {
+    top: 50%;
+    transform: translateY(-50%);
     opacity: 1;
   }
 

@@ -307,7 +307,7 @@ const BotRow = memo(function BotRow(props: {
         onDragStart={(event) => props.onDragStart?.(event, item)}
         onDragEnd={props.onDragEnd}
         className={cn(
-          "chat-conv grid min-w-0 grid-cols-[44px_minmax(0,1fr)] items-center gap-2.5 rounded-[14px] border-0 bg-transparent px-2 py-2.5 text-left text-inherit no-underline",
+          "chat-conv grid min-w-0 grid-cols-[44px_minmax(0,1fr)] items-center gap-2.5 rounded-[14px] border-0 bg-transparent px-2 py-2.5 text-left text-inherit no-underline max-[720px]:pr-12",
           props.onDragStart && "cursor-grab active:cursor-grabbing",
           props.selected && "bg-selected",
           props.muted && "opacity-70",
@@ -359,7 +359,7 @@ const BotRow = memo(function BotRow(props: {
         </span>
       </Link>
       <button
-        className="chat-conv-more absolute top-2 right-2 grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted opacity-0 group-hover/bot:opacity-100 hover:bg-hover hover:text-ink focus-visible:opacity-100 max-[720px]:opacity-100"
+        className="chat-conv-more absolute top-2 right-2 grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted opacity-0 group-hover/bot:opacity-100 hover:bg-hover hover:text-ink focus-visible:opacity-100 max-[720px]:top-1/2 max-[720px]:-translate-y-1/2 max-[720px]:opacity-100"
         type="button"
         aria-label={`${item.name} actions`}
         onClick={(event) => {
@@ -402,7 +402,7 @@ const RoomRow = memo(function RoomRow(props: {
         }}
         aria-label={props.working ? `${item.name}, working` : item.name}
         className={cn(
-          "chat-conv grid min-w-0 grid-cols-[44px_minmax(0,1fr)] items-center gap-2.5 rounded-[14px] border-0 bg-transparent px-2 py-2.5 text-left text-inherit no-underline",
+          "chat-conv grid min-w-0 grid-cols-[44px_minmax(0,1fr)] items-center gap-2.5 rounded-[14px] border-0 bg-transparent px-2 py-2.5 text-left text-inherit no-underline max-[720px]:pr-12",
           props.selected && "bg-selected",
         )}
       >
@@ -422,7 +422,7 @@ const RoomRow = memo(function RoomRow(props: {
         </span>
       </Link>
       <button
-        className="chat-conv-more absolute top-2 right-2 grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted opacity-0 group-hover/room:opacity-100 hover:bg-hover hover:text-ink focus-visible:opacity-100 max-[720px]:opacity-100"
+        className="chat-conv-more absolute top-2 right-2 grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted opacity-0 group-hover/room:opacity-100 hover:bg-hover hover:text-ink focus-visible:opacity-100 max-[720px]:top-1/2 max-[720px]:-translate-y-1/2 max-[720px]:opacity-100"
         type="button"
         aria-label={`${item.name} actions`}
         onClick={(event) => {
