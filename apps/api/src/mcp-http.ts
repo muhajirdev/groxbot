@@ -4,6 +4,7 @@ import {
   Client,
   StreamableHTTPClientTransport,
   UnauthorizedError,
+  type AuthProvider,
   type OAuthClientProvider,
   type OAuthDiscoveryState,
   type StoredOAuthClientInformation,
@@ -125,6 +126,22 @@ export class PostgresMcpOAuthProvider implements OAuthClientProvider {
   async saveTokens(tokens: StoredOAuthTokens): Promise<void> {
     await this.kv.put(`${this.root()}/token`, tokens);
     await this.kv.delete(`${this.root()}/oauth_discovery`);
+    await this.kv.put(`${this.root()}/auth_kind`, "oauth");
+  }
+
+  async saveBearer(token: string): Promise<void> {
+    await this.kv.put(`${this.root()}/token`, {
+      access_token: token,
+      token_type: "Bearer",
+    });
+    await this.kv.delete(`${this.root()}/oauth_discovery`);
+    await this.kv.put(`${this.root()}/auth_kind`, "bearer");
+  }
+
+  async authKind(): Promise<"bearer" | "oauth" | undefined> {
+    const kind = await this.kv.get<unknown>(`${this.root()}/auth_kind`);
+    if (kind === "bearer" || kind === "oauth") return kind;
+    return undefined;
   }
 
   async saveDiscoveryState(state: OAuthDiscoveryState): Promise<void> {
@@ -216,6 +233,7 @@ export class PostgresMcpOAuthProvider implements OAuthClientProvider {
     }
     if (scope === "all" || scope === "tokens") {
       await this.kv.delete(`${this.root()}/token`);
+      await this.kv.delete(`${this.root()}/auth_kind`);
     }
     if (scope === "all" || scope === "verifier") {
       await this.kv.delete(`${this.root()}/code_verifier`);
@@ -232,10 +250,31 @@ function authProvider(kv: McpOAuthKv, callbackUrl: string, serverId: string) {
   );
 }
 
-async function openClient(url: string, provider: PostgresMcpOAuthProvider) {
+/** Static bearer skips OAuth discovery. Stored kind keeps later tool calls on the same path. */
+export async function mcpAuthProvider(
+  provider: PostgresMcpOAuthProvider,
+  bearer?: string,
+): Promise<AuthProvider | OAuthClientProvider> {
+  if (bearer) {
+    await provider.saveBearer(bearer);
+    return { token: async () => bearer };
+  }
+  if ((await provider.authKind()) === "bearer") {
+    return {
+      token: async () => (await provider.tokens())?.access_token,
+    };
+  }
+  return provider;
+}
+
+async function openClient(
+  url: string,
+  provider: PostgresMcpOAuthProvider,
+  bearer?: string,
+) {
   const client = new Client(CLIENT_INFO);
   const transport = new StreamableHTTPClientTransport(new URL(url), {
-    authProvider: provider,
+    authProvider: await mcpAuthProvider(provider, bearer),
   });
   await client.connect(transport);
   return { client, transport };
@@ -247,6 +286,7 @@ async function connected(opts: {
   id: string;
   url: string;
   callbackHost: string;
+  bearer?: string;
 }) {
   const kv = mcpOAuthKv(opts.env, opts.workspaceId);
   const provider = authProvider(
@@ -254,7 +294,11 @@ async function connected(opts: {
     mcpCallbackUrl(opts.callbackHost),
     opts.id,
   );
-  const { client, transport } = await openClient(opts.url, provider);
+  const { client, transport } = await openClient(
+    opts.url,
+    provider,
+    opts.bearer,
+  );
   return {
     client,
     close: async () => {
@@ -270,6 +314,7 @@ export async function connectMcpHttp(opts: {
   id: string;
   url: string;
   callbackHost: string;
+  bearer?: string;
 }): Promise<{ state: "connected" | "authenticating"; authUrl?: string }> {
   const kv = mcpOAuthKv(opts.env, opts.workspaceId);
   const provider = authProvider(
@@ -278,12 +323,15 @@ export async function connectMcpHttp(opts: {
     opts.id,
   );
   try {
-    const session = await openClient(opts.url, provider);
+    const session = await openClient(opts.url, provider, opts.bearer);
     await session.transport.close().catch(() => {});
     await session.client.close().catch(() => {});
     return { state: "connected" };
   } catch (error) {
     if (error instanceof UnauthorizedError) {
+      if (opts.bearer || (await provider.authKind()) === "bearer") {
+        throw error;
+      }
       const authUrl = provider.authUrl;
       if (!authUrl) throw error;
       return { state: "authenticating", authUrl };

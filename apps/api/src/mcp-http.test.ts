@@ -1,6 +1,6 @@
 import { MCP_OAUTH_CLIENT_NAME, McpOAuthKv } from "@groxbot/core";
 import { describe, expect, it } from "vitest";
-import { PostgresMcpOAuthProvider } from "./mcp-http.js";
+import { mcpAuthProvider, PostgresMcpOAuthProvider } from "./mcp-http.js";
 
 const secret = "test-encryption-secret-32bytes!!";
 
@@ -43,6 +43,49 @@ describe("Postgres MCP OAuth provider", () => {
     const state = await provider.state();
     expect(state.endsWith(".mcp-1")).toBe(true);
     expect((await provider.checkState(state)).valid).toBe(true);
+  });
+
+  it("stores a static bearer without treating it as OAuth", async () => {
+    const provider = new PostgresMcpOAuthProvider(
+      memoryKv(),
+      MCP_OAUTH_CLIENT_NAME,
+      "https://api.example/api/mcp/oauth",
+      "mcp-1",
+    );
+    const auth = await mcpAuthProvider(provider, "sk-live-1");
+    expect(await provider.authKind()).toBe("bearer");
+    expect(await provider.tokens()).toEqual({
+      access_token: "sk-live-1",
+      token_type: "Bearer",
+    });
+    expect("token" in auth && typeof auth.token === "function").toBe(true);
+    if ("token" in auth) {
+      expect(await auth.token()).toBe("sk-live-1");
+    }
+    expect(await mcpAuthProvider(provider)).toMatchObject({
+      token: expect.any(Function),
+    });
+    const stored = await mcpAuthProvider(provider);
+    if ("token" in stored) {
+      expect(await stored.token()).toBe("sk-live-1");
+    }
+  });
+
+  it("keeps OAuth as the default when no bearer is saved", async () => {
+    const provider = new PostgresMcpOAuthProvider(
+      memoryKv(),
+      MCP_OAUTH_CLIENT_NAME,
+      "https://api.example/api/mcp/oauth",
+      "mcp-1",
+    );
+    expect(await mcpAuthProvider(provider)).toBe(provider);
+    await provider.saveTokens({
+      access_token: "at",
+      token_type: "Bearer",
+      refresh_token: "rt",
+    });
+    expect(await provider.authKind()).toBe("oauth");
+    expect(await mcpAuthProvider(provider)).toBe(provider);
   });
 
   it("reads Agents-shaped token keys from an older row", async () => {

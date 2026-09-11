@@ -61,6 +61,24 @@ export function parseMcpUrl(value: string): string {
   return url.href;
 }
 
+/** Optional static token for Custom MCP. OAuth still works when this is blank. */
+export const MCP_BEARER_MAX = 4000;
+
+export function parseMcpBearer(
+  value: string | undefined | null,
+): string | undefined {
+  const raw = typeof value === "string" ? value.trim() : "";
+  if (!raw) return undefined;
+  const token = raw.replace(/^bearer\s+/i, "").trim();
+  if (!token) {
+    throw new McpError("Paste a bearer token, or leave it blank for OAuth.");
+  }
+  if (token.length > MCP_BEARER_MAX) {
+    throw new McpError("That bearer token is too long.");
+  }
+  return token;
+}
+
 export function toMcpDto(
   row: typeof mcpConnections.$inferSelect,
 ): McpConnection {

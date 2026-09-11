@@ -9,6 +9,7 @@ import {
   mcpProbeError,
   mcpToolNames,
   mcpVisibleToViewer,
+  parseMcpBearer,
   parseVisibility,
   removeMcpConnection,
   saveMcpConnection,
@@ -51,6 +52,7 @@ export async function addMcp(
     name: string;
     url: string;
     visibility?: "private" | "shared";
+    bearer?: string;
   },
 ): Promise<McpConnectResult> {
   const actor = await requireActor(context);
@@ -59,7 +61,11 @@ export async function addMcp(
       ...input,
       visibility: parseVisibility(input.visibility ?? "shared"),
     });
-    return connectMcp(context, { id: row.id, botId: input.botId });
+    return connectMcp(context, {
+      id: row.id,
+      botId: input.botId,
+      bearer: input.bearer,
+    });
   } catch (error) {
     mapMcpError(error);
   }
@@ -67,7 +73,7 @@ export async function addMcp(
 
 export async function connectMcp(
   context: RpcContext,
-  input: { id: string; botId?: string },
+  input: { id: string; botId?: string; bearer?: string },
 ): Promise<McpConnectResult> {
   const actor = await requireActor(context);
   try {
@@ -87,6 +93,7 @@ export async function connectMcp(
       id: existing.id,
       url: existing.url,
       callbackHost: callbackHost(context.env),
+      bearer: parseMcpBearer(input.bearer),
     });
     const connecting = result.state === "authenticating";
     const connection = await saveMcpConnection(context.db, existing.id, {

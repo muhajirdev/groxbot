@@ -27,6 +27,7 @@ import {
   KnowledgeShareSchema,
   KnowledgeWriteSchema,
   MAX_COMPUTER_WRITE_BYTES,
+  McpBearer,
   McpConnectionSchema,
   McpConnectResultSchema,
   McpProbeResultSchema,
@@ -241,11 +242,18 @@ export const appContract = oc.router({
           name: z.string().min(1).max(80),
           url: z.string().min(8).max(500),
           visibility: Visibility.optional(),
+          bearer: McpBearer.optional(),
         }),
       )
       .output(McpConnectResultSchema),
     connect: oc
-      .input(z.object({ id: Id, botId: Id.optional() }))
+      .input(
+        z.object({
+          id: Id,
+          botId: Id.optional(),
+          bearer: McpBearer.optional(),
+        }),
+      )
       .output(McpConnectResultSchema),
     remove: oc
       .input(z.object({ id: Id }))
