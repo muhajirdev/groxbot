@@ -89,6 +89,7 @@ export async function connectMcp(
     }
     const result = await connectMcpHttp({
       env: context.env,
+      db: context.db,
       workspaceId: actor.workspaceId,
       id: existing.id,
       url: existing.url,
@@ -160,6 +161,7 @@ export async function probeMcp(
     try {
       const tools = await listMcpHttpTools({
         env: context.env,
+        db: context.db,
         workspaceId: actor.workspaceId,
         id: row.id,
         url: row.url,
@@ -202,6 +204,7 @@ export async function completeMcpOAuth(
   try {
     await finishMcpHttpOAuth({
       env: context.env,
+      db: context.db,
       workspaceId: row.workspaceId,
       id: row.id,
       url: row.url,

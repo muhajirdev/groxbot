@@ -85,4 +85,4 @@ The agent searches **keywords**, not `Dimana James Hepburn meninggal?`. AND-on-t
 
 ## Public shares
 
-Unlisted links (`https://groxbot.com/s/<shareId>`) are **Postgres capabilities**, not files on R2. The landing page fetches `GET /public/knowledge/:shareId` on the API. Do not bind `KNOWLEDGE` to groxbot-landing. Hidden `_search/` and `_links/` paths are not shareable. Sharing the office root is rejected. A folder share is a prefix grant — files added later under that path are public until you unpublish. Revoke issues a new id if you share again; old links stay dead.
+Unlisted links (`https://groxbot.com/s/<shareId>`) are **D1 capabilities**, not files on R2. The landing page fetches `GET /public/knowledge/:shareId` on the API. Do not bind `KNOWLEDGE` to groxbot-landing. Hidden `_search/` and `_links/` paths are not shareable. Sharing the office root is rejected. A folder share is a prefix grant — files added later under that path are public until you unpublish. Revoke issues a new id if you share again; old links stay dead.

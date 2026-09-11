@@ -114,7 +114,7 @@ export type HostedModelUsageRecord = {
   totalTokens: number;
 };
 
-/** Record hosted model usage with pricing from Postgres (or Pi cost metadata). */
+/** Record hosted model usage with pricing from D1 (or Pi cost metadata). */
 export async function recordHostedModelUsage(
   db: Database,
   input: {

@@ -25,7 +25,9 @@
     "format": "biome check --write .",
     "test": "vitest run",
     "db:generate": "pnpm --filter @groxbot/db generate",
-    "db:migrate": "pnpm --filter @groxbot/db migrate",
+    "db:migrate": "pnpm --filter @groxbot/api d1:migrate",
+    "db:migrate:remote": "pnpm --filter @groxbot/api d1:migrate:remote",
+    "db:migrate:file": "pnpm --filter @groxbot/db migrate",
     "db:push": "pnpm --filter @groxbot/db push",
     "guest": "pnpm --filter @groxbot/guest start"
   },
@@ -44,6 +46,13 @@
       "wrangler": "4.113.0",
       "chat": "4.38.1",
       "@earendil-works/pi-ai": "0.85.1"
+    },
+    "packageExtensions": {
+      "drizzle-orm": {
+        "peerDependencies": {
+          "better-sqlite3": "*"
+        }
+      }
     },
     "peerDependencyRules": {
       "allowedVersions": {

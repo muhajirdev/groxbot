@@ -125,7 +125,7 @@ import {
   writeInboxFile,
 } from "@groxbot/core";
 import { bots, mcpConnections, member, organization, user } from "@groxbot/db";
-import { createNeonHttpDb } from "@groxbot/db/neon";
+import { createD1Db } from "@groxbot/db/d1";
 import { ORPCError } from "@orpc/server";
 import { Agent } from "agents";
 import { AgentContextProvider } from "agents/experimental/memory/session";
@@ -166,7 +166,7 @@ import { createSkillTool } from "./bot-skill.js";
 import { SkillsStoreConnector } from "./bot-skills-store.js";
 import { createStampAppTool } from "./bot-stamp.js";
 import { createBot } from "./bots.js";
-import { agentRuntimeSource, productEnv, type RuntimeSource } from "./env.js";
+import { agentRuntimeSource, productEnv, requireCatalogDb, type RuntimeSource } from "./env.js";
 import { knowledgeAccess } from "./knowledge.js";
 import { r2KnowledgeDisk } from "./knowledge-r2.js";
 import type { SendEmailBinding } from "./mail.js";
@@ -174,7 +174,7 @@ import { sendAwayOfficeMail } from "./mail.js";
 import { httpMcpConnectionLike } from "./mcp-http.js";
 import { initRoomActor } from "./room-rpc.js";
 export interface WorkerEnv {
-  DATABASE_URL: string;
+  DB: D1Database;
   BETTER_AUTH_SECRET: string;
   ENCRYPTION_KEY?: string;
   BETTER_AUTH_URL: string;
@@ -874,7 +874,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     const botId = (listingBotId ?? this.personId).trim();
     if (!this.officeId || !botId) return;
     const env = productEnv(this.env);
-    const { db, close } = createNeonHttpDb(env.databaseUrl);
+    const { db, close } = createD1Db(requireCatalogDb(this.env));
     try {
       await recordAppChatCard(db, {
         workspaceId: this.officeId,
@@ -944,7 +944,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     if (this.officeId) {
       const env = productEnv(this.env);
       const source = agentRuntimeSource(env);
-      const { db, close } = createNeonHttpDb(env.databaseUrl);
+      const { db, close } = createD1Db(requireCatalogDb(this.env));
       try {
         await assertWorkspacePlanAllowed(db, this.officeId, source);
       } catch (error) {
@@ -1544,7 +1544,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     const env = productEnv(this.env);
     const recipientId = toUserId?.trim() ?? "";
     if (!this.personId || !this.officeId || !recipientId) return;
-    const { db } = createNeonHttpDb(env.databaseUrl);
+    const { db } = createD1Db(requireCatalogDb(this.env));
     const [bot] = await db
       .select({
         name: bots.name,
@@ -1595,7 +1595,7 @@ export class RoomHome extends Agent<WorkerEnv> {
   }
 
   /**
-   * Load roster/soul/model from Postgres into this DO.
+   * Load roster/soul/model from D1 into this DO.
    * Pass `refresh` after Settings → Model so the next turn uses the new id
    * without waiting for a cold start.
    */
@@ -1610,7 +1610,7 @@ export class RoomHome extends Agent<WorkerEnv> {
       console.log(`[bot ${this.name}] loadBot begin`);
       this.botLoading = this.loadBot()
         .then(() => {
-          // Hire can wake this DO before Postgres has the bot row. Do not
+          // Hire can wake this DO before D1 has the bot row. Do not
           // freeze an empty brain — retry on the next ensureBotLoaded.
           if (this.personId) {
             this.botLoaded = true;
@@ -1703,7 +1703,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     if (!userId || !workspaceId) return;
     const env = productEnv(this.env);
     const source = agentRuntimeSource(env);
-    const { db } = createNeonHttpDb(env.databaseUrl);
+    const { db } = createD1Db(requireCatalogDb(this.env));
     await persistOpenAiCodexAuth(
       db,
       { userId, workspaceId },
@@ -1738,7 +1738,7 @@ export class RoomHome extends Agent<WorkerEnv> {
   private async loadBot(): Promise<void> {
     const env = productEnv(this.env);
     const source = agentRuntimeSource(env);
-    const { db } = createNeonHttpDb(env.databaseUrl);
+    const { db } = createD1Db(requireCatalogDb(this.env));
     const [bot] = await db
       .select()
       .from(bots)
@@ -1783,7 +1783,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     botId: string;
     seconds: number;
   }): Promise<void> {
-    const { db, close } = createNeonHttpDb(this.env.databaseUrl);
+    const { db, close } = createD1Db(requireCatalogDb(this.env));
     try {
       await recordComputerUsage(db, input);
     } catch (error) {
@@ -2090,7 +2090,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     const userId = this.ownerUserId?.trim();
     if (!workspaceId || !userId) return [];
     const env = productEnv(this.env);
-    const { db } = createNeonHttpDb(env.databaseUrl);
+    const { db } = createD1Db(requireCatalogDb(this.env));
     const rows = await db
       .select({
         id: bots.id,
@@ -2137,7 +2137,7 @@ export class RoomHome extends Agent<WorkerEnv> {
     }
     const resolved = resolveOfficeHire(input);
     const env = productEnv(this.env);
-    const { db } = createNeonHttpDb(env.databaseUrl);
+    const { db } = createD1Db(requireCatalogDb(this.env));
     const disk = this.officeKnowledge();
     try {
       const bot = await createBot(
@@ -2541,7 +2541,7 @@ export class RoomHome extends Agent<WorkerEnv> {
       return;
     }
     const env = productEnv(this.env);
-    const { db } = createNeonHttpDb(env.databaseUrl);
+    const { db } = createD1Db(requireCatalogDb(this.env));
     const rows = await db
       .select()
       .from(mcpConnections)
@@ -2573,7 +2573,7 @@ export class RoomHome extends Agent<WorkerEnv> {
       return;
     }
     const env = productEnv(this.env);
-    const { db } = createNeonHttpDb(env.databaseUrl);
+    const { db } = createD1Db(requireCatalogDb(this.env));
     this.workspacePlugins = await listConnectedPluginAccounts(
       db,
       this.officeId,
@@ -2609,6 +2609,7 @@ export class RoomHome extends Agent<WorkerEnv> {
           this.env,
           httpMcpConnectionLike({
             env,
+            db: createD1Db(requireCatalogDb(this.env)).db,
             workspaceId: this.officeId,
             id: row.id,
             name: row.name,

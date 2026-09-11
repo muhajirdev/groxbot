@@ -6,7 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./node": "./src/node.ts",
-    "./neon": "./src/neon.ts"
+    "./d1": "./src/d1.ts"
   },
   "scripts": {
     "check": "tsc --noEmit -p tsconfig.json",
@@ -15,11 +15,11 @@
     "push": "drizzle-kit push"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.0.2",
-    "drizzle-orm": "^0.44.5",
-    "postgres": "^3.4.7"
+    "better-sqlite3": "^12.11.1",
+    "drizzle-orm": "^0.44.5"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "drizzle-kit": "^0.31.4",
     "typescript": "^5.9.2"
   }

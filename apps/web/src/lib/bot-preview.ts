@@ -4,7 +4,7 @@ import { orpc, queryClient } from "./orpc";
 import { withoutPendingBotDeletes } from "./roster-pending";
 
 /**
- * Office chat lives in IndexedDB, not Postgres.
+ * Office chat lives in IndexedDB, not D1.
  * Keep a sidebar preview across `bots.list` refetches that send "".
  */
 export function mergeBotList(

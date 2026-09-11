@@ -4,18 +4,18 @@ Source-available **Grok Bot** — Grok, then grox. Teammates with a real compute
 
 Packages live under `@groxbot/*`.
 
-Early scaffold: contracts, Neon Postgres (team data), one Durable Object per bot, Cloudflare Workers for landing + office + API. Live apps (docs / slides / sheets / CRM / game) next to chat. Self-host later.
+Early scaffold: contracts, Cloudflare D1 (team data), one Durable Object per bot, Cloudflare Workers for landing + office + API. Live apps (docs / slides / sheets / CRM / game) next to chat. Self-host later.
 
 ## Stack (locked)
 
 - TypeScript, pnpm, Hono, React, Vite, TanStack Router
 - **oRPC** — one contract for web, desktop, and mobile
-- Postgres + Drizzle — workspaces, threads, skills (Neon on Cloudflare)
+- D1 + Drizzle — workspaces, roster, rooms, poke threads (one database per deployment)
 - **One queue per person’s room** — Durable Object `RoomActor` (that bot’s `homeRoomId`)
 - Hosted brains: Pi on that actor (tests: ScriptedAgentRuntime)
 - **Routines** — Agents `this.schedule` on the home `RoomActor`. Office UI and `routines.*` oRPC talk to that actor.
 - Better Auth (magic-link email, Google, GitHub)
-- **Cloudflare first:** Workers (landing, web, API) + Neon. Local = `wrangler dev` + Vite
+- **Cloudflare first:** Workers (landing, web, API) + D1. Local = `wrangler dev` + Vite
 - **Computer** — built into each bot (`@cloudflare/computer` Workspace on that bot’s home `RoomActor`). Not a second table or DO.
 - **Apps** — docs / slides / sheets / CRM / game as `AppRuntime` Durable Objects
 - Plugins: Composio (optional)
@@ -27,20 +27,20 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) and [docs/computers.md](./docs/computer
 
 - Node.js 22+
 - pnpm 9
-- A Neon database (same project for local wrangler and `pnpm db:migrate`)
+- Wrangler 4 (local D1 via `pnpm db:migrate` — no Docker Postgres)
 
 ## Run locally
 
 ```bash
 cp .env.example .env
 cp apps/api/.dev.vars.example apps/api/.dev.vars
-# Put the same Neon DATABASE_URL (and secrets) in both files.
+# Fill secrets in both files. Catalog is the Worker `DB` D1 binding — not DATABASE_URL.
 pnpm install
 pnpm db:migrate
 pnpm dev
 ```
 
-`pnpm dev` is **wrangler** (API Worker + Durable Objects on :3100) and **Vite** (office on :5173). The browser calls `:3100` for `/api`, `/rpc`, `/agents`, and `/apps`.
+`pnpm dev` is **wrangler** (API Worker + Durable Objects on :3100) and **Vite** (office on :5173). The browser calls `:3100` for `/api`, `/rpc`, `/agents`, and `/apps`. `pnpm db:migrate` applies `packages/db/drizzle` onto wrangler’s **local D1** (`groxbot`). Hosted freeze-and-copy: [docs/d1-cutover.md](./docs/d1-cutover.md). Node self-host uses `DATABASE_PATH` (default `data/groxbot.sqlite`) and `pnpm db:migrate:file`.
 
 - API: http://127.0.0.1:3100/health
 - oRPC: http://127.0.0.1:3100/rpc
@@ -84,7 +84,7 @@ pnpm deploy:web       # https://groxbot-web.qalam.workers.dev
 pnpm deploy:api       # https://groxbot-api.qalam.workers.dev/health
 ```
 
-API Worker secrets (`wrangler secret put` in `apps/api`): `DATABASE_URL` (Neon), `BETTER_AUTH_SECRET`, `ENCRYPTION_KEY`, `TINYFISH_API_KEYS` (comma-separated TinyFish pool for office `web_search` / `fetch_url`; `TINYFISH_API_KEY` still works as one key). Wakeup is a Durable Object per `botId`. Hosted brains use the Worker **`AI` binding**; workspace BYOK still uses the REST gateway. Tests construct `ScriptedAgentRuntime`. Each bot’s computer is `@cloudflare/computer` `Workspace` on that actor.
+API Worker secrets (`wrangler secret put` in `apps/api`): `BETTER_AUTH_SECRET`, `ENCRYPTION_KEY`, `TINYFISH_API_KEYS` (comma-separated TinyFish pool for office `web_search` / `fetch_url`; `TINYFISH_API_KEY` still works as one key). Catalog is the `DB` D1 binding (not `DATABASE_URL`). Wakeup is a Durable Object per `botId`. Hosted brains use the Worker **`AI` binding**; workspace BYOK still uses the REST gateway. Tests construct `ScriptedAgentRuntime`. Each bot’s computer is `@cloudflare/computer` `Workspace` on that actor.
 
 Advanced, off by default: a bot can let **Hermes** or **OpenClaw** connect outbound (`pnpm guest -- --url http://127.0.0.1:3101 --token … --kind hermes`). Enable it under Profile → Advanced.
 

@@ -40,7 +40,7 @@ function EnterprisePage() {
           <h1 className="!my-2 !mb-4">Self-host. Enterprise ready.</h1>
           <p className="lede !mb-5 !text-xl">
             Keep the office on your machines. groxbot.com never sees the
-            threads. The office still remembers — on your Postgres. Model calls
+            threads. The office still remembers — on your SQLite catalog. Model calls
             go to the key you paste.
           </p>
           <div className="row">

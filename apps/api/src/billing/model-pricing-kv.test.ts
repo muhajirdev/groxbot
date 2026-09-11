@@ -20,7 +20,7 @@ function mockKv(store = new Map<string, string>()): KVNamespace {
 }
 
 describe("KvModelPricingPort", () => {
-  it("reads from KV without hitting Postgres on cache hit", async () => {
+  it("reads from KV without hitting D1 on cache hit", async () => {
     const kv = mockKv(
       new Map([
         [
@@ -54,7 +54,7 @@ describe("KvModelPricingPort", () => {
     expect(kv.get).toHaveBeenCalledWith(MODEL_PRICING_KV_KEY);
   });
 
-  it("loads Postgres and seeds KV on cache miss", async () => {
+  it("loads D1 and seeds KV on cache miss", async () => {
     const kv = mockKv();
     const db = {
       select: vi.fn(() => ({

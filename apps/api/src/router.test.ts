@@ -12,7 +12,6 @@ import { healthPayload } from "./health.js";
 import { mountRpc } from "./rpc.js";
 
 const env = {
-  databaseUrl: "postgres://groxbot:groxbot@127.0.0.1:5433/groxbot",
   authSecret: "development-only-change-me-please-32ch",
   authUrl: "http://127.0.0.1:5173",
   webOrigin: "http://127.0.0.1:5173",

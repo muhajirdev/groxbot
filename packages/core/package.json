@@ -15,6 +15,7 @@
     "@groxbot/adapter-kit": "workspace:*",
     "@groxbot/contracts": "workspace:*",
     "@groxbot/db": "workspace:*",
+    "better-sqlite3": "^12.11.1",
     "drizzle-orm": "^0.44.5"
   },
   "devDependencies": {

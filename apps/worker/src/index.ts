@@ -15,7 +15,7 @@ import {
   handleGuestRequest,
   nodeRequestFrom,
 } from "@groxbot/core";
-import { createDb } from "@groxbot/db/node";
+import { createDb, sqlitePathFromEnv } from "@groxbot/db/node";
 import { config } from "dotenv";
 
 function loadRootEnv() {
@@ -52,9 +52,7 @@ function readJson(
 }
 
 async function main() {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) throw new Error("DATABASE_URL is required");
-  const { db } = createDb(databaseUrl);
+  const { db } = createDb(sqlitePathFromEnv(process.env));
   const runtime = createHostedAgentRuntime(process.env);
   const guests = new GuestHub();
   let enqueue: (job: WakeupJob) => Promise<void> = async () => {};

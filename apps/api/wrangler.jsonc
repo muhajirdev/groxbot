@@ -73,6 +73,16 @@
 			"bucket_name": "groxbot-knowledge"
 		}
 	],
+	"d1_databases": [
+		{
+			// Local: wrangler uses this name under .wrangler/state. Hosted:
+			// wrangler d1 create groxbot, then put the real database_id here.
+			"binding": "DB",
+			"database_name": "groxbot",
+			"database_id": "00000000-0000-4000-8000-000000000001",
+			"migrations_dir": "../../packages/db/drizzle"
+		}
+	],
 	"kv_namespaces": [
 		{
 			// Production: wrangler kv namespace create PRODUCT_CACHE (and --preview)

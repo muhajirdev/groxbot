@@ -1,8 +1,8 @@
-/** Product API: Cloudflare Worker + Neon HTTP + Durable Object RoomActor. */
+/** Product API: Cloudflare Worker + D1 catalog + Durable Object RoomActor. */
 import { officeUserFromActor, withOfficeUserRequest } from "@groxbot/contracts";
 import { createSkillImportHttp } from "@groxbot/core";
 import { bots } from "@groxbot/db";
-import { createNeonHttpDb } from "@groxbot/db/neon";
+import { createD1Db } from "@groxbot/db/d1";
 import { ORPCError } from "@orpc/server";
 import { routeAgentRequest } from "agents";
 import { and, eq, or } from "drizzle-orm";
@@ -27,7 +27,7 @@ import {
   suspendBotRoutines,
   updateBotRoutine,
 } from "./bot-routines.js";
-import { productEnv } from "./env.js";
+import { productEnv, requireCatalogDb } from "./env.js";
 import { bindToMarkdown } from "./bot-markdown.js";
 import { knowledgeAccess } from "./knowledge.js";
 import { r2KnowledgeDisk } from "./knowledge-r2.js";
@@ -51,7 +51,7 @@ function agentInstanceName(pathname: string): string | null {
 }
 
 async function homeRoomName(
-  db: ReturnType<typeof createNeonHttpDb>["db"],
+  db: ReturnType<typeof createD1Db>["db"],
   botId: string,
 ): Promise<string> {
   const [bot] = await db
@@ -76,7 +76,7 @@ function agentCors(request: Request, origins: string[]): HeadersInit | true {
 export default {
   async fetch(request: Request, env: WorkerEnv): Promise<Response> {
     const loaded = productEnv(env);
-    const { db, close } = createNeonHttpDb(loaded.databaseUrl);
+    const { db, close } = createD1Db(requireCatalogDb(env));
     const apps = new DurableObjectAppStore(env.APP_RUNTIME);
     const onHome = (botId: string) => homeRoomName(db, botId);
     const knowledgeDisk = env.KNOWLEDGE

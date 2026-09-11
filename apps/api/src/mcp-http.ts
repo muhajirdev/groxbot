@@ -1,4 +1,4 @@
-/** Streamable HTTP MCP — Worker isolate, Postgres OAuth. Not Agents `this.mcp`. */
+/** Streamable HTTP MCP — Worker isolate, D1 OAuth catalog. Not Agents `this.mcp`. */
 import type { McpConnectionLike } from "@cloudflare/codemode";
 import {
   Client,
@@ -17,9 +17,9 @@ import {
   McpOAuthKv,
   mcpOAuthClientIdFromKeys,
   mcpServerId,
-  postgresMcpOAuthDb,
+  catalogMcpOAuthDb,
 } from "@groxbot/core";
-import { createNeonHttpDb } from "@groxbot/db/neon";
+import type { Database } from "@groxbot/db";
 import { agentRuntimeSource, type Env } from "./env.js";
 
 const CLIENT_INFO = { name: "groxbot", version: "0.0.1" };
@@ -31,29 +31,24 @@ export function mcpCallbackUrl(host: string): string {
   return `${origin}/${path}`;
 }
 
-export function mcpOAuthKv(env: Env, workspaceId: string): McpOAuthKv {
+export function mcpOAuthKv(
+  env: Env,
+  workspaceId: string,
+  db: Database,
+): McpOAuthKv {
   const source = agentRuntimeSource(env);
   return new McpOAuthKv({
     workspaceId: () => workspaceId,
     secret: () => encryptionSecret(source, env.production),
-    db: {
-      load: async (id) => {
-        const { db } = createNeonHttpDb(env.databaseUrl);
-        return postgresMcpOAuthDb(db).load(id);
-      },
-      save: async (id, ciphertext) => {
-        const { db } = createNeonHttpDb(env.databaseUrl);
-        await postgresMcpOAuthDb(db).save(id, ciphertext);
-      },
-    },
+    db: catalogMcpOAuthDb(db),
   });
 }
 
 /**
- * MCP SDK `OAuthClientProvider` backed by encrypted Postgres.
+ * MCP SDK `OAuthClientProvider` backed by encrypted catalog rows.
  * Connect, callback, and tool calls stay in the Worker isolate.
  */
-export class PostgresMcpOAuthProvider implements OAuthClientProvider {
+export class CatalogMcpOAuthProvider implements OAuthClientProvider {
   authUrl: string | undefined;
 
   constructor(
@@ -242,7 +237,7 @@ export class PostgresMcpOAuthProvider implements OAuthClientProvider {
 }
 
 function authProvider(kv: McpOAuthKv, callbackUrl: string, serverId: string) {
-  return new PostgresMcpOAuthProvider(
+  return new CatalogMcpOAuthProvider(
     kv,
     MCP_OAUTH_CLIENT_NAME,
     callbackUrl,
@@ -252,7 +247,7 @@ function authProvider(kv: McpOAuthKv, callbackUrl: string, serverId: string) {
 
 /** Static bearer skips OAuth discovery. Stored kind keeps later tool calls on the same path. */
 export async function mcpAuthProvider(
-  provider: PostgresMcpOAuthProvider,
+  provider: CatalogMcpOAuthProvider,
   bearer?: string,
 ): Promise<AuthProvider | OAuthClientProvider> {
   if (bearer) {
@@ -269,7 +264,7 @@ export async function mcpAuthProvider(
 
 async function openClient(
   url: string,
-  provider: PostgresMcpOAuthProvider,
+  provider: CatalogMcpOAuthProvider,
   bearer?: string,
 ) {
   const client = new Client(CLIENT_INFO);
@@ -282,13 +277,14 @@ async function openClient(
 
 async function connected(opts: {
   env: Env;
+  db: Database;
   workspaceId: string;
   id: string;
   url: string;
   callbackHost: string;
   bearer?: string;
 }) {
-  const kv = mcpOAuthKv(opts.env, opts.workspaceId);
+  const kv = mcpOAuthKv(opts.env, opts.workspaceId, opts.db);
   const provider = authProvider(
     kv,
     mcpCallbackUrl(opts.callbackHost),
@@ -310,13 +306,14 @@ async function connected(opts: {
 
 export async function connectMcpHttp(opts: {
   env: Env;
+  db: Database;
   workspaceId: string;
   id: string;
   url: string;
   callbackHost: string;
   bearer?: string;
 }): Promise<{ state: "connected" | "authenticating"; authUrl?: string }> {
-  const kv = mcpOAuthKv(opts.env, opts.workspaceId);
+  const kv = mcpOAuthKv(opts.env, opts.workspaceId, opts.db);
   const provider = authProvider(
     kv,
     mcpCallbackUrl(opts.callbackHost),
@@ -342,13 +339,14 @@ export async function connectMcpHttp(opts: {
 
 export async function finishMcpHttpOAuth(opts: {
   env: Env;
+  db: Database;
   workspaceId: string;
   id: string;
   url: string;
   callbackHost: string;
   searchParams: URLSearchParams;
 }): Promise<void> {
-  const kv = mcpOAuthKv(opts.env, opts.workspaceId);
+  const kv = mcpOAuthKv(opts.env, opts.workspaceId, opts.db);
   const provider = authProvider(
     kv,
     mcpCallbackUrl(opts.callbackHost),
@@ -374,6 +372,7 @@ export async function finishMcpHttpOAuth(opts: {
 
 export async function listMcpHttpTools(opts: {
   env: Env;
+  db: Database;
   workspaceId: string;
   id: string;
   url: string;
@@ -390,6 +389,7 @@ export async function listMcpHttpTools(opts: {
 
 export function httpMcpConnectionLike(opts: {
   env: Env;
+  db: Database;
   workspaceId: string;
   id: string;
   name: string;

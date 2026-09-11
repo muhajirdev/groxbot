@@ -376,7 +376,7 @@ export function createApp(
   app.get("/health", async (c) => {
     let database: "ok" | "error" = "ok";
     try {
-      await opts.db.execute(sql`select 1`);
+      await opts.db.run(sql`select 1`);
     } catch {
       database = "error";
     }

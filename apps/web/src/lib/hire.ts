@@ -31,7 +31,7 @@ export function isHireInFlight(): boolean {
 }
 
 /**
- * Create may time out after Postgres already committed. Treat a matching
+ * Create may time out after D1 already committed. Treat a matching
  * `bots.get` as success so the client does not hire again.
  */
 export async function settleCreatedHire(input: {

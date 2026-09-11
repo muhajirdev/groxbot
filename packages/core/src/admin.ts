@@ -8,11 +8,12 @@ import {
   organization,
   pluginConnections,
   rooms,
+  runCatalogBatch,
   user,
   verification,
   workspaceModels,
 } from "@groxbot/db";
-import { and, count, desc, eq, ilike, inArray, ne, notIlike, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, like, ne, notLike, or, sql } from "drizzle-orm";
 
 export interface AdminListOptions {
   limit: number;
@@ -34,7 +35,7 @@ export function isAdminHiddenEmail(email: string): boolean {
 }
 
 function notHiddenTestEmail() {
-  return notIlike(user.email, `%@${ADMIN_HIDDEN_EMAIL_DOMAIN}`);
+  return notLike(user.email, `%@${ADMIN_HIDDEN_EMAIL_DOMAIN}`);
 }
 
 export async function adminStats(db: Database) {
@@ -60,12 +61,12 @@ export async function adminStats(db: Database) {
 export async function listAdminUsers(db: Database, options: AdminListOptions) {
   const pattern = searchPattern(options.search);
   const search = pattern
-    ? or(ilike(user.email, pattern), ilike(user.name, pattern))
+    ? or(like(user.email, pattern), like(user.name, pattern))
     : undefined;
   const where = and(notHiddenTestEmail(), search);
 
   const workspaceCount = sql<number>`(
-    select count(*)::int
+    select count(*)
     from ${member}
     where ${member.userId} = ${user.id}
   )`.as("workspace_count");
@@ -112,19 +113,19 @@ export async function listAdminWorkspaces(
   const pattern = searchPattern(options.search);
   const where = pattern
     ? or(
-        ilike(organization.name, pattern),
-        ilike(organization.slug, pattern),
+        like(organization.name, pattern),
+        like(organization.slug, pattern),
       )
     : undefined;
 
   const memberCount = sql<number>`(
-    select count(*)::int
+    select count(*)
     from ${member}
     where ${member.organizationId} = ${organization.id}
   )`.as("member_count");
 
   const botCount = sql<number>`(
-    select count(*)::int
+    select count(*)
     from ${bots}
     where ${bots.workspaceId} = ${organization.id}
   )`.as("bot_count");
@@ -264,86 +265,90 @@ export async function commitAdminUserDelete(
   shared: { workspaceId: string; reassignTo: string }[],
   soleWorkspaceIds: string[],
 ) {
-  await db.transaction(async (tx) => {
-    for (const workspaceId of soleWorkspaceIds) {
-      await tx.delete(organization).where(eq(organization.id, workspaceId));
-    }
-    for (const item of shared) {
-      await tx
+  const leftoverBots = await db
+    .select({ id: bots.id, homeRoomId: bots.homeRoomId })
+    .from(bots)
+    .where(eq(bots.userId, userId));
+  const leftoverBotIds = leftoverBots.map((bot) => bot.id);
+  const now = new Date();
+  const statements: unknown[] = [];
+  for (const workspaceId of soleWorkspaceIds) {
+    statements.push(db.delete(organization).where(eq(organization.id, workspaceId)));
+  }
+  for (const item of shared) {
+    statements.push(
+      db
         .update(rooms)
-        .set({ createdByUserId: item.reassignTo, updatedAt: new Date() })
+        .set({ createdByUserId: item.reassignTo, updatedAt: now })
         .where(
           and(
             eq(rooms.workspaceId, item.workspaceId),
             eq(rooms.createdByUserId, userId),
           ),
-        );
-      await tx
+        ),
+    );
+    statements.push(
+      db
         .update(workspaceModels)
-        .set({ updatedBy: item.reassignTo, updatedAt: new Date() })
+        .set({ updatedBy: item.reassignTo, updatedAt: now })
         .where(
           and(
             eq(workspaceModels.workspaceId, item.workspaceId),
             eq(workspaceModels.updatedBy, userId),
           ),
-        );
-    }
-    await tx
-      .delete(pluginConnections)
-      .where(eq(pluginConnections.userId, userId));
-    await tx.delete(mcpConnections).where(eq(mcpConnections.userId, userId));
-    await tx
-      .delete(knowledgeShares)
-      .where(eq(knowledgeShares.createdByUserId, userId));
-
-    const leftoverBots = await tx
-      .select({ id: bots.id, homeRoomId: bots.homeRoomId })
-      .from(bots)
-      .where(eq(bots.userId, userId));
-    const leftoverBotIds = leftoverBots.map((bot) => bot.id);
-    if (leftoverBotIds.length > 0) {
-      await tx
+        ),
+    );
+  }
+  statements.push(
+    db.delete(pluginConnections).where(eq(pluginConnections.userId, userId)),
+  );
+  statements.push(db.delete(mcpConnections).where(eq(mcpConnections.userId, userId)));
+  statements.push(
+    db.delete(knowledgeShares).where(eq(knowledgeShares.createdByUserId, userId)),
+  );
+  if (leftoverBotIds.length > 0) {
+    statements.push(
+      db
         .update(bots)
-        .set({ parentBotId: null, updatedAt: new Date() })
-        .where(inArray(bots.parentBotId, leftoverBotIds));
-    }
-    await tx
+        .set({ parentBotId: null, updatedAt: now })
+        .where(inArray(bots.parentBotId, leftoverBotIds)),
+    );
+  }
+  statements.push(
+    db
       .update(bots)
       .set({
         homeThreadId: null,
         homeRoomId: null,
-        updatedAt: new Date(),
+        updatedAt: now,
       })
-      .where(eq(bots.userId, userId));
-    await tx.delete(bots).where(eq(bots.userId, userId));
-    for (const bot of leftoverBots) {
-      if (bot.homeRoomId) {
-        await tx.delete(rooms).where(eq(rooms.id, bot.homeRoomId));
-      }
+      .where(eq(bots.userId, userId)),
+  );
+  statements.push(db.delete(bots).where(eq(bots.userId, userId)));
+  for (const bot of leftoverBots) {
+    if (bot.homeRoomId) {
+      statements.push(db.delete(rooms).where(eq(rooms.id, bot.homeRoomId)));
     }
-    await tx.delete(user).where(eq(user.id, userId));
-  });
+  }
+  statements.push(db.delete(user).where(eq(user.id, userId)));
+  await runCatalogBatch(db, statements);
 }
 
 /** Wipes every workspace and user. Catalog tables (billing plans, pricing) stay. */
 export async function purgeDeploymentData(db: Database) {
-  return db.transaction(async (tx) => {
-    const [workspaceRow] = await tx
-      .select({ count: count() })
-      .from(organization);
-    const [userRow] = await tx.select({ count: count() }).from(user);
-
-    await tx.delete(organization);
-    await tx.delete(verification);
-    await tx.delete(user);
-    await tx
+  const [workspaceRow] = await db.select({ count: count() }).from(organization);
+  const [userRow] = await db.select({ count: count() }).from(user);
+  await runCatalogBatch(db, [
+    db.delete(organization),
+    db.delete(verification),
+    db.delete(user),
+    db
       .update(deploymentSettings)
       .set({ ownerUserId: null, updatedAt: new Date() })
-      .where(eq(deploymentSettings.id, "default"));
-
-    return {
-      deletedWorkspaces: workspaceRow?.count ?? 0,
-      deletedUsers: userRow?.count ?? 0,
-    };
-  });
+      .where(eq(deploymentSettings.id, "default")),
+  ]);
+  return {
+    deletedWorkspaces: workspaceRow?.count ?? 0,
+    deletedUsers: userRow?.count ?? 0,
+  };
 }

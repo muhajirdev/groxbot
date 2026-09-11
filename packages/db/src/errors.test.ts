@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { isUniqueViolation } from "./pg-error";
+import { isUniqueViolation } from "./errors.js";
 
 describe("isUniqueViolation", () => {
-  it("matches Postgres 23505", () => {
+  it("matches Postgres 23505 leftover dumps", () => {
     expect(isUniqueViolation({ code: "23505" })).toBe(true);
   });
 
   it("matches SQLite unique failures", () => {
     expect(isUniqueViolation({ code: "SQLITE_CONSTRAINT_UNIQUE" })).toBe(true);
     expect(
-      isUniqueViolation({ message: "UNIQUE constraint failed: bots.id" }),
+      isUniqueViolation({ message: "UNIQUE constraint failed: messages.thread_id" }),
     ).toBe(true);
   });
 

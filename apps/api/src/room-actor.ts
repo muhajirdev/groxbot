@@ -48,12 +48,12 @@ import {
   withRoomSpeaker,
 } from "@groxbot/core";
 import { bots } from "@groxbot/db";
-import { createNeonHttpDb } from "@groxbot/db/neon";
+import { createD1Db } from "@groxbot/db/d1";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { RoomHome, type WorkerEnv } from "./bot-actor.js";
 import { officeAgentTool } from "./bot-office-tools.js";
-import { agentRuntimeSource, productEnv } from "./env.js";
+import { agentRuntimeSource, productEnv, requireCatalogDb } from "./env.js";
 import {
   personDoorContext,
   personDoorTool,
@@ -505,7 +505,7 @@ export class RoomActor extends RoomHome {
   private async loadGuestBrain(botId: string, workspaceId: string) {
     const env = productEnv(this.env);
     const source = agentRuntimeSource(env);
-    const { db } = createNeonHttpDb(env.databaseUrl);
+    const { db } = createD1Db(requireCatalogDb(this.env));
     const [bot] = await db
       .select()
       .from(bots)

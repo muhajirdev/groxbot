@@ -1,4 +1,4 @@
-/** This bot’s Computer workspace. Not a Postgres catalog. */
+/** This bot’s Computer workspace. Not a D1 catalog. */
 
 import {
   COMPUTER_INBOX_DIR,

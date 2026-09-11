@@ -15,7 +15,7 @@ export type RoutineCreateBody = {
   timezone?: string;
 };
 
-/** Recurring jobs on this bot’s actor. Not a Postgres catalog. */
+/** Recurring jobs on this bot’s actor. Not a D1 catalog. */
 export async function listBotRoutines(
   actors: ActorBinding,
   botId: string,

@@ -1,21 +1,22 @@
-import { boolean, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { bool, timestampMs, timestampMsNow } from "./columns.js";
 
-export const user = pgTable("user", {
+export const user = sqliteTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  emailVerified: boolean("email_verified").notNull().default(false),
+  emailVerified: bool("email_verified"),
   image: text("image"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestampMsNow("created_at"),
+  updatedAt: timestampMsNow("updated_at"),
 });
 
-export const session = pgTable("session", {
+export const session = sqliteTable("session", {
   id: text("id").primaryKey(),
-  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  expiresAt: timestampMs("expires_at").notNull(),
   token: text("token").notNull().unique(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestampMsNow("created_at"),
+  updatedAt: timestampMsNow("updated_at"),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
   userId: text("user_id")
@@ -24,7 +25,7 @@ export const session = pgTable("session", {
   activeOrganizationId: text("active_organization_id"),
 });
 
-export const account = pgTable(
+export const account = sqliteTable(
   "account",
   {
     id: text("id").primaryKey(),
@@ -38,35 +39,35 @@ export const account = pgTable(
     accessToken: text("access_token"),
     refreshToken: text("refresh_token"),
     idToken: text("id_token"),
-    accessTokenExpiresAt: timestamp("access_token_expires_at", { withTimezone: true }),
-    refreshTokenExpiresAt: timestamp("refresh_token_expires_at", { withTimezone: true }),
+    accessTokenExpiresAt: timestampMs("access_token_expires_at"),
+    refreshTokenExpiresAt: timestampMs("refresh_token_expires_at"),
     scope: text("scope"),
     password: text("password"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestampMsNow("created_at"),
+    updatedAt: timestampMsNow("updated_at"),
   },
   (t) => [uniqueIndex("account_issuer_account_id").on(t.issuer, t.accountId)],
 );
 
-export const verification = pgTable("verification", {
+export const verification = sqliteTable("verification", {
   id: text("id").primaryKey(),
   identifier: text("identifier").notNull(),
   value: text("value").notNull(),
-  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  expiresAt: timestampMs("expires_at").notNull(),
+  createdAt: timestampMs("created_at").$defaultFn(() => new Date()),
+  updatedAt: timestampMs("updated_at").$defaultFn(() => new Date()),
 });
 
-export const organization = pgTable("organization", {
+export const organization = sqliteTable("organization", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   logo: text("logo"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestampMsNow("created_at"),
   metadata: text("metadata"),
 });
 
-export const member = pgTable(
+export const member = sqliteTable(
   "member",
   {
     id: text("id").primaryKey(),
@@ -77,12 +78,12 @@ export const member = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     role: text("role").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestampMsNow("created_at"),
   },
   (t) => [uniqueIndex("member_org_user").on(t.organizationId, t.userId)],
 );
 
-export const invitation = pgTable("invitation", {
+export const invitation = sqliteTable("invitation", {
   id: text("id").primaryKey(),
   organizationId: text("organization_id")
     .notNull()
@@ -90,16 +91,16 @@ export const invitation = pgTable("invitation", {
   email: text("email").notNull(),
   role: text("role"),
   status: text("status").notNull(),
-  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  expiresAt: timestampMs("expires_at").notNull(),
   inviterId: text("inviter_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestampMsNow("created_at"),
 });
 
-export const deploymentSettings = pgTable("deployment_settings", {
+export const deploymentSettings = sqliteTable("deployment_settings", {
   id: text("id").primaryKey().default("default"),
   ownerUserId: text("owner_user_id"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestampMsNow("created_at"),
+  updatedAt: timestampMsNow("updated_at"),
 });

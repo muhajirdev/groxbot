@@ -69,7 +69,7 @@ export function decryptMcpOAuthMap(
   }
 }
 
-export function postgresMcpOAuthDb(db: Database): McpOAuthStoreDb {
+export function catalogMcpOAuthDb(db: Database): McpOAuthStoreDb {
   return {
     async load(id) {
       const row = await getMcpConnectionById(db, id);

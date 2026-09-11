@@ -142,8 +142,8 @@ export async function purgeDeployment(context: RpcContext) {
       .map((row) => row.homeRoomId)
       .filter((id): id is string => Boolean(id)),
   });
-  const postgres = await purgeDeploymentData(context.db);
-  return { ...postgres, ...sidecars };
+  const catalog = await purgeDeploymentData(context.db);
+  return { ...catalog, ...sidecars };
 }
 
 export async function deleteAdminWorkspace(
