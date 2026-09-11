@@ -3,6 +3,7 @@ import {
   capToolPayload,
   failedToolMessage,
   isFailedToolValue,
+  persistOfficeToolPayload,
   persistToolPayload,
   slimPluginResult,
   stringifyToolPayload,
@@ -125,6 +126,105 @@ describe("persistToolPayload", () => {
     expect(persisted.text).toContain("keep me");
     expect(persisted.text).not.toContain(markdown);
     expect(persisted.text).not.toMatch(/^Result truncated/);
+  });
+});
+
+describe("persistOfficeToolPayload", () => {
+  const jpeg = `/9j/${"A".repeat(80)}`;
+
+  it("attaches a SineMart invoice image and omits imageBase64 from text", () => {
+    const attached = persistOfficeToolPayload({
+      status: "completed",
+      executionId: "exec_1",
+      result: {
+        mimeType: "image/jpeg",
+        byteLength: 12_345,
+        imageBase64: jpeg,
+      },
+      calls: [
+        {
+          seq: 0,
+          connector: "sinemart",
+          method: "view_invoice_image",
+          result: {
+            mimeType: "image/jpeg",
+            byteLength: 12_345,
+            imageBase64: jpeg,
+          },
+        },
+      ],
+    });
+    expect(attached.content).toContainEqual({
+      type: "image",
+      data: jpeg,
+      mimeType: "image/jpeg",
+    });
+    const text = attached.content.find((part) => part.type === "text");
+    expect(text?.type).toBe("text");
+    if (text?.type === "text") {
+      expect(text.text).toContain("image/jpeg");
+      expect(text.text).toContain("byteLength");
+      expect(text.text).not.toContain(jpeg);
+      expect(text.text).toMatch(/image attached/);
+      expect(text.text).not.toMatch(/^Result truncated/);
+    }
+    expect(JSON.stringify(attached.details)).not.toContain(jpeg);
+  });
+
+  it("attaches MCP { type: image, data, mimeType } from a nested call", () => {
+    const png =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+    const attached = persistOfficeToolPayload({
+      status: "completed",
+      result: {
+        content: [{ type: "image", data: png, mimeType: "image/png" }],
+      },
+      calls: [
+        {
+          connector: "files",
+          method: "get_screenshot",
+          result: {
+            content: [{ type: "image", data: png, mimeType: "image/png" }],
+          },
+        },
+      ],
+    });
+    expect(attached.content).toContainEqual({
+      type: "image",
+      data: png,
+      mimeType: "image/png",
+    });
+    const text = attached.content.find((part) => part.type === "text");
+    if (text?.type === "text") {
+      expect(text.text).not.toContain(png);
+    }
+  });
+
+  it("still slims non-image connector calls to keys", () => {
+    const markdown = "m".repeat(20_000);
+    const persisted = persistOfficeToolPayload({
+      status: "completed",
+      executionId: "exec_1",
+      result: { page: "keep me" },
+      calls: [
+        {
+          seq: 0,
+          connector: "tools",
+          method: "to_markdown",
+          result: { ok: true, markdown },
+        },
+      ],
+    });
+    expect(persisted.content).toEqual([
+      expect.objectContaining({
+        type: "text",
+        text: expect.stringContaining("keep me"),
+      }),
+    ]);
+    const text = persisted.content[0];
+    if (text?.type === "text") {
+      expect(text.text).not.toContain(markdown);
+    }
   });
 });
 

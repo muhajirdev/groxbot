@@ -15,7 +15,9 @@ import {
   computerWorkerShell,
   diskFromComputerFs,
   ensureComputerHome,
+  extractOfficeImagesFromPayload,
   officeImageToolResult,
+  officeImagesToolResult,
   officeShellCommandRefusal,
   rewriteComputerToolArgs,
   withComputerOfficeTools,
@@ -297,6 +299,111 @@ describe("officeImageToolResult", () => {
       bytes: expect.any(Number),
     });
     expect(JSON.stringify(row.details)).not.toContain("abc");
+  });
+});
+
+describe("extractOfficeImagesFromPayload", () => {
+  const png =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const jpeg = `/9j/${"A".repeat(80)}`;
+
+  it("pulls SineMart { mimeType, byteLength, imageBase64 } and omits the bytes", () => {
+    const extracted = extractOfficeImagesFromPayload({
+      mimeType: "image/jpeg",
+      byteLength: 12_345,
+      imageBase64: jpeg,
+    });
+    expect(extracted.images).toEqual([{ data: jpeg, mimeType: "image/jpeg" }]);
+    expect(extracted.stripped).toEqual({
+      mimeType: "image/jpeg",
+      byteLength: 12_345,
+      imageBase64: expect.stringMatching(/^\[image attached, \d+ bytes\]$/),
+    });
+    expect(JSON.stringify(extracted.stripped)).not.toContain(jpeg);
+  });
+
+  it("pulls nested Code Mode calls[].result once when result repeats the dump", () => {
+    const extracted = extractOfficeImagesFromPayload({
+      status: "completed",
+      executionId: "exec_1",
+      result: {
+        mimeType: "image/jpeg",
+        byteLength: jpeg.length,
+        imageBase64: jpeg,
+      },
+      calls: [
+        {
+          seq: 0,
+          connector: "sinemart",
+          method: "view_invoice_image",
+          result: {
+            mimeType: "image/jpeg",
+            byteLength: jpeg.length,
+            imageBase64: jpeg,
+          },
+        },
+      ],
+    });
+    expect(extracted.images).toEqual([{ data: jpeg, mimeType: "image/jpeg" }]);
+    expect(JSON.stringify(extracted.stripped)).not.toContain(jpeg);
+  });
+
+  it("pulls MCP image content parts", () => {
+    const extracted = extractOfficeImagesFromPayload({
+      content: [{ type: "image", data: png, mimeType: "image/png" }],
+    });
+    expect(extracted.images).toEqual([{ data: png, mimeType: "image/png" }]);
+    expect(extracted.stripped).toEqual({
+      content: [
+        {
+          type: "image",
+          data: expect.stringMatching(/^\[image attached, \d+ bytes\]$/),
+          mimeType: "image/png",
+        },
+      ],
+    });
+  });
+
+  it("pulls snake_case mime_type / image_base64", () => {
+    const extracted = extractOfficeImagesFromPayload({
+      mime_type: "image/jpg",
+      image_base64: jpeg,
+    });
+    expect(extracted.images).toEqual([{ data: jpeg, mimeType: "image/jpeg" }]);
+  });
+
+  it("strips a data URL prefix on imageBase64", () => {
+    const extracted = extractOfficeImagesFromPayload({
+      mimeType: "image/png",
+      imageBase64: `data:image/png;base64,${png}`,
+    });
+    expect(extracted.images).toEqual([{ data: png, mimeType: "image/png" }]);
+  });
+
+  it("leaves a non-image code result alone", () => {
+    const value = { ok: true, invoiceId: "inv_1" };
+    expect(extractOfficeImagesFromPayload(value)).toEqual({
+      images: [],
+      stripped: value,
+    });
+  });
+});
+
+describe("officeImagesToolResult", () => {
+  it("uses officeImageToolResult so Pi gets an image part", () => {
+    const png =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+    const row = officeImagesToolResult(
+      [{ data: png, mimeType: "image/png" }],
+      "Invoice image attached.",
+    );
+    expect(row).toEqual(
+      officeImageToolResult({
+        data: png,
+        mimeType: "image/png",
+        text: "Invoice image attached.",
+      }),
+    );
   });
 });
 

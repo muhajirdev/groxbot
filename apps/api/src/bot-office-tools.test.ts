@@ -105,6 +105,49 @@ describe("bindOfficeExecuteTool", () => {
     });
   });
 
+  it("attaches a SineMart view_invoice_image dump for vision", async () => {
+    const jpeg = `/9j/${"A".repeat(80)}`;
+    const tool = bindOfficeExecuteTool({
+      execute: async () => ({
+        status: "completed",
+        executionId: "exec_1",
+        result: {
+          mimeType: "image/jpeg",
+          byteLength: 12_345,
+          imageBase64: jpeg,
+        },
+        calls: [
+          {
+            seq: 0,
+            connector: "sinemart",
+            method: "view_invoice_image",
+            result: {
+              mimeType: "image/jpeg",
+              byteLength: 12_345,
+              imageBase64: jpeg,
+            },
+          },
+        ],
+      }),
+    });
+    const result = await tool.execute("call_1", {
+      code: 'return await sinemart.view_invoice_image({ invoiceId: "inv_1" })',
+    });
+    expect(result.content).toContainEqual({
+      type: "image",
+      data: jpeg,
+      mimeType: "image/jpeg",
+    });
+    const text = result.content.find((part) => part.type === "text");
+    expect(text?.type).toBe("text");
+    if (text?.type === "text") {
+      expect(text.text).toContain('"mimeType":"image/jpeg"');
+      expect(text.text).not.toContain(jpeg);
+      expect(text.text).not.toMatch(/truncated/);
+    }
+    expect(JSON.stringify(result.details)).not.toContain(jpeg);
+  });
+
   it("strips connector calls so a compact code return fits the live window", async () => {
     const markdown = "m".repeat(20_000);
     const tool = bindOfficeExecuteTool({
