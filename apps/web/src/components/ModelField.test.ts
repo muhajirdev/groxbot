@@ -88,4 +88,11 @@ describe("model pickers", () => {
     expect(source).not.toContain("Save models");
     expect(source).toContain("Save keys");
   });
+
+  it("compacts the desk on a bot model change without a confirm", () => {
+    const source = readFileSync(join(root, "BotSettingsPane.tsx"), "utf8");
+    expect(source).toContain("compactOffice: true");
+    expect(source).not.toContain("Compact this desk");
+    expect(source).not.toContain("window.confirm");
+  });
 });
