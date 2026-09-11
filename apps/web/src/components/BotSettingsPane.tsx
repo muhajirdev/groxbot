@@ -22,8 +22,8 @@ import { client } from "../lib/rpc";
 import { isPinnedBot } from "../lib/sidebar";
 import { Button } from "../ui";
 import { AvatarMark, ShapePicks } from "./Avatar";
-import { CloseIcon } from "./Icons";
 import { EffortField } from "./EffortField";
+import { CloseIcon } from "./Icons";
 import { ModelField } from "./ModelField";
 
 export function BotSettingsPane(props: {
@@ -47,6 +47,7 @@ export function BotSettingsPane(props: {
   const [deleting, setDeleting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState("");
+  const [modelNotice, setModelNotice] = useState("");
   const modelsQuery = useQuery(orpc.models.get.queryOptions());
   const pinned = isPinnedBot(bot);
   const fullCatalog = modelsQuery.data?.catalog ?? [];
@@ -55,9 +56,8 @@ export function BotSettingsPane(props: {
     bot.model || modelsQuery.data?.defaultModelId || "",
   );
   const defaultLabel =
-    fullCatalog.find(
-      (item) => item.id === modelsQuery.data?.defaultModelId,
-    )?.label ?? "workspace default";
+    fullCatalog.find((item) => item.id === modelsQuery.data?.defaultModelId)
+      ?.label ?? "workspace default";
   const listed = fullCatalog.some((item) => item.id === bot.model);
   const [model, setModel] = useState(
     listed || !bot.model ? bot.model : CUSTOM_MODEL_SENTINEL,
@@ -66,21 +66,16 @@ export function BotSettingsPane(props: {
   const [effort, setEffort] = useState(parseBotEffort(bot.effort));
   const inheritedModel = modelsQuery.data?.defaultModelId ?? "";
   const selectedRunModel =
-    model === CUSTOM_MODEL_SENTINEL
-      ? customModel
-      : model || inheritedModel;
+    model === CUSTOM_MODEL_SENTINEL ? customModel : model || inheritedModel;
   const showEffort = modelUsesThinkingEffort(selectedRunModel);
-  const queued = useRef<
-    | {
-        name?: string;
-        avatarColor?: string;
-        avatarShape?: typeof shape;
-        model?: string;
-        effort?: ReturnType<typeof parseBotEffort>;
-        compactOffice?: boolean;
-      }
-    | null
-  >(null);
+  const queued = useRef<{
+    name?: string;
+    avatarColor?: string;
+    avatarShape?: typeof shape;
+    model?: string;
+    effort?: ReturnType<typeof parseBotEffort>;
+    compactOffice?: boolean;
+  } | null>(null);
 
   useEffect(() => {
     const ids = modelsQuery.data?.catalog ?? [];
@@ -227,11 +222,12 @@ export function BotSettingsPane(props: {
                   inherit={{ label: defaultLabel }}
                   onChange={(next) => {
                     setModel(next);
-                    if (next === CUSTOM_MODEL_SENTINEL) return;
-                    const compactOffice = window.confirm(
-                      "Compact this desk for the new model?\n\nOK — compact (recommended when switching models)\nCancel — switch without compacting",
-                    );
-                    void save({ model: next, compactOffice });
+                    if (next === CUSTOM_MODEL_SENTINEL) {
+                      setModelNotice("");
+                      return;
+                    }
+                    setModelNotice("Desk compacted for the new model.");
+                    void save({ model: next, compactOffice: true });
                   }}
                 />
               </label>
@@ -263,13 +259,16 @@ export function BotSettingsPane(props: {
                     onBlur={() => {
                       const next = customModel.trim();
                       if (!next || next === bot.model) return;
-                      const compactOffice = window.confirm(
-                        "Compact this desk for the new model?\n\nOK — compact (recommended when switching models)\nCancel — switch without compacting",
-                      );
-                      void save({ model: next, compactOffice });
+                      setModelNotice("Desk compacted for the new model.");
+                      void save({ model: next, compactOffice: true });
                     }}
                   />
                 </label>
+              ) : null}
+              {modelNotice ? (
+                <p className="hint" aria-live="polite">
+                  {modelNotice}
+                </p>
               ) : null}
             </div>
           ) : null}
@@ -291,8 +290,7 @@ export function BotSettingsPane(props: {
             ) : null}
           </div>
         </div>
-        {!pending &&
-        (props.onPin || props.onArchive || props.onDelete) ? (
+        {!pending && (props.onPin || props.onArchive || props.onDelete) ? (
           <div className="set-divide grid gap-1">
             {props.onPin ? (
               <button
