@@ -12,6 +12,7 @@ export function Field({
   multiline,
   maxLength,
   autoComplete,
+  onBlur,
 }: {
   label?: string;
   value: string;
@@ -23,6 +24,7 @@ export function Field({
   multiline?: boolean;
   maxLength?: number;
   autoComplete?: "email" | "one-time-code" | "off";
+  onBlur?: () => void;
 }) {
   return (
     <View style={styles.wrap}>
@@ -39,6 +41,7 @@ export function Field({
         multiline={multiline}
         maxLength={maxLength}
         autoComplete={autoComplete}
+        onBlur={onBlur}
         textContentType={
           autoComplete === "one-time-code" ? "oneTimeCode" : undefined
         }

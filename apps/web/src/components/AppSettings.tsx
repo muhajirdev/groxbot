@@ -1,5 +1,6 @@
 import type { Me, ModelProvider, ThinkingEffort, WorkspaceMember } from "@groxbot/contracts";
 import {
+  canSaveDefaultModelChoice,
   CLOUDFLARE_PROVIDER,
   CUSTOM_MODEL_SENTINEL,
   DEFAULT_AI_GATEWAY_ID,
@@ -25,6 +26,7 @@ import { billingStatusLabel } from "../lib/billing-format";
 import { BUILD_REVISION, shortRevision } from "../lib/build";
 import { readDebugMode, useDebugMode, writeDebugMode } from "../lib/debug-mode";
 import { userFacingError } from "../lib/errors";
+import { modelKeyDraftsReady, modelKeySavePayload } from "../lib/model-settings";
 import type { OfficeColorId } from "../lib/office-color";
 import { workspaceListQueryOptions } from "../lib/office-persist";
 import { OFFICE_TO, officeParams, WORKSPACE_TO } from "../lib/office-route";
@@ -963,6 +965,8 @@ function ModelsTab() {
   const [openKeys, setOpenKeys] = useState<
     Partial<Record<ModelProvider, boolean>>
   >({});
+  const persistTail = useRef(Promise.resolve());
+  const inflight = useRef(0);
 
   const selectedModel = defaultModel ?? settings?.defaultModel ?? "";
   const custom = customModel ?? settings?.customModel ?? "";
@@ -1015,38 +1019,91 @@ function ModelsTab() {
     }));
   }
 
-  async function save() {
-    if (!settings) return;
-    setBusy(true);
-    setError("");
-    setSaved(false);
-    try {
-      const next = await client.models.save({
-        defaultModel: selectedModel || CUSTOM_MODEL_SENTINEL,
-        customModel: custom,
-        effort: selectedEffort,
-        keys: providers.map((provider) => ({
-          provider,
-          secret: drafts[provider]?.trim() || undefined,
-          accountId:
-            provider === CLOUDFLARE_PROVIDER
-              ? cfAccount.trim() || undefined
-              : undefined,
-          gatewayId:
-            provider === CLOUDFLARE_PROVIDER
-              ? cfGateway.trim() || undefined
-              : undefined,
-        })),
-      });
-      queryClient.setQueryData(orpc.models.get.queryOptions().queryKey, next);
-      await queryClient.invalidateQueries({ queryKey: orpc.me.key() });
-      setDrafts({});
-      setSaved(true);
-    } catch (caught) {
-      setError(userFacingError(caught, "Could not save"));
-    } finally {
-      setBusy(false);
+  const keysReady = modelKeyDraftsReady({
+    drafts,
+    accountId: cfAccount,
+    gatewayId: cfGateway,
+    savedAccountId: cf?.accountId,
+    savedGatewayId: cf?.gatewayId,
+    cloudflareConfigured: Boolean(cf?.configured),
+  });
+
+  function choiceForSave(next?: {
+    defaultModel?: string;
+    customModel?: string;
+    effort?: ThinkingEffort;
+  }) {
+    const defaultModel = next?.defaultModel ?? selectedModel;
+    const customModel = next?.customModel ?? custom;
+    const effort = next?.effort ?? selectedEffort;
+    if (canSaveDefaultModelChoice(defaultModel, customModel)) {
+      return { defaultModel, customModel, effort };
     }
+    return {
+      defaultModel: settings?.defaultModel || CUSTOM_MODEL_SENTINEL,
+      customModel: settings?.customModel ?? "",
+      effort,
+    };
+  }
+
+  function persist(input: {
+    defaultModel?: string;
+    customModel?: string;
+    effort?: ThinkingEffort;
+    keys?: ReturnType<typeof modelKeySavePayload>;
+    clearDrafts?: boolean;
+  }) {
+    if (!settings) return persistTail.current;
+    const choice = choiceForSave(input);
+    const keys = input.keys ?? [];
+    persistTail.current = persistTail.current.then(async () => {
+      inflight.current += 1;
+      setBusy(true);
+      setError("");
+      setSaved(false);
+      try {
+        const next = await client.models.save({
+          defaultModel: choice.defaultModel || CUSTOM_MODEL_SENTINEL,
+          customModel: choice.customModel,
+          effort: choice.effort,
+          keys,
+        });
+        queryClient.setQueryData(orpc.models.get.queryOptions().queryKey, next);
+        await queryClient.invalidateQueries({ queryKey: orpc.me.key() });
+        if (input.clearDrafts) setDrafts({});
+        setSaved(true);
+      } catch (caught) {
+        setError(userFacingError(caught, "Could not save"));
+      } finally {
+        inflight.current -= 1;
+        if (inflight.current === 0) setBusy(false);
+      }
+    });
+    return persistTail.current;
+  }
+
+  function persistChoice(next: {
+    defaultModel?: string;
+    customModel?: string;
+    effort?: ThinkingEffort;
+  }) {
+    const defaultModel = next.defaultModel ?? selectedModel;
+    const customModel = next.customModel ?? custom;
+    if (!canSaveDefaultModelChoice(defaultModel, customModel)) return;
+    void persist(next);
+  }
+
+  function persistKeys() {
+    const keys = modelKeySavePayload({
+      drafts,
+      accountId: cfAccount,
+      gatewayId: cfGateway,
+      savedAccountId: cf?.accountId,
+      savedGatewayId: cf?.gatewayId,
+      cloudflareConfigured: Boolean(cf?.configured),
+    });
+    if (keys.length === 0) return;
+    void persist({ keys, clearDrafts: true });
   }
 
   async function clear(provider: ModelProvider) {
@@ -1111,6 +1168,7 @@ function ModelsTab() {
                   [meta.provider]: true,
                 }));
               }
+              persistChoice({ defaultModel: next });
             }}
           />
         </label>
@@ -1121,7 +1179,11 @@ function ModelsTab() {
               <EffortField
                 value={selectedEffort}
                 className="bg-card-2"
-                onChange={(next) => setEffort(parseThinkingEffort(next))}
+                onChange={(next) => {
+                  const value = parseThinkingEffort(next);
+                  setEffort(value);
+                  persistChoice({ effort: value });
+                }}
               />
             </label>
             <p className="hint">How hard the model thinks. Off skips reasoning.</p>
@@ -1136,6 +1198,12 @@ function ModelsTab() {
               spellCheck={false}
               autoComplete="off"
               onChange={(e) => setCustomModel(e.target.value)}
+              onBlur={() =>
+                persistChoice({
+                  defaultModel: CUSTOM_MODEL_SENTINEL,
+                  customModel: custom,
+                })
+              }
             />
           </label>
         ) : null}
@@ -1150,6 +1218,20 @@ function ModelsTab() {
           />
         ) : null}
         {warning ? <p className="model-warn">{warning}</p> : null}
+        {error ||
+        busy ||
+        saved ||
+        (selectedModel === CUSTOM_MODEL_SENTINEL && !custom.trim()) ? (
+          <p className="hint" aria-live="polite">
+            {error
+              ? error
+              : busy
+                ? "Saving…"
+                : saved
+                  ? "Saved."
+                  : "Enter a model id. It saves when you leave the field."}
+          </p>
+        ) : null}
       </section>
       <section className="set-block">
         <p className="group-label">Provider keys</p>
@@ -1219,8 +1301,8 @@ function ModelsTab() {
                       selectedCodexModel ? (
                         <p className="hint">
                           Paste the whole{" "}
-                          <code>~/.codex/auth.json</code> file below, then
-                          save.
+                          <code>~/.codex/auth.json</code> file. It saves
+                          when you leave the box.
                         </p>
                       ) : (
                         <CodexSetupSteps
@@ -1261,6 +1343,7 @@ function ModelsTab() {
                               [provider]: e.target.value,
                             }))
                           }
+                          onBlur={() => persistKeys()}
                         />
                       ) : (
                         <input
@@ -1279,6 +1362,7 @@ function ModelsTab() {
                               [provider]: e.target.value,
                             }))
                           }
+                          onBlur={() => persistKeys()}
                         />
                       )}
                     </label>
@@ -1290,6 +1374,7 @@ function ModelsTab() {
                           autoComplete="off"
                           value={cfAccount}
                           onChange={(e) => setAccountId(e.target.value)}
+                          onBlur={() => persistKeys()}
                         />
                         <input
                           placeholder={`AI Gateway id (${DEFAULT_AI_GATEWAY_ID})`}
@@ -1297,6 +1382,7 @@ function ModelsTab() {
                           autoComplete="off"
                           value={cfGateway}
                           onChange={(e) => setGatewayId(e.target.value)}
+                          onBlur={() => persistKeys()}
                         />
                       </>
                     ) : null}
@@ -1319,18 +1405,21 @@ function ModelsTab() {
           })}
         </div>
       </section>
-      <div className="set-models-foot">
-        {error ? <p className="error">{error}</p> : null}
-        {saved ? <p className="hint">Saved.</p> : null}
-        <button
-          className="btn"
-          type="button"
-          disabled={busy}
-          onClick={() => void save()}
-        >
-          {busy ? "Saving…" : "Save models"}
-        </button>
-      </div>
+      {keysReady || error ? (
+        <div className="set-models-foot">
+          {error ? <p className="error">{error}</p> : null}
+          {keysReady ? (
+            <button
+              className="btn"
+              type="button"
+              disabled={busy}
+              onClick={() => persistKeys()}
+            >
+              {busy ? "Saving…" : "Save keys"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </>
   );
 }

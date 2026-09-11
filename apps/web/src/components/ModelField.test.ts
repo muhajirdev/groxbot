@@ -83,4 +83,12 @@ describe("model pickers", () => {
       expect(source).toContain("<EffortField");
     }
   });
+
+  it("auto-saves the workspace default model without a Save models click", () => {
+    const source = readFileSync(join(root, "AppSettings.tsx"), "utf8");
+    expect(source).toContain("persistChoice({ defaultModel: next })");
+    expect(source).toContain("persistChoice({ effort: value })");
+    expect(source).not.toContain("Save models");
+    expect(source).toContain("Save keys");
+  });
 });

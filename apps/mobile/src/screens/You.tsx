@@ -1,5 +1,6 @@
 import type { ModelProvider, ThinkingEffort } from "@groxbot/contracts";
 import {
+  canSaveDefaultModelChoice,
   CLOUDFLARE_PROVIDER,
   CUSTOM_MODEL_SENTINEL,
   catalogGroupLabel,
@@ -109,6 +110,32 @@ export function YouScreen({ navigation }: Props) {
       await queryClient.invalidateQueries({ queryKey: orpc.me.key() });
     } catch (caught) {
       setError(userFacingError(caught, "Could not rename workspace"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function persistChoice(
+    nextModel: string,
+    nextCustom: string,
+    nextEffort: ThinkingEffort,
+  ) {
+    const settings = modelsQuery.data;
+    if (!settings || !canSaveDefaultModelChoice(nextModel, nextCustom)) return;
+    setBusy(true);
+    setError("");
+    try {
+      const next = await client.models.save({
+        defaultModel: nextModel,
+        customModel:
+          nextModel === CUSTOM_MODEL_SENTINEL ? nextCustom.trim() : undefined,
+        effort: nextEffort,
+        keys: [],
+      });
+      queryClient.setQueryData(orpc.models.get.queryOptions().queryKey, next);
+      await queryClient.invalidateQueries({ queryKey: orpc.me.key() });
+    } catch (caught) {
+      setError(userFacingError(caught, "Could not save models"));
     } finally {
       setBusy(false);
     }
@@ -482,7 +509,10 @@ export function YouScreen({ navigation }: Props) {
             {options.map((item) => (
               <Pressable
                 key={item.id}
-                onPress={() => setDefaultModel(item.id)}
+                onPress={() => {
+                  setDefaultModel(item.id);
+                  void persistChoice(item.id, customModel, effort);
+                }}
                 style={styles.option}
               >
                 <Text
@@ -512,6 +542,9 @@ export function YouScreen({ navigation }: Props) {
           label="Model id"
           value={customModel}
           onChangeText={setCustomModel}
+          onBlur={() =>
+            void persistChoice(CUSTOM_MODEL_SENTINEL, customModel, effort)
+          }
         />
       ) : null}
       {isGroxbotRouterModel(defaultModel) ? null : (
@@ -523,7 +556,10 @@ export function YouScreen({ navigation }: Props) {
           {THINKING_EFFORT_OPTIONS.map((item) => (
             <Pressable
               key={item.value}
-              onPress={() => setEffort(item.value)}
+              onPress={() => {
+                setEffort(item.value);
+                void persistChoice(defaultModel, customModel, item.value);
+              }}
               style={styles.option}
             >
               <Text style={effort === item.value ? styles.on : styles.body}>
