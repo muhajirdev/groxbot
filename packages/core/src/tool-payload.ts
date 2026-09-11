@@ -1,5 +1,11 @@
 /** Cap tool JSON before it occupies the live window. Slim fat plugin dumps. */
 
+import {
+  extractOfficeImagesFromPayload,
+  isOfficeImageToolResult,
+  type OfficeImageToolResult,
+  officeImagesToolResult,
+} from "./computer-fs.js";
 import { stringifyToolOutput } from "./office-chat.js";
 import { clipKeepTail, type TruncationRetain } from "./tool-truncate.js";
 
@@ -14,6 +20,10 @@ const DROP_KEYS = new Set([
   "messagetext",
   "payload",
   "raw",
+  "imagebase64",
+  "image_base64",
+  "base64image",
+  "base64_image",
 ]);
 
 const SLIM_STRING = 400;
@@ -74,6 +84,35 @@ export function persistToolPayload(
   return {
     text: `Result truncated at ${Math.min(maxChars, clipped.length)} of ${text.length} chars.${hint}\n${clipped}`,
     details: { truncated: true, bytes: text.length },
+  };
+}
+
+/**
+ * Persist Code Mode / MCP JSON for the live window. Raster payloads become
+ * Pi image parts; the text dump keeps a compact stand-in, not the bytes.
+ */
+export function persistOfficeToolPayload(
+  value: unknown,
+  maxChars = TOOL_PAYLOAD_MAX_CHARS,
+  opts?: { retain?: TruncationRetain },
+):
+  | OfficeImageToolResult
+  | {
+      content: Array<{ type: "text"; text: string }>;
+      details: unknown;
+    } {
+  if (isOfficeImageToolResult(value)) return value;
+  const extracted = extractOfficeImagesFromPayload(value);
+  const persisted = persistToolPayload(
+    extracted.images.length > 0 ? extracted.stripped : value,
+    maxChars,
+    opts,
+  );
+  const attached = officeImagesToolResult(extracted.images, persisted.text);
+  if (attached) return attached;
+  return {
+    content: [{ type: "text", text: persisted.text }],
+    details: persisted.details,
   };
 }
 

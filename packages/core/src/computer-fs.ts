@@ -3,8 +3,8 @@
 import {
   encodeComputerBytes,
   listComputerEntries,
-  mediaTypeForComputerPath,
   MAX_COMPUTER_WRITE_BYTES,
+  mediaTypeForComputerPath,
 } from "./computer.js";
 
 export const COMPUTER_DISK_FLAG = "computer.disk";
@@ -278,7 +278,12 @@ export type OfficeImageToolContent =
 
 export type OfficeImageToolResult = {
   content: OfficeImageToolContent[];
-  details: { path?: string; mediaType: string; bytes: number };
+  details: { path?: string; mediaType: string; bytes: number; images?: number };
+};
+
+export type OfficePayloadImage = {
+  data: string;
+  mimeType: string;
 };
 
 export function isOfficeImageToolResult(
@@ -325,6 +330,187 @@ export function officeImageToolResult(opts: {
       bytes,
     },
   };
+}
+
+const NAMED_IMAGE_DATA_KEYS = [
+  "imageBase64",
+  "image_base64",
+  "base64Image",
+  "base64_image",
+] as const;
+const GENERIC_IMAGE_DATA_KEYS = ["data", "base64", "blob", "image"] as const;
+const MAX_PAYLOAD_IMAGE_WALK = 10;
+const MAX_PAYLOAD_IMAGES = 8;
+
+/**
+ * Pull raster payloads out of Code Mode / MCP JSON (SineMart
+ * `{ mimeType, imageBase64 }`, MCP `{ type: "image", data, mimeType }`)
+ * so the harness can attach them for vision instead of dumping base64.
+ */
+export function extractOfficeImagesFromPayload(value: unknown): {
+  images: OfficePayloadImage[];
+  stripped: unknown;
+} {
+  const images: OfficePayloadImage[] = [];
+  const seenData = new Set<string>();
+  const stripped = walkPayloadImages(value, images, seenData, 0, new WeakSet());
+  return { images, stripped };
+}
+
+export function officeImagesToolResult(
+  images: readonly OfficePayloadImage[],
+  text: string,
+): OfficeImageToolResult | null {
+  const first = images[0];
+  if (!first) return null;
+  const attached = officeImageToolResult({
+    data: first.data,
+    mimeType: first.mimeType,
+    text: text || `Attached image [${first.mimeType}]`,
+  });
+  if (images.length === 1) return attached;
+  const bytes = images.reduce(
+    (sum, row) => sum + base64ByteLength(row.data),
+    0,
+  );
+  const summary =
+    attached.content.find((part) => part.type === "text") ?? {
+      type: "text" as const,
+      text: text || `Attached image [${first.mimeType}]`,
+    };
+  return {
+    content: [
+      summary,
+      ...images.map((row) => ({
+        type: "image" as const,
+        data: row.data,
+        mimeType: row.mimeType,
+      })),
+    ],
+    details: {
+      ...attached.details,
+      bytes,
+      images: images.length,
+    },
+  };
+}
+
+function walkPayloadImages(
+  value: unknown,
+  images: OfficePayloadImage[],
+  seenData: Set<string>,
+  depth: number,
+  seen: WeakSet<object>,
+): unknown {
+  if (
+    value == null ||
+    typeof value !== "object" ||
+    depth > MAX_PAYLOAD_IMAGE_WALK
+  ) {
+    return value;
+  }
+  if (seen.has(value)) return value;
+  seen.add(value);
+  if (Array.isArray(value)) {
+    return value.map((row) =>
+      walkPayloadImages(row, images, seenData, depth + 1, seen),
+    );
+  }
+  const row = value as Record<string, unknown>;
+  const image = imageFromPayloadObject(row);
+  if (
+    image &&
+    images.length < MAX_PAYLOAD_IMAGES &&
+    !seenData.has(image.data)
+  ) {
+    seenData.add(image.data);
+    images.push(image);
+  }
+  const out: Record<string, unknown> = {};
+  for (const [key, child] of Object.entries(row)) {
+    if (image && isPayloadImageDataKey(key, row) && typeof child === "string") {
+      out[key] = `[image attached, ${base64ByteLength(image.data)} bytes]`;
+      continue;
+    }
+    out[key] = walkPayloadImages(child, images, seenData, depth + 1, seen);
+  }
+  return out;
+}
+
+function imageFromPayloadObject(
+  row: Record<string, unknown>,
+): OfficePayloadImage | null {
+  const mime = mimeFromPayloadObject(row);
+  const typed = row.type === "image";
+  for (const key of NAMED_IMAGE_DATA_KEYS) {
+    const parsed = parsePayloadImageString(row[key], mime);
+    if (parsed) return parsed;
+  }
+  if (typed || mime) {
+    for (const key of GENERIC_IMAGE_DATA_KEYS) {
+      const parsed = parsePayloadImageString(row[key], mime);
+      if (parsed) return parsed;
+    }
+  }
+  return null;
+}
+
+function mimeFromPayloadObject(
+  row: Record<string, unknown>,
+): string | undefined {
+  for (const key of [
+    "mimeType",
+    "mime_type",
+    "mediaType",
+    "media_type",
+  ] as const) {
+    const mime = officeImageMime(typeof row[key] === "string" ? row[key] : "");
+    if (mime) return mime;
+  }
+  return undefined;
+}
+
+function parsePayloadImageString(
+  value: unknown,
+  mimeHint?: string,
+): OfficePayloadImage | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const decoded = decodeImagePayload(value);
+  if (!decoded.data) return null;
+  const mime = mimeHint || decoded.mime || guessImageMime(decoded.data);
+  if (!mime) return null;
+  if (base64ByteLength(decoded.data) > MAX_COMPUTER_WRITE_BYTES) return null;
+  return { data: decoded.data, mimeType: mime };
+}
+
+function decodeImagePayload(raw: string): { data: string; mime?: string } {
+  const trimmed = raw.trim();
+  const comma = trimmed.indexOf(",");
+  if (/^data:/i.test(trimmed) && comma >= 0) {
+    const meta = trimmed.slice(5, comma);
+    const mime = officeImageMime(meta.split(";")[0] ?? "");
+    return { data: trimmed.slice(comma + 1).replace(/\s/g, ""), mime };
+  }
+  return { data: trimmed.replace(/\s/g, "") };
+}
+
+function guessImageMime(data: string): string | undefined {
+  if (data.startsWith("/9j/")) return "image/jpeg";
+  if (data.startsWith("iVBORw0")) return "image/png";
+  if (data.startsWith("R0lGOD")) return "image/gif";
+  if (data.startsWith("UklGR")) return "image/webp";
+  return undefined;
+}
+
+function isPayloadImageDataKey(
+  key: string,
+  row: Record<string, unknown>,
+): boolean {
+  if ((NAMED_IMAGE_DATA_KEYS as readonly string[]).includes(key)) return true;
+  if (!(GENERIC_IMAGE_DATA_KEYS as readonly string[]).includes(key)) {
+    return false;
+  }
+  return row.type === "image" || mimeFromPayloadObject(row) !== undefined;
 }
 
 /**
@@ -469,10 +655,7 @@ function imageDataFromRead(result: unknown): string {
   if (!result || typeof result !== "object" || Array.isArray(result)) return "";
   const data = (result as { data?: unknown }).data;
   if (typeof data !== "string" || !data.trim()) return "";
-  const trimmed = data.trim();
-  const comma = trimmed.indexOf(",");
-  if (/^data:/i.test(trimmed) && comma >= 0) return trimmed.slice(comma + 1);
-  return trimmed;
+  return decodeImagePayload(data).data;
 }
 
 function officeImageMime(media: string): string | undefined {
