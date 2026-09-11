@@ -6,33 +6,36 @@ import type {
   KnowledgeImportResult,
   KnowledgeList,
   KnowledgeSearch,
+  KnowledgeTaskList,
   KnowledgeWrite,
   SkillsStoreDetail,
   SkillsStoreSearch,
 } from "@groxbot/contracts";
 import {
+  downloadKnowledge,
+  importOfficeSkills,
+  type KnowledgeConvert,
+  type KnowledgeDisk,
   KnowledgeFileError,
   KnowledgePathError,
   KnowledgeWriteError,
-  SkillImportError,
-  downloadKnowledge,
-  importOfficeSkills,
   listKnowledge,
   listKnowledgeBacklinks,
   listKnowledgeGraph,
+  listKnowledgeTasks,
   readKnowledge,
   readSkillsStoreSkill,
   removeKnowledge,
+  SkillImportError,
+  type SkillImportHttp,
   searchKnowledge,
   searchSkillsStore,
   writeKnowledge,
-  type KnowledgeConvert,
-  type KnowledgeDisk,
-  type SkillImportHttp,
 } from "@groxbot/core";
 
 export type KnowledgeAccess = {
   list(workspaceId: string): Promise<KnowledgeList>;
+  listTasks(workspaceId: string): Promise<KnowledgeTaskList>;
   search(
     workspaceId: string,
     query: string,
@@ -47,10 +50,7 @@ export type KnowledgeAccess = {
   download(workspaceId: string, path: string): Promise<ComputerDownload>;
   backlinks(workspaceId: string, path: string): Promise<{ sources: string[] }>;
   graph(workspaceId: string): Promise<KnowledgeGraph>;
-  write(
-    workspaceId: string,
-    input: KnowledgeWrite,
-  ): Promise<{ path: string }>;
+  write(workspaceId: string, input: KnowledgeWrite): Promise<{ path: string }>;
   importSkill(
     workspaceId: string,
     input: KnowledgeImportInput,
@@ -65,6 +65,7 @@ export function knowledgeAccess(
 ): KnowledgeAccess {
   return {
     list: (workspaceId) => listKnowledge(disk, workspaceId),
+    listTasks: (workspaceId) => listKnowledgeTasks(disk, workspaceId),
     search: (workspaceId, query, limit) =>
       searchKnowledge(disk, workspaceId, query, limit),
     searchSkills: (query, opts) => searchSkillsStore(query, opts),
@@ -92,6 +93,9 @@ export function emptyKnowledgeAccess(): KnowledgeAccess {
   return {
     async list() {
       return { entries: [], truncated: false };
+    },
+    async listTasks() {
+      return { tasks: [], truncated: false };
     },
     async search() {
       return { hits: [], truncated: false };

@@ -1,13 +1,9 @@
-import type { Room } from "@groxbot/contracts";
-import {
-  parseRoomWorkStatus,
-  type RoomWorkStatus,
-} from "@groxbot/core/browser";
 import { Menu } from "@base-ui/react/menu";
+import type { Room } from "@groxbot/contracts";
 import { useMemo, useRef } from "react";
 import { type RoomMenuPhase, roomMenuItems } from "../lib/sidebar";
 import { Button, cn, ModalShell } from "../ui";
-import { CheckIcon, TrashIcon } from "./Icons";
+import { TrashIcon } from "./Icons";
 
 const itemClass = cn(
   "flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-ink outline-none select-none",
@@ -27,7 +23,6 @@ export function RoomContextMenu(props: {
   onClose: () => void;
   onPhase: (next: RoomMenuState) => void;
   onInvite: (room: Room) => void;
-  onStatus: (room: Room, status: RoomWorkStatus) => void;
   onDelete: (room: Room) => void;
 }) {
   const last = useRef(props.menu);
@@ -45,7 +40,6 @@ export function RoomContextMenu(props: {
 
   const items = roomMenuItems({
     name: current.room.name,
-    status: current.room.status,
     phase: current.phase,
   });
 
@@ -68,16 +62,11 @@ export function RoomContextMenu(props: {
           <Menu.Popup className="popover-popup min-w-[168px] rounded-[10px] border border-line bg-card p-1 outline-none">
             {items.map((item) => (
               <Menu.Item
-                key={
-                  item.id === "status-to"
-                    ? `status-to:${item.status}`
-                    : item.id
-                }
+                key={item.id}
                 className={cn(itemClass, item.id === "delete" && "text-danger")}
                 closeOnClick={
                   item.id === "invite" ||
-                  (item.id === "delete" && current.phase === "confirm-delete") ||
-                  item.id === "status-to"
+                  (item.id === "delete" && current.phase === "confirm-delete")
                 }
                 onClick={() => {
                   if (item.id === "cancel-delete") {
@@ -87,15 +76,6 @@ export function RoomContextMenu(props: {
                   if (item.id === "invite") {
                     props.onClose();
                     props.onInvite(current.room);
-                    return;
-                  }
-                  if (item.id === "status") {
-                    props.onPhase({ ...current, phase: "status" });
-                    return;
-                  }
-                  if (item.id === "status-to") {
-                    props.onClose();
-                    props.onStatus(current.room, item.status);
                     return;
                   }
                   if (current.phase === "actions") {
@@ -108,9 +88,6 @@ export function RoomContextMenu(props: {
               >
                 {item.id === "delete" ? (
                   <TrashIcon className="size-3.5 shrink-0" />
-                ) : item.id === "status-to" &&
-                  item.status === parseRoomWorkStatus(current.room.status) ? (
-                  <CheckIcon className="size-3.5 shrink-0" />
                 ) : null}
                 <span className="min-w-0 truncate">{item.label}</span>
               </Menu.Item>

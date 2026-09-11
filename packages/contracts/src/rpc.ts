@@ -25,6 +25,7 @@ import {
   KnowledgeSearchSchema,
   KnowledgeShareKind,
   KnowledgeShareSchema,
+  KnowledgeTaskListSchema,
   KnowledgeWriteSchema,
   MAX_COMPUTER_WRITE_BYTES,
   McpBearer,
@@ -300,6 +301,8 @@ export const appContract = oc.router({
   /** Workspace library on R2. One prefix per office. */
   knowledge: {
     list: oc.output(KnowledgeListSchema),
+    /** Kanban/list over `tasks/<name>/TASK.md`. Not rooms, not D1 `tasks`. */
+    listTasks: oc.output(KnowledgeTaskListSchema),
     search: oc
       .input(
         z.object({

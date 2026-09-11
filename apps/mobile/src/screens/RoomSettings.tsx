@@ -1,9 +1,7 @@
-import type { RoomWorkStatus } from "@groxbot/contracts";
-import { ROOM_WORK_STATUS_LABEL, ROOM_WORK_STATUSES } from "@groxbot/core/browser";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text } from "react-native";
 import { Button } from "../components/Button";
 import { Field } from "../components/Field";
 import { Header } from "../components/Header";
@@ -27,7 +25,6 @@ export function RoomSettingsScreen({ navigation, route }: Props) {
   const room = roomQuery.data;
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [status, setStatus] = useState<RoomWorkStatus>("todo");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -35,7 +32,6 @@ export function RoomSettingsScreen({ navigation, route }: Props) {
     if (!room) return;
     setName(room.name);
     setDescription(room.description);
-    setStatus(room.status);
   }, [room]);
 
   const seated = useMemo(
@@ -59,7 +55,6 @@ export function RoomSettingsScreen({ navigation, route }: Props) {
         roomId,
         name: name.trim(),
         description: description.trim(),
-        status,
       });
       await queryClient.invalidateQueries({ queryKey: orpc.rooms.get.key() });
       await queryClient.invalidateQueries({ queryKey: orpc.rooms.list.key() });
@@ -114,18 +109,6 @@ export function RoomSettingsScreen({ navigation, route }: Props) {
         onChangeText={setDescription}
         multiline
       />
-      <Text style={styles.section}>Status</Text>
-      {ROOM_WORK_STATUSES.map((item) => (
-        <Pressable
-          key={item}
-          onPress={() => setStatus(item)}
-          style={styles.option}
-        >
-          <Text style={status === item ? styles.on : styles.body}>
-            {ROOM_WORK_STATUS_LABEL[item]}
-          </Text>
-        </Pressable>
-      ))}
       <Text style={styles.section}>Seated</Text>
       {(room?.members ?? []).map((member) => (
         <Text key={member.botId} style={styles.body}>
@@ -158,6 +141,5 @@ const styles = StyleSheet.create({
   section: { color: colors.text, fontWeight: "700", marginTop: 12 },
   option: { paddingVertical: 8 },
   body: { color: colors.text, fontSize: 15 },
-  on: { color: colors.accent, fontWeight: "700" },
   link: { color: colors.accent, fontWeight: "600" },
 });

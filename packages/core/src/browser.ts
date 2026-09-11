@@ -12,6 +12,7 @@ export * from "./pi-transcript.js";
 export * from "./routine-clock.js";
 export * from "./room-speaker.js";
 export * from "./room-target.js";
+export * from "./knowledge-task.js";
 export * from "./room-work.js";
 export * from "./sidebar-roster.js";
 export * from "./visibility.js";

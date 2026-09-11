@@ -3,7 +3,7 @@ import type { Bot } from "@groxbot/contracts";
 import { isSharedVisibility } from "@groxbot/core/browser";
 import { useEffect, useId, useMemo, useState } from "react";
 import { isArchivedBot } from "../lib/session";
-import { Button, Field, Input, ModalShell, Textarea, cn } from "../ui";
+import { Button, cn, Field, Input, ModalShell, Textarea } from "../ui";
 import { AvatarMark } from "./Avatar";
 import { CheckIcon, CloseIcon } from "./Icons";
 
@@ -165,11 +165,13 @@ export function CreateRoomDialog(props: {
           });
         }}
       >
-        <h2 className="m-0 text-[15px] font-semibold tracking-tight">New task</h2>
+        <h2 className="m-0 text-[15px] font-semibold tracking-tight">
+          New room
+        </h2>
         <Input
           autoFocus
           value={name}
-          placeholder="Task title"
+          placeholder="Room name"
           maxLength={200}
           autoComplete="off"
           aria-label="Title"

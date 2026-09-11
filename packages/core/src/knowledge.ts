@@ -11,11 +11,6 @@ import {
 } from "@groxbot/contracts";
 import { encodeComputerBytes } from "./computer.js";
 import {
-  type MarkdownBytes,
-  mimeTypeForMarkdownName,
-  readMarkdownConversion,
-} from "./markdown.js";
-import {
   dropKnowledgeLinkPrefix,
   dropKnowledgeLinkSource,
   emptyKnowledgeLinkSnapshot,
@@ -49,6 +44,16 @@ import {
   rankKnowledgeSearch,
   setKnowledgeSearchDoc,
 } from "./knowledge-search.js";
+import {
+  isKnowledgeTaskFile,
+  knowledgeTaskName,
+  parseTaskMarkdown,
+} from "./knowledge-task.js";
+import {
+  type MarkdownBytes,
+  mimeTypeForMarkdownName,
+  readMarkdownConversion,
+} from "./markdown.js";
 import {
   isSkillName,
   MAX_SKILL_BYTES,
@@ -270,14 +275,7 @@ export async function readKnowledge(
   const bytes = await disk.getBytes(knowledgeObjectKey(workspaceId, path));
   if (!bytes) throw new KnowledgeFileError();
   const snapshot = await loadKnowledgeLinkSnapshot(disk, workspaceId);
-  return knowledgeFileFromBytes(
-    disk,
-    workspaceId,
-    path,
-    bytes,
-    snapshot,
-    opts,
-  );
+  return knowledgeFileFromBytes(disk, workspaceId, path, bytes, snapshot, opts);
 }
 
 export async function readKnowledgeMany(
@@ -359,13 +357,8 @@ async function knowledgeExtractText(
   );
   if (cached) return cached;
   const markdown =
-    (await convertKnowledgeDocument(
-      disk,
-      workspaceId,
-      path,
-      bytes,
-      convert,
-    )) ?? "";
+    (await convertKnowledgeDocument(disk, workspaceId, path, bytes, convert)) ??
+    "";
   if (markdown) {
     await syncKnowledgeSearch(disk, workspaceId, path, markdown);
   }
@@ -516,13 +509,7 @@ export async function writeKnowledge(
       disk,
       workspaceId,
       path,
-      await knowledgeIndexText(
-        disk,
-        workspaceId,
-        path,
-        bytes,
-        opts?.convert,
-      ),
+      await knowledgeIndexText(disk, workspaceId, path, bytes, opts?.convert),
     );
     return { path };
   }
@@ -772,9 +759,7 @@ async function rebuildKnowledgeSearch(
   for (const entry of listed.entries) {
     if (entry.encoding !== "text") {
       const extracted = knowledgeConverts(entry.path)
-        ? await disk.getText(
-            knowledgeExtractObjectKey(workspaceId, entry.path),
-          )
+        ? await disk.getText(knowledgeExtractObjectKey(workspaceId, entry.path))
         : null;
       snapshot = setKnowledgeSearchDoc(
         snapshot,
@@ -1124,15 +1109,23 @@ async function fileMeta(
   path: string,
 ): Promise<{ title: string; description: string }> {
   const name = path.split("/").at(-1) ?? path;
-  if (!isKnowledgeSkillFile(path)) {
-    return { title: name, description: "" };
+  if (isKnowledgeSkillFile(path)) {
+    const raw = await disk.getText(`${office}/${path}`);
+    const parsed = raw ? parseSkillMarkdown(raw) : null;
+    return {
+      title: parsed?.name ?? knowledgeSkillName(path) ?? name,
+      description: parsed?.description ?? "",
+    };
   }
-  const raw = await disk.getText(`${office}/${path}`);
-  const parsed = raw ? parseSkillMarkdown(raw) : null;
-  return {
-    title: parsed?.name ?? knowledgeSkillName(path) ?? name,
-    description: parsed?.description ?? "",
-  };
+  if (isKnowledgeTaskFile(path)) {
+    const raw = await disk.getText(`${office}/${path}`);
+    const parsed = raw ? parseTaskMarkdown(raw) : null;
+    return {
+      title: parsed?.description ?? knowledgeTaskName(path) ?? name,
+      description: parsed?.status ?? "",
+    };
+  }
+  return { title: name, description: "" };
 }
 
 async function entryFromObject(
@@ -1220,8 +1213,7 @@ const MEDIA_TYPES: Record<string, string> = {
   ".txt": "text/plain",
   ".webp": "image/webp",
   ".xml": "application/xml",
-  ".xlsx":
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   ".yaml": "text/yaml",
   ".yml": "text/yaml",
 };

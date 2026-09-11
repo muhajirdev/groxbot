@@ -94,6 +94,10 @@ describe("listKnowledge", () => {
       "quiet",
     );
     await disk.put(`${OFFICE}/how-we-work/constraints.md`, "No mail.");
+    await disk.put(
+      `${OFFICE}/tasks/ship-landing/TASK.md`,
+      `---\nname: ship-landing\ndescription: Ship the landing page\nstatus: todo\n---\nHero first.\n`,
+    );
     await disk.put(`${OFFICE}/brief.pdf`, new Uint8Array([1, 2, 3]));
     const listed = await listKnowledge(disk, OFFICE);
     expect(listed.entries.map((row) => row.path).sort()).toEqual(
@@ -102,6 +106,7 @@ describe("listKnowledge", () => {
         "how-we-work/constraints.md",
         "playbooks/weekly-update/SKILL.md",
         "playbooks/weekly-update/references/voice.md",
+        "tasks/ship-landing/TASK.md",
       ].sort(),
     );
     expect(
@@ -110,6 +115,12 @@ describe("listKnowledge", () => {
       name: "SKILL.md",
       title: "weekly-update",
       description: "Five bullets.",
+    });
+    expect(
+      listed.entries.find((row) => row.path === "tasks/ship-landing/TASK.md"),
+    ).toMatchObject({
+      name: "TASK.md",
+      title: "Ship the landing page",
     });
     expect(
       listed.entries.find((row) => row.path === "how-we-work/constraints.md"),

@@ -1,5 +1,4 @@
 import type { Bot, Room } from "@groxbot/contracts";
-import { ROOM_WORK_STATUS_LABEL } from "@groxbot/core/browser";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -436,9 +435,7 @@ function RoomRow({
           <Text style={styles.time}>{formatListTime(room.lastAt)}</Text>
         </View>
         <Text style={styles.preview} numberOfLines={1}>
-          {room.lastPreview ||
-            ROOM_WORK_STATUS_LABEL[room.status] ||
-            "Group table"}
+          {room.lastPreview || "Group table"}
         </Text>
       </View>
     </Pressable>
