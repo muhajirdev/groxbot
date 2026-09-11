@@ -605,6 +605,24 @@ describe("office chrome", () => {
     expect(css).toMatch(/\.stage-back\s*\{[^}]*background:\s*var\(--overlay\)/s);
   });
 
+  it("uses a short Usage tab on the settings rail", () => {
+    expect(appSettings).toMatch(/\["billing", "Usage"\]/);
+    expect(appSettings).toContain('billing: "Usage & Billing"');
+  });
+
+  it("drills into knowledge on a phone instead of stacking a split pane", () => {
+    expect(css).toMatch(
+      /\.knowledge-place:not\(\.is-detail\) \.knowledge-preview\s*\{[^}]*display:\s*none/s,
+    );
+    expect(css).toMatch(
+      /\.knowledge-place\.is-detail \.knowledge-nav\s*\{[^}]*display:\s*none/s,
+    );
+    expect(css).not.toMatch(
+      /\.knowledge-split\s*\{[^}]*minmax\(160px, 38%\)/s,
+    );
+    expect(css).toMatch(/clip:\s*rect\(0, 0, 0, 0\)/);
+  });
+
   it("keeps settings field controls inside the pane", () => {
     expect(css).toMatch(/\.field\s*\{[^}]*min-width:\s*0/s);
     expect(css).toMatch(

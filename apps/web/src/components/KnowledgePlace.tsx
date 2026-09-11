@@ -1,7 +1,7 @@
 import {
-  knowledgeShareUrl,
   type KnowledgeList,
   type KnowledgeSearchHit,
+  knowledgeShareUrl,
 } from "@groxbot/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -17,6 +17,7 @@ import { bytesToBase64 } from "../lib/computer-attachment";
 import { saveComputerDownload } from "../lib/computer-download";
 import { computerFileKind } from "../lib/computer-preview";
 import { userFacingError } from "../lib/errors";
+import { landingOrigin } from "../lib/host";
 import {
   indexKnowledgeGraph,
   knowledgeGraphBacklinks,
@@ -27,45 +28,45 @@ import {
 } from "../lib/knowledge-import";
 import { insertComposerText } from "../lib/knowledge-slash";
 import {
-  coversKnowledgePath,
   countOfficeSkillHits,
+  coversKnowledgePath,
   filterKnowledgeTree,
   findKnowledgeNode,
   isOfficeSkillPath,
-  matchingOfficeSkill,
   type KnowledgeTreeNode,
   knowledgeSearchStatus,
+  matchingOfficeSkill,
   nestKnowledgeTree,
-  officeSkillFiles,
-  officeSkillFileLabel,
-  officeSkillNode,
-  officeSkillRows,
   type OfficeSkillFile,
   type OfficeSkillRow,
+  officeSkillFileLabel,
+  officeSkillFiles,
+  officeSkillNode,
+  officeSkillRows,
   rankOfficeSkillRows,
 } from "../lib/knowledge-tree";
-import { SKILLS_LIBRARY_PATH } from "../lib/office-search";
 import {
   knowledgeUploadPath,
   optimisticKnowledgeEntry,
   seedKnowledgePreview,
   upsertKnowledgeEntry,
 } from "../lib/knowledge-upload";
+import { OFFICE_MESSAGES_GC_TIME } from "../lib/office-messages";
+import { SKILLS_LIBRARY_PATH } from "../lib/office-search";
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
-import { landingOrigin } from "../lib/host";
+import { tenantBoundQueryFn } from "../lib/tenant-query";
 import {
+  copyAndToast,
   TOAST_LINK_COPIED,
   TOAST_SHARED,
   TOAST_SHARED_LINK_COPIED,
-  copyAndToast,
   toast,
 } from "../lib/toast";
-import { OFFICE_MESSAGES_GC_TIME } from "../lib/office-messages";
-import { tenantBoundQueryFn } from "../lib/tenant-query";
 import { knowledgeListQueryOptions } from "../lib/workspace-catalog";
 import { Button, cn, Field, Input, Textarea } from "../ui";
 import {
+  ChevronLeftIcon,
   CloseIcon,
   DownloadIcon,
   FileKindIcon,
@@ -81,12 +82,12 @@ import {
   TrashIcon,
   UploadIcon,
 } from "./Icons";
-import { KnowledgeFilePreview } from "./KnowledgeFilePreview";
-import { KnowledgeGraphMap } from "./KnowledgeGraph";
 import {
   KnowledgeContextMenu,
   type KnowledgeMenuState,
 } from "./KnowledgeContextMenu";
+import { KnowledgeFilePreview } from "./KnowledgeFilePreview";
+import { KnowledgeGraphMap } from "./KnowledgeGraph";
 
 type Draft = { path: string; content: string };
 
@@ -114,12 +115,7 @@ export function KnowledgeLibrary(props: {
     [workspace.entries, folder],
   );
   const skillRows = useMemo(
-    () =>
-      rankOfficeSkillRows(
-        catalog,
-        workspace.searchHits,
-        workspace.query,
-      ),
+    () => rankOfficeSkillRows(catalog, workspace.searchHits, workspace.query),
     [catalog, workspace.query, workspace.searchHits],
   );
   const searchStatus = knowledgeSearchStatus({
@@ -173,11 +169,49 @@ export function KnowledgeLibrary(props: {
 
   const previewOpen =
     Boolean(previewPath) && workspace.files.has(previewPath ?? "");
+  const detailOpen = Boolean(
+    workspace.draft ||
+      workspace.importing ||
+      (!skillsView && workspace.mapOpen) ||
+      previewOpen ||
+      (!skillsView && selectedNode?.kind === "dir"),
+  );
+
+  function closeDetail() {
+    if (skillsView) {
+      workspace.syncPath(folder);
+      props.onPath(folder);
+      return;
+    }
+    workspace.syncPath(null);
+    props.onPath(null);
+  }
 
   return (
-    <div className={cn("knowledge-place", skillsView && "is-skills")}>
+    <div
+      className={cn(
+        "knowledge-place",
+        skillsView && "is-skills",
+        detailOpen && "is-detail",
+      )}
+    >
       <div className="pane-head">
-        <span className="pane-title">{skillsView ? "Skills" : "Knowledge"}</span>
+        <div className="row tight">
+          {detailOpen ? (
+            <button
+              className="icon-btn knowledge-back"
+              type="button"
+              aria-label="Back"
+              title="Back"
+              onClick={closeDetail}
+            >
+              <ChevronLeftIcon />
+            </button>
+          ) : null}
+          <span className="pane-title">
+            {skillsView ? "Skills" : "Knowledge"}
+          </span>
+        </div>
         <div className="row tight">
           {skillsView ? null : (
             <button
@@ -208,9 +242,7 @@ export function KnowledgeLibrary(props: {
           query={workspace.query}
           onQuery={workspace.setQuery}
           status={searchStatus}
-          onNew={() =>
-            workspace.startDraft(skillsView ? folder : undefined)
-          }
+          onNew={() => workspace.startDraft(skillsView ? folder : undefined)}
           onUpload={() => workspace.fileRef.current?.click()}
           onImport={workspace.startImport}
           onStore={skillsView ? props.onOpenStore : undefined}
@@ -228,9 +260,7 @@ export function KnowledgeLibrary(props: {
               rows={skillRows}
               selected={activeSkill?.path ?? null}
               onSelect={openSkill}
-              onMenu={(event, row) =>
-                openFileMenu(event, officeSkillNode(row))
-              }
+              onMenu={(event, row) => openFileMenu(event, officeSkillNode(row))}
             />
           ) : (
             <KnowledgeTree
@@ -342,9 +372,7 @@ export function KnowledgeLibrary(props: {
               onDownload={() => workspace.downloadPath(previewPath)}
               onRemove={() => {
                 const target =
-                  skillsView &&
-                  activeSkill &&
-                  isOfficeSkillPath(previewPath)
+                  skillsView && activeSkill && isOfficeSkillPath(previewPath)
                     ? activeSkill.directory || previewPath
                     : previewPath;
                 void workspace.removePath(target, props.onPath);
@@ -364,10 +392,10 @@ export function KnowledgeLibrary(props: {
               {skillsView
                 ? catalog.length === 0
                   ? "No playbooks yet. Import one, or create a new playbook."
-                  : "Pick a playbook on the left."
+                  : "Pick a playbook."
                 : selected && !workspace.files.has(selected)
                   ? "A folder. New file or upload lands here."
-                  : "Playbooks and notes for this office. Pick one on the left."}
+                  : "Playbooks and notes for this office. Pick one."}
             </KnowledgeEmpty>
           )}
         </section>
@@ -406,8 +434,7 @@ export function KnowledgeLibrary(props: {
           workspace.startDraft(folder);
         }}
         onDelete={(path) => {
-          const skill =
-            skillsView ? matchingOfficeSkill(catalog, path) : null;
+          const skill = skillsView ? matchingOfficeSkill(catalog, path) : null;
           const target =
             skill?.directory && isOfficeSkillPath(path)
               ? skill.directory
@@ -429,7 +456,8 @@ export function KnowledgePeek(props: {
   const selected = props.path;
   const entry = workspace.entries.find((row) => row.path === selected) ?? null;
   const canPreview = workspace.files.has(selected);
-  const title = entry?.title ?? selected.split("/").filter(Boolean).at(-1) ?? "Knowledge";
+  const title =
+    entry?.title ?? selected.split("/").filter(Boolean).at(-1) ?? "Knowledge";
 
   useEffect(() => {
     workspace.syncPath(props.path);
@@ -578,8 +606,7 @@ function useKnowledgeWorkspace(initialPath: string | null) {
   }, [entries, query]);
   const searching = query.trim().length > 0;
   const searchBusy =
-    searching &&
-    (searchNeedle !== query.trim() || searchQuery.isFetching);
+    searching && (searchNeedle !== query.trim() || searchQuery.isFetching);
   const localFile = selected ? (localFiles[selected] ?? null) : null;
   const empty = !listQuery.isPending && entries.length === 0 && !query.trim();
 
@@ -588,6 +615,7 @@ function useKnowledgeWorkspace(initialPath: string | null) {
       setSelected(path);
       setDraft(null);
       setImporting(false);
+      setMapOpen(false);
       setError("");
     };
   }, []);
@@ -1096,9 +1124,7 @@ function KnowledgeNav(props: {
           />
         </div>
       </div>
-      <div
-        className={cn("explorer", skills ? "skills-nav" : "knowledge-tree")}
-      >
+      <div className={cn("explorer", skills ? "skills-nav" : "knowledge-tree")}>
         {props.children}
       </div>
     </aside>
