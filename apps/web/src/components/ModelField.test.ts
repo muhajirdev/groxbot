@@ -4,14 +4,11 @@ import { fileURLToPath } from "node:url";
 import {
   CLOUDFLARE_PROVIDER,
   CUSTOM_MODEL_SENTINEL,
-  OPENROUTER_PROVIDER,
   type ModelCatalogItem,
+  OPENROUTER_PROVIDER,
 } from "@groxbot/contracts";
 import { describe, expect, it } from "vitest";
-import {
-  modelPickerGroups,
-  modelPickerItemMatches,
-} from "./ModelField";
+import { modelPickerGroups, modelPickerItemMatches } from "./ModelField";
 
 const root = dirname(fileURLToPath(import.meta.url));
 
@@ -82,5 +79,13 @@ describe("model pickers", () => {
       expect(source).not.toMatch(/<select\b/);
       expect(source).toContain("<EffortField");
     }
+  });
+
+  it("auto-saves the workspace default model without a Save models click", () => {
+    const source = readFileSync(join(root, "AppSettings.tsx"), "utf8");
+    expect(source).toContain("persistChoice({ defaultModel: next })");
+    expect(source).toContain("persistChoice({ effort: value })");
+    expect(source).not.toContain("Save models");
+    expect(source).toContain("Save keys");
   });
 });

@@ -591,6 +591,17 @@ export const SaveModelSettingsInput = z.object({
 });
 export type SaveModelSettingsInput = z.infer<typeof SaveModelSettingsInput>;
 
+/** Catalog pick, or Custom… with an id. Empty Custom stays local until they type one. */
+export function canSaveDefaultModelChoice(
+  defaultModel: string,
+  customModel = "",
+): boolean {
+  const model = defaultModel.trim();
+  if (!model) return false;
+  if (model === CUSTOM_MODEL_SENTINEL) return Boolean(customModel.trim());
+  return true;
+}
+
 /** Groxbot’s included Cloudflare AI Gateway. Worker `AI` binding, or REST tokens on Node. */
 export type HostedCloudflareGateway =
   | { kind: "binding"; gatewayId: string }

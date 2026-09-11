@@ -4,6 +4,7 @@ import {
   asHostedGroxbotModelId,
   CLOUDFLARE_PROVIDER,
   CUSTOM_MODEL_SENTINEL,
+  canSaveDefaultModelChoice,
   catalogGroupLabel,
   DEFAULT_AI_GATEWAY_ID,
   GROXBOT_AUTO_ALLOWED_MODELS,
@@ -345,6 +346,15 @@ describe("model catalog", () => {
     expect(
       validateCloudflareAccountId("0123456789abcdef0123456789abcdef"),
     ).toBe(undefined);
+  });
+
+  it("knows when a picker choice can persist without a Save click", () => {
+    expect(canSaveDefaultModelChoice("groxbot/auto")).toBe(true);
+    expect(canSaveDefaultModelChoice("")).toBe(false);
+    expect(canSaveDefaultModelChoice(CUSTOM_MODEL_SENTINEL, "")).toBe(false);
+    expect(
+      canSaveDefaultModelChoice(CUSTOM_MODEL_SENTINEL, "openrouter/foo"),
+    ).toBe(true);
   });
 
   it("resolves custom model ids", () => {
