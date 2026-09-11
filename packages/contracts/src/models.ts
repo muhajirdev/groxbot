@@ -8,6 +8,7 @@ export const OPENAI_CODEX_PROVIDER = "openai-codex" as const;
 export const OPENROUTER_PROVIDER = "openrouter" as const;
 export const ZAI_PROVIDER = "zai" as const;
 export const MOONSHOT_PROVIDER = "moonshot" as const;
+export const CURSOR_PROVIDER = "cursor" as const;
 export const CLOUDFLARE_PROVIDER = "cloudflare" as const;
 
 export const ModelProvider = z.enum([
@@ -17,6 +18,7 @@ export const ModelProvider = z.enum([
   OPENROUTER_PROVIDER,
   ZAI_PROVIDER,
   MOONSHOT_PROVIDER,
+  CURSOR_PROVIDER,
   CLOUDFLARE_PROVIDER,
 ]);
 export type ModelProvider = z.infer<typeof ModelProvider>;
@@ -29,6 +31,7 @@ export const PROVIDER_ORDER: ModelProvider[] = [
   ZAI_PROVIDER,
   MOONSHOT_PROVIDER,
   OPENAI_CODEX_PROVIDER,
+  CURSOR_PROVIDER,
   CLOUDFLARE_PROVIDER,
 ];
 
@@ -41,6 +44,7 @@ export type NativeCompatProvider = (typeof NATIVE_COMPAT_PROVIDERS)[number];
 
 export const ZAI_API_KEY_ENV = "ZAI_API_KEY" as const;
 export const MOONSHOT_API_KEY_ENV = "MOONSHOT_API_KEY" as const;
+export const CURSOR_API_KEY_ENV = "CURSOR_API_KEY" as const;
 /** General z.ai OpenAI Chat Completions URL — not the Coding Plan endpoint. */
 export const ZAI_CHAT_BASE_URL = "https://api.z.ai/api/paas/v4" as const;
 export const MOONSHOT_CHAT_BASE_URL = "https://api.moonshot.ai/v1" as const;
@@ -49,6 +53,11 @@ export function isNativeCompatProvider(
   provider: ModelProvider | undefined,
 ): provider is NativeCompatProvider {
   return provider === ZAI_PROVIDER || provider === MOONSHOT_PROVIDER;
+}
+
+/** Cursor is BYOK dispatch, not a Pi chat model. */
+export function isChatModelProvider(provider: ModelProvider): boolean {
+  return provider !== CURSOR_PROVIDER;
 }
 
 export const ModelKeySource = z.enum(["workspace", "env", "none"]);
@@ -264,6 +273,12 @@ export const PROVIDER_META: Record<
     placeholder: '{ "tokens": { "refresh_token": "…" } }',
     docsUrl: "https://developers.openai.com/codex",
     hint: "ChatGPT Plus or Pro. Log in on your computer, then paste the auth file.",
+  },
+  [CURSOR_PROVIDER]: {
+    label: "Cursor",
+    placeholder: "CURSOR_API_KEY",
+    docsUrl: "https://cursor.com/dashboard?tab=api",
+    hint: "User or team Cloud Agents key. Dispatches a cloud agent that clones GitHub and opens a PR — Groxbot does not resell Cursor.",
   },
   [CLOUDFLARE_PROVIDER]: {
     label: "Cloudflare AI Gateway",
@@ -725,7 +740,8 @@ export function modelIsRunnable(
   configured: ReadonlySet<ModelProvider> | readonly ModelProvider[],
   opts?: { hostedGateway?: boolean },
 ): boolean {
-  const set = configured instanceof Set ? configured : new Set(configured);
+  const raw = configured instanceof Set ? configured : new Set(configured);
+  const set = new Set([...raw].filter(isChatModelProvider));
   if (set.size === 0) return false;
   const provider = providerForModel(model);
   if (!provider) return set.size > 0;
@@ -814,6 +830,12 @@ export function validateProviderSecret(
   }
   if (
     provider === MOONSHOT_PROVIDER &&
+    (value.startsWith("sk-ant-") || value.startsWith("sk-or-"))
+  ) {
+    return "That key belongs to another provider.";
+  }
+  if (
+    provider === CURSOR_PROVIDER &&
     (value.startsWith("sk-ant-") || value.startsWith("sk-or-"))
   ) {
     return "That key belongs to another provider.";

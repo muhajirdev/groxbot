@@ -64,7 +64,9 @@ function contentText(value: unknown): string | undefined {
   return chunks.join("") || undefined;
 }
 
-export function parseOfficePendingActions(value: unknown): OfficePendingAction[] {
+export function parseOfficePendingActions(
+  value: unknown,
+): OfficePendingAction[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((row) => {
     const action = asRecord(row);
@@ -116,7 +118,11 @@ export function isPausedCodeOutput(value: unknown): boolean {
   return parseCodeModeOutput(value)?.status === "paused";
 }
 
-function hireName(args: unknown): { name: string; title: string; blurb: string } {
+function hireName(args: unknown): {
+  name: string;
+  title: string;
+  blurb: string;
+} {
   const row = asRecord(args);
   const marketplaceId =
     typeof row?.marketplaceId === "string" ? row.marketplaceId.trim() : "";
@@ -130,7 +136,8 @@ function hireName(args: unknown): { name: string; title: string; blurb: string }
       };
     }
   }
-  const name = typeof row?.name === "string" && row.name.trim() ? row.name.trim() : "";
+  const name =
+    typeof row?.name === "string" && row.name.trim() ? row.name.trim() : "";
   const title = typeof row?.title === "string" ? row.title.trim() : "";
   const instructions =
     typeof row?.instructions === "string" ? row.instructions.trim() : "";
@@ -141,18 +148,37 @@ function hireName(args: unknown): { name: string; title: string; blurb: string }
   };
 }
 
-export function officeApprovalCopy(action: OfficePendingAction): OfficeApprovalCopy {
+export function officeApprovalCopy(
+  action: OfficePendingAction,
+): OfficeApprovalCopy {
   if (action.connector === "bots" && action.method === "hire") {
     const hired = hireName(action.args);
-    const title = hired.title ? `Hire ${hired.name} — ${hired.title}` : `Hire ${hired.name}`;
+    const title = hired.title
+      ? `Hire ${hired.name} — ${hired.title}`
+      : `Hire ${hired.name}`;
     const detail =
-      hired.blurb ||
-      "They land on the sidebar — empty desk until you write.";
+      hired.blurb || "They land on the sidebar — empty desk until you write.";
     return {
       title,
       detail,
       confirm: "Hire",
       deny: "Don't hire",
+    };
+  }
+  if (action.connector === "cursor" && action.method === "launch") {
+    const args = asRecord(action.args);
+    const repo =
+      typeof args?.repo === "string" && args.repo.trim()
+        ? args.repo.trim()
+        : "this repo";
+    const prompt = typeof args?.prompt === "string" ? args.prompt.trim() : "";
+    return {
+      title: `Dispatch Cursor on ${repo}`,
+      detail:
+        prompt ||
+        "Cursor clones GitHub, codes, and opens a PR. This is your key — Groxbot does not resell Cursor.",
+      confirm: "Dispatch",
+      deny: "Don't",
     };
   }
   const args = asRecord(action.args);
@@ -169,6 +195,9 @@ export function officeApprovalCopy(action: OfficePendingAction): OfficeApprovalC
 
 export function officeApprovalSummary(action: OfficePendingAction): string {
   if (action.connector === "bots" && action.method === "hire") {
+    return officeApprovalCopy(action).title;
+  }
+  if (action.connector === "cursor" && action.method === "launch") {
     return officeApprovalCopy(action).title;
   }
   return `${action.connector}.${action.method}`;
@@ -199,7 +228,9 @@ function hiredRow(value: unknown): HiredTeammateRow | null {
   };
 }
 
-export function hiredBotFromCodeResult(value: unknown): HiredTeammateRow | null {
+export function hiredBotFromCodeResult(
+  value: unknown,
+): HiredTeammateRow | null {
   const out = parseCodeModeOutput(value);
   return hiredRow(out?.result) ?? hiredRow(value);
 }

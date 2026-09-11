@@ -34,7 +34,7 @@ export const OFFICE_TOOL_PROMPT: Record<string, OfficeToolPromptContribution> =
       snippet:
         "JavaScript sandbox for knowledge, routines, history, bots, and page helpers. Argument is `code`, not a bash command. You can import npm packages.",
       guidelines: [
-        "knowledge, routines, history, and bots live inside code (`await knowledge.search({ query })`, `await knowledge.read({ path })`, `await knowledge.write({ path, content })` or `from` for a computer PDF, `await routines.list()`, `await history.search({ query })`, `await bots.search({ query })`, `await bots.hire({ marketplaceId })`). Hire needs approval. set_context, skill_manage, present, ask, stamp_app, and shell are top-level tools, not sandbox globals.",
+        "knowledge, routines, history, bots, and cursor live inside code (`await knowledge.search({ query })`, `await knowledge.read({ path })`, `await knowledge.write({ path, content })` or `from` for a computer PDF, `await routines.list()`, `await history.search({ query })`, `await bots.search({ query })`, `await bots.hire({ marketplaceId })`, `await cursor.launch({ repo, prompt })`). Hire and Cursor dispatch need approval. set_context, skill_manage, present, ask, stamp_app, and shell are top-level tools, not sandbox globals.",
         KNOWLEDGE_MARKDOWN_LINK_HINT,
       ],
     },
@@ -172,7 +172,14 @@ function officeCodeSandboxPhrase(opts: {
   mcp: boolean;
   plugins: boolean;
 }): string {
-  const parts = ["knowledge", "routines", "history", "bots", "page helpers"];
+  const parts = [
+    "knowledge",
+    "routines",
+    "history",
+    "bots",
+    "cursor",
+    "page helpers",
+  ];
   if (opts.mcp) parts.push("workspace MCP");
   if (opts.plugins) parts.push("plugins");
   return `${parts.slice(0, -1).join(", ")}, and ${parts.at(-1)}`;

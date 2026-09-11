@@ -38,10 +38,17 @@ import {
   ComputerPathError,
   ComputerWriteError,
   type ConnectedPluginAccount,
+  CURSOR_POLL_CALLBACK,
+  CURSOR_POLL_MAX_ATTEMPTS,
+  CursorCloudError,
   composeSoul,
   computerWorkerShell,
   countPiToolCallsSinceLastUser,
+  createCursorCloudAgent,
   createSkillImportHttp,
+  cursorParkedCopy,
+  cursorPollDelayMs,
+  cursorProofCopy,
   DEFAULT_ROUTINE_TIMEZONE,
   decodeComputerBytes,
   diskFromComputerFs,
@@ -50,7 +57,9 @@ import {
   encryptionSecret,
   ensureComputerHome,
   formatRoutinePrompt,
+  getCursorCloudRun,
   isContextOverflowError,
+  isCursorRunTerminal,
   isoUnixSeconds,
   isThoughtSignatureError,
   jsonClone,
@@ -87,6 +96,8 @@ import {
   type PiOfficeSnapshot,
   type PiSendMessageInput,
   PiSteerQueue,
+  parseCursorDispatchPayload,
+  parseCursorLaunchInput,
   parseOfficeAwayPayload,
   parseOfficeAwayStored,
   parseOfficeChatMessages,
@@ -105,6 +116,7 @@ import {
   readComputerFile,
   recordAppChatCard,
   recordComputerUsage,
+  requireCursorApiKey,
   resolveOfficeHire,
   resolveRunModel,
   type StoredRoutine,
@@ -133,11 +145,12 @@ import { and, eq, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import { DurableObjectAppStore } from "./app-runtime-do.js";
 import { createRoomAppTool } from "./bot-app.js";
-import { createAskTool, OfficeAskBoard } from "./bot-ask.js";
 import { OfficeApprovalBoard } from "./bot-approval.js";
+import { createAskTool, OfficeAskBoard } from "./bot-ask.js";
 import { BotsConnector } from "./bot-bots-connector.js";
 import { createBrowserAgentTools } from "./bot-browser.js";
 import { createBotComputer } from "./bot-computer-workspace.js";
+import { CursorConnector } from "./bot-cursor-connector.js";
 import {
   createBundlingExecutor,
   createOfficeExecuteRuntime,
@@ -170,9 +183,9 @@ import { createBot } from "./bots.js";
 import {
   agentRuntimeSource,
   productEnv,
+  type RuntimeSource,
   requireCatalogDb,
   withCodexProxy,
-  type RuntimeSource,
 } from "./env.js";
 import { knowledgeAccess } from "./knowledge.js";
 import { r2KnowledgeDisk } from "./knowledge-r2.js";
@@ -519,6 +532,7 @@ export class RoomHome extends Agent<WorkerEnv> {
             history: true,
             routines: true,
             bots: true,
+            cursor: true,
             mcp,
             plugins: plugins.length > 0,
           },
@@ -1694,17 +1708,20 @@ export class RoomHome extends Agent<WorkerEnv> {
   }
 
   private turnStreamFn() {
-    return resolvePiStreamFn(withCodexProxy(productEnv(this.env), this.turnEnv), {
-      ai: this.env.AI,
-      gatewayId: this.turnEnv.CLOUDFLARE_AI_GATEWAY_ID,
-      modelId: this.turnModel,
-      metadata: {
-        workspaceId: this.officeId,
-        botId: this.botKey(),
-        roomId: this.name,
+    return resolvePiStreamFn(
+      withCodexProxy(productEnv(this.env), this.turnEnv),
+      {
+        ai: this.env.AI,
+        gatewayId: this.turnEnv.CLOUDFLARE_AI_GATEWAY_ID,
+        modelId: this.turnModel,
+        metadata: {
+          workspaceId: this.officeId,
+          botId: this.botKey(),
+          roomId: this.name,
+        },
+        persistCodexAuth: (auth) => this.persistCodexAuth(auth),
       },
-      persistCodexAuth: (auth) => this.persistCodexAuth(auth),
-    });
+    );
   }
 
   private turnPiModel() {
@@ -2077,6 +2094,90 @@ export class RoomHome extends Agent<WorkerEnv> {
     });
   }
 
+  /**
+   * Agents `this.schedule` callback. Cursor Cloud Agents run for minutes —
+   * poll until a PR (or failure) can land in this room.
+   */
+  async pollCursorCloudAgent(payload: unknown): Promise<void> {
+    const body = parseCursorDispatchPayload(payload);
+    if (!body) return;
+    try {
+      await this.ensureBotLoaded();
+      const apiKey = requireCursorApiKey(this.turnEnv);
+      const run = await getCursorCloudRun({
+        apiKey,
+        agentId: body.agentId,
+        runId: body.runId,
+      });
+      if (!isCursorRunTerminal(run.status)) {
+        if (body.attempt + 1 >= CURSOR_POLL_MAX_ATTEMPTS) {
+          await this.postOfficeAssistantNote(
+            cursorProofCopy({
+              repo: body.repo,
+              status: "EXPIRED",
+            }),
+          );
+          return;
+        }
+        await this.schedule(
+          new Date(Date.now() + cursorPollDelayMs(body.attempt + 1)),
+          CURSOR_POLL_CALLBACK,
+          { ...body, attempt: body.attempt + 1 },
+        );
+        return;
+      }
+      await this.postOfficeAssistantNote(
+        cursorProofCopy({ repo: body.repo, ...run }),
+        {
+          source: "cursor",
+          custom: {
+            source: "cursor",
+            agentId: body.agentId,
+            prUrl: run.prUrl,
+          },
+        },
+      );
+    } catch (error) {
+      const message =
+        error instanceof CursorCloudError
+          ? error.message
+          : "Cursor could not be reached. Trying again.";
+      const retry =
+        body.attempt + 1 < 3 && !(error instanceof CursorCloudError);
+      if (retry) {
+        await this.schedule(
+          new Date(Date.now() + cursorPollDelayMs(body.attempt + 1)),
+          CURSOR_POLL_CALLBACK,
+          { ...body, attempt: body.attempt + 1 },
+        );
+        return;
+      }
+      await this.postOfficeAssistantNote(message);
+    }
+  }
+
+  private async postOfficeAssistantNote(
+    content: string,
+    metadata?: unknown,
+  ): Promise<void> {
+    const text = content.trim();
+    if (!text) return;
+    const session = await this.ensureOfficeSession();
+    const id = crypto.randomUUID();
+    await appendOfficeAssistantText(session, { id, content: text, metadata });
+    await this.broadcastOfficeEvent({
+      type: "message_end",
+      id,
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text }],
+        timestamp: Date.now(),
+        stopReason: "stop",
+      },
+      metadata,
+    });
+  }
+
   async listRoutines(): Promise<Routine[]> {
     const live = await this.liveRoutineSchedules();
     const parked = await this.parkedRoutines();
@@ -2134,6 +2235,56 @@ export class RoomHome extends Agent<WorkerEnv> {
     limit?: number;
   }) {
     return officeMarketplaceHits(input);
+  }
+
+  async launchCursorAgent(input: {
+    repo?: string;
+    prompt?: string;
+    ref?: string;
+  }) {
+    await this.ensureBotLoaded();
+    try {
+      const parsed = parseCursorLaunchInput(input);
+      const apiKey = requireCursorApiKey(this.turnEnv);
+      const launched = await createCursorCloudAgent({
+        apiKey,
+        repo: parsed.repo,
+        prompt: parsed.prompt,
+        ref: parsed.ref,
+      });
+      await this.schedule(
+        new Date(Date.now() + cursorPollDelayMs(0)),
+        CURSOR_POLL_CALLBACK,
+        {
+          agentId: launched.agentId,
+          runId: launched.runId,
+          repo: launched.repo,
+          prompt: parsed.prompt,
+          attempt: 0,
+        },
+      );
+      const parked = cursorParkedCopy(launched.repo);
+      await this.postOfficeAssistantNote(parked, {
+        source: "cursor",
+        custom: { source: "cursor", agentId: launched.agentId },
+      });
+      return {
+        status: "parked",
+        agentId: launched.agentId,
+        runId: launched.runId,
+        repo: launched.repo,
+        message: parked,
+      };
+    } catch (error) {
+      const message =
+        error instanceof CursorCloudError
+          ? error.message
+          : "Cursor could not start.";
+      await this.postOfficeAssistantNote(message);
+      throw error instanceof CursorCloudError
+        ? error
+        : new CursorCloudError(message);
+    }
   }
 
   async hireTeammate(input: {
@@ -2527,11 +2678,13 @@ export class RoomHome extends Agent<WorkerEnv> {
       | WorkspaceMcpConnector
       | RoutinesConnector
       | BotsConnector
+      | CursorConnector
       | PluginsConnector
     > = [
       new HistoryConnector(this.ctx, this.env, () => this),
       new RoutinesConnector(this.ctx, this.env, () => this),
       new BotsConnector(this.ctx, this.env, () => this),
+      new CursorConnector(this.ctx, this.env, () => this),
     ];
     if (this.env.KNOWLEDGE) {
       const disk = r2KnowledgeDisk(this.env.KNOWLEDGE);
