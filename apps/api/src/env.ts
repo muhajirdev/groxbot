@@ -13,6 +13,8 @@ import {
   hostedCloudflareGateway,
   IN_PROCESS_WAKEUP,
   landingOriginForWeb,
+  OPENAI_CODEX_PROXY_SECRET_ENV,
+  OPENAI_CODEX_PROXY_URL_ENV,
   STAGING_ADMIN_ORIGIN,
   STAGING_API_ORIGIN,
   STAGING_LANDING_ORIGIN,
@@ -46,6 +48,8 @@ export interface Env {
   hostedAiBinding?: boolean;
   groxGatewayUrl?: string;
   groxGatewaySecret?: string;
+  codexProxyUrl?: string;
+  codexProxySecret?: string;
   emailBinding?: boolean;
   emailFrom?: string;
   encryptionKey?: string;
@@ -132,6 +136,8 @@ export type EnvStrings = {
   POLAR_ENVIRONMENT?: string;
   GROX_GATEWAY_URL?: string;
   GROX_GATEWAY_SECRET?: string;
+  GROXBOT_CODEX_PROXY_URL?: string;
+  GROXBOT_CODEX_PROXY_SECRET?: string;
 };
 
 /** BYOK / hosted gateway keys. Same names as wrangler vars, not Node process.env. */
@@ -201,6 +207,9 @@ export function loadEnv(source: EnvStrings): Env {
       read(source, "CLOUDFLARE_AI_GATEWAY_ID")?.trim() || undefined,
     groxGatewayUrl: read(source, "GROX_GATEWAY_URL")?.trim() || undefined,
     groxGatewaySecret: read(source, "GROX_GATEWAY_SECRET")?.trim() || undefined,
+    codexProxyUrl: read(source, "GROXBOT_CODEX_PROXY_URL")?.trim() || undefined,
+    codexProxySecret:
+      read(source, "GROXBOT_CODEX_PROXY_SECRET")?.trim() || undefined,
     emailFrom: read(source, "EMAIL_FROM"),
     encryptionKey: read(source, "ENCRYPTION_KEY"),
     composioApiKey: read(source, "COMPOSIO_API_KEY")?.trim() || undefined,
@@ -240,10 +249,19 @@ export function requireCatalogDb<T>(env: { DB?: T }): T {
   return env.DB;
 }
 
+/** Infra egress for ChatGPT / Codex. Re-apply on each turn so the overlay cannot drop it. */
+export function withCodexProxy(env: Env, source: RuntimeSource): RuntimeSource {
+  if (!env.codexProxyUrl || !env.codexProxySecret) return source;
+  return {
+    ...source,
+    [OPENAI_CODEX_PROXY_URL_ENV]: env.codexProxyUrl,
+    [OPENAI_CODEX_PROXY_SECRET_ENV]: env.codexProxySecret,
+  };
+}
 /** Overlay for resolveRunModel / AI gateway. Hosted CF gateway + encryption. */
 export function agentRuntimeSource(env: Env): RuntimeSource {
   if (env.groxGatewayUrl && env.groxGatewaySecret) {
-    return {
+    return withCodexProxy(env, {
       WEB_ORIGIN: env.webOrigin,
       ENCRYPTION_KEY: env.encryptionKey,
       BETTER_AUTH_SECRET: env.authSecret,
@@ -254,7 +272,7 @@ export function agentRuntimeSource(env: Env): RuntimeSource {
       [HOSTED_AI_ENV]: HOSTED_AI_FLAG,
       CLOUDFLARE_AI_GATEWAY_ID: env.cloudflareAiGatewayId,
       CLOUDFLARE_GATEWAY_ID: env.cloudflareAiGatewayId,
-    };
+    });
   }
   const hosted = env.hostedAiBinding
     ? hostedCloudflareGateway({
@@ -267,7 +285,7 @@ export function agentRuntimeSource(env: Env): RuntimeSource {
         CLOUDFLARE_API_TOKEN: env.cloudflareAiGatewayToken,
         CLOUDFLARE_AI_GATEWAY_ID: env.cloudflareAiGatewayId,
       });
-  return {
+  return withCodexProxy(env, {
     WEB_ORIGIN: env.webOrigin,
     ENCRYPTION_KEY: env.encryptionKey,
     BETTER_AUTH_SECRET: env.authSecret,
@@ -289,5 +307,5 @@ export function agentRuntimeSource(env: Env): RuntimeSource {
             CLOUDFLARE_GATEWAY_ID: hosted.gatewayId,
           }
         : {}),
-  };
+  });
 }

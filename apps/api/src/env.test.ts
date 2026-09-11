@@ -48,6 +48,19 @@ describe("agentRuntimeSource", () => {
     expect(source.GROX_GATEWAY_URL).toBe("https://gateway.groxbot.com");
     expect(source[HOSTED_AI_ENV]).toBe(HOSTED_AI_FLAG);
   });
+
+  it("forwards the Codex Fly proxy onto the runtime overlay", () => {
+    const env = loadEnv({
+      ...base,
+      GROX_GATEWAY_URL: "https://gateway.groxbot.com",
+      GROX_GATEWAY_SECRET: "gw-secret",
+      GROXBOT_CODEX_PROXY_URL: "https://groxbot-codex.fly.dev",
+      GROXBOT_CODEX_PROXY_SECRET: "proxy-secret",
+    });
+    const source = agentRuntimeSource(env);
+    expect(source.GROXBOT_CODEX_PROXY_URL).toBe("https://groxbot-codex.fly.dev");
+    expect(source.GROXBOT_CODEX_PROXY_SECRET).toBe("proxy-secret");
+  });
 });
 
 describe("requireCatalogDb", () => {

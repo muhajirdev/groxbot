@@ -167,7 +167,13 @@ import { createSkillTool } from "./bot-skill.js";
 import { SkillsStoreConnector } from "./bot-skills-store.js";
 import { createStampAppTool } from "./bot-stamp.js";
 import { createBot } from "./bots.js";
-import { agentRuntimeSource, productEnv, requireCatalogDb, type RuntimeSource } from "./env.js";
+import {
+  agentRuntimeSource,
+  productEnv,
+  requireCatalogDb,
+  withCodexProxy,
+  type RuntimeSource,
+} from "./env.js";
 import { knowledgeAccess } from "./knowledge.js";
 import { r2KnowledgeDisk } from "./knowledge-r2.js";
 import type { SendEmailBinding } from "./mail.js";
@@ -200,6 +206,8 @@ export interface WorkerEnv {
   POLAR_ENVIRONMENT?: string;
   GROX_GATEWAY_URL?: string;
   GROX_GATEWAY_SECRET?: string;
+  GROXBOT_CODEX_PROXY_URL?: string;
+  GROXBOT_CODEX_PROXY_SECRET?: string;
   EMAIL?: SendEmailBinding;
   AI?: WorkersAiBinding;
   APP_RUNTIME: DurableObjectNamespace;
@@ -1686,7 +1694,7 @@ export class RoomHome extends Agent<WorkerEnv> {
   }
 
   private turnStreamFn() {
-    return resolvePiStreamFn(this.turnEnv, {
+    return resolvePiStreamFn(withCodexProxy(productEnv(this.env), this.turnEnv), {
       ai: this.env.AI,
       gatewayId: this.turnEnv.CLOUDFLARE_AI_GATEWAY_ID,
       modelId: this.turnModel,

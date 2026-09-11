@@ -54,6 +54,7 @@ import {
   missingCodexStreamFn,
   openaiCodexAuthFromEnv,
   resolvePiAiCodexModel,
+  codexFetchFromEnv,
 } from "./pi-codex-stream.js";
 import type { WorkersAiBinding } from "./workers-ai.js";
 
@@ -751,6 +752,7 @@ export function resolvePiStreamFn(
     return createCodexStreamFn({
       auth,
       persist: options?.persistCodexAuth,
+      fetch: codexFetchFromEnv(source),
     });
   }
   if (gatewayConfigured(source)) {

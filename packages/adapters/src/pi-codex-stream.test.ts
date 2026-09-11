@@ -5,7 +5,7 @@ import {
   OPENAI_CODEX_PROVIDER,
 } from "@groxbot/contracts";
 import { describe, expect, it, vi } from "vitest";
-import { piAiCodexModelId, refreshOpenAiCodexOAuth } from "./pi-codex-stream.js";
+import { piAiCodexModelId, openAiEdgeBlockMessage, refreshOpenAiCodexOAuth, withCodexProxyFetch } from "./pi-codex-stream.js";
 import { resolveOfficePiModel, resolvePiStreamFn } from "./pi-turn.js";
 
 const refresh = "rt_codex_refresh_token_value_ok";
@@ -102,5 +102,56 @@ describe("openai-codex oauth refresh", () => {
     expect(next.refresh).toBe("rt_rotated_refresh_token_ok");
     expect(next.accountId).toBe("acct-80825667");
     expect(next.expires).toBeGreaterThan(Date.now());
+  });
+
+  it("sends Codex requests through the Fly proxy", async () => {
+    const fetchFn = vi.fn(
+      async (_input: string | URL | Request, _init?: RequestInit) =>
+        new Response("ok", { status: 200 }),
+    );
+    const proxied = withCodexProxyFetch(fetchFn, {
+      url: "https://groxbot-codex.fly.dev",
+      secret: "proxy-secret",
+    });
+    await proxied("https://chatgpt.com/backend-api/codex/responses", {
+      method: "POST",
+      body: "{}",
+    });
+    expect(fetchFn).toHaveBeenCalledWith(
+      "https://groxbot-codex.fly.dev",
+      expect.objectContaining({
+        method: "POST",
+        body: "{}",
+      }),
+    );
+    const headers = new Headers(fetchFn.mock.calls[0]?.[1]?.headers);
+    expect(headers.get("x-groxbot-codex-proxy")).toBe("proxy-secret");
+    expect(headers.get("x-groxbot-target")).toBe(
+      "https://chatgpt.com/backend-api/codex/responses",
+    );
+    await proxied("https://example.com/not-codex");
+    expect(fetchFn.mock.calls[1]?.[0]).toBe("https://example.com/not-codex");
+  });
+
+  it("maps OpenAI's Cloudflare block page to a short error", async () => {
+    const html =
+      '<html><div class="message"><p>Unable to load site</p></div><a href="https://status.openai.com/">status page</a> If you are using a VPN, try turning it off.</html>';
+    expect(openAiEdgeBlockMessage(html)).toMatch(/Cloudflare Worker IPs/);
+    const fetchFn = vi.fn(
+      async (_input: string | URL | Request, _init?: RequestInit) =>
+        new Response(html, { status: 403, headers: { "content-type": "text/html" } }),
+    );
+    await expect(
+      refreshOpenAiCodexOAuth(
+        {
+          type: "oauth",
+          access: "old-access",
+          refresh: "rt_old_refresh_token_value",
+          expires: 0,
+        },
+        new AbortController().signal,
+        fetchFn,
+      ),
+    ).rejects.toThrow(/Cloudflare Worker IPs/);
   });
 });

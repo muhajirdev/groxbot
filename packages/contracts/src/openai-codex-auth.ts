@@ -1,6 +1,11 @@
 /** Workspace env overlay for a pasted Codex / Pi ChatGPT OAuth credential. */
 export const OPENAI_CODEX_AUTH_ENV = "GROXBOT_OPENAI_CODEX_AUTH" as const;
 
+/** Hosted Worker → Fly egress for chatgpt.com (optional). */
+export const OPENAI_CODEX_PROXY_URL_ENV = "GROXBOT_CODEX_PROXY_URL" as const;
+export const OPENAI_CODEX_PROXY_SECRET_ENV =
+  "GROXBOT_CODEX_PROXY_SECRET" as const;
+
 const JWT_AUTH_CLAIM = "https://api.openai.com/auth";
 
 /** Canonical ChatGPT Plus/Pro (Codex) OAuth blob stored in Settings. */

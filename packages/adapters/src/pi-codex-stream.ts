@@ -17,6 +17,8 @@ import { openaiCodexProvider } from "@earendil-works/pi-ai/providers/openai-code
 import {
   OPENAI_CODEX_AUTH_ENV,
   OPENAI_CODEX_PROVIDER,
+  OPENAI_CODEX_PROXY_SECRET_ENV,
+  OPENAI_CODEX_PROXY_URL_ENV,
   packOpenAiCodexAuth,
   parseOpenAiCodexAuth,
   providerForModel,
@@ -29,6 +31,99 @@ const CODEX_PROVIDER = "openai-codex";
 const CODEX_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
 const CODEX_TOKEN_URL = "https://auth.openai.com/oauth/token";
 const JWT_AUTH_CLAIM = "https://api.openai.com/auth";
+
+/** chatgpt.com / auth.openai.com WAF page when the caller is a datacenter IP. */
+export const OPENAI_CODEX_WAF_MESSAGE =
+  "ChatGPT blocked this Groxbot server. ChatGPT / Codex is a home-computer login (chatgpt.com), and OpenAI refuses Cloudflare Worker IPs. Use an OpenAI API key or a Groxbot / OpenRouter model.";
+
+export function openAiEdgeBlockMessage(body: string): string | undefined {
+  const text = body.trim();
+  if (!text) return undefined;
+  const htmlBlock =
+    /unable to load site/i.test(text) && /status\.openai\.com/i.test(text);
+  if (htmlBlock || (/if you are using a vpn/i.test(text) && /<html/i.test(text))) {
+    return OPENAI_CODEX_WAF_MESSAGE;
+  }
+  return undefined;
+}
+
+export function isCodexProxyTarget(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:") return false;
+    if (parsed.hostname === "auth.openai.com") return true;
+    return (
+      parsed.hostname === "chatgpt.com" &&
+      parsed.pathname.startsWith("/backend-api")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function requestUrl(input: string | URL | Request): string {
+  if (typeof input === "string") return input;
+  if (input instanceof URL) return input.href;
+  return input.url;
+}
+
+function mergeRequestHeaders(
+  input: string | URL | Request,
+  init?: RequestInit,
+): Headers {
+  const headers = new Headers(init?.headers);
+  if (input instanceof Request) {
+    input.headers.forEach((value, key) => {
+      if (!headers.has(key)) headers.set(key, value);
+    });
+  }
+  return headers;
+}
+
+/** Send Codex / ChatGPT token + API calls through Fly so they leave from a non-Worker IP. */
+export function withCodexProxyFetch(
+  fetchFn: typeof fetch,
+  proxy: { url: string; secret: string },
+): typeof fetch {
+  const base = proxy.url.replace(/\/$/, "");
+  return (input, init) => {
+    const url = requestUrl(input);
+    if (!isCodexProxyTarget(url)) return fetchFn(input, init);
+    const headers = mergeRequestHeaders(input, init);
+    headers.set("x-groxbot-codex-proxy", proxy.secret);
+    headers.set("x-groxbot-target", url);
+    const method =
+      init?.method ?? (input instanceof Request ? input.method : "GET");
+    const body =
+      init?.body ??
+      (input instanceof Request && method !== "GET" && method !== "HEAD"
+        ? input.body
+        : undefined);
+    const proxied: RequestInit = { ...init, method, headers, body };
+    if (isStreamBody(body) && proxied.duplex == null) {
+      proxied.duplex = "half";
+    }
+    return fetchFn(base, proxied);
+  };
+}
+
+function isStreamBody(body: RequestInit["body"]): boolean {
+  return (
+    typeof body === "object" &&
+    body !== null &&
+    typeof (body as ReadableStream).getReader === "function"
+  );
+}
+
+export function codexFetchFromEnv(
+  source: GatewayEnv,
+  fetchFn: typeof fetch = fetch,
+): typeof fetch | undefined {
+  const url = source[OPENAI_CODEX_PROXY_URL_ENV]?.trim();
+  const secret = source[OPENAI_CODEX_PROXY_SECRET_ENV]?.trim();
+  if (!url || !secret) return undefined;
+  return withCodexProxyFetch(fetchFn, { url, secret });
+}
 
 export function piAiCodexModelId(model: string): string {
   const trimmed = model.trim();
@@ -135,9 +230,10 @@ export async function refreshOpenAiCodexOAuth(
   if (!response.ok) {
     const text = await response.text().catch(() => "");
     throw new Error(
-      `OpenAI Codex token refresh failed (${response.status}): ${
-        text || response.statusText
-      }`,
+      openAiEdgeBlockMessage(text) ??
+        `OpenAI Codex token refresh failed (${response.status}): ${
+          text.slice(0, 400) || response.statusText
+        }`,
     );
   }
   const json = (await response.json()) as {
@@ -200,6 +296,21 @@ function groxbotCodexProvider(fetchFn?: typeof fetch) {
     models: stock.getModels(),
     api: openAICodexResponsesApi(),
   });
+}
+
+function withCodexEdgeErrorMapping(fetchFn: typeof fetch): typeof fetch {
+  return async (input, init) => {
+    const response = await fetchFn(input, init);
+    if (response.ok) return response;
+    const body = await response.clone().text().catch(() => "");
+    const blocked = openAiEdgeBlockMessage(body);
+    if (!blocked) return response;
+    return new Response(blocked, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: { "content-type": "text/plain; charset=utf-8" },
+    });
+  };
 }
 
 function toOAuthCredential(auth: OpenAiCodexAuth): OAuthCredential {
@@ -310,16 +421,21 @@ export function createCodexStreamFn(options: {
   persist?: (auth: OpenAiCodexAuth) => Promise<void>;
   fetch?: typeof fetch;
 }): StreamFn {
+  const fetchFn = withCodexEdgeErrorMapping(
+    options.fetch ?? fetch,
+  );
   const store = new OpenAiCodexCredentialStore(options.auth, options.persist);
   const models = createModels({ credentials: store });
-  models.setProvider(groxbotCodexProvider(options.fetch));
+  models.setProvider(groxbotCodexProvider(fetchFn));
   return (model, context, streamOptions) => {
     try {
       const piModel = resolvePiAiCodexModel(model.id);
       return models.streamSimple(piModel, withAssistantUsage(context), {
         ...streamOptions,
-        fetch: options.fetch,
+        fetch: fetchFn,
         maxRetries: streamOptions?.maxRetries ?? 0,
+        // chatgpt.com WebSocket from a Worker is blocked; SSE goes through Fly.
+        transport: "sse",
       });
     } catch (error) {
       return errorCodexStream(

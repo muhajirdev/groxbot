@@ -53,7 +53,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { RoomHome, type WorkerEnv } from "./bot-actor.js";
 import { officeAgentTool } from "./bot-office-tools.js";
-import { agentRuntimeSource, productEnv, requireCatalogDb } from "./env.js";
+import { agentRuntimeSource, productEnv, requireCatalogDb, withCodexProxy } from "./env.js";
 import {
   personDoorContext,
   personDoorTool,
@@ -527,7 +527,7 @@ export class RoomActor extends RoomHome {
     );
     const turnModel = overlay.model || HOSTED_STARTER_MODEL;
     const turnEnv = overlay.env;
-    const streamFn = resolvePiStreamFn(turnEnv, {
+    const streamFn = resolvePiStreamFn(withCodexProxy(env, turnEnv), {
       ai: this.env.AI,
       gatewayId: turnEnv.CLOUDFLARE_AI_GATEWAY_ID,
       modelId: turnModel,

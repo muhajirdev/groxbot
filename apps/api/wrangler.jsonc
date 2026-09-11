@@ -98,6 +98,7 @@
 		"LANDING_ORIGIN": "https://groxbot.com",
 		"CORS_ORIGINS": "https://app.groxbot.com,https://admin.groxbot.com,https://groxbot.com,https://www.groxbot.com",
 		"EMAIL_FROM": "Groxbot <noreply@mail.groxbot.com>",
-		"POLAR_ENVIRONMENT": "production"
+		"POLAR_ENVIRONMENT": "production",
+		"GROXBOT_CODEX_PROXY_URL": "https://groxbot-codex.fly.dev"
 	}
 }

@@ -33,3 +33,6 @@ CORS_ORIGINS=http://127.0.0.1:5173,http://127.0.0.1:5174
 # Hosted office turns go through production grox-gateway (not the local AI binding).
 GROX_GATEWAY_URL=https://gateway.groxbot.com
 GROX_GATEWAY_SECRET=
+# Optional Fly egress for ChatGPT / Codex (chatgpt.com blocks Worker IPs).
+# GROXBOT_CODEX_PROXY_URL=https://groxbot-codex.fly.dev
+# GROXBOT_CODEX_PROXY_SECRET=

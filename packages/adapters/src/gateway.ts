@@ -7,6 +7,8 @@ import {
   HOSTED_AI_ENV,
   HOSTED_STARTER_MODEL,
   OPENAI_CODEX_AUTH_ENV,
+  OPENAI_CODEX_PROXY_SECRET_ENV,
+  OPENAI_CODEX_PROXY_URL_ENV,
   OPENROUTER_PROVIDER,
   gatewayRequestModel as catalogGatewayRequestModel,
 } from "@groxbot/contracts";
@@ -48,6 +50,8 @@ export interface GatewayEnv {
   GROX_GATEWAY_SECRET?: string;
   GROXBOT_MODEL?: string;
   [OPENAI_CODEX_AUTH_ENV]?: string;
+  [OPENAI_CODEX_PROXY_URL_ENV]?: string;
+  [OPENAI_CODEX_PROXY_SECRET_ENV]?: string;
   [HOSTED_AI_ENV]?: string;
   OPENROUTER_API_KEY?: string;
   WEB_ORIGIN?: string;
