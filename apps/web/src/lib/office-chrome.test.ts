@@ -351,6 +351,19 @@ describe("office chrome", () => {
     expect(css).toMatch(/\.chat-conv\s*\{[^}]*corner-shape:\s*squircle/s);
   });
 
+  it("keeps phone roster time off the more menu", () => {
+    expect(chatScreen).toMatch(/chat-conv[^"]*max-\[720px\]:pr-12/);
+    expect(chatScreen).toMatch(
+      /chat-conv-more[^"]*max-\[720px\]:top-1\/2[^"]*max-\[720px\]:-translate-y-1\/2/,
+    );
+    expect(css).toMatch(
+      /@media \(max-width: 720px\) \{[\s\S]*?\.chat-conv\s*\{[^}]*padding-right:\s*48px/,
+    );
+    expect(css).toMatch(
+      /@media \(max-width: 720px\) \{[\s\S]*?\.chat-conv-more\s*\{[^}]*top:\s*50%[^}]*translateY\(-50%\)/,
+    );
+  });
+
   it("scrolls the work board sideways", () => {
     expect(css).toMatch(/\.room-board\s*\{[^}]*overflow-x:\s*auto/s);
     expect(css).toMatch(
