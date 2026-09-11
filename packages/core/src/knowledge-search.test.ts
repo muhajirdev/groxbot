@@ -53,6 +53,18 @@ describe("knowledgeSearchDoc", () => {
     ).toBe("constraints.md");
   });
 
+  it("reads a task title from YAML description", () => {
+    expect(
+      knowledgeSearchDoc(
+        "tasks/ship-landing/TASK.md",
+        "---\nname: ship-landing\ndescription: Ship the landing page\nstatus: todo\n---\nHero first.",
+      ),
+    ).toMatchObject({
+      title: "Ship the landing page",
+      description: "Ship the landing page",
+    });
+  });
+
   it("reads a note title from frontmatter", () => {
     expect(
       knowledgeSearchDoc(
@@ -104,7 +116,10 @@ describe("rankKnowledgeSearch", () => {
     const hits = rankKnowledgeSearch(
       [
         knowledgeSearchDoc("short.md", "# Short\nDaily notes live here."),
-        knowledgeSearchDoc("long.md", `# Long\n${"alpha ".repeat(2500)}${tail}`),
+        knowledgeSearchDoc(
+          "long.md",
+          `# Long\n${"alpha ".repeat(2500)}${tail}`,
+        ),
       ],
       "vault equals notes daily",
     );

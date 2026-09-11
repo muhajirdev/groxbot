@@ -50,7 +50,7 @@ export function SidebarCreateMenu(props: {
             </Menu.Item>
             <Menu.Item className={itemClass} onClick={props.onNewRoom}>
               <BoardIcon className="size-3.5 shrink-0 text-muted" />
-              <span>New task</span>
+              <span>New room</span>
             </Menu.Item>
             <Menu.Item className={itemClass} onClick={props.onNewSection}>
               <FolderIcon className="size-3.5 shrink-0 text-muted" />

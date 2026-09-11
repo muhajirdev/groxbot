@@ -46,25 +46,21 @@ export const PALETTE_ACTIONS = [
   },
   {
     id: "room",
+    label: "New room",
+    shortcut: "",
+    keywords: ["new", "room", "group", "create", "table", "new room"],
+  },
+  {
+    id: "task",
     label: "New task",
     shortcut: "",
-    keywords: [
-      "new",
-      "room",
-      "group",
-      "create",
-      "table",
-      "task",
-      "issue",
-      "new room",
-      "new task",
-    ],
+    keywords: ["new", "task", "issue", "new task"],
   },
   {
     id: "board",
     label: "Board",
     shortcut: "",
-    keywords: ["board", "kanban", "status", "work", "rooms", "list"],
+    keywords: ["board", "kanban", "status", "work", "tasks", "list"],
   },
   {
     id: "delete-room",

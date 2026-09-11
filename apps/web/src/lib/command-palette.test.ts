@@ -62,6 +62,7 @@ describe("rankPaletteItems", () => {
       "app:app-1",
       "action:hire",
       "action:room",
+      "action:task",
       "action:board",
       "action:section",
       "action:settings",
@@ -150,7 +151,7 @@ describe("rankPaletteItems", () => {
     });
     expect(rankPaletteItems("new task", [piper], [])[0]).toMatchObject({
       kind: "action",
-      key: "action:room",
+      key: "action:task",
     });
     expect(rankPaletteItems("kanban", [piper], [])[0]).toMatchObject({
       kind: "action",

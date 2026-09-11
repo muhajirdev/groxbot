@@ -422,6 +422,9 @@ describe("office chrome", () => {
     expect(roomBoard).toMatch(/aria-label="Display"/);
     expect(roomBoard).toMatch(/view === "list"/);
     expect(roomBoard).toMatch(/>No tasks</);
+    expect(roomBoard).toMatch(/tasks\/<name>\/TASK\.md|taskFilePath|listTasks/);
+    expect(roomBoard).toMatch(/Activity/);
+    expect(roomBoard).toMatch(/activity\.md/);
     expect(css).toMatch(/\.room-board-list-row\s*\{[^}]*grid-template-columns/s);
     expect(css).toMatch(/\.room-board-display\s*\{[^}]*border:\s*1px solid var\(--line\)/s);
   });

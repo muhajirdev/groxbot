@@ -34,7 +34,7 @@ export const OFFICE_TOOL_PROMPT: Record<string, OfficeToolPromptContribution> =
       snippet:
         "JavaScript sandbox for knowledge, routines, history, bots, and page helpers. Argument is `code`, not a bash command. You can import npm packages.",
       guidelines: [
-        "knowledge, routines, history, bots, and cursor live inside code (`await knowledge.search({ query })`, `await knowledge.read({ path })`, `await knowledge.write({ path, content })` or `from` for a computer PDF, `await routines.list()`, `await history.search({ query })`, `await bots.search({ query })`, `await bots.hire({ marketplaceId })`, `await cursor.launch({ repo, prompt })`). Hire and Cursor dispatch need approval. set_context, skill_manage, present, ask, stamp_app, and shell are top-level tools, not sandbox globals.",
+        "knowledge, routines, history, bots, and cursor live inside code (`await knowledge.search({ query })`, `await knowledge.read({ path })`, `await knowledge.write({ path, content })` or `from` for a computer PDF, `await routines.list()`, `await history.search({ query })`, `await bots.search({ query })`, `await bots.hire({ marketplaceId })`, `await cursor.launch({ repo, prompt })`). Hire and Cursor dispatch need approval. set_context, skill_manage, present, ask, stamp_app, and shell are top-level tools, not sandbox globals. Shared tasks live at `tasks/<name>/TASK.md` (YAML name + description + status); comments append to sibling `activity.md`. Not a room and not this computer.",
         KNOWLEDGE_MARKDOWN_LINK_HINT,
       ],
     },

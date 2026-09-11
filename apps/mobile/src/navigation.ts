@@ -7,7 +7,7 @@ export type RootStackParamList = {
   Thread: { botId: string };
   Room: { roomId: string };
   RoomSettings: { roomId: string };
-  CreateRoom: { status?: string } | undefined;
+  CreateRoom: undefined;
   Board: undefined;
   Computer: { botId: string; path?: string };
   BotSettings: { botId: string };

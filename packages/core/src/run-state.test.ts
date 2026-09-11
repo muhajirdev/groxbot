@@ -66,6 +66,8 @@ describe("withOfficeExecuteDescription", () => {
     expect(next).toMatch(/\[label\]\(path\/from\/office\/root\.md\)/);
     expect(next).not.toMatch(/state\.\*/);
     expect(next).toMatch(/knowledge\.search\(\{ query \}\)/);
+    expect(next).toMatch(/tasks\/<name>\/TASK\.md/);
+    expect(next).toMatch(/activity\.md/);
     expect(next).toMatch(/from` for a computer PDF/);
     expect(next).toContain("- `github`");
     expect(next).toContain("- `routines`");

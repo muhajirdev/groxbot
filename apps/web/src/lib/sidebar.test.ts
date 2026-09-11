@@ -235,23 +235,10 @@ describe("sectionMenuItems", () => {
 });
 
 describe("roomMenuItems", () => {
-  it("offers status then confirms delete by name", () => {
+  it("invites then confirms delete by name", () => {
     expect(roomMenuItems({ name: "Board", phase: "actions" })).toEqual([
       { id: "invite", label: "Invite…" },
-      { id: "status", label: "Status" },
       { id: "delete", label: "Delete", danger: true },
-    ]);
-    expect(
-      roomMenuItems({ name: "Board", phase: "status" }).map((item) =>
-        item.id === "status-to" ? item.status : item.id,
-      ),
-    ).toEqual([
-      "backlog",
-      "todo",
-      "in_progress",
-      "in_review",
-      "done",
-      "blocked",
     ]);
     expect(
       roomMenuItems({ name: "Board", phase: "confirm-delete" }),

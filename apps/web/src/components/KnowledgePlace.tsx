@@ -654,6 +654,9 @@ function useKnowledgeWorkspace(initialPath: string | null) {
 
   async function refresh(path?: string) {
     await queryClient.invalidateQueries({ queryKey: listKey });
+    await queryClient.invalidateQueries({
+      queryKey: orpc.knowledge.listTasks.queryOptions().queryKey,
+    });
     await queryClient.invalidateQueries({ queryKey: graphKey });
     if (searchNeedle) {
       await queryClient.invalidateQueries({

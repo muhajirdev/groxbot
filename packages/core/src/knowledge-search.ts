@@ -5,6 +5,7 @@
  * Cap is `MAX_KNOWLEDGE_ENTRIES` — a Worker rebuild is one R2 GET per note.
  */
 
+import { isKnowledgeTaskFile, parseTaskMarkdown } from "./knowledge-task.js";
 import { parseSkillMarkdown, SKILL_FILE } from "./skills.js";
 
 export const KNOWLEDGE_SEARCH_PATH = "_search/index.json";
@@ -72,7 +73,9 @@ export function encodeKnowledgeSearchSnapshot(
   });
 }
 
-export function parseKnowledgeSearchDocs(raw: string): KnowledgeSearchDoc[] | null {
+export function parseKnowledgeSearchDocs(
+  raw: string,
+): KnowledgeSearchDoc[] | null {
   try {
     const value = JSON.parse(raw) as { docs?: unknown; v?: unknown };
     if (value.v === 3 && !Array.isArray(value.docs)) return null;
@@ -170,15 +173,21 @@ export function knowledgeSearchDoc(
     return { path, title: fallback, description: "", text: "" };
   }
   const skill = isSkillFile(path) ? parseSkillMarkdown(content) : null;
+  const task = isKnowledgeTaskFile(path) ? parseTaskMarkdown(content) : null;
   const matter = parseNoteFrontmatter(content);
   const title =
     skill?.name ||
+    task?.description ||
     matter.title ||
     firstHeading(content) ||
     fallback;
   const description =
-    skill?.description || matter.description || matter.oneline || "";
-  const body = skill?.body ?? content;
+    skill?.description ||
+    task?.description ||
+    matter.description ||
+    matter.oneline ||
+    "";
+  const body = skill?.body ?? task?.body ?? content;
   const headings = markdownHeadings(body);
   const text = [description, headings, clip(body, MAX_KNOWLEDGE_SEARCH_TEXT)]
     .filter(Boolean)

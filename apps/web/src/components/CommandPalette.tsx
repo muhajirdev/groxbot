@@ -47,7 +47,8 @@ function ActionGlyph(props: { id: PaletteActionId }) {
   }
   if (props.id === "delete-room") return <TrashIcon className={className} />;
   if (props.id === "room") return <RoomIcon className={className} />;
-  if (props.id === "board") return <BoardIcon className={className} />;
+  if (props.id === "task" || props.id === "board")
+    return <BoardIcon className={className} />;
   if (props.id === "computer") return <MonitorIcon className={className} />;
   if (props.id === "plugins") return <PlugIcon className={className} />;
   if (props.id === "knowledge") return <KnowledgeIcon className={className} />;
@@ -76,6 +77,8 @@ function itemDetail(item: PaletteItem): string {
   if (item.kind === "file") return item.file.path;
   if (item.action.id === "delete-room") return "Remove this group";
   if (item.action.id === "board") return "Board or list of tasks";
+  if (item.action.id === "task") return "A markdown file in the office library";
+  if (item.action.id === "room") return "A group chat";
   return "Command";
 }
 

@@ -1,4 +1,4 @@
-/** Work status on a listed group room. Not `rooms.kind` — home vs table is still homeRoomId. */
+/** Listed group-room status in D1. Product tasks live in knowledge markdown. */
 
 import { RoomWorkStatus } from "@groxbot/contracts";
 
@@ -16,7 +16,7 @@ export const ROOM_WORK_STATUS_LABEL: Record<RoomWorkStatus, string> = {
   blocked: "Blocked",
 };
 
-/** How the work place lays rooms out. Same rooms.list — not a jobs table. */
+/** How the task board lays knowledge tasks out. */
 export const BOARD_VIEWS = ["board", "list"] as const;
 export type BoardView = (typeof BOARD_VIEWS)[number];
 

@@ -1,15 +1,28 @@
-import type { Room, RoomWorkStatus } from "@groxbot/contracts";
+import type { KnowledgeTask } from "@groxbot/contracts";
 import {
-  groupRoomsByWorkStatus,
-  ROOM_WORK_STATUS_LABEL,
-  ROOM_WORK_STATUSES,
-  roomSidebarFaces,
+  appendTaskActivity,
+  formatTaskMarkdown,
+  groupTasksByStatus,
+  parseTaskActivity,
+  parseTaskStatus,
+  slugFromTitle,
+  TASK_STATUS_LABEL,
+  TASK_STATUSES,
+  type TaskStatus,
+  taskFilePath,
+  uniqueTaskName,
 } from "@groxbot/core/browser";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Avatar } from "../components/Avatar";
+import { useMemo, useState } from "react";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { Header } from "../components/Header";
 import { Screen } from "../components/Screen";
 import { userFacingError } from "../lib/errors";
@@ -23,97 +36,216 @@ type Props = NativeStackScreenProps<RootStackParamList, "Board">;
 
 export function BoardScreen({ navigation }: Props) {
   const queryClient = useQueryClient();
-  const roomsQuery = useQuery(orpc.rooms.list.queryOptions());
-  const grouped = useMemo(
-    () => groupRoomsByWorkStatus(roomsQuery.data ?? []),
-    [roomsQuery.data],
-  );
+  const listQuery = useQuery(orpc.knowledge.listTasks.queryOptions());
+  const tasks = listQuery.data?.tasks ?? [];
+  const grouped = useMemo(() => groupTasksByStatus(tasks), [tasks]);
+  const [openName, setOpenName] = useState<string | null>(null);
+  const [draftTitle, setDraftTitle] = useState("");
+  const [createStatus, setCreateStatus] = useState<TaskStatus>("todo");
+  const open = tasks.find((row) => row.name === openName) ?? null;
 
-  async function setStatus(room: Room, status: RoomWorkStatus) {
-    if (room.status === status) return;
-    queryClient.setQueryData(orpc.rooms.list.queryOptions().queryKey, (rows) =>
-      rows?.map((row) => (row.id === room.id ? { ...row, status } : row)),
-    );
+  async function refresh() {
+    await queryClient.invalidateQueries({
+      queryKey: orpc.knowledge.listTasks.key(),
+    });
+  }
+
+  async function createTask() {
+    const title = draftTitle.trim();
+    if (!title) return;
+    const taken = new Set(tasks.map((row) => row.name));
+    const name = uniqueTaskName(slugFromTitle(title) || "task", taken);
+    if (!name) return;
     try {
-      await client.rooms.update({ roomId: room.id, status });
+      await client.knowledge.write({
+        path: taskFilePath(name),
+        content: formatTaskMarkdown({
+          name,
+          description: title,
+          status: createStatus,
+          body: "",
+        }),
+      });
+      setDraftTitle("");
+      await refresh();
+      setOpenName(name);
     } catch (caught) {
-      await queryClient.invalidateQueries({ queryKey: orpc.rooms.list.key() });
-      console.warn(userFacingError(caught, "Could not move room"));
+      console.warn(userFacingError(caught, "Could not create that task"));
     }
+  }
+
+  async function setStatus(task: KnowledgeTask, status: TaskStatus) {
+    if (parseTaskStatus(task.status) === status) return;
+    try {
+      await client.knowledge.write({
+        path: task.path,
+        content: formatTaskMarkdown({
+          name: task.name,
+          description: task.description,
+          status,
+          body: task.body,
+        }),
+      });
+      await refresh();
+    } catch (caught) {
+      console.warn(userFacingError(caught, "Could not move that task"));
+    }
+  }
+
+  if (open) {
+    return (
+      <TaskDetailScreen
+        task={open}
+        onBack={() => setOpenName(null)}
+        onRefresh={() => void refresh()}
+      />
+    );
   }
 
   return (
     <Screen>
-      <Header
-        title="Board"
-        onBack={() => navigation.navigate("Roster")}
-        right={
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => navigation.navigate("CreateRoom")}
-          >
-            <Text style={styles.link}>New</Text>
-          </Pressable>
-        }
-      />
-      {roomsQuery.isError ? (
-        <Text style={styles.error}>Could not load rooms.</Text>
+      <Header title="Board" onBack={() => navigation.navigate("Roster")} />
+      {listQuery.isError ? (
+        <Text style={styles.error}>Could not load tasks.</Text>
       ) : null}
+      <View style={styles.compose}>
+        <TextInput
+          value={draftTitle}
+          onChangeText={setDraftTitle}
+          placeholder="New task title"
+          placeholderTextColor={colors.muted}
+          style={styles.input}
+          onSubmitEditing={() => void createTask()}
+        />
+      </View>
       <ScrollView
         horizontal
         style={styles.board}
         contentContainerStyle={styles.boardContent}
       >
-        {ROOM_WORK_STATUSES.map((status) => (
+        {TASK_STATUSES.map((status) => (
           <View key={status} style={styles.column}>
             <View style={styles.colHead}>
-              <Text style={styles.colTitle}>
-                {ROOM_WORK_STATUS_LABEL[status]}
-              </Text>
-              <Pressable
-                onPress={() => navigation.navigate("CreateRoom", { status })}
-              >
+              <Text style={styles.colTitle}>{TASK_STATUS_LABEL[status]}</Text>
+              <Pressable onPress={() => setCreateStatus(status)}>
                 <Text style={styles.meta}>+</Text>
               </Pressable>
             </View>
-            {(grouped[status] ?? []).map((room) => (
+            {(grouped[status] ?? []).map((task) => (
               <Pressable
-                key={room.id}
+                key={task.path}
                 style={styles.card}
-                onPress={() => navigation.navigate("Room", { roomId: room.id })}
+                onPress={() => setOpenName(task.name)}
                 onLongPress={() => {
                   const next =
-                    ROOM_WORK_STATUSES[
-                      (ROOM_WORK_STATUSES.indexOf(room.status) + 1) %
-                        ROOM_WORK_STATUSES.length
+                    TASK_STATUSES[
+                      (TASK_STATUSES.indexOf(parseTaskStatus(task.status)) +
+                        1) %
+                        TASK_STATUSES.length
                     ];
-                  if (next) void setStatus(room, next);
+                  if (next) void setStatus(task, next);
                 }}
               >
                 <Text style={styles.name} numberOfLines={2}>
-                  {room.name}
+                  {task.description}
                 </Text>
-                {room.lastPreview ? (
+                {task.body.trim() ? (
                   <Text style={styles.preview} numberOfLines={2}>
-                    {room.lastPreview}
+                    {task.body.trim()}
                   </Text>
                 ) : null}
-                <View style={styles.faces}>
-                  {roomSidebarFaces(room.members).map((member) => (
-                    <Avatar
-                      key={member.botId}
-                      name={member.name}
-                      color={member.avatarColor}
-                      shape={member.avatarShape}
-                      size={20}
-                    />
-                  ))}
-                  <Text style={styles.time}>{formatListTime(room.lastAt)}</Text>
-                </View>
               </Pressable>
             ))}
           </View>
         ))}
+      </ScrollView>
+    </Screen>
+  );
+}
+
+function TaskDetailScreen(props: {
+  task: KnowledgeTask;
+  onBack: () => void;
+  onRefresh: () => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const activityQuery = useQuery({
+    queryKey: ["knowledge-task-activity", props.task.activityPath],
+    queryFn: async () => {
+      try {
+        const file = await client.knowledge.read({
+          path: props.task.activityPath,
+        });
+        const raw = typeof file.content === "string" ? file.content : "";
+        return { raw, entries: parseTaskActivity(raw) };
+      } catch {
+        return { raw: "", entries: [] };
+      }
+    },
+  });
+  const queryClient = useQueryClient();
+  const entries = activityQuery.data?.entries ?? [];
+  const raw = activityQuery.data?.raw ?? "";
+
+  async function post() {
+    const body = draft.trim();
+    if (!body) return;
+    try {
+      await client.knowledge.write({
+        path: props.task.activityPath,
+        content: appendTaskActivity(raw, {
+          at: new Date().toISOString(),
+          author: "you",
+          body,
+        }),
+      });
+      setDraft("");
+      await queryClient.invalidateQueries({
+        queryKey: ["knowledge-task-activity", props.task.activityPath],
+      });
+      props.onRefresh();
+    } catch (caught) {
+      console.warn(userFacingError(caught, "Could not add that comment"));
+    }
+  }
+
+  return (
+    <Screen>
+      <Header title={props.task.description} onBack={props.onBack} />
+      <ScrollView contentContainerStyle={styles.detail}>
+        <Text style={styles.meta}>
+          {TASK_STATUS_LABEL[parseTaskStatus(props.task.status)]} ·{" "}
+          {props.task.path}
+        </Text>
+        <Text style={styles.body}>
+          {props.task.body.trim() || "No notes yet."}
+        </Text>
+        <Text style={styles.colTitle}>Activity</Text>
+        {entries.length === 0 ? (
+          <Text style={styles.preview}>
+            Comments land in activity.md next to this task.
+          </Text>
+        ) : (
+          entries.map((entry) => (
+            <View key={`${entry.at}:${entry.author}`} style={styles.comment}>
+              <Text style={styles.meta}>
+                {entry.author} · {formatListTime(entry.at)}
+              </Text>
+              <Text style={styles.body}>{entry.body}</Text>
+            </View>
+          ))
+        )}
+        <TextInput
+          value={draft}
+          onChangeText={setDraft}
+          placeholder="Write a comment…"
+          placeholderTextColor={colors.muted}
+          style={styles.input}
+          multiline
+        />
+        <Pressable onPress={() => void post()}>
+          <Text style={styles.link}>Comment</Text>
+        </Pressable>
       </ScrollView>
     </Screen>
   );
@@ -139,9 +271,18 @@ const styles = StyleSheet.create({
   },
   name: { color: colors.text, fontWeight: "600" },
   preview: { color: colors.muted, fontSize: 13 },
-  faces: { flexDirection: "row", alignItems: "center", gap: 4 },
-  time: { color: colors.faint, fontSize: 11, marginLeft: "auto" },
   link: { color: colors.text, fontWeight: "500" },
-  meta: { color: colors.muted, fontSize: 20, fontWeight: "400" },
+  meta: { color: colors.muted, fontSize: 12 },
   error: { color: colors.danger, paddingHorizontal: 16 },
+  compose: { paddingHorizontal: 12, paddingBottom: 8 },
+  input: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    padding: 10,
+    color: colors.text,
+  },
+  detail: { padding: 16, gap: 12 },
+  body: { color: colors.text, fontSize: 15 },
+  comment: { gap: 4 },
 });

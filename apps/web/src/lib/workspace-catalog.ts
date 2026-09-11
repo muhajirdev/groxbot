@@ -323,6 +323,9 @@ export function refetchWorkspaceCatalogs(): void {
   void queryClient
     .invalidateQueries({ queryKey: knowledgeListKey })
     .then(after, () => undefined);
+  void queryClient.invalidateQueries({
+    queryKey: orpc.knowledge.listTasks.queryOptions().queryKey,
+  });
   void queryClient.invalidateQueries({ queryKey: orpc.me.key() });
   void queryClient.invalidateQueries({ queryKey: orpc.models.get.key() });
   void queryClient.invalidateQueries({

@@ -238,6 +238,9 @@ describe("oRPC", () => {
     await expect(client.knowledge.list()).rejects.toMatchObject({
       code: "UNAUTHORIZED",
     });
+    await expect(client.knowledge.listTasks()).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
     await expect(
       client.knowledge.search({ query: "standup" }),
     ).rejects.toMatchObject({

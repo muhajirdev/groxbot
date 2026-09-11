@@ -311,6 +311,34 @@ export const KnowledgeListSchema = z.object({
 });
 export type KnowledgeList = z.infer<typeof KnowledgeListSchema>;
 
+/** Shared work item in the office library (`tasks/<name>/TASK.md`). Not a room. */
+export const KnowledgeTaskStatus = z.enum([
+  "backlog",
+  "todo",
+  "in_progress",
+  "in_review",
+  "done",
+  "blocked",
+]);
+export type KnowledgeTaskStatus = z.infer<typeof KnowledgeTaskStatus>;
+
+export const KnowledgeTaskSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  status: KnowledgeTaskStatus,
+  path: z.string(),
+  directory: z.string(),
+  activityPath: z.string(),
+  body: z.string(),
+});
+export type KnowledgeTask = z.infer<typeof KnowledgeTaskSchema>;
+
+export const KnowledgeTaskListSchema = z.object({
+  tasks: z.array(KnowledgeTaskSchema),
+  truncated: z.boolean(),
+});
+export type KnowledgeTaskList = z.infer<typeof KnowledgeTaskListSchema>;
+
 /** Ranked office-library hit. Same ranker as Code Mode `knowledge.search`. */
 export const KnowledgeSearchHitSchema = z.object({
   path: z.string(),

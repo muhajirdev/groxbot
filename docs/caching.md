@@ -25,6 +25,7 @@ Canonical feel: **Settings**. Cmd+, opens at once. General is `me` already on th
 | Settings → Usage & Billing | `billing.status` Query cache (same session) | Refetch when stale. Hosted percent from grox-gateway. Not in IndexedDB |
 | Settings → Models | `models.get` Query cache (same session) | Refetch when stale. Not in IndexedDB — payload includes key status |
 | Roster, rooms, workspace name, apps, connectors, knowledge tree, computer trees | IndexedDB restore before first paint | Background refetch |
+| Task board | `knowledge.listTasks` Query cache | Background refetch. Cards are `TASK.md` files, not `rooms.list` |
 | Knowledge / computer text preview | Query + IndexedDB after idle prefetch, Cmd+K, or first open (text, 64k cap) | Background refetch when stale. Not images, PDFs, or `*.download` |
 | Office / room transcripts | IndexedDB bag + keep-alive | Cap’n Web snapshot |
 | Plugins catalog | IndexedDB after first open | GitHub JSON on a cold miss; virtualized grid |

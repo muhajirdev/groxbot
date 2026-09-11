@@ -31,10 +31,10 @@ import {
   RoutineError,
   RoutineNotFoundError,
   RoutineScheduleError,
+  readSkillsStoreSkill,
   revokeKnowledgeShare,
   revokeKnowledgeSharesForPrefix,
   SkillImportError,
-  readSkillsStoreSkill,
   saveModelSettings,
   searchSkillsStore,
   sleep,
@@ -798,6 +798,15 @@ export const appRouter = os.router({
         throwKnowledgeError(error);
       }
     }),
+    listTasks: os.knowledge.listTasks.handler(async ({ context }) => {
+      const actor = await requireActor(context);
+      if (!context.knowledge) return { tasks: [], truncated: false };
+      try {
+        return await context.knowledge.listTasks(actor.workspaceId);
+      } catch (error) {
+        throwKnowledgeError(error);
+      }
+    }),
     search: os.knowledge.search.handler(async ({ context, input }) => {
       const actor = await requireActor(context);
       if (!context.knowledge) return { hits: [], truncated: false };
@@ -811,25 +820,27 @@ export const appRouter = os.router({
         throwKnowledgeError(error);
       }
     }),
-    searchSkills: os.knowledge.searchSkills.handler(async ({ context, input }) => {
-      await requireActor(context);
-      try {
-        if (!context.knowledge) {
-          return searchSkillsStore(input.query ?? "", {
+    searchSkills: os.knowledge.searchSkills.handler(
+      async ({ context, input }) => {
+        await requireActor(context);
+        try {
+          if (!context.knowledge) {
+            return searchSkillsStore(input.query ?? "", {
+              limit: input.limit,
+              owner: input.owner,
+              category: input.category,
+            });
+          }
+          return await context.knowledge.searchSkills(input.query ?? "", {
             limit: input.limit,
             owner: input.owner,
             category: input.category,
           });
+        } catch (error) {
+          throwKnowledgeError(error);
         }
-        return await context.knowledge.searchSkills(input.query ?? "", {
-          limit: input.limit,
-          owner: input.owner,
-          category: input.category,
-        });
-      } catch (error) {
-        throwKnowledgeError(error);
-      }
-    }),
+      },
+    ),
     readSkill: os.knowledge.readSkill.handler(async ({ context, input }) => {
       await requireActor(context);
       const target = (input.id || input.source || "").trim();
