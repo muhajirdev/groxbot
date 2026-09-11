@@ -24,11 +24,18 @@ export function SiteHeader(props: { startUrl: string }) {
         <Link className="nav-hide-sm" to="/templates">
           Templates
         </Link>
-        <Link to="/pricing">Pricing</Link>
+        <Link className="nav-hide-sm" to="/pricing">
+          Pricing
+        </Link>
         <Link className="nav-hide-sm" to="/integrations">
           Integrations
         </Link>
-        <a href={SOURCE_REPO} target="_blank" rel="noreferrer">
+        <a
+          className="nav-hide-xs"
+          href={SOURCE_REPO}
+          target="_blank"
+          rel="noreferrer"
+        >
           GitHub
         </a>
         <a className="btn" href={props.startUrl}>

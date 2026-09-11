@@ -59,6 +59,7 @@
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 72px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -138,21 +139,22 @@ h3 {
 .nav {
   position: sticky;
   top: 0;
-  z-index: 4;
+  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: nowrap;
   gap: 16px;
-  padding: 14px 0;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(16px);
+  margin: 0 -24px;
+  padding: 14px 24px;
+  background: var(--bg);
 }
 
 .nav::after {
   content: "";
   position: absolute;
-  left: 0;
-  right: 0;
+  left: 24px;
+  right: 24px;
   bottom: 0;
   height: 1px;
   background: color-mix(in srgb, var(--line) 70%, transparent);
@@ -161,6 +163,8 @@ h3 {
 .brand {
   display: flex;
   align-items: center;
+  flex: none;
+  min-width: 0;
   gap: 10px;
   text-decoration: none;
   font-size: 16px;
@@ -177,6 +181,8 @@ h3 {
 .nav-links {
   display: flex;
   align-items: center;
+  flex: none;
+  flex-wrap: nowrap;
   gap: 16px;
   font-size: 13px;
 }
@@ -218,6 +224,7 @@ h3 {
 }
 
 .nav-links .btn {
+  flex: none;
   color: var(--bg);
 }
 
@@ -364,6 +371,7 @@ h3 {
 
 .preview-wrap {
   margin: 8px 0 72px;
+  scroll-margin-top: 72px;
   animation: rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.28s both;
 }
 
@@ -2557,7 +2565,7 @@ a.chip.on .chip-count,
 
 @media (max-width: 900px) {
   .nav-links {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: flex-end;
   }
 
@@ -2678,6 +2686,12 @@ a.chip.on .chip-count,
   .versus-col + .versus-col {
     border-left: 0;
     border-top: 1px solid var(--line);
+  }
+}
+
+@media (max-width: 520px) {
+  .nav-hide-xs {
+    display: none;
   }
 }
 
