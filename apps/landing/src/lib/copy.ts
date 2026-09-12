@@ -250,6 +250,9 @@ export const MEET_CHANNELS = [
   { name: "Discord", slug: "discord" },
   { name: "Microsoft Teams", slug: "microsoft_teams" },
 ] as const;
+export const PHONE_HEADLINE = "No Mac Mini is required.";
+export const PHONE_LEDE =
+  "Prompt from your phone even when your laptop is shut down.";
 export const HERO_COMPARE_NAMES = [
   "Hermes Agent",
   "OpenClaw",
@@ -339,8 +342,8 @@ export const THESES = [
   {
     id: "phone",
     kicker: "Phone",
-    title: "You should be able to work from your phone.",
-    lede: "Shut the laptop. The computer stays in the cloud. The thread is still yours.",
+    title: "No Mac Mini is required.",
+    lede: "Prompt from your phone even when your laptop is shut down.",
     why: "Ideas come anytime, anywhere. Execution is no longer the bottleneck — agents do the work. What matters now is good decisions and good ideas.",
   },
 ] as const;

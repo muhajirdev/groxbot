@@ -15,6 +15,8 @@ import {
   KNOW_POINTS,
   MEET_CHANNELS,
   MEET_HEADLINE,
+  PHONE_HEADLINE,
+  PHONE_LEDE,
   TALK_HEADLINE,
   TALK_LEDE,
   TALK_POINTS,
@@ -348,6 +350,20 @@ describe("llms discovery", () => {
       "Discord",
       "Microsoft Teams",
     ]);
+    expect(PHONE_HEADLINE).toBe("No Mac Mini is required.");
+    expect(PHONE_LEDE).toMatch(/phone even when your laptop is shut down/);
+    const landing = readFileSync(
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        "../components/Landing.tsx",
+      ),
+      "utf8",
+    );
+    expect(landing.indexOf('id="meet"')).toBeLessThan(
+      landing.indexOf('id="phone"'),
+    );
+    expect(landing).toContain("PHONE_HEADLINE");
+    expect(landing).toContain("<HandoffScene />");
     expect(HERO_COMPARE_NAMES).toEqual(["Hermes Agent", "OpenClaw", "Grok Bot"]);
     expect(HERO_LEDE).toMatch(/but for teams/);
     expect(HERO_PLATFORMS_LINE).toBe(
@@ -370,11 +386,12 @@ describe("llms discovery", () => {
       "AI is better together.",
       "The best way to get your team to adopt AI is to track it.",
       "The company’s knowledge base should evolve from group chats.",
-      "You should be able to work from your phone.",
+      "No Mac Mini is required.",
     ]);
     expect(THESES[2]?.lede).toMatch(
       /automatically organized onto the knowledge base/,
     );
+    expect(THESES[3]?.lede).toMatch(/phone even when your laptop is shut down/);
     expect(THESES[3]?.why).toMatch(/anytime, anywhere/);
     expect(THESES[3]?.why).toMatch(/good decisions and good ideas/);
   });

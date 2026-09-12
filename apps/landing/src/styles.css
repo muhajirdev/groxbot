@@ -744,6 +744,43 @@ h3 {
   object-fit: contain;
 }
 
+.phone-free {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: 48px 0 56px;
+}
+
+.phone-free-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.phone-free h2 {
+  margin: 0;
+  max-width: 12ch;
+  font-size: clamp(36px, 4.6vw, 58px);
+  font-weight: 700;
+  letter-spacing: -0.052em;
+  line-height: 0.98;
+}
+
+.phone-free h2 em {
+  font-style: normal;
+  color: var(--accent);
+}
+
+.phone-free .meet-lede {
+  margin: 0;
+  max-width: 28rem;
+}
+
+.phone-free .handoff-scene {
+  width: 100%;
+}
+
 .hero-home .hero-demo {
   width: 100%;
   margin: 36px 0 0;
@@ -3150,6 +3187,10 @@ a.chip.on .chip-count,
     flex-direction: column;
     align-items: flex-start;
     gap: 24px;
+  }
+
+  .phone-free {
+    padding: 28px 0 36px;
   }
 
   .hero-demo-window {

@@ -18,6 +18,8 @@ import {
   KNOW_POINTS,
   MEET_CHANNELS,
   MEET_HEADLINE,
+  PHONE_HEADLINE,
+  PHONE_LEDE,
   TALK_HEADLINE,
   TALK_POINTS,
   HOME_ADOPTION,
@@ -168,6 +170,22 @@ export function Landing(props: { startUrl: string }) {
           </ul>
         </section>
 
+        <section
+          className="phone-free"
+          id="phone"
+          aria-labelledby="phone-title"
+        >
+          <div className="phone-free-copy">
+            <h2 id="phone-title" aria-label={PHONE_HEADLINE}>
+              No <em>Mac Mini</em>
+              <br />
+              is required.
+            </h2>
+            <p className="meet-lede">{PHONE_LEDE}</p>
+          </div>
+          <HandoffScene />
+        </section>
+
         <section className="story" aria-labelledby="story-title">
           <p className="kicker">How it works</p>
           <h2 id="story-title">Hire. Talk. They already have a computer.</h2>
@@ -267,17 +285,6 @@ export function Landing(props: { startUrl: string }) {
               );
             })}
           </ol>
-        </section>
-
-        <section id="phone" className="thesis-section" aria-labelledby="thesis-phone">
-          <p className="kicker">{THESES[3].kicker}</p>
-          <h2 id="thesis-phone">{THESES[3].title}</h2>
-          <p className="lede">{THESES[3].lede}</p>
-          <div className="thesis-proof">
-            <HandoffScene />
-          </div>
-          <p className="kicker why">Why it matters</p>
-          <p className="thesis-why">{THESES[3].why}</p>
         </section>
 
         <section id="how" className="statement">
