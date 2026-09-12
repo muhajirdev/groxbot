@@ -165,60 +165,24 @@ export const COMPARE_CALLOUT = {
 
 export const FAQS = [
   {
-    q: "How is this different from Grok Bot?",
-    a: `Same motion: create a Bot, message it, grant access as needed. Whip Computer is for the team — ${GROXBOT_TAGLINE}. Named teammates, each with a computer, live docs from chat — and you can run the source yourself.`,
-  },
-  {
-    q: "How is this different from OpenClaw?",
-    a: "OpenClaw is a personal agent on your machine. Whip Computer is for the team: named teammates, each with a computer, and a messaging UI the whole company can sit in.",
-  },
-  {
-    q: "How is this different from Hermes?",
-    a: "Hermes is a personal agent on your machine, like OpenClaw. Whip Computer is for the team. Hermes can dial out as a guest runtime if you turn that on — off by default.",
-  },
-  {
-    q: "How is this different from Paperclip?",
-    a: "Paperclip orchestrates a fleet of agents with org charts and budgets. Whip Computer is the place people work: hire a Bot, message it, grant tools when it hits a wall. You do not need a workflow builder or a separate management layer to start.",
+    q: "How is this different from OpenClaw or Hermes?",
+    a: "Those are personal agents on your machine. Whip Computer is for the team: named teammates, each with a cloud computer, a shared knowledge base, and a messaging UI the whole company can sit in.",
   },
   {
     q: "Do I need a workflow builder?",
     a: "No. Create a Bot, message it, grant access as needed. There isn’t anything to learn — it’s like bringing on a coworker.",
   },
   {
-    q: "Where does the computer live?",
-    a: "In the cloud, on that bot — not on your laptop. Hire a teammate and they already have a computer. Shut the machine, close the pane, pick up the thread on your phone. The work keeps going.",
-  },
-  {
     q: "Is it open source?",
     a: "The source is on GitHub. Self-host for your own team is free. Fair-code: you may not run a hosted Whip Computer for third parties without a commercial license — that is whip.computer.",
-  },
-  {
-    q: "Which tools can a Bot use?",
-    a: "LinkedIn, Instagram, Google Drive, Docs, Sheets, Notion, Gmail, Slack, GitHub, and 1,000+ more. Indie tools like DataFast and Postiz run on the Bot’s computer. Grant access when they hit a wall — not in a 20-field wizard.",
-  },
-  {
-    q: "Where do I talk to a Bot?",
-    a: "In the web app — a messaging app of named teammates. Desktop is that same UI in a window. The computer stays in the cloud, so you can leave the laptop and continue on your phone.",
-  },
-  {
-    q: "Does Whip Computer remember?",
-    a: "Yes. Chat is automatically organized onto the knowledge base — how we work, voice, constraints. Skills live with the workspace, not in one chat. The organization improves; you do not re-explain it every Monday.",
   },
   {
     q: "Which models can I use?",
     a: "Any of them. Bring your own keys — OpenRouter is one key for many models, or paste Anthropic, OpenAI, or Cloudflare. Claude, GPT, Grok, Kimi, DeepSeek. You are not locked to one vendor.",
   },
   {
-    q: "Can I see adoption across the team?",
-    a: "Yes — and that’s the point. A personal agent hides on a laptop. Adoption is who put work in motion: people, a contributions heatmap, and the tasks they asked for. Not a spend cockpit.",
-  },
-  {
     q: "Does my data leave Whip Computer?",
-    a: "Self-host and your data stays in your SQLite catalog and Durable Objects — whip.computer never sees it. Hosted stores it for you. Either way, a Bot talking to a model sends the prompt to the provider behind your key. Pick one with a zero-retention agreement if you need that. We do not claim zero retention: Whip Computer is meant to remember.",
-  },
-  {
-    q: "How do I talk to a person?",
-    a: `Email ${CONTACT_EMAIL}. GitHub issues for the source. Whip Computer is for the product — this mailbox is for you.`,
+    a: "Self-host and your data stays in your SQLite catalog and Durable Objects — whip.computer never sees it. Hosted stores it for you. A Bot talking to a model sends the prompt to the provider behind your key. We do not claim zero retention: Whip Computer is meant to remember.",
   },
 ] as const;
 
@@ -410,8 +374,6 @@ export const HOME_FEATURES = [
     body: "Chat is automatically organized onto the knowledge base — skills, voice, how you work.",
   },
 ] as const;
-
-export const HOME_FAQS = FAQS.slice(0, 6);
 
 export const HOME_KNOWLEDGE = {
   thread: [

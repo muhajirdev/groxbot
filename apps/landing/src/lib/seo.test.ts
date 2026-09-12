@@ -28,6 +28,7 @@ import {
   STORY,
   TAGLINE,
   THESES,
+  FAQS,
 } from "./copy";
 import {
   DISCOVERY_SITEMAP_PATHS,
@@ -386,6 +387,14 @@ describe("llms discovery", () => {
     expect(TALK_DEMO.youtubeId).toMatch(/^[A-Za-z0-9_-]{11}$/);
     expect(TALK_DEMO.youtubeId).not.toBe(HERO_DEMO.youtubeId);
     expect(STORY.map((item) => item.id)).toEqual(["hire", "talk", "computer"]);
+    expect(FAQS).toHaveLength(5);
+    expect(FAQS.map((item) => item.q)).toEqual([
+      "How is this different from OpenClaw or Hermes?",
+      "Do I need a workflow builder?",
+      "Is it open source?",
+      "Which models can I use?",
+      "Does my data leave Whip Computer?",
+    ]);
   });
 
   it("gives each landing thesis its own section headline", () => {
