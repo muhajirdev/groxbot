@@ -244,7 +244,7 @@ describe("forgetLastRoom", () => {
 });
 
 describe("workspaceMenuItems", () => {
-  it("lists the current office and create", () => {
+  it("lists the current office, create, and invite", () => {
     expect(
       workspaceMenuItems({
         currentId: "ws-1",
@@ -259,6 +259,7 @@ describe("workspaceMenuItems", () => {
         current: true,
       },
       { kind: "create" },
+      { kind: "invite" },
     ]);
   });
 
@@ -288,6 +289,7 @@ describe("workspaceMenuItems", () => {
         current: false,
       },
       { kind: "create" },
+      { kind: "invite" },
     ]);
   });
 

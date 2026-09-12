@@ -30,15 +30,15 @@ vi.mock("./admin-purge.js", () => ({
   })),
 }));
 
+import { isWorkspaceOwner } from "@groxbot/core";
+import { deleteAdminWorkspace } from "./admin-purge.js";
+import { requireActor } from "./session.js";
 import {
   activateWorkspace,
   createWorkspace,
   deleteCurrentWorkspace,
   listWorkspaces,
 } from "./workspaces.js";
-import { isWorkspaceOwner } from "@groxbot/core";
-import { requireActor } from "./session.js";
-import { deleteAdminWorkspace } from "./admin-purge.js";
 
 function user(headers = new Headers()) {
   return {
@@ -67,11 +67,9 @@ describe("createWorkspace", () => {
         slug: "studio-u1",
       })),
     };
-    const result = await createWorkspace(
-      { auth: { api } } as never,
-      user(),
-      { name: "Studio" },
-    );
+    const result = await createWorkspace({ auth: { api } } as never, user(), {
+      name: "Studio",
+    });
     expect(result).toEqual({
       id: "ws_2",
       name: "Studio",
@@ -96,11 +94,10 @@ describe("createWorkspace", () => {
         slug: "studio-u1",
       })),
     };
-    await createWorkspace(
-      { auth: { api } } as never,
-      user(),
-      { name: "Studio", id: "ws_client" },
-    );
+    await createWorkspace({ auth: { api } } as never, user(), {
+      name: "Studio",
+      id: "ws_client",
+    });
     expect(api.createOrganization).toHaveBeenCalledWith({
       body: {
         name: "Studio",
@@ -109,6 +106,71 @@ describe("createWorkspace", () => {
       },
       headers: expect.any(Headers),
     });
+  });
+
+  it("writes org.md and optional goal.md into the knowledge library", async () => {
+    const api = {
+      createOrganization: vi.fn(async () => ({
+        id: "ws_2",
+        name: "Northwind Labs",
+        slug: "northwind-labs-u1",
+      })),
+      setActiveOrganization: vi.fn(async () => ({
+        id: "ws_2",
+        name: "Northwind Labs",
+        slug: "northwind-labs-u1",
+      })),
+    };
+    const write = vi.fn(async () => ({ path: "org.md" }));
+    await createWorkspace(
+      { auth: { api }, knowledge: { write } } as never,
+      user(),
+      {
+        name: "Northwind Labs",
+        team: "Founders and a few engineers",
+        goal: "Ship a weekly product for sales.",
+      },
+    );
+    expect(write).toHaveBeenCalledTimes(2);
+    expect(write).toHaveBeenNthCalledWith(
+      1,
+      "ws_2",
+      expect.objectContaining({
+        path: "org.md",
+        content: expect.stringContaining("Northwind Labs"),
+      }),
+    );
+    expect(write).toHaveBeenNthCalledWith(
+      2,
+      "ws_2",
+      expect.objectContaining({
+        path: "goal.md",
+        content: expect.stringContaining("Ship a weekly product for sales."),
+      }),
+    );
+  });
+
+  it("does not write goal.md when they skip the hint", async () => {
+    const api = {
+      createOrganization: vi.fn(async () => ({
+        id: "ws_2",
+        name: "Studio",
+        slug: "studio-u1",
+      })),
+      setActiveOrganization: vi.fn(async () => ({
+        id: "ws_2",
+        name: "Studio",
+        slug: "studio-u1",
+      })),
+    };
+    const write = vi.fn(async () => ({ path: "org.md" }));
+    await createWorkspace(
+      { auth: { api }, knowledge: { write } } as never,
+      user(),
+      { name: "Studio" },
+    );
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(write.mock.calls[0]?.[1]).toMatchObject({ path: "org.md" });
   });
 });
 

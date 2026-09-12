@@ -9,7 +9,7 @@ describe("BootSplash", () => {
     expect(html).toContain('data-boot-splash="true"');
     expect(html).toContain('role="status"');
     expect(html).toContain("Opening Groxbot");
-    expect(html).toContain("boot-enter");
+    expect(html).not.toContain("boot-enter");
     expect(html).toContain("Groxbot");
     expect(html).toContain("boot-faces");
     for (const face of BOOT_TEAM) {

@@ -59,7 +59,6 @@ import {
   PlugIcon,
   SkillsIcon,
 } from "../components/Icons";
-import { InviteFriendButton } from "../components/InviteFriendButton";
 import { KnowledgeLibrary, KnowledgePeek } from "../components/KnowledgePlace";
 import { LiveAppsDock } from "../components/LiveAppsDock";
 import { MarketplaceModal } from "../components/MarketplaceModal";
@@ -1943,7 +1942,6 @@ export function Chat(props: {
                     />
                   </div>
                   <div className="no-drag relative flex shrink-0 items-center gap-0.5">
-                    <InviteFriendButton workspaceId={props.workspace.id} />
                     <Link
                       to={BOARD_TO}
                       params={{ workspaceSlug: props.workspace.slug }}

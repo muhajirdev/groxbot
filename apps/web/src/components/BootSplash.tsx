@@ -21,7 +21,7 @@ export function BootSplash(props: { embed?: boolean }) {
       role="status"
       aria-label="Opening Groxbot"
     >
-      <div className="boot-mark boot-enter">
+      <div className="boot-mark">
         <div className="boot-faces" aria-hidden>
           {BOOT_TEAM.map((face) => (
             <span key={face.name} className="boot-face">

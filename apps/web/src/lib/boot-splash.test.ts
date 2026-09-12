@@ -7,15 +7,26 @@ const root = dirname(fileURLToPath(import.meta.url));
 const css = readFileSync(join(root, "../styles.css"), "utf8");
 const indexHtml = readFileSync(join(root, "../../index.html"), "utf8");
 const route = readFileSync(join(root, "../routes/__root.tsx"), "utf8");
+const style = indexHtml.slice(
+  indexHtml.indexOf("<style>"),
+  indexHtml.indexOf("</style>"),
+);
 
 describe("boot splash", () => {
-  it("paints a first-paint splash in index.html before React mounts", () => {
-    expect(indexHtml).toContain('id="root"');
-    expect(indexHtml).toContain('class="boot-splash"');
-    expect(indexHtml).toContain('aria-label="Opening Groxbot"');
-    expect(indexHtml).toContain("boot-word");
-    expect(indexHtml).toMatch(/boot-face[\s\S]*boot-face[\s\S]*boot-face/);
+  it("paints the real teammate marks, centered, before React mounts", () => {
+    expect(style).toMatch(/\.boot-splash\s*\{[^}]*position:\s*fixed/s);
+    expect(style).toMatch(/\.boot-splash\s*\{[^}]*inset:\s*0/s);
+    expect(style).not.toMatch(/\.boot-splash\s*\{[^}]*min-height:\s*100%/s);
+    expect(style).not.toContain("boot-enter");
+    expect(indexHtml).toContain("<svg");
+    expect(indexHtml).toContain("<title>Ada</title>");
+    expect(indexHtml).toContain("<title>Sam</title>");
+    expect(indexHtml).toContain("<title>Kai</title>");
+    expect(indexHtml).toContain("#e45c9a");
+    expect(indexHtml).toContain("#5b7cff");
+    expect(indexHtml).toContain("#2f9e6d");
     expect(indexHtml).not.toContain("boot-enter");
+    expect(indexHtml).not.toMatch(/class="boot-face"><\/span>/);
   });
 
   it("shows the pending splash immediately and never min-delays the office", () => {
@@ -26,13 +37,11 @@ describe("boot splash", () => {
     expect(route).not.toContain('<p className="kicker">Groxbot</p>');
   });
 
-  it("settles the team cluster quickly and respects reduced motion", () => {
-    expect(css).toMatch(/@keyframes boot-settle/);
-    expect(css).toMatch(
-      /\.boot-enter \.boot-face,\s*\.boot-enter \.boot-word\s*\{[^}]*animation:\s*boot-settle 0\.42s/s,
-    );
-    expect(css).toMatch(
-      /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\.boot-enter \.boot-face,[\s\S]*?animation:\s*none/,
-    );
+  it("keeps the hydrated splash pinned to the viewport too", () => {
+    expect(css).toMatch(/\.boot-splash\s*\{[^}]*position:\s*fixed/s);
+    expect(css).toMatch(/\.boot-splash\s*\{[^}]*inset:\s*0/s);
+    expect(css).toMatch(/\.boot-splash-embed\s*\{[^}]*position:\s*relative/s);
+    expect(css).not.toContain("boot-enter");
+    expect(css).not.toContain("@keyframes boot-settle");
   });
 });

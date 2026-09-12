@@ -101,3 +101,37 @@ describe("workspaceNeedsOnboarding", () => {
     ).toBe(false);
   });
 });
+
+describe("org onboarding", () => {
+  const org = readFileSync(
+    join(root, "../components/OnboardingOrg.tsx"),
+    "utf8",
+  );
+  const enter = readFileSync(join(root, "./enter-office.ts"), "utf8");
+  const page = readFileSync(
+    join(root, "../routes/_authed/onboarding.tsx"),
+    "utf8",
+  );
+
+  it("asks for a team name in Groxbot voice, not Paperclip copy", () => {
+    expect(org).toMatch(/What do people call this team\?/);
+    expect(org).toMatch(/teammates will recognize/);
+    expect(org).not.toMatch(/Paperclip/);
+    expect(org).toMatch(/placeholder="e.g. Northwind Labs"/);
+  });
+
+  it("adds an optional goal step they can skip", () => {
+    expect(org).toMatch(/What are you building\?/);
+    expect(org).toMatch(/>\s*Skip\s*</);
+    expect(org).toMatch(/Who's the team\?/);
+    expect(page).toMatch(/goal: input\.goal\.trim\(\) \|\| undefined/);
+    expect(page).toMatch(/team: input\.team\.trim\(\) \|\| undefined/);
+  });
+
+  it("does not auto-create a nameless office", () => {
+    expect(enter).not.toMatch(/workspaces\.create/);
+    expect(enter).toMatch(/Name this team to open the office/);
+    expect(page).toMatch(/workspaces\.create/);
+    expect(page).toMatch(/OnboardingOrg/);
+  });
+});

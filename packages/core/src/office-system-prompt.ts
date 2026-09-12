@@ -244,6 +244,11 @@ export function buildOfficeSystemPrompt(opts: {
       add(guideline);
     }
   }
+  if (hasCode) {
+    add(
+      "The office library may have `org.md` and `goal.md` at the root — optional notes about the team and what we're building. Missing is not a reason to Skip or refuse work.",
+    );
+  }
   if (mcpGuideline) add(mcpGuideline);
   if (pluginsGuideline) add(pluginsGuideline);
   if (names.length === 1 && names[0] === OFFICE_SET_CONTEXT_TOOL_NAME) {

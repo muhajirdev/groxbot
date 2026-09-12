@@ -32,6 +32,14 @@ const appSettings = readFileSync(
   join(root, "../components/AppSettings.tsx"),
   "utf8",
 );
+const workspaceSwitcher = readFileSync(
+  join(root, "../components/WorkspaceSwitcher.tsx"),
+  "utf8",
+);
+const invitePeopleDialog = readFileSync(
+  join(root, "../components/InvitePeopleDialog.tsx"),
+  "utf8",
+);
 const roomBoard = readFileSync(
   join(root, "../components/RoomBoard.tsx"),
   "utf8",
@@ -411,14 +419,25 @@ describe("office chrome", () => {
       /\.room-board-card\s*\{[^}]*grid-template-columns:\s*44px/s,
     );
     expect(chatScreen).toMatch(
-      /InviteFriendButton[\s\S]*?to=\{BOARD_TO\}[\s\S]*?aria-label="Board"/,
+      /WorkspaceSwitcher[\s\S]*?to=\{BOARD_TO\}[\s\S]*?aria-label="Board"/,
     );
     expect(chatScreen).toMatch(
       /to=\{ADOPTION_TO\}[\s\S]*?aria-label="Adoption"/,
     );
+    expect(chatScreen).not.toMatch(/InviteFriendButton/);
     expect(chatScreen).not.toMatch(
       /truncate text-\[14px\] font-semibold">\s*Board/,
     );
+  });
+
+  it("invites people from the workspace switcher", () => {
+    expect(workspaceSwitcher).toMatch(/Invite people/);
+    expect(workspaceSwitcher).toMatch(/InvitePeopleDialog/);
+    expect(invitePeopleDialog).toMatch(/Invite by email/);
+    expect(invitePeopleDialog).toMatch(/createInviteLink/);
+    expect(invitePeopleDialog).toMatch(/workspaces\.invite/);
+    expect(appSettings).not.toMatch(/Invite by email/);
+    expect(workspaceSwitcher).toMatch(/max-\[720px\]:min-h-11/);
   });
 
   it("lets the work place switch board and list", () => {
