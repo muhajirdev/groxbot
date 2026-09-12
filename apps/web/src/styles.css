@@ -368,6 +368,124 @@ html.electron .screen {
   padding-top: 56px;
 }
 
+.boot-splash {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 24px;
+}
+
+.boot-splash.screen {
+  padding: 24px;
+}
+
+html.electron .boot-splash.screen {
+  padding-top: 56px;
+}
+
+.boot-splash-embed {
+  min-height: 168px;
+  width: 100%;
+  padding: 36px 16px;
+}
+
+.boot-mark {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.boot-faces {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.boot-face {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  margin-left: -10px;
+  z-index: 1;
+}
+
+.boot-face:first-child {
+  margin-left: 0;
+}
+
+.boot-face:nth-child(2) {
+  z-index: 2;
+}
+
+.boot-face:nth-child(3) {
+  z-index: 3;
+}
+
+.boot-face:empty {
+  border-radius: 40%;
+  background: #e45c9a;
+}
+
+.boot-face:nth-child(2):empty {
+  border-radius: 32%;
+  background: #5b7cff;
+}
+
+.boot-face:nth-child(3):empty {
+  border-radius: 28%;
+  background: #2f9e6d;
+}
+
+.boot-face .mascot,
+.boot-face .mascot-sm {
+  width: 32px;
+  height: 32px;
+}
+
+.boot-word {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--ink, currentColor);
+}
+
+.boot-enter .boot-face,
+.boot-enter .boot-word {
+  animation: boot-settle 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.boot-enter .boot-face:nth-child(1) {
+  animation-delay: 0.02s;
+}
+
+.boot-enter .boot-face:nth-child(2) {
+  animation-delay: 0.07s;
+}
+
+.boot-enter .boot-face:nth-child(3) {
+  animation-delay: 0.12s;
+}
+
+.boot-enter .boot-word {
+  animation-delay: 0.1s;
+}
+
+@keyframes boot-settle {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 html.electron .screen::before {
   content: "";
   position: fixed;
@@ -7330,7 +7448,9 @@ html.electron .pane-head {
   .typing-dots i,
   .pane,
   .chat-pane-slot.is-leaving > .pane,
-  .chat-side {
+  .chat-side,
+  .boot-enter .boot-face,
+  .boot-enter .boot-word {
     animation: none;
     transition: none;
   }

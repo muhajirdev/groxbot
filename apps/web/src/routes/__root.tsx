@@ -1,12 +1,13 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
 import { useEffect } from "react";
+import { BootSplash } from "../components/BootSplash";
 import { ToastHost } from "../components/ToastHost";
 import type { authClient } from "../lib/auth";
+import { applyOfficeColor, readOfficeColor } from "../lib/office-color";
 import { workspaceListQueryOptions } from "../lib/office-persist";
 import { orpc, queryClient } from "../lib/orpc";
 import { loadSession, readSession } from "../lib/session";
-import { applyOfficeColor, readOfficeColor } from "../lib/office-color";
 
 export interface RouterContext {
   queryClient: typeof queryClient;
@@ -14,17 +15,10 @@ export interface RouterContext {
   session: Awaited<ReturnType<typeof authClient.getSession>>["data"];
 }
 
-function Boot() {
-  return (
-    <div className="screen">
-      <p className="kicker">Groxbot</p>
-    </div>
-  );
-}
-
 export const Route = createRootRouteWithContext<RouterContext>()({
-  pendingMs: 1000,
-  pendingComponent: Boot,
+  pendingMs: 0,
+  pendingMinMs: 0,
+  pendingComponent: BootSplash,
   beforeLoad: ({ context }) => {
     const session = readSession(context.queryClient);
     const me = context.queryClient.getQueryData(

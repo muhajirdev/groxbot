@@ -1,4 +1,22 @@
 import { MASCOT_MOODS, type MascotMood } from "@groxbot/mascot";
+import { Link } from "@tanstack/react-router";
+import { type ReactNode, useState } from "react";
+import { AppCard } from "../components/AppCard";
+import { AvatarMark, PresenceDot } from "../components/Avatar";
+import {
+  ReasoningContent,
+  ReasoningRoot,
+  ReasoningText,
+  ReasoningTrigger,
+} from "../components/assistant-ui/elements/reasoning";
+import {
+  SpiralLoader,
+  ThinkingStatus,
+} from "../components/assistant-ui/elements/spiral-loader";
+import { TooltipIconButton } from "../components/assistant-ui/elements/tooltip-icon-button";
+import { BootSplash } from "../components/BootSplash";
+import { ComputerFileOpenProvider } from "../components/ChatFileLink";
+import { ChatMarkdown } from "../components/ChatMarkdown";
 import {
   ArrowUpIcon,
   BoardIcon,
@@ -19,23 +37,6 @@ import {
   WarningCircleIcon,
   XCircleIcon,
 } from "../components/Icons";
-import { Link } from "@tanstack/react-router";
-import { type ReactNode, useState } from "react";
-import { AppCard } from "../components/AppCard";
-import { AvatarMark, PresenceDot } from "../components/Avatar";
-import {
-  ReasoningContent,
-  ReasoningRoot,
-  ReasoningText,
-  ReasoningTrigger,
-} from "../components/assistant-ui/elements/reasoning";
-import {
-  SpiralLoader,
-  ThinkingStatus,
-} from "../components/assistant-ui/elements/spiral-loader";
-import { TooltipIconButton } from "../components/assistant-ui/elements/tooltip-icon-button";
-import { ComputerFileOpenProvider } from "../components/ChatFileLink";
-import { ChatMarkdown } from "../components/ChatMarkdown";
 import { KnowledgeMarkdown } from "../components/KnowledgeFilePreview";
 import { KnowledgeGraphMap } from "../components/KnowledgeGraph";
 import {
@@ -47,13 +48,10 @@ import { PresentSurface } from "../components/PresentToolUI";
 import { OfficeToast } from "../components/ToastHost";
 import { TypingDots } from "../components/TypingDots";
 import { Skeleton } from "../components/ui/skeleton";
-import { AVATAR_COLORS, AVATAR_SHAPES, SUGGESTED_JOBS } from "../lib/jobs";
 import { useIconPress } from "../lib/icon-press";
-import {
-  TOAST_LINK_COPIED,
-  TOAST_SHARED_LINK_COPIED,
-} from "../lib/toast";
+import { AVATAR_COLORS, AVATAR_SHAPES, SUGGESTED_JOBS } from "../lib/jobs";
 import { applyTheme, readTheme, type Theme } from "../lib/theme";
+import { TOAST_LINK_COPIED, TOAST_SHARED_LINK_COPIED } from "../lib/toast";
 import { toolActivityCopy } from "../lib/tool-copy";
 import { Button, Chip, cn, Field, Input } from "../ui";
 
@@ -210,7 +208,10 @@ export function Design() {
             title="Onboarding"
             lede="Sign in on the left. Product video on the right. Founder letter on first office open."
           >
-            <div className="auth-card" style={{ width: "100%", minHeight: 420 }}>
+            <div
+              className="auth-card"
+              style={{ width: "100%", minHeight: 420 }}
+            >
               <div className="auth-card-form">
                 <h1>Sign in</h1>
                 <p className="lede">or create an account to get started</p>
@@ -261,6 +262,9 @@ export function Design() {
                   onContinue={() => undefined}
                 />
               </div>
+            </Specimen>
+            <Specimen label="Boot splash" hint="first paint · pending office">
+              <BootSplash embed />
             </Specimen>
           </Section>
           <Section
@@ -318,7 +322,10 @@ export function Design() {
                 </ReasoningContent>
               </ReasoningRoot>
             </Specimen>
-            <Specimen label="Chain" hint="Thought / N steps zipper folds into one row">
+            <Specimen
+              label="Chain"
+              hint="Thought / N steps zipper folds into one row"
+            >
               <ReasoningRoot variant="ghost">
                 <ReasoningTrigger />
                 <ReasoningContent>
@@ -952,7 +959,9 @@ function BotRow(props: {
       </span>
       <span className="min-w-0">
         <span className="flex items-center justify-between gap-2">
-          <span className="truncate text-[14px] font-semibold">{props.name}</span>
+          <span className="truncate text-[14px] font-semibold">
+            {props.name}
+          </span>
           <span className="shrink-0 text-[11px] text-muted">{props.time}</span>
         </span>
         <div className="mt-0.5 overflow-hidden text-xs text-ellipsis whitespace-nowrap text-muted">
@@ -968,9 +977,7 @@ function ComposerMock(props: { running: boolean; squircle: boolean }) {
     <div
       className={`${props.squircle ? "corner-squircle" : ""} flex w-full flex-col gap-1 rounded-(--composer-radius) border border-line bg-card p-2`}
       style={{
-        ["--composer-radius" as string]: props.squircle
-          ? "2rem"
-          : "1.375rem",
+        ["--composer-radius" as string]: props.squircle ? "2rem" : "1.375rem",
       }}
     >
       <p className="min-h-9 px-2 py-1 text-[14px] leading-[1.5] text-muted">
