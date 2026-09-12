@@ -3746,8 +3746,82 @@ a.chip.on .chip-count,
   margin-right: auto;
 }
 
-.home-integrations {
+.home-integrations,
+.home-jobs {
   overflow: hidden;
+}
+
+.home-jobs h2 em {
+  font-style: normal;
+  color: var(--accent);
+}
+
+.job-marquee .int-marquee-track {
+  animation-duration: 96s;
+}
+
+.job-marquee .int-marquee-row.rev .int-marquee-track {
+  animation-duration: 118s;
+}
+
+.job-card {
+  box-sizing: border-box;
+  width: min(34rem, 82vw);
+  padding: 14px 16px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: color-mix(in srgb, #fff 78%, transparent);
+}
+
+.job-dept {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.job-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 7px;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--ink) 88%, var(--muted));
+}
+
+.job-words {
+  color: color-mix(in srgb, var(--ink) 72%, var(--muted));
+}
+
+.job-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px 3px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.job-chip svg {
+  flex: none;
+  color: var(--ink);
+}
+
+.job-literal {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.home-jobs-more {
+  margin-top: 4px;
+  gap: 18px;
 }
 
 .int-marquee {
