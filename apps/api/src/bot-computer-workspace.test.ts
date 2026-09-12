@@ -224,8 +224,10 @@ describe("Computer Worker shell wiring", () => {
     const wrangler = readFileSync(join(src, "../wrangler.jsonc"), "utf8");
     const date = wrangler.match(/"compatibility_date":\s*"([^"]+)"/)?.[1];
     expect(date).toBeTruthy();
+    expect(readSrc("app-runtime-code.ts")).toContain(
+      `compatibilityDate: "${date}"`,
+    );
     const runtime = readSrc("app-runtime-do.ts");
-    expect(runtime).toContain(`compatibilityDate: "${date}"`);
     expect(runtime).toMatch(/claimed !== workspaceId/);
     expect(runtime).toMatch(/storage\.put\("initialized", true\)/);
     expect(runtime).toMatch(/facets\.delete\("gadget"\)/);
