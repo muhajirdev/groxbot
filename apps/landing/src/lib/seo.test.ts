@@ -382,6 +382,9 @@ describe("llms discovery", () => {
       landing.indexOf('id="knowledge"'),
     );
     expect(landing.indexOf('id="meet"')).toBeLessThan(
+      landing.indexOf('id="use-cases"'),
+    );
+    expect(landing.indexOf('id="use-cases"')).toBeLessThan(
       landing.indexOf('id="phone"'),
     );
     expect(landing.indexOf('id="phone"')).toBeLessThan(
@@ -389,8 +392,9 @@ describe("llms discovery", () => {
     );
     expect(landing).toContain("PHONE_HEADLINE");
     expect(landing).toContain("<HandoffScene />");
-    expect(landing).toContain("HomeJobMarquee");
-    expect(landing).toContain('id="jobs"');
+    expect(landing).toContain("HomeJobStrip");
+    expect(landing).not.toContain("HomeJobMarquee");
+    expect(landing).not.toContain("homeJobMarquee");
     expect(JOBS_HEADLINE).toBe("A Bot. Your tools. The job.");
     expect(APPS_HEADLINE).toBe("Connect the bot to any apps.");
     expect(APPS_LEDE).toBe(`${formatIntegrationCount()} integrations.`);

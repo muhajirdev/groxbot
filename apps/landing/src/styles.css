@@ -1692,6 +1692,7 @@ img.avatar {
 .cta,
 #how,
 #jobs,
+#use-cases,
 #faq,
 #pricing,
 #enterprise,
@@ -3611,19 +3612,6 @@ a.chip.on .chip-count,
     animation: none;
   }
 
-  .int-marquee-track {
-    animation: none;
-  }
-
-  .int-marquee-track ul + ul {
-    display: none;
-  }
-
-  .int-marquee {
-    overflow-x: auto;
-    mask-image: none;
-  }
-
   .btn,
   .chip {
     transition: none;
@@ -3876,22 +3864,32 @@ a.chip.on .chip-count,
   margin-right: auto;
 }
 
-.home-integrations,
-.home-jobs {
-  overflow: hidden;
-}
-
 .home-jobs h2 em {
   font-style: normal;
   color: var(--accent);
 }
 
-.job-marquee .int-marquee-track {
-  animation-duration: 96s;
+.job-strip {
+  margin: 20px -24px 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scroll-snap-type: x proximity;
 }
 
-.job-marquee .int-marquee-row.rev .int-marquee-track {
-  animation-duration: 118s;
+.job-strip-track {
+  display: flex;
+  width: max-content;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0 24px 8px;
+}
+
+.job-strip-track > li {
+  flex: none;
+  scroll-snap-align: start;
 }
 
 .job-card {
@@ -3954,48 +3952,6 @@ a.chip.on .chip-count,
   gap: 18px;
 }
 
-.int-marquee {
-  display: grid;
-  gap: 10px;
-  margin: 20px -24px 8px;
-  overflow: hidden;
-  mask-image: linear-gradient(
-    90deg,
-    transparent,
-    #000 6%,
-    #000 94%,
-    transparent
-  );
-}
-
-.int-marquee-row {
-  overflow: hidden;
-}
-
-.int-marquee-track {
-  display: flex;
-  width: max-content;
-  gap: 0;
-  animation: int-marquee 72s linear infinite;
-}
-
-.int-marquee-row.rev .int-marquee-track {
-  animation-duration: 88s;
-  animation-direction: reverse;
-}
-
-.int-marquee-track ul {
-  display: flex;
-  gap: 8px;
-  list-style: none;
-  margin: 0;
-  padding: 0 8px 0 0;
-}
-
-.int-marquee:hover .int-marquee-track {
-  animation-play-state: paused;
-}
-
 .home-integrations-more {
   display: inline-block;
   margin-top: 12px;
@@ -4006,15 +3962,6 @@ a.chip.on .chip-count,
 
 .home-integrations-more:hover {
   color: var(--ink);
-}
-
-@keyframes int-marquee {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
 }
 
 .home-faq h2 {

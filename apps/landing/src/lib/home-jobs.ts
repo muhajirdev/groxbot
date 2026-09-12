@@ -253,12 +253,3 @@ export function jobApp(slug: string): { name: string; logo: string } {
     logo: item?.logo ?? `https://logos.composio.dev/api/${slug}`,
   };
 }
-
-export function homeJobMarquee(): {
-  rows: [HomeJob[], HomeJob[]];
-} {
-  const mid = Math.ceil(HOME_JOBS.length / 2);
-  return {
-    rows: [HOME_JOBS.slice(0, mid), HOME_JOBS.slice(mid)],
-  };
-}
