@@ -202,7 +202,7 @@ export const FAQS = [
   },
   {
     q: "Does Whip Computer remember?",
-    a: "Yes. What you decide in a thread is extracted into shared knowledge — how we work, voice, constraints. Skills live with the workspace, not in one chat. The organization improves; you do not re-explain it every Monday.",
+    a: "Yes. Chat is automatically organized onto the knowledge base — how we work, voice, constraints. Skills live with the workspace, not in one chat. The organization improves; you do not re-explain it every Monday.",
   },
   {
     q: "Which models can I use?",
@@ -237,7 +237,7 @@ export const TALK_POINTS = [
 export const TALK_LEDE = `${TALK_POINTS.map((item) => item.text).join(". ")}.`;
 export const KNOW_HEADLINE = "A knowledge base that improves itself.";
 export const KNOW_POINTS = [
-  { icon: "file", text: "Chat becomes the knowledge base" },
+  { icon: "file", text: "Chat is automatically organized onto the knowledge base" },
   { icon: "loop", text: "It updates itself as you work" },
   { icon: "share", text: "The whole team shares one" },
 ] as const;
@@ -331,7 +331,7 @@ export const THESES = [
     id: "knowledge",
     kicker: "Knowledge",
     title: "The company’s knowledge base should evolve from group chats.",
-    lede: "File what lasts from the thread. Skills live with the team, not one chat. Monday doesn’t start from zero.",
+    lede: "Chat is automatically organized onto the knowledge base. Skills live with the team, not one chat. Monday doesn’t start from zero.",
   },
   {
     id: "phone",
@@ -395,7 +395,7 @@ export const HOME_FEATURES = [
   },
   {
     title: "Knowledge from the thread",
-    body: "What you decide in chat becomes shared knowledge — skills, voice, how you work.",
+    body: "Chat is automatically organized onto the knowledge base — skills, voice, how you work.",
   },
 ] as const;
 

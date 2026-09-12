@@ -338,7 +338,7 @@ describe("llms discovery", () => {
     expect(TALK_LEDE).toMatch(/Experts build the agent/);
     expect(KNOW_HEADLINE).toBe("A knowledge base that improves itself.");
     expect(KNOW_POINTS.map((item) => item.text)).toEqual([
-      "Chat becomes the knowledge base",
+      "Chat is automatically organized onto the knowledge base",
       "It updates itself as you work",
       "The whole team shares one",
     ]);
