@@ -8,15 +8,16 @@ import {
 import * as Linking from "expo-linking";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { Splash } from "./src/components/Splash";
 import { authClient } from "./src/lib/auth";
 import { inviteFromHref, rememberInvite } from "./src/lib/invite";
 import { orpc, queryClient } from "./src/lib/orpc";
 import { setPendingBotId } from "./src/lib/pending";
-import type { RootStackParamList } from "./src/navigation";
 import { setRpcWorkspaceId } from "./src/lib/rpc-workspace";
+import type { RootStackParamList } from "./src/navigation";
 import { AppsScreen } from "./src/screens/Apps";
 import { BillingScreen } from "./src/screens/Billing";
 import { BoardScreen } from "./src/screens/Board";
@@ -54,14 +55,6 @@ const linking = {
     },
   },
 };
-
-function Splash() {
-  return (
-    <View style={styles.splash}>
-      <ActivityIndicator color={colors.accent} />
-    </View>
-  );
-}
 
 function RootNavigator() {
   const client = useQueryClient();
@@ -204,10 +197,4 @@ export function App() {
 
 const styles = StyleSheet.create({
   fill: { flex: 1, backgroundColor: colors.bg },
-  splash: {
-    flex: 1,
-    backgroundColor: colors.bg,
-    alignItems: "center",
-    justifyContent: "center",
-  },
 });

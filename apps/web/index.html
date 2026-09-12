@@ -46,6 +46,48 @@
         background: #060a18;
         color: #e6eefc;
       }
+      .boot-splash {
+        display: grid;
+        place-items: center;
+        min-height: 100%;
+        padding: 24px;
+      }
+      .boot-mark {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+      }
+      .boot-faces {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .boot-face {
+        display: block;
+        width: 32px;
+        height: 32px;
+        margin-left: -10px;
+        border-radius: 40%;
+        background: #e45c9a;
+      }
+      .boot-face:first-child {
+        margin-left: 0;
+      }
+      .boot-face:nth-child(2) {
+        border-radius: 32%;
+        background: #5b7cff;
+      }
+      .boot-face:nth-child(3) {
+        border-radius: 28%;
+        background: #2f9e6d;
+      }
+      .boot-word {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        letter-spacing: -0.03em;
+      }
     </style>
     <script>
       try {
@@ -122,7 +164,18 @@
     </noscript>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="boot-splash" role="status" aria-label="Opening Groxbot">
+        <div class="boot-mark">
+          <div class="boot-faces" aria-hidden="true">
+            <span class="boot-face"></span>
+            <span class="boot-face"></span>
+            <span class="boot-face"></span>
+          </div>
+          <p class="boot-word">Groxbot</p>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
