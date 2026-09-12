@@ -37,7 +37,7 @@ import {
 } from "../lib/copy";
 import { LANDING_HIRE_BOTS } from "../lib/bot-marketplace";
 import {
-  homeJobMarquee,
+  HOME_JOBS,
   jobApp,
   jobDepartmentLabel,
   type HomeJob,
@@ -201,6 +201,32 @@ export function Landing(props: { startUrl: string }) {
               </li>
             ))}
           </ul>
+        </section>
+
+        <section
+          className="band catalog home-jobs"
+          id="use-cases"
+          aria-labelledby="use-cases-title"
+        >
+          <p className="kicker">Use cases</p>
+          <h2 id="use-cases-title" aria-label={JOBS_HEADLINE}>
+            A Bot. Your tools.
+            <br />
+            The <em>job</em>.
+          </h2>
+          <p className="lede tight">
+            Ranked by the aha. Department on each card.{" "}
+            {formatIntegrationCount()} tools in the sentence.
+          </p>
+          <HomeJobStrip />
+          <div className="row home-jobs-more">
+            <Link className="home-integrations-more" to="/use-cases">
+              Browse use cases
+            </Link>
+            <Link className="home-integrations-more" to="/integrations">
+              Browse integrations
+            </Link>
+          </div>
         </section>
 
         <section
@@ -431,32 +457,6 @@ export function Landing(props: { startUrl: string }) {
         </section>
 
         <section
-          className="band catalog home-jobs"
-          id="jobs"
-          aria-labelledby="jobs-title"
-        >
-          <p className="kicker">Use cases</p>
-          <h2 id="jobs-title" aria-label={JOBS_HEADLINE}>
-            A Bot. Your tools.
-            <br />
-            The <em>job</em>.
-          </h2>
-          <p className="lede tight">
-            Ranked by the aha. Department on each card.{" "}
-            {formatIntegrationCount()} tools in the sentence.
-          </p>
-          <HomeJobMarquee />
-          <div className="row home-jobs-more">
-            <Link className="home-integrations-more" to="/use-cases">
-              Browse use cases
-            </Link>
-            <Link className="home-integrations-more" to="/integrations">
-              Browse integrations
-            </Link>
-          </div>
-        </section>
-
-        <section
           id="enterprise"
           className="enterprise"
           aria-label="Enterprise ready"
@@ -629,28 +629,16 @@ function AdoptPointIcon(props: { name: (typeof ADOPT_POINTS)[number]["icon"] }) 
   );
 }
 
-function HomeJobMarquee() {
-  const { rows } = homeJobMarquee();
+function HomeJobStrip() {
   return (
-    <div className="int-marquee job-marquee" aria-hidden="true">
-      {rows.map((row, index) => (
-        <div
-          key={index === 0 ? "fwd" : "rev"}
-          className={index === 0 ? "int-marquee-row" : "int-marquee-row rev"}
-        >
-          <div className="int-marquee-track">
-            {[0, 1].map((copy) => (
-              <ul key={copy}>
-                {row.map((job) => (
-                  <li key={`${copy}-${job.id}`}>
-                    <JobCard job={job} />
-                  </li>
-                ))}
-              </ul>
-            ))}
-          </div>
-        </div>
-      ))}
+    <div className="job-strip">
+      <ul className="job-strip-track">
+        {HOME_JOBS.map((job) => (
+          <li key={job.id}>
+            <JobCard job={job} />
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
