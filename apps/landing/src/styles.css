@@ -214,10 +214,6 @@ h3 {
   --wash-bg: var(--band-sand);
 }
 
-.tiles {
-  --wash-bg: var(--band-paper);
-}
-
 .demo {
   --wash-bg: var(--band-peach);
 }
@@ -2100,128 +2096,6 @@ img.avatar {
   max-width: 36rem;
 }
 
-.tiles {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  padding: 28px 0 72px;
-}
-
-.tile {
-  background: var(--wash);
-  border-radius: 24px;
-  padding: 28px 28px 0;
-  min-height: 400px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.tile h3 {
-  font-size: 22px;
-  letter-spacing: -0.03em;
-  margin-bottom: 10px;
-}
-
-.tile > p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 15px;
-  line-height: 1.5;
-  max-width: 36rem;
-}
-
-.tile-stage {
-  margin-top: auto;
-  padding: 28px 0 0;
-}
-
-.mini-pane {
-  background: var(--device);
-  border: 1px solid #3d3530;
-  border-radius: 16px 16px 0 0;
-  padding: 14px 14px 18px;
-  color: #f4efe8;
-}
-
-.mini-pane-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  color: var(--muted);
-  font-size: 13px;
-  margin-bottom: 12px;
-}
-
-.mini-pane-screen {
-  margin: 0;
-  min-height: 132px;
-  padding: 14px;
-  border-radius: 12px;
-  background: var(--device-2);
-  color: #d4cdc6;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.desk-split {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  padding-bottom: 18px;
-}
-
-.desk-card {
-  background: var(--device);
-  border: 1px solid #3d3530;
-  border-radius: 16px;
-  padding: 16px;
-  display: grid;
-  gap: 6px;
-  color: #f4efe8;
-}
-
-.desk-card.on {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
-}
-
-.desk-card .kicker {
-  color: #c4b8b0;
-}
-
-.desk-card strong {
-  font-size: 15px;
-}
-
-.desk-card span:last-child {
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.4;
-}
-
-.tile.wide {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
-  gap: 12px 40px;
-  min-height: 0;
-  padding: 28px 28px 18px;
-}
-
-.tile.wide h3,
-.tile.wide > p {
-  grid-column: 1;
-}
-
-.tile.wide .tile-stage {
-  grid-column: 2;
-  grid-row: 1 / span 3;
-  margin-top: 0;
-  padding: 0;
-  align-self: center;
-}
-
 .handoff-scene {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -3447,23 +3321,14 @@ a.chip.on .chip-count,
   }
 
   .enterprise,
-  .tiles,
   .demo,
   .demo-layout,
   .statement,
   .int-hero,
-  .tile.wide,
   .handoff-scene,
   .know-loop,
   .adopt {
     grid-template-columns: 1fr;
-  }
-
-  .tile.wide h3,
-  .tile.wide > p,
-  .tile.wide .tile-stage {
-    grid-column: 1;
-    grid-row: auto;
   }
 
   .statement-face {
@@ -3514,11 +3379,6 @@ a.chip.on .chip-count,
   .chapter .lede {
     margin-left: 0;
     margin-right: 0;
-  }
-
-  .tile {
-    min-height: 0;
-    padding-bottom: 24px;
   }
 
   .versus-col + .versus-col {

@@ -353,51 +353,6 @@ export function Landing(props: { startUrl: string }) {
           </div>
         </section>
 
-        <section className="tiles" aria-label="How it works">
-          <article className="tile">
-            <h3>A computer you can ignore</h3>
-            <p>
-              Hire a teammate. They already have a computer. Leave the pane
-              open, or don’t.
-            </p>
-            <div className="tile-stage">
-              <div className="mini-pane">
-                <div className="mini-pane-head">
-                  Chief of Staff&apos;s computer
-                  <span className="status-pill">
-                    <i /> Working
-                  </span>
-                </div>
-                <p className="mini-pane-screen">
-                  notes/digest.md
-                  <br />
-                  chief-of-staff.md
-                  <br />
-                  weekly.md
-                </p>
-              </div>
-            </div>
-          </article>
-          <article className="tile">
-            <h3>Built into the bot</h3>
-            <p>Not a second product. The computer is built in.</p>
-            <div className="tile-stage">
-              <div className="desk-split">
-                <div className="desk-card on">
-                  <span className="kicker">Bot</span>
-                  <strong>Chief of Staff</strong>
-                  <span>Named teammate</span>
-                </div>
-                <div className="desk-card">
-                  <span className="kicker">Computer</span>
-                  <strong>Their screen</strong>
-                  <span>Already theirs</span>
-                </div>
-              </div>
-            </div>
-          </article>
-        </section>
-
         <DemoShowcase />
 
         <section
