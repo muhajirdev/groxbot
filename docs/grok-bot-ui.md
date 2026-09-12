@@ -88,6 +88,7 @@ Examples: **Talent Scout**, **Expense Manager**, **Bug Reproduction**, **Chief o
 
 - **Messaging app**, not a dashboard. No kanban of agents as the home screen.
 - **Board** is a kanban/list over office **tasks** (`tasks/<name>/TASK.md` plus sibling `activity.md` comments). Rooms are group chats, not task cards.
+- **Adoption** is people plus a GitHub-style contributions heatmap from those files. Each task records who triggered it (the human who asked or approved). Not a spend cockpit.
 - Each Bot: **short name**, **avatar**.
 - Avatar onboarding: pick a **color** and a **rounded mark** (circle by default — a flat blob with two slits, not a photoreal face). Shape and mood morph; they do not crossfade. Sidebar shows that mascot like a contact photo. Working bots bounce.
 - Appearance: Follow system / Light / Dark (`Cmd/Ctrl+,`).

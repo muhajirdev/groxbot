@@ -23,6 +23,7 @@ export * from "./ids.js";
 export * from "./knowledge.js";
 export * from "./knowledge-task.js";
 export * from "./knowledge-tasks.js";
+export * from "./knowledge-adoption.js";
 export * from "./knowledge-links.js";
 export * from "./knowledge-search.js";
 export * from "./knowledge-shares.js";

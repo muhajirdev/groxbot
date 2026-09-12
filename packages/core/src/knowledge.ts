@@ -48,6 +48,8 @@ import {
   isKnowledgeTaskFile,
   knowledgeTaskName,
   parseTaskMarkdown,
+  stampKnowledgeTaskWrite,
+  type TaskTrigger,
 } from "./knowledge-task.js";
 import {
   type MarkdownBytes,
@@ -83,6 +85,7 @@ export type KnowledgeConvert = (file: MarkdownBytes) => Promise<unknown>;
 
 export type KnowledgeIoOpts = {
   convert?: KnowledgeConvert;
+  trigger?: TaskTrigger | null;
 };
 
 export function knowledgeConverts(path: string): boolean {
@@ -516,18 +519,28 @@ export async function writeKnowledge(
   if (input.content.length > MAX_KNOWLEDGE_NOTE_CHARS) {
     throw new KnowledgeWriteError("That file is too long.");
   }
-  await disk.put(
-    knowledgeObjectKey(workspaceId, path),
+  const previous = isKnowledgeTaskFile(path)
+    ? parseTaskMarkdown(
+        (await disk.getText(knowledgeObjectKey(workspaceId, path))) ?? "",
+      )
+    : null;
+  const content = stampKnowledgeTaskWrite(
+    path,
     input.content,
-    mediaType,
+    opts?.trigger,
+    previous,
   );
+  if (content.length > MAX_KNOWLEDGE_NOTE_CHARS) {
+    throw new KnowledgeWriteError("That file is too long.");
+  }
+  await disk.put(knowledgeObjectKey(workspaceId, path), content, mediaType);
   await syncKnowledgeLinks(
     disk,
     workspaceId,
     path,
-    indexesMarkdownForLinks(path) ? input.content : null,
+    indexesMarkdownForLinks(path) ? content : null,
   );
-  await syncKnowledgeSearch(disk, workspaceId, path, input.content);
+  await syncKnowledgeSearch(disk, workspaceId, path, content);
   return { path };
 }
 

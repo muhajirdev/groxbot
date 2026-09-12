@@ -4,6 +4,7 @@ import {
   OFFICE_AWAY_TURN_MS,
   awayOfficeExcerpt,
   lastOfficeHumanUserId,
+  lastOfficeTaskTrigger,
   parseOfficeAwayPayload,
   parseOfficeAwayStored,
   shouldArmAwayOfficePing,
@@ -155,5 +156,22 @@ describe("lastOfficeHumanUserId", () => {
         },
       ]),
     ).toBeNull();
+  });
+});
+
+describe("lastOfficeTaskTrigger", () => {
+  it("walks past a review kick to the human who asked", () => {
+    expect(
+      lastOfficeTaskTrigger([
+        {
+          metadata: { user: { userId: "user_sam", name: "Sam" } },
+          message: { role: "user" },
+        },
+        {
+          metadata: { source: OFFICE_REVIEW_SOURCE },
+          message: { role: "user" },
+        },
+      ]),
+    ).toEqual({ userId: "user_sam", name: "Sam" });
   });
 });

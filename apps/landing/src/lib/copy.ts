@@ -210,7 +210,7 @@ export const FAQS = [
   },
   {
     q: "Can I see adoption across the team?",
-    a: "Yes — and that’s the point. A personal agent hides on a laptop. Who is putting Bots to work is on the board, plus spend and which models. That’s how the rest of the team starts.",
+    a: "Yes — and that’s the point. A personal agent hides on a laptop. Adoption is who put work in motion: people, a contributions heatmap, and the tasks they asked for. Not a spend cockpit.",
   },
   {
     q: "Does my data leave the office?",
@@ -302,18 +302,15 @@ export const HOME_ADOPTION = [
 export const HOME_FEATURES = [
   {
     title: "For the whole team",
-    body:
-      "Named teammates in one office — not another agent hiding on a laptop.",
+    body: "Named teammates in one office — not another agent hiding on a laptop.",
   },
   {
     title: "Computer built in",
-    body:
-      "Hire a bot and they already have a cloud computer. Close the laptop; the work keeps going.",
+    body: "Hire a bot and they already have a cloud computer. Close the laptop; the work keeps going.",
   },
   {
     title: "Knowledge from the thread",
-    body:
-      "What you decide in chat becomes office knowledge — skills, voice, how you work.",
+    body: "What you decide in chat becomes office knowledge — skills, voice, how you work.",
   },
 ] as const;
 

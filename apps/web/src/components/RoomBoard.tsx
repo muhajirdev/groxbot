@@ -60,7 +60,10 @@ const menuItemClass = cn(
   "data-highlighted:bg-hover",
 );
 
-export function TaskBoard(props: { author: string }) {
+export function TaskBoard(props: {
+  author: string;
+  trigger?: { userId: string; name: string };
+}) {
   const queryClient = useQueryClient();
   const listed = useQuery(knowledgeTaskListQueryOptions());
   const tasks = listed.data?.tasks ?? [];
@@ -115,11 +118,23 @@ export function TaskBoard(props: { author: string }) {
     if (!name) return;
     const status = parseTaskStatus(input.status);
     const path = taskFilePath(name);
+    const at = new Date().toISOString();
+    const trigger = props.trigger;
     const content = formatTaskMarkdown({
       name,
       description: input.title,
       status,
       body: input.body,
+      triggeredBy: trigger?.userId,
+      triggeredByName: trigger?.name ?? props.author,
+      triggeredAt: at,
+    });
+    const activityPath = `tasks/${name}/activity.md`;
+    const activity = appendTaskActivity("", {
+      at,
+      author: trigger?.name ?? props.author,
+      authorId: trigger?.userId,
+      body: "Asked for this task.",
     });
     const row: KnowledgeTask = {
       name,
@@ -127,13 +142,24 @@ export function TaskBoard(props: { author: string }) {
       status,
       path,
       directory: `tasks/${name}`,
-      activityPath: `tasks/${name}/activity.md`,
+      activityPath,
       body: input.body,
+      triggeredBy: trigger?.userId,
+      triggeredByName: trigger?.name ?? props.author,
+      triggeredAt: at,
+      activity: [
+        {
+          at,
+          author: trigger?.name ?? props.author,
+          authorId: trigger?.userId,
+        },
+      ],
     };
     patchList([...peekList().tasks, row]);
     setOpenName(name);
     try {
       await client.knowledge.write({ path, content });
+      await client.knowledge.write({ path: activityPath, content: activity });
       await refreshTasks(path);
     } catch (caught) {
       await refreshTasks();
@@ -157,6 +183,9 @@ export function TaskBoard(props: { author: string }) {
           description: task.description,
           status,
           body: task.body,
+          triggeredBy: task.triggeredBy,
+          triggeredByName: task.triggeredByName,
+          triggeredAt: task.triggeredAt,
         }),
       });
       await refreshTasks(task.path);
@@ -199,6 +228,7 @@ export function TaskBoard(props: { author: string }) {
         <TaskDetail
           task={open}
           author={props.author}
+          trigger={props.trigger}
           onBack={() => setOpenName(null)}
           onRefresh={() => void refreshTasks(open.activityPath)}
         />
@@ -338,6 +368,7 @@ export function TaskBoard(props: { author: string }) {
 function TaskDetail(props: {
   task: KnowledgeTask;
   author: string;
+  trigger?: { userId: string; name: string };
   onBack: () => void;
   onRefresh: () => void;
 }) {
@@ -368,6 +399,7 @@ function TaskDetail(props: {
     const next = appendTaskActivity(raw, {
       at: new Date().toISOString(),
       author: props.author,
+      authorId: props.trigger?.userId,
       body,
     });
     try {
@@ -405,6 +437,9 @@ function TaskDetail(props: {
           </strong>
           <span className="text-[12px] text-muted">
             {TASK_STATUS_LABEL[parseTaskStatus(props.task.status)]} ·{" "}
+            {props.task.triggeredByName
+              ? `${props.task.triggeredByName} · `
+              : ""}
             {props.task.path}
           </span>
         </div>
@@ -545,6 +580,9 @@ function BoardCard(props: {
       {preview ? (
         <span className="line-clamp-2 text-[12px] text-muted">{preview}</span>
       ) : null}
+      {item.triggeredByName ? (
+        <span className="text-[12px] text-muted">{item.triggeredByName}</span>
+      ) : null}
     </button>
   );
 }
@@ -566,6 +604,11 @@ function ListRow(props: { item: KnowledgeTask; onOpen: () => void }) {
         {preview ? (
           <span className="mt-0.5 line-clamp-1 text-[12px] text-muted">
             {preview}
+          </span>
+        ) : null}
+        {item.triggeredByName ? (
+          <span className="mt-0.5 block text-[12px] text-muted">
+            {item.triggeredByName}
           </span>
         ) : null}
       </span>

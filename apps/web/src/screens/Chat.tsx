@@ -22,6 +22,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { AdoptionPlace } from "../components/AdoptionPlace";
 import { AppPane } from "../components/AppPane";
 import {
   AppSettings,
@@ -43,6 +44,7 @@ import {
 } from "../components/CreateRoomDialog";
 import { HireMarketplaceModal } from "../components/HireMarketplaceModal";
 import {
+  AdoptionIcon,
   BoardIcon,
   CaretSwapIcon,
   ChevronDownIcon,
@@ -143,6 +145,7 @@ import {
   setOfficeMessages,
 } from "../lib/office-messages";
 import {
+  ADOPTION_TO,
   BOARD_TO,
   OFFICE_TO,
   officeKnowledgeHref,
@@ -478,6 +481,7 @@ export function Chat(props: {
   botId?: string;
   roomId?: string;
   board?: boolean;
+  adoption?: boolean;
   workspace: { id: string; name: string; slug: string };
   desk: OfficeSearch;
 }) {
@@ -744,6 +748,17 @@ export function Chat(props: {
     },
     [desk, navigate, props.workspace.slug],
   );
+  const goToAdoption = useCallback(
+    (nextDesk: OfficeSearch = desk) => {
+      setRosterOpen(false);
+      return navigate({
+        to: ADOPTION_TO,
+        params: { workspaceSlug: props.workspace.slug },
+        search: nextDesk,
+      });
+    },
+    [desk, navigate, props.workspace.slug],
+  );
   const setDesk = useCallback(
     (next: OfficeSearch) => {
       if (props.roomId) {
@@ -751,12 +766,15 @@ export function Chat(props: {
       }
       if (props.botId) return goToBot(props.botId, next);
       if (props.board) return goToBoard(next);
+      if (props.adoption) return goToAdoption(next);
     },
     [
       focusedBotId,
+      goToAdoption,
       goToBoard,
       goToBot,
       goToRoom,
+      props.adoption,
       props.board,
       props.botId,
       props.roomId,
@@ -1501,6 +1519,10 @@ export function Chat(props: {
         void goToBoard(deskClosed());
         return;
       }
+      if (id === "adoption") {
+        void goToAdoption(deskClosed());
+        return;
+      }
       if (id === "delete-room") {
         if (room) setRoomDelete(room);
         return;
@@ -1541,7 +1563,7 @@ export function Chat(props: {
       }
       setDesk(deskComputer());
     },
-    [desk, goToBoard, me, openMarketplace, room, setDesk],
+    [desk, goToAdoption, goToBoard, me, openMarketplace, room, setDesk],
   );
 
   useHotkeys([
@@ -1939,6 +1961,23 @@ export function Chat(props: {
                     >
                       <BoardIcon />
                     </Link>
+                    <Link
+                      to={ADOPTION_TO}
+                      params={{ workspaceSlug: props.workspace.slug }}
+                      search={deskAwayFromLibrary(desk)}
+                      preload="intent"
+                      preloadDelay={300}
+                      onClick={closeRoster}
+                      aria-label="Adoption"
+                      aria-current={props.adoption ? "page" : undefined}
+                      title="Adoption"
+                      className={cn(
+                        "side-chrome-extra ico-hit no-drag grid size-7 place-items-center rounded-lg border-0 bg-transparent text-muted outline-none no-underline transition-[background-color,color] duration-[var(--dur-popover)] ease-[var(--ease-dialog)] hover:bg-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-accent",
+                        props.adoption && "bg-hover text-ink",
+                      )}
+                    >
+                      <AdoptionIcon />
+                    </Link>
                     {bot ? (
                       <Button
                         className="hidden max-[720px]:grid"
@@ -2259,7 +2298,7 @@ export function Chat(props: {
                         className="flex min-w-0 items-center gap-2 border-0 bg-transparent p-0 text-inherit"
                         type="button"
                         onClick={() => {
-                          if (props.board) return;
+                          if (props.board || props.adoption) return;
                           setDesk(deskSettings());
                         }}
                       >
@@ -2276,9 +2315,11 @@ export function Chat(props: {
                         <strong className="truncate text-[14px] font-semibold tracking-tight">
                           {props.board
                             ? "Board"
-                            : isRoom
-                              ? (room?.name ?? "Room")
-                              : (bot?.name ?? props.workspace.name)}
+                            : props.adoption
+                              ? "Adoption"
+                              : isRoom
+                                ? (room?.name ?? "Room")
+                                : (bot?.name ?? props.workspace.name)}
                         </strong>
                       </button>
                     </div>
@@ -2386,7 +2427,19 @@ export function Chat(props: {
                       </div>
                     </>
                   ) : props.board ? (
-                    <TaskBoard author={youName?.trim() || "you"} />
+                    <TaskBoard
+                      author={youName?.trim() || "you"}
+                      trigger={
+                        me?.userId
+                          ? {
+                              userId: me.userId,
+                              name: youName?.trim() || me.name || "Someone",
+                            }
+                          : undefined
+                      }
+                    />
+                  ) : props.adoption ? (
+                    <AdoptionPlace me={me} />
                   ) : isRoom && props.roomId && room ? (
                     <div className="relative flex min-h-0 flex-1 flex-col">
                       {mountedRoomIds.map((id) => {

@@ -33,18 +33,32 @@ export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
 
 const STATUS_SET = new Set<string>(TASK_STATUSES);
 
+export type TaskTrigger = {
+  userId: string;
+  name: string;
+};
+
 export type ParsedTask = {
   name: string;
   description: string;
   status: TaskStatus;
   body: string;
+  triggeredBy?: string;
+  triggeredByName?: string;
+  triggeredAt?: string;
 };
 
 export type TaskActivityEntry = {
   at: string;
   author: string;
+  authorId?: string;
   body: string;
 };
+
+const TRIGGER_ID = /^[A-Za-z0-9_-]{1,80}$/;
+const ISO_AT = /^\d{4}-\d{2}-\d{2}T\S+$/;
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+const ACTIVITY_AUTHOR_ID = /^(.*?)\s+@([A-Za-z0-9_-]{1,80})$/;
 
 /** `tasks/<name>/TASK.md` */
 export function taskFilePath(name: string): string {
@@ -99,11 +113,23 @@ export function parseTaskMarkdown(raw: string): ParsedTask | null {
   const name = asString(data.name);
   const description = asString(data.description);
   if (!name || !description || !isTaskName(name)) return null;
+  const trigger = parseTaskTrigger({
+    userId: asString(data.triggeredBy),
+    name: asString(data.triggeredByName),
+  });
+  const triggeredAt = parseTriggeredAt(data.triggeredAt);
   return {
     name,
     description,
     status: parseTaskStatus(data.status),
     body: match[2] ?? "",
+    ...(trigger
+      ? {
+          triggeredBy: trigger.userId,
+          triggeredByName: trigger.name,
+        }
+      : {}),
+    ...(triggeredAt ? { triggeredAt } : {}),
   };
 }
 
@@ -112,10 +138,64 @@ export function formatTaskMarkdown(input: {
   description: string;
   status?: TaskStatus;
   body: string;
+  triggeredBy?: string;
+  triggeredByName?: string;
+  triggeredAt?: string;
 }): string {
   const status = parseTaskStatus(input.status);
   const body = input.body.replace(/^\n+/u, "");
-  return `---\nname: ${input.name}\ndescription: ${input.description}\nstatus: ${status}\n---\n${body}`;
+  const trigger = parseTaskTrigger({
+    userId: input.triggeredBy,
+    name: input.triggeredByName,
+  });
+  const triggeredAt = parseTriggeredAt(input.triggeredAt);
+  const extra = trigger
+    ? `triggeredBy: ${yamlScalar(trigger.userId)}\ntriggeredByName: ${yamlScalar(trigger.name)}\ntriggeredAt: ${yamlScalar(triggeredAt ?? new Date().toISOString())}\n`
+    : "";
+  return `---\nname: ${yamlScalar(input.name)}\ndescription: ${yamlScalar(input.description)}\nstatus: ${status}\n${extra}---\n${body}`;
+}
+
+/** Fill missing `triggeredBy` on a TASK.md. Never steal an existing owner. */
+export function stampTaskMarkdown(
+  raw: string,
+  trigger: TaskTrigger,
+  at = new Date().toISOString(),
+  previous?: ParsedTask | null,
+): string {
+  const parsed = parseTaskMarkdown(raw);
+  if (!parsed) return raw;
+  const existing =
+    parseTaskTrigger({
+      userId: parsed.triggeredBy ?? previous?.triggeredBy,
+      name: parsed.triggeredByName ?? previous?.triggeredByName,
+    }) ?? trigger;
+  return formatTaskMarkdown({
+    ...parsed,
+    triggeredBy: existing.userId,
+    triggeredByName: existing.name,
+    triggeredAt: parsed.triggeredAt || previous?.triggeredAt || at,
+  });
+}
+
+export function parseTaskTrigger(value: {
+  userId?: string;
+  name?: string;
+}): TaskTrigger | null {
+  const userId = (value.userId ?? "").trim();
+  const name = (value.name ?? "").trim().replace(/\s+/g, " ").slice(0, 64);
+  if (!TRIGGER_ID.test(userId)) return null;
+  return { userId, name: name || userId };
+}
+
+export function parseTriggeredAt(value: unknown): string | undefined {
+  const text = asString(value);
+  if (!text || !ISO_AT.test(text)) return undefined;
+  return text;
+}
+
+export function isoDayFromAt(value: string): string | null {
+  const day = value.trim().slice(0, 10);
+  return ISO_DAY.test(day) ? day : null;
 }
 
 const ACTIVITY_HEADING = /^##\s+(\d{4}-\d{2}-\d{2}T\S+)\s+(\S.*?)\s*$/;
@@ -136,9 +216,11 @@ export function parseTaskActivity(raw: string): TaskActivityEntry[] {
     const heading = line.match(ACTIVITY_HEADING);
     if (heading) {
       flush();
+      const parsed = parseActivityAuthor((heading[2] ?? "").trim());
       current = {
         at: heading[1] ?? "",
-        author: (heading[2] ?? "").trim(),
+        author: parsed.author,
+        ...(parsed.authorId ? { authorId: parsed.authorId } : {}),
         body: "",
       };
       continue;
@@ -156,7 +238,10 @@ export function formatTaskActivity(
 ): string {
   if (entries.length === 0) return "";
   return `${entries
-    .map((row) => `## ${row.at} ${row.author}\n${row.body.trim()}\n`)
+    .map(
+      (row) =>
+        `## ${row.at} ${formatActivityAuthor(row)}\n${row.body.trim()}\n`,
+    )
     .join("\n")
     .trimEnd()}\n`;
 }
@@ -165,7 +250,7 @@ export function appendTaskActivity(
   raw: string,
   entry: TaskActivityEntry,
 ): string {
-  const block = `## ${entry.at} ${sanitizeActivityAuthor(entry.author)}\n${entry.body.trim()}\n`;
+  const block = `## ${entry.at} ${formatActivityAuthor(entry)}\n${entry.body.trim()}\n`;
   const base = raw.trimEnd();
   return base ? `${base}\n\n${block}` : block;
 }
@@ -173,6 +258,78 @@ export function appendTaskActivity(
 export function sanitizeActivityAuthor(value: string): string {
   const next = value.trim().replace(/\s+/g, " ").slice(0, 64);
   return next || "you";
+}
+
+function parseActivityAuthor(value: string): {
+  author: string;
+  authorId?: string;
+} {
+  const tagged = value.match(ACTIVITY_AUTHOR_ID);
+  if (tagged) {
+    const author = sanitizeActivityAuthor(tagged[1] ?? "");
+    const authorId = tagged[2] ?? "";
+    return TRIGGER_ID.test(authorId) ? { author, authorId } : { author };
+  }
+  return { author: sanitizeActivityAuthor(value) };
+}
+
+function formatActivityAuthor(
+  entry: Pick<TaskActivityEntry, "author" | "authorId">,
+): string {
+  const author = sanitizeActivityAuthor(entry.author);
+  const authorId = (entry.authorId ?? "").trim();
+  return TRIGGER_ID.test(authorId) ? `${author} @${authorId}` : author;
+}
+
+/**
+ * If the newest activity line has no human id, attribute it to the
+ * person who asked this turn — never leave bot-only authorship.
+ */
+export function stampTaskActivity(raw: string, trigger: TaskTrigger): string {
+  const entries = parseTaskActivity(raw);
+  if (entries.length === 0) return raw;
+  const last = entries[entries.length - 1];
+  if (!last || last.authorId) return raw;
+  const next = entries.slice();
+  next[next.length - 1] = {
+    ...last,
+    author: trigger.name,
+    authorId: trigger.userId,
+  };
+  return formatTaskActivity(next);
+}
+
+export function stampKnowledgeTaskWrite(
+  path: string,
+  content: string,
+  trigger: TaskTrigger | null | undefined,
+  previous?: ParsedTask | null,
+): string {
+  if (!trigger) return content;
+  if (isKnowledgeTaskFile(path)) {
+    return stampTaskMarkdown(
+      content,
+      trigger,
+      new Date().toISOString(),
+      previous,
+    );
+  }
+  if (isKnowledgeTaskActivityFile(path)) {
+    return stampTaskActivity(content, trigger);
+  }
+  return content;
+}
+
+function yamlScalar(value: string): string {
+  if (
+    value === "" ||
+    /[:#[\]{},&*!|>'"%@`]/.test(value) ||
+    /^\s|\s$/.test(value) ||
+    /[\n\r]/.test(value)
+  ) {
+    return JSON.stringify(value);
+  }
+  return value;
 }
 
 export function slugFromTitle(title: string): string {

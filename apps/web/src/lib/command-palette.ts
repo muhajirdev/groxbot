@@ -63,6 +63,19 @@ export const PALETTE_ACTIONS = [
     keywords: ["board", "kanban", "status", "work", "tasks", "list"],
   },
   {
+    id: "adoption",
+    label: "Adoption",
+    shortcut: "",
+    keywords: [
+      "adoption",
+      "people",
+      "contributors",
+      "heatmap",
+      "team",
+      "contributions",
+    ],
+  },
+  {
     id: "delete-room",
     label: "Delete room",
     shortcut: "",

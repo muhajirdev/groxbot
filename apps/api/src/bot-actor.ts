@@ -64,6 +64,7 @@ import {
   isThoughtSignatureError,
   jsonClone,
   lastOfficeHumanUserId,
+  lastOfficeTaskTrigger,
   lastOfficeUserIsIntro,
   lastPiAssistantText,
   listComputerEntries,
@@ -2692,6 +2693,10 @@ export class RoomHome extends Agent<WorkerEnv> {
         new KnowledgeConnector(this.ctx, this.env, disk, () => this.officeId, {
           convert: bindToMarkdown(this.env.AI),
           readComputer: (path) => this.workspace.readFileBytes(path),
+          trigger: async () => {
+            const session = await this.ensureOfficeSession();
+            return lastOfficeTaskTrigger(await this.officeBound(session));
+          },
         }),
         new SkillsStoreConnector(this.ctx, this.env, disk, () => this.officeId),
       );

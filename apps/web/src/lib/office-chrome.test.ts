@@ -413,6 +413,9 @@ describe("office chrome", () => {
     expect(chatScreen).toMatch(
       /InviteFriendButton[\s\S]*?to=\{BOARD_TO\}[\s\S]*?aria-label="Board"/,
     );
+    expect(chatScreen).toMatch(
+      /to=\{ADOPTION_TO\}[\s\S]*?aria-label="Adoption"/,
+    );
     expect(chatScreen).not.toMatch(
       /truncate text-\[14px\] font-semibold">\s*Board/,
     );
@@ -427,6 +430,13 @@ describe("office chrome", () => {
     expect(roomBoard).toMatch(/activity\.md/);
     expect(css).toMatch(/\.room-board-list-row\s*\{[^}]*grid-template-columns/s);
     expect(css).toMatch(/\.room-board-display\s*\{[^}]*border:\s*1px solid var\(--line\)/s);
+  });
+
+  it("shows team adoption as people plus a contributions heatmap", () => {
+    expect(chatScreen).toMatch(/AdoptionPlace/);
+    expect(chatScreen).toMatch(/aria-label="Adoption"/);
+    expect(css).toMatch(/\.adoption-people\s*\{[^}]*grid-template-columns/s);
+    expect(css).toMatch(/\.adoption-heat-cell\[data-level="4"\]/);
   });
 
   it("lets a group room invite more teammates", () => {

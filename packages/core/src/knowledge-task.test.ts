@@ -10,6 +10,8 @@ import {
   parseTaskMarkdown,
   parseTaskStatus,
   slugFromTitle,
+  stampKnowledgeTaskWrite,
+  stampTaskMarkdown,
   taskActivityPath,
   taskFilePath,
   uniqueTaskName,
@@ -48,6 +50,53 @@ describe("parseTaskMarkdown", () => {
       description: "Ship the landing page",
       status: "in_progress",
       body: "Hero first.\n",
+    });
+  });
+
+  it("round-trips who triggered the task", () => {
+    const raw = formatTaskMarkdown({
+      name: "ship-landing",
+      description: "Ship the landing page",
+      status: "todo",
+      body: "",
+      triggeredBy: "usr_ada",
+      triggeredByName: "Ada",
+      triggeredAt: "2026-09-12T03:00:00.000Z",
+    });
+    expect(raw).toMatch(/^triggeredBy: usr_ada$/m);
+    expect(parseTaskMarkdown(raw)).toMatchObject({
+      name: "ship-landing",
+      triggeredBy: "usr_ada",
+      triggeredByName: "Ada",
+      triggeredAt: "2026-09-12T03:00:00.000Z",
+    });
+  });
+
+  it("stamps a missing owner and keeps an existing one", () => {
+    const blank = formatTaskMarkdown({
+      name: "ship-landing",
+      description: "Ship it",
+      body: "Hero.\n",
+    });
+    const stamped = stampTaskMarkdown(
+      blank,
+      { userId: "usr_ada", name: "Ada" },
+      "2026-09-12T03:00:00.000Z",
+    );
+    expect(parseTaskMarkdown(stamped)).toMatchObject({
+      triggeredBy: "usr_ada",
+      triggeredByName: "Ada",
+      triggeredAt: "2026-09-12T03:00:00.000Z",
+    });
+    const kept = stampTaskMarkdown(
+      stamped,
+      { userId: "usr_sam", name: "Sam" },
+      "2026-09-13T00:00:00.000Z",
+    );
+    expect(parseTaskMarkdown(kept)).toMatchObject({
+      triggeredBy: "usr_ada",
+      triggeredByName: "Ada",
+      triggeredAt: "2026-09-12T03:00:00.000Z",
     });
   });
 
@@ -99,6 +148,37 @@ describe("task activity", () => {
         at: "2026-09-11T18:00:00.000Z",
         author: "you",
         body: "Line one.\n\nLine two.",
+      },
+    ]);
+  });
+
+  it("records the triggering human on activity lines", () => {
+    const raw = appendTaskActivity("", {
+      at: "2026-09-12T03:00:00.000Z",
+      author: "Ada",
+      authorId: "usr_ada",
+      body: "Asked for the landing page.",
+    });
+    expect(raw).toMatch(/^## 2026-09-12T03:00:00.000Z Ada @usr_ada$/m);
+    expect(parseTaskActivity(raw)).toEqual([
+      {
+        at: "2026-09-12T03:00:00.000Z",
+        author: "Ada",
+        authorId: "usr_ada",
+        body: "Asked for the landing page.",
+      },
+    ]);
+    const stamped = stampKnowledgeTaskWrite(
+      "tasks/ship-landing/activity.md",
+      "## 2026-09-12T03:05:00.000Z piper\nDrafted copy.\n",
+      { userId: "usr_ada", name: "Ada" },
+    );
+    expect(parseTaskActivity(stamped)).toEqual([
+      {
+        at: "2026-09-12T03:05:00.000Z",
+        author: "Ada",
+        authorId: "usr_ada",
+        body: "Drafted copy.",
       },
     ]);
   });
