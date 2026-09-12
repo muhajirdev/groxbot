@@ -200,11 +200,45 @@ export const TALK_POINTS = [
   { icon: "up", text: "The company gets more done" },
 ] as const;
 export const TALK_LEDE = `${TALK_POINTS.map((item) => item.text).join(". ")}.`;
+export const HOW_HEADLINE = "Hire. Invite. See who started.";
+export const HIRE_BEAT_HEADLINE = "Hire a bot.";
+export const HIRE_BEAT_LEDE =
+  "A named teammate, already wired to their apps.";
+export const INVITE_HEADLINE = "Invite your team to use the bot.";
+export const INVITE_LEDE =
+  "They talk to that hire where they already work. Not a private laptop agent.";
 export const ADOPT_HEADLINE = "Track your team's AI adoption.";
+export const ADOPT_LEDE =
+  "The best way to get your team on AI is to make use visible.";
 export const ADOPT_POINTS = [
   { icon: "people", text: "See who put work in motion" },
   { icon: "heat", text: "A contributions heatmap" },
   { icon: "spend", text: "Not a spend cockpit" },
+] as const;
+export const RUNS_HEADLINE = "Runs everywhere.";
+export const RUNS_EVERYWHERE = [
+  { name: "Slack", slug: "slack" },
+  { name: "Microsoft Teams", slug: "microsoft_teams" },
+  { name: "Discord", slug: "discord" },
+  { name: "iOS" },
+  { name: "Android" },
+  { name: "Web" },
+] as const;
+export const AGENT_HEADLINE = "The agent improves itself.";
+export const AGENT_LEDE =
+  "Soul, memory, and playbooks grow from the work. Learned stays off the thread until it files something.";
+export const CHEAP_HEADLINE = "Cheap to run.";
+export const CHEAP_LEDE =
+  "Open-source and hosted-free models at a fraction of a closed lab.";
+export const BYOK_HEADLINE = "Use the AI you already pay for.";
+export const BYOK_LEDE =
+  "Paste Codex, Kimi, z.ai, or any key. Workspace BYOK wins.";
+export const BYOK_NAMES = ["Codex", "Kimi", "z.ai", "Claude", "GPT", "Grok"] as const;
+export const ROUTINES_HEADLINE = "Routines.";
+export const HOME_ROUTINES = [
+  { job: "the Reddit digest", every: "day", at: "8am" },
+  { job: "the pipeline recap", every: "weekday", at: "6pm" },
+  { job: "the competitor brief", every: "Monday", at: "9am" },
 ] as const;
 export const KNOW_HEADLINE = "A knowledge base that improves itself.";
 export const KNOW_POINTS = [
@@ -285,20 +319,20 @@ export const STORY = [
   {
     id: "hire",
     kicker: "Hire",
-    title: "Start with a person, not a workflow.",
-    lede: "Pick a teammate. They show up with a name, a desk, and a computer. Empty until you give them a job.",
+    title: "Hire a bot.",
+    lede: "A named teammate, already wired to their apps.",
   },
   {
-    id: "talk",
-    kicker: "Talk",
-    title: "Message them like a coworker.",
-    lede: "Give work in the thread. They come back when they need you. Not a prompt box — a conversation.",
+    id: "invite",
+    kicker: "Invite",
+    title: "Invite your team to use the bot.",
+    lede: "They talk to that hire where they already work. Not a private laptop agent.",
   },
   {
-    id: "computer",
-    kicker: "Computer",
-    title: "They already have a computer.",
-    lede: "Built into the bot. Leave the pane open, or don’t. The work still happens.",
+    id: "adopt",
+    kicker: "Adopt",
+    title: "Track your team's AI adoption.",
+    lede: "The best way to get your team on AI is to make use visible.",
   },
 ] as const;
 

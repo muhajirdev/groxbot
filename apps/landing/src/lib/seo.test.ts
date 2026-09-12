@@ -13,6 +13,10 @@ import {
   HERO_HEADLINE,
   ADOPT_HEADLINE,
   ADOPT_POINTS,
+  HOW_HEADLINE,
+  HIRE_BEAT_HEADLINE,
+  INVITE_HEADLINE,
+  RUNS_HEADLINE,
   JOBS_HEADLINE,
   KNOW_HEADLINE,
   KNOW_POINTS,
@@ -378,23 +382,46 @@ describe("llms discovery", () => {
       ),
       "utf8",
     );
+    expect(HOW_HEADLINE).toBe("Hire. Invite. See who started.");
+    expect(HIRE_BEAT_HEADLINE).toBe("Hire a bot.");
+    expect(INVITE_HEADLINE).toBe("Invite your team to use the bot.");
+    expect(RUNS_HEADLINE).toBe("Runs everywhere.");
+    expect(landing.indexOf('id="hire-bot"')).toBeLessThan(
+      landing.indexOf('id="invite"'),
+    );
+    expect(landing.indexOf('id="invite"')).toBeLessThan(
+      landing.indexOf('id="adopt"'),
+    );
     expect(landing.indexOf('id="adopt"')).toBeLessThan(
-      landing.indexOf('id="knowledge"'),
+      landing.indexOf('id="everywhere"'),
     );
-    expect(landing.indexOf('id="meet"')).toBeLessThan(
-      landing.indexOf('id="use-cases"'),
-    );
-    expect(landing.indexOf('id="use-cases"')).toBeLessThan(
+    expect(landing.indexOf('id="everywhere"')).toBeLessThan(
       landing.indexOf('id="phone"'),
     );
     expect(landing.indexOf('id="phone"')).toBeLessThan(
-      landing.indexOf('id="apps"'),
+      landing.indexOf('id="knowledge"'),
+    );
+    expect(landing.indexOf('id="knowledge"')).toBeLessThan(
+      landing.indexOf('id="models"'),
+    );
+    expect(landing.indexOf('id="models"')).toBeLessThan(
+      landing.indexOf('id="routines"'),
+    );
+    expect(landing.indexOf('id="routines"')).toBeLessThan(
+      landing.indexOf('id="hire-catalog"'),
     );
     expect(landing).toContain("PHONE_HEADLINE");
     expect(landing).toContain("<HandoffScene />");
-    expect(landing).toContain("HomeJobStrip");
+    expect(landing).toContain("<HomeHireStrip");
+    expect(landing).toContain("<RoutineLine");
+    expect(landing).not.toContain("HomeJobStrip");
     expect(landing).not.toContain("HomeJobMarquee");
     expect(landing).not.toContain("homeJobMarquee");
+    expect(landing).not.toContain('id="use-cases"');
+    expect(landing).not.toContain('id="meet"');
+    expect(landing).not.toContain('id="apps"');
+    expect(landing).not.toContain("<DemoShowcase");
+    expect(landing).not.toContain('className="statement"');
     expect(landing).not.toContain("A computer you can ignore");
     expect(landing).not.toContain("className=\"tiles\"");
     expect(JOBS_HEADLINE).toBe("A Bot. Your tools. The job.");
@@ -417,7 +444,7 @@ describe("llms discovery", () => {
     expect(HERO_DEMO.youtubeId).toMatch(/^[A-Za-z0-9_-]{11}$/);
     expect(TALK_DEMO.youtubeId).toMatch(/^[A-Za-z0-9_-]{11}$/);
     expect(TALK_DEMO.youtubeId).not.toBe(HERO_DEMO.youtubeId);
-    expect(STORY.map((item) => item.id)).toEqual(["hire", "talk", "computer"]);
+    expect(STORY.map((item) => item.id)).toEqual(["hire", "invite", "adopt"]);
     expect(FAQS).toHaveLength(5);
     expect(FAQS.map((item) => item.q)).toEqual([
       "How is this different from OpenClaw or Hermes?",

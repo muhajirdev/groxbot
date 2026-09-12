@@ -47,14 +47,22 @@ describe("homepage section washes", () => {
     expect(css).toContain("--band-sand:");
     expect(css).toContain("--band-peach:");
     expect(css).toContain("--band-blush:");
-    expect(css).toMatch(/#talk\s*\{[^}]*--wash-bg:\s*var\(--band-peach\)/s);
-    expect(css).toMatch(/\.adopt-free\s*\{[^}]*--wash-bg:\s*var\(--band-paper\)/s);
+    expect(css).toMatch(
+      /\.how-works\s*\{[^}]*--wash-bg:\s*var\(--band-paper\)/s,
+    );
+    expect(css).toMatch(
+      /\.everywhere\s*\{[^}]*--wash-bg:\s*var\(--band-blush\)/s,
+    );
     expect(css).toMatch(/\.know\s*\{[^}]*--wash-bg:\s*var\(--band-sand\)/s);
     expect(css).toMatch(
-      /\.statement\s*\{[^}]*--wash-bg:\s*var\(--band-peach\)/s,
+      /\.feature-grid\s*\{[^}]*--wash-bg:\s*var\(--band-paper\)/s,
+    );
+    expect(css).toMatch(
+      /\.home-routines\s*\{[^}]*--wash-bg:\s*var\(--band-blush\)/s,
     );
     expect(css).toMatch(
       /#together\s*\{[^}]*--wash-bg:\s*var\(--band-sand\)/s,
     );
+    expect(css).toMatch(/#hire\s*\{[^}]*--wash-bg:\s*var\(--band-blush\)/s);
   });
 });
