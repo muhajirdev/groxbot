@@ -41,7 +41,7 @@
   --band-paper: #fffdfb;
   --band-cream: #fff6f0;
   --band-sand: #f2e4d8;
-  --band-peach: #fbe4d2;
+  --band-olive: #cfc6a0;
   --band-blush: color-mix(in srgb, var(--accent) 11%, #fff6f0);
   --accent: #e0458b;
   --ok: #2f9e6d;
@@ -173,7 +173,7 @@ h3 {
 }
 
 #talk {
-  --wash-bg: var(--band-peach);
+  --wash-bg: var(--band-olive);
 }
 
 .adopt-free {
@@ -209,7 +209,7 @@ h3 {
 }
 
 .statement {
-  --wash-bg: var(--band-peach);
+  --wash-bg: var(--band-olive);
 }
 
 .demo {
@@ -225,7 +225,7 @@ h3 {
 }
 
 .faq-band {
-  --wash-bg: var(--band-peach);
+  --wash-bg: var(--band-olive);
 }
 
 .cta {
