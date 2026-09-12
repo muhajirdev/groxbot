@@ -229,16 +229,40 @@ export const TAGLINE = GROXBOT_TAGLINE;
 export const HERO_PITCH = "Multiplayer. Open source. Invite only.";
 export const HERO_HEADLINE = "AI for teams.";
 export const TALK_HEADLINE = "Invite your team to talk with your AI agents.";
-export const TALK_LEDE =
-  "Let your experts build the agents, and let the rest of the team use it.";
+export const TALK_POINTS = [
+  { icon: "build", text: "Experts build the agent" },
+  { icon: "team", text: "The team uses it" },
+  { icon: "up", text: "The company gets more done" },
+] as const;
+export const TALK_LEDE = `${TALK_POINTS.map((item) => item.text).join(". ")}.`;
+export const KNOW_HEADLINE = "A knowledge base that improves itself.";
+export const KNOW_POINTS = [
+  { icon: "file", text: "Chat becomes the knowledge base" },
+  { icon: "loop", text: "It updates itself as you work" },
+  { icon: "share", text: "The whole team shares one" },
+] as const;
+export const MEET_HEADLINE = "Meet your team where they work.";
+export const MEET_CHANNELS = [
+  { name: "Slack", slug: "slack" },
+  { name: "Discord", slug: "discord" },
+  { name: "Microsoft Teams", slug: "microsoft_teams" },
+] as const;
 export const HERO_COMPARE_NAMES = [
   "Hermes Agent",
   "OpenClaw",
   "Grok Bot",
 ] as const;
 export const HERO_LEDE = `Like ${HERO_COMPARE_NAMES[0]}, ${HERO_COMPARE_NAMES[1]}, or ${HERO_COMPARE_NAMES[2]} — but for teams.`;
-export const HERO_PLATFORMS = ["Web", "Mac", "iOS", "Android"] as const;
-export const HERO_PLATFORMS_LINE = `Available for ${HERO_PLATFORMS.join(", ")}`;
+export const HERO_PLATFORMS = [
+  { name: "Web" },
+  { name: "Mac" },
+  { name: "iOS" },
+  { name: "Android" },
+  { name: "Discord", icon: demoLogo("discord") },
+  { name: "Slack", icon: demoLogo("slack") },
+  { name: "Microsoft Teams", icon: demoLogo("microsoft_teams") },
+] as const;
+export const HERO_PLATFORMS_LINE = `Available for ${HERO_PLATFORMS.map((item) => item.name).join(", ")}`;
 /** Swap `youtubeId` for the Whip Computer hero demo. */
 export const HERO_DEMO = {
   youtubeId: "M7lc1UVf-VE",
@@ -390,5 +414,40 @@ export const HOME_KNOWLEDGE = {
       path: "skills/linkedin-teardown/SKILL.md",
       note: "Draft, queue, don’t publish.",
     },
+  ],
+} as const;
+
+export const KNOW_GRAPH = {
+  nodes: [
+    { id: "voice", label: "voice.md", x: 36, y: 40, r: 2.6, hot: true },
+    { id: "owners", label: "owners.md", x: 58, y: 28, r: 2.2 },
+    { id: "skill", label: "SKILL.md", x: 70, y: 56, r: 2.5, hot: true },
+    { id: "maya", label: "Maya", x: 20, y: 62, r: 2 },
+    { id: "jules", label: "Jules", x: 46, y: 74, r: 2 },
+    { id: "thursday", label: "Thursday", x: 28, y: 22, r: 1.8 },
+    { id: "linkedin", label: "LinkedIn", x: 86, y: 42, r: 2.1 },
+    { id: "a", x: 24, y: 38, r: 1.1 },
+    { id: "b", x: 48, y: 18, r: 1 },
+    { id: "c", x: 64, y: 44, r: 1.15 },
+    { id: "d", x: 78, y: 68, r: 1 },
+    { id: "e", x: 14, y: 48, r: 0.95 },
+    { id: "f", x: 52, y: 52, r: 1.05 },
+    { id: "g", x: 40, y: 58, r: 0.9 },
+  ],
+  edges: [
+    ["thursday", "voice"],
+    ["voice", "skill"],
+    ["voice", "maya"],
+    ["owners", "jules"],
+    ["owners", "skill"],
+    ["skill", "linkedin"],
+    ["voice", "owners"],
+    ["maya", "a"],
+    ["thursday", "b"],
+    ["skill", "c"],
+    ["linkedin", "d"],
+    ["maya", "e"],
+    ["voice", "f"],
+    ["jules", "g"],
   ],
 } as const;

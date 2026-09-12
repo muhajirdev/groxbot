@@ -14,10 +14,13 @@ import {
   HERO_HEADLINE,
   HERO_PLATFORMS,
   TALK_DEMO,
+  KNOW_HEADLINE,
+  KNOW_POINTS,
+  MEET_CHANNELS,
+  MEET_HEADLINE,
   TALK_HEADLINE,
-  TALK_LEDE,
+  TALK_POINTS,
   HOME_ADOPTION,
-  HOME_KNOWLEDGE,
   HOME_MODELS,
   SOURCE_REPO,
   START_CTA,
@@ -29,6 +32,7 @@ import { HOME_INTEGRATIONS } from "../lib/teasers";
 import { DemoThread } from "./DemoThread";
 import { HeroCompare } from "./HeroCompare";
 import { HeroDemo } from "./HeroDemo";
+import { KnowGraph } from "./KnowGraph";
 import { PersonFace } from "./PersonFace";
 import { SiteChrome } from "./SiteChrome";
 
@@ -68,27 +72,16 @@ export function Landing(props: { startUrl: string }) {
               />
             </svg>
             <span>Available for</span>
-            {HERO_PLATFORMS.map((name) => (
-              <span key={name} className="hero-platform">
-                {name}
+            {HERO_PLATFORMS.map((item) => (
+              <span key={item.name} className="hero-platform">
+                {"icon" in item ? (
+                  <img src={item.icon} alt="" width={14} height={14} />
+                ) : null}
+                {item.name}
               </span>
             ))}
           </p>
           <HeroDemo demo={HERO_DEMO} id="demo" />
-        </section>
-
-        <section className="talk" aria-labelledby="talk-title">
-          <div className="talk-copy">
-            <h2 id="talk-title" aria-label={TALK_HEADLINE}>
-              Invite your team
-              <br />
-              to talk with
-              <br />
-              your <em>AI agents</em>.
-            </h2>
-            <p className="talk-lede">{TALK_LEDE}</p>
-          </div>
-          <HeroDemo demo={TALK_DEMO} id="talk-demo" />
         </section>
 
         <section className="models-line" aria-label="Works with any model">
@@ -107,6 +100,69 @@ export function Landing(props: { startUrl: string }) {
                   height={18}
                 />
                 {model.name}
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="talk" aria-labelledby="talk-title">
+          <div className="talk-copy">
+            <h2 id="talk-title" aria-label={TALK_HEADLINE}>
+              Invite your team
+              <br />
+              to talk with
+              <br />
+              your <em>AI agents</em>.
+            </h2>
+            <ul className="talk-points">
+              {TALK_POINTS.map((item) => (
+                <li key={item.icon}>
+                  <TalkPointIcon name={item.icon} />
+                  {item.text}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <HeroDemo demo={TALK_DEMO} id="talk-demo" />
+        </section>
+
+        <section className="know" id="knowledge" aria-labelledby="know-title">
+          <h2 id="know-title" aria-label={KNOW_HEADLINE}>
+            A knowledge base
+            <br />
+            that <em>improves itself</em>.
+          </h2>
+          <div className="know-body">
+            <KnowGraph />
+            <ul className="know-points">
+              {KNOW_POINTS.map((item) => (
+                <li key={item.icon}>
+                  <KnowPointIcon name={item.icon} />
+                  {item.text}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
+        <section className="talk" id="meet" aria-labelledby="meet-title">
+          <div className="talk-copy">
+            <h2 id="meet-title" aria-label={MEET_HEADLINE}>
+              Meet your team
+              <br />
+              where they <em>work</em>.
+            </h2>
+          </div>
+          <ul className="meet-apps">
+            {MEET_CHANNELS.map((item) => (
+              <li key={item.slug}>
+                <img
+                  src={demoLogo(item.slug)}
+                  alt=""
+                  width={36}
+                  height={36}
+                />
+                {item.name}
               </li>
             ))}
           </ul>
@@ -211,37 +267,6 @@ export function Landing(props: { startUrl: string }) {
               );
             })}
           </ol>
-        </section>
-
-        <section
-          id="knowledge"
-          className="adopt"
-          aria-labelledby="thesis-knowledge"
-        >
-          <div className="adopt-copy">
-            <p className="kicker">{THESES[2].kicker}</p>
-            <h2 id="thesis-knowledge">{THESES[2].title}</h2>
-            <p className="lede tight">{THESES[2].lede}</p>
-          </div>
-          <div className="know-loop" aria-hidden>
-            <div className="know-col">
-              <p className="kicker">Thread</p>
-              {HOME_KNOWLEDGE.thread.map((line) => (
-                <p key={line} className="know-line">
-                  {line}
-                </p>
-              ))}
-            </div>
-            <div className="know-col on">
-              <p className="kicker">Shared knowledge</p>
-              {HOME_KNOWLEDGE.files.map((file) => (
-                <p key={file.path} className="know-file">
-                  <strong>{file.path}</strong>
-                  {file.note}
-                </p>
-              ))}
-            </div>
-          </div>
         </section>
 
         <section id="phone" className="thesis-section" aria-labelledby="thesis-phone">
@@ -565,5 +590,59 @@ function HandoffScene() {
         </div>
       </div>
     </div>
+  );
+}
+
+function KnowPointIcon(props: { name: (typeof KNOW_POINTS)[number]["icon"] }) {
+  const draw =
+    props.name === "file"
+      ? "M7 4.5h7.2L19 9.2V19.5H7zM14.2 4.5V9.2H19M9.2 12.5h5.6M9.2 15.6h4.2"
+      : props.name === "loop"
+        ? "M7.2 8.2A5.2 5.2 0 0 1 16.8 9.4M16.8 15.8A5.2 5.2 0 0 1 7.2 14.6M16.8 9.4l1.6-2.6M16.8 9.4l-2.5.4M7.2 14.6l-1.6 2.6M7.2 14.6l2.5-.4"
+        : "M8.8 8.4a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8zM4.4 18.6c.3-2.6 2-4.2 4.4-4.2s4.1 1.6 4.4 4.2M15.2 9.8 19 8.4 15.2 7M19 8.4v3.2";
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="22"
+      height="22"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d={draw}
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function TalkPointIcon(props: { name: (typeof TALK_POINTS)[number]["icon"] }) {
+  const draw =
+    props.name === "build"
+      ? "M14.8 6.2a3.8 3.8 0 0 0-5.4 5.3L4 16.9 7.1 20l5.4-5.4a3.8 3.8 0 0 0 5.3-5.4l-2.4 2.3-2.2-2.2z"
+      : props.name === "team"
+        ? "M9 8.2a2.6 2.6 0 1 0 0-5.2 2.6 2.6 0 0 0 0 5.2zM4.2 18.8c.4-3 2.4-4.7 4.8-4.7s4.4 1.7 4.8 4.7M16.8 9.4a2.1 2.1 0 1 0 0-4.2 2.1 2.1 0 0 0 0 4.2zM16.2 18.8c.3-2.2 1.6-3.5 3.6-3.8"
+        : "M4.5 16.2 9 11.6l3.1 3.1 7.4-7.4";
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="22"
+      height="22"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d={draw}
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

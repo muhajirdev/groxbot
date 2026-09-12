@@ -11,8 +11,13 @@ import {
   HERO_DEMO,
   TALK_DEMO,
   HERO_HEADLINE,
+  KNOW_HEADLINE,
+  KNOW_POINTS,
+  MEET_CHANNELS,
+  MEET_HEADLINE,
   TALK_HEADLINE,
   TALK_LEDE,
+  TALK_POINTS,
   HERO_LEDE,
   HERO_PLATFORMS_LINE,
   HERO_PITCH,
@@ -325,10 +330,29 @@ describe("llms discovery", () => {
     expect(TALK_HEADLINE).toBe(
       "Invite your team to talk with your AI agents.",
     );
-    expect(TALK_LEDE).toMatch(/experts build the agents/);
+    expect(TALK_POINTS.map((item) => item.text)).toEqual([
+      "Experts build the agent",
+      "The team uses it",
+      "The company gets more done",
+    ]);
+    expect(TALK_LEDE).toMatch(/Experts build the agent/);
+    expect(KNOW_HEADLINE).toBe("A knowledge base that improves itself.");
+    expect(KNOW_POINTS.map((item) => item.text)).toEqual([
+      "Chat becomes the knowledge base",
+      "It updates itself as you work",
+      "The whole team shares one",
+    ]);
+    expect(MEET_HEADLINE).toBe("Meet your team where they work.");
+    expect(MEET_CHANNELS.map((item) => item.name)).toEqual([
+      "Slack",
+      "Discord",
+      "Microsoft Teams",
+    ]);
     expect(HERO_COMPARE_NAMES).toEqual(["Hermes Agent", "OpenClaw", "Grok Bot"]);
     expect(HERO_LEDE).toMatch(/but for teams/);
-    expect(HERO_PLATFORMS_LINE).toBe("Available for Web, Mac, iOS, Android");
+    expect(HERO_PLATFORMS_LINE).toBe(
+      "Available for Web, Mac, iOS, Android, Discord, Slack, Microsoft Teams",
+    );
     expect(HERO_DEMO.youtubeId).toMatch(/^[A-Za-z0-9_-]{11}$/);
     expect(TALK_DEMO.youtubeId).toMatch(/^[A-Za-z0-9_-]{11}$/);
     expect(TALK_DEMO.youtubeId).not.toBe(HERO_DEMO.youtubeId);
