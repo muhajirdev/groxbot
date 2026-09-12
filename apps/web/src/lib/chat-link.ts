@@ -1,4 +1,8 @@
-import { type KnowledgeHref, parseKnowledgeHref } from "./knowledge-link";
+import {
+  isOfficeLibraryPath,
+  type KnowledgeHref,
+  parseKnowledgeHref,
+} from "./knowledge-link";
 
 /**
  * Chat markdown hrefs: office-root / computer paths, or http(s)/mailto.
@@ -31,6 +35,11 @@ export function parseComputerFileHint(raw: string): string | null {
   const name = parsed.path.split("/").at(-1) ?? "";
   if (!/\.[a-z0-9]{1,8}$/i.test(name) || name.startsWith(".")) return null;
   return parsed.path;
+}
+
+/** Playbooks and tasks peek in Knowledge, not this computer. */
+export function chatFileOpensKnowledge(path: string): boolean {
+  return isOfficeLibraryPath(path);
 }
 
 export function inlineCodeText(children: unknown): string {

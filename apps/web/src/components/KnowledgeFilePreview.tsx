@@ -16,6 +16,7 @@ import {
   knowledgeLinkTarget,
   knowledgeMarkdownUrl,
   parseKnowledgeHref,
+  resolveOfficeLibraryPath,
 } from "../lib/knowledge-link";
 import {
   knowledgeMarkdownHasHeading,
@@ -160,18 +161,18 @@ function LocalFilePreview(props: {
       return <p className="computer-preview-status">Opening…</p>;
     return (
       <TextPreview
-        path={props.path}
-        file={{
-          path: props.path,
-          title: props.filename,
-          description: "",
-          content: text,
-          truncated: false,
-          encoding: "text",
-          mediaType: props.file.type || "text/plain",
-          backlinks: [],
-        }}
-        links={props.links}
+          path={props.path}
+          file={{
+            path: props.path,
+            title: props.filename,
+            description: "",
+            content: text,
+            truncated: false,
+            encoding: "text",
+            mediaType: props.file.type || "text/plain",
+            backlinks: [],
+          }}
+          links={props.links}
       />
     );
   }
@@ -230,7 +231,11 @@ function TextPreview(props: {
         </p>
       ) : null}
       {markdown ? (
-        <KnowledgeMarkdown text={props.file.content} links={props.links} />
+        <KnowledgeMarkdown
+          text={props.file.content}
+          path={props.path}
+          links={props.links}
+        />
       ) : (
         <pre>{props.file.content}</pre>
       )}
@@ -240,6 +245,7 @@ function TextPreview(props: {
 
 export function KnowledgeMarkdown(props: {
   text: string;
+  path?: string;
   links?: OfficeLinks;
 }) {
   const split = splitKnowledgeMarkdown(props.text);
@@ -248,6 +254,7 @@ export function KnowledgeMarkdown(props: {
     split.meta.title && !knowledgeMarkdownHasHeading(body),
   );
   const links = props.links;
+  const from = props.path;
   return (
     <article className="knowledge-doc">
       {showTitle ? (
@@ -267,6 +274,7 @@ export function KnowledgeMarkdown(props: {
             <OfficeMarkdownLink
               href={href}
               files={links.files}
+              from={from}
               onOpen={links.onOpen}
             >
               {children}
@@ -307,6 +315,7 @@ type OfficeLinks = {
 function OfficeMarkdownLink(props: {
   href: string;
   files: ReadonlySet<string>;
+  from?: string;
   onOpen: (path: string) => void;
   children: ReactNode;
 }) {
@@ -319,7 +328,12 @@ function OfficeMarkdownLink(props: {
     );
   }
   if (parsed.kind !== "path") return <span>{props.children}</span>;
-  const target = knowledgeLinkTarget(parsed.path, props.files);
+  const resolved = resolveOfficeLibraryPath(
+    parsed.path,
+    props.files,
+    props.from,
+  );
+  const target = knowledgeLinkTarget(parsed.path, props.files, props.from);
   if (!target) {
     return (
       <span
@@ -332,12 +346,12 @@ function OfficeMarkdownLink(props: {
   }
   return (
     <a
-      href={`#${parsed.path}`}
+      href={`#${resolved}`}
       className="knowledge-link"
-      title={parsed.path}
+      title={resolved}
       onClick={(event) => {
         event.preventDefault();
-        props.onOpen(parsed.path);
+        props.onOpen(resolved);
       }}
     >
       {props.children}

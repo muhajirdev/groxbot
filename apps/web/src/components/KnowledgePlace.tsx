@@ -26,6 +26,7 @@ import {
   SKILL_IMPORT_PLACEHOLDER,
   skillImportSummary,
 } from "../lib/knowledge-import";
+import { resolveOfficeLibraryPath } from "../lib/knowledge-link";
 import { insertComposerText } from "../lib/knowledge-slash";
 import {
   countOfficeSkillHits,
@@ -127,10 +128,13 @@ export function KnowledgeLibrary(props: {
     fallbackCount: skillsView ? skillRows.length : workspace.tree.length,
     kind: skillsView ? "skills" : "library",
   });
-  const activeSkill = matchingOfficeSkill(catalog, selected);
+  const resolvedSelected = selected
+    ? resolveOfficeLibraryPath(selected, workspace.files)
+    : null;
+  const activeSkill = matchingOfficeSkill(catalog, resolvedSelected);
   const previewPath =
-    selected && workspace.files.has(selected)
-      ? selected
+    resolvedSelected && workspace.files.has(resolvedSelected)
+      ? resolvedSelected
       : skillsView
         ? (activeSkill?.path ?? null)
         : null;
@@ -453,7 +457,7 @@ export function KnowledgePeek(props: {
   onClose: () => void;
 }) {
   const workspace = useKnowledgeWorkspace(props.path);
-  const selected = props.path;
+  const selected = resolveOfficeLibraryPath(props.path, workspace.files);
   const entry = workspace.entries.find((row) => row.path === selected) ?? null;
   const canPreview = workspace.files.has(selected);
   const title =
@@ -463,10 +467,17 @@ export function KnowledgePeek(props: {
     workspace.syncPath(props.path);
   }, [props.path, workspace.syncPath]);
 
+  useEffect(() => {
+    if (selected !== props.path && workspace.files.has(selected)) {
+      props.onPath(selected);
+    }
+  }, [props.onPath, props.path, selected, workspace.files]);
+
   function openInside(path: string) {
-    if (workspace.files.has(path)) {
-      workspace.openPath(path);
-      props.onPath(path);
+    const next = resolveOfficeLibraryPath(path, workspace.files);
+    if (workspace.files.has(next)) {
+      workspace.openPath(next);
+      props.onPath(next);
       return;
     }
     props.onOpenLibrary(path);

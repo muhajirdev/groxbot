@@ -3,6 +3,7 @@ import {
   knowledgeLinkTarget,
   knowledgeMarkdownUrl,
   parseKnowledgeHref,
+  resolveOfficeLibraryPath,
   rewriteKnowledgeHrefs,
 } from "./knowledge-link";
 
@@ -91,5 +92,50 @@ describe("knowledgeLinkTarget", () => {
     );
     expect(knowledgeLinkTarget("how-we-work", FILES)).toBe("folder");
     expect(knowledgeLinkTarget("missing.md", FILES)).toBeNull();
+  });
+
+  it("resolves SKILL.md to the playbook in the library", () => {
+    expect(
+      knowledgeLinkTarget("SKILL.md", FILES, "playbooks/weekly-update/SKILL.md"),
+    ).toBe("file");
+  });
+});
+
+describe("resolveOfficeLibraryPath", () => {
+  const skills = [
+    "skills/sinemart-receipt-fraud-review/SKILL.md",
+    "skills/sinemart-receipt-fraud-review/references/notes.md",
+    "how-we-work/voice.md",
+  ];
+
+  it("keeps a full office path", () => {
+    expect(
+      resolveOfficeLibraryPath(
+        "skills/sinemart-receipt-fraud-review/SKILL.md",
+        skills,
+      ),
+    ).toBe("skills/sinemart-receipt-fraud-review/SKILL.md");
+  });
+
+  it("maps SKILL.md and the skill folder to skills/<name>/SKILL.md", () => {
+    expect(resolveOfficeLibraryPath("SKILL.md", skills)).toBe(
+      "skills/sinemart-receipt-fraud-review/SKILL.md",
+    );
+    expect(
+      resolveOfficeLibraryPath("skills/sinemart-receipt-fraud-review", skills),
+    ).toBe("skills/sinemart-receipt-fraud-review/SKILL.md");
+    expect(
+      resolveOfficeLibraryPath("sinemart-receipt-fraud-review", skills),
+    ).toBe("skills/sinemart-receipt-fraud-review/SKILL.md");
+  });
+
+  it("resolves a relative link from the playbook", () => {
+    expect(
+      resolveOfficeLibraryPath(
+        "references/notes.md",
+        skills,
+        "skills/sinemart-receipt-fraud-review/SKILL.md",
+      ),
+    ).toBe("skills/sinemart-receipt-fraud-review/references/notes.md");
   });
 });

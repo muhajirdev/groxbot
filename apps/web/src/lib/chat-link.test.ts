@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { parseChatHref, parseComputerFileHint } from "./chat-link";
+import {
+  chatFileOpensKnowledge,
+  parseChatHref,
+  parseComputerFileHint,
+} from "./chat-link";
 
 const ORIGIN = "http://127.0.0.1:5173";
 
@@ -56,11 +60,27 @@ describe("parseComputerFileHint", () => {
   it("opens backtick file paths", () => {
     expect(parseComputerFileHint("essay-car.md")).toBe("essay-car.md");
     expect(parseComputerFileHint("inbox/notes.txt")).toBe("inbox/notes.txt");
+    expect(
+      parseComputerFileHint("skills/sinemart-receipt-fraud-review/SKILL.md"),
+    ).toBe("skills/sinemart-receipt-fraud-review/SKILL.md");
   });
 
   it("ignores code that is not a file path", () => {
     expect(parseComputerFileHint("const x = 1")).toBeNull();
     expect(parseComputerFileHint("inbox")).toBeNull();
     expect(parseComputerFileHint(".gitignore")).toBeNull();
+  });
+});
+
+describe("chatFileOpensKnowledge", () => {
+  it("opens skills and tasks in the office library", () => {
+    expect(
+      chatFileOpensKnowledge("skills/sinemart-receipt-fraud-review/SKILL.md"),
+    ).toBe(true);
+    expect(chatFileOpensKnowledge("SKILL.md")).toBe(true);
+    expect(chatFileOpensKnowledge("skills/digest")).toBe(true);
+    expect(chatFileOpensKnowledge("tasks/ship-landing/TASK.md")).toBe(true);
+    expect(chatFileOpensKnowledge("essay-car.md")).toBe(false);
+    expect(chatFileOpensKnowledge("inbox/notes.md")).toBe(false);
   });
 });
