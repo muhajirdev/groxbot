@@ -1,51 +1,48 @@
 import { MascotMark } from "@groxbot/mascot";
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { LANDING_HIRE_BOTS } from "../lib/bot-marketplace";
 import {
+  ADOPT_HEADLINE,
+  ADOPT_LEDE,
+  ADOPT_POINTS,
+  AGENT_HEADLINE,
+  AGENT_LEDE,
+  BYOK_HEADLINE,
+  BYOK_LEDE,
+  BYOK_NAMES,
+  CHEAP_HEADLINE,
+  CHEAP_LEDE,
   COMPARE,
   COMPARE_CALLOUT,
   COMPARE_LINKS,
   CONTACT_MAILTO,
-  DEMOS,
   demoLogo,
   FAQS,
   FOOTER_BLURB,
   HERO_DEMO,
   HERO_HEADLINE,
   HERO_PLATFORMS,
-  TALK_DEMO,
-  ADOPT_HEADLINE,
-  ADOPT_POINTS,
-  JOBS_HEADLINE,
+  HIRE_BEAT_HEADLINE,
+  HIRE_BEAT_LEDE,
+  HOME_ADOPTION,
+  HOME_ROUTINES,
+  HOW_HEADLINE,
+  INVITE_HEADLINE,
+  INVITE_LEDE,
   KNOW_HEADLINE,
   KNOW_POINTS,
-  MEET_CHANNELS,
-  APPS_HEADLINE,
-  APPS_LEDE,
-  APPS_TOOLS,
-  MEET_HEADLINE,
   PHONE_HEADLINE,
   PHONE_LEDE,
-  TALK_HEADLINE,
-  TALK_POINTS,
-  HOME_ADOPTION,
-  HOME_MODELS,
+  ROUTINES_HEADLINE,
+  RUNS_EVERYWHERE,
+  RUNS_HEADLINE,
   SOURCE_REPO,
   START_CTA,
-  STORY,
+  TALK_POINTS,
   THESES,
 } from "../lib/copy";
-import { LANDING_HIRE_BOTS } from "../lib/bot-marketplace";
-import {
-  HOME_JOBS,
-  jobApp,
-  jobDepartmentLabel,
-  type HomeJob,
-  type JobIcon,
-  type JobToken,
-} from "../lib/home-jobs";
-import { formatIntegrationCount } from "../lib/integrations";
-import { DemoThread } from "./DemoThread";
+import { HOME_HIRE_STRIP, hireApp } from "../lib/home-hire-strip";
 import { HeroCompare } from "./HeroCompare";
 import { HeroDemo } from "./HeroDemo";
 import { KnowGraph } from "./KnowGraph";
@@ -100,65 +97,85 @@ export function Landing(props: { startUrl: string }) {
           <HeroDemo demo={HERO_DEMO} id="demo" />
         </section>
 
-        <section className="models-line" aria-label="Works with any model">
-          <p>
-            Works with any model — Claude Opus, Kimi, DeepSeek, GPT, Grok. Not
-            locked in.
-          </p>
-          <ul className="model-marks">
-            {HOME_MODELS.map((model) => (
-              <li key={model.name}>
-                <img
-                  className={`model-icon ${model.tone}`}
-                  src={model.icon}
-                  alt=""
-                  width={18}
-                  height={18}
-                />
-                {model.name}
+        <section className="how-works" id="how" aria-labelledby="how-title">
+          <p className="kicker">How it works</p>
+          <h2 id="how-title">{HOW_HEADLINE}</h2>
+          <ol className="how-beats">
+            <li id="hire-bot">
+              <p className="step">01 · Hire</p>
+              <h3>{HIRE_BEAT_HEADLINE}</h3>
+              <p>{HIRE_BEAT_LEDE}</p>
+              <HomeHireStrip />
+            </li>
+            <li id="invite">
+              <p className="step">02 · Invite</p>
+              <h3>{INVITE_HEADLINE}</h3>
+              <p>{INVITE_LEDE}</p>
+              <ul className="talk-points">
+                {TALK_POINTS.map((item) => (
+                  <li key={item.icon}>
+                    <TalkPointIcon name={item.icon} />
+                    {item.text}
+                  </li>
+                ))}
+              </ul>
+            </li>
+            <li id="adopt">
+              <p className="step">03 · Adopt</p>
+              <h3 id="adopt-title">{ADOPT_HEADLINE}</h3>
+              <p>{ADOPT_LEDE}</p>
+              <div className="adopt-free-body">
+                <AdoptionBoard />
+                <ul className="adopt-points">
+                  {ADOPT_POINTS.map((item) => (
+                    <li key={item.icon}>
+                      <AdoptPointIcon name={item.icon} />
+                      {item.text}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </li>
+          </ol>
+        </section>
+
+        <section
+          className="everywhere"
+          id="everywhere"
+          aria-labelledby="everywhere-title"
+        >
+          <h2 id="everywhere-title">{RUNS_HEADLINE}</h2>
+          <ul className="everywhere-list">
+            {RUNS_EVERYWHERE.map((item) => (
+              <li key={item.name}>
+                {"slug" in item ? (
+                  <img
+                    src={demoLogo(item.slug)}
+                    alt=""
+                    width={28}
+                    height={28}
+                  />
+                ) : null}
+                {item.name}
               </li>
             ))}
           </ul>
         </section>
 
-        <section className="talk" id="talk" aria-labelledby="talk-title">
-          <div className="talk-copy">
-            <h2 id="talk-title" aria-label={TALK_HEADLINE}>
-              Invite your team
+        <section
+          className="phone-free"
+          id="phone"
+          aria-labelledby="phone-title"
+        >
+          <div className="phone-free-copy">
+            <h2 id="phone-title" aria-label={PHONE_HEADLINE}>
+              No <em>Mac Mini</em>
               <br />
-              to talk with
-              <br />
-              your <em>AI agents</em>.
+              is required.
             </h2>
-            <ul className="talk-points">
-              {TALK_POINTS.map((item) => (
-                <li key={item.icon}>
-                  <TalkPointIcon name={item.icon} />
-                  {item.text}
-                </li>
-              ))}
-            </ul>
+            <p className="meet-lede">{PHONE_LEDE}</p>
           </div>
-          <HeroDemo demo={TALK_DEMO} id="talk-demo" />
-        </section>
-
-        <section className="adopt-free" id="adopt" aria-labelledby="adopt-title">
-          <h2 id="adopt-title" aria-label={ADOPT_HEADLINE}>
-            Track your team&apos;s
-            <br />
-            <em>AI adoption</em>.
-          </h2>
-          <div className="adopt-free-body">
-            <AdoptionBoard />
-            <ul className="adopt-points">
-              {ADOPT_POINTS.map((item) => (
-                <li key={item.icon}>
-                  <AdoptPointIcon name={item.icon} />
-                  {item.text}
-                </li>
-              ))}
-            </ul>
-          </div>
+          <HandoffScene />
         </section>
 
         <section className="know" id="knowledge" aria-labelledby="know-title">
@@ -180,109 +197,33 @@ export function Landing(props: { startUrl: string }) {
           </div>
         </section>
 
-        <section className="talk" id="meet" aria-labelledby="meet-title">
-          <div className="talk-copy">
-            <h2 id="meet-title" aria-label={MEET_HEADLINE}>
-              Meet your team
-              <br />
-              where they <em>work</em>.
-            </h2>
-          </div>
-          <ul className="meet-apps">
-            {MEET_CHANNELS.map((item) => (
-              <li key={item.slug}>
-                <img
-                  src={demoLogo(item.slug)}
-                  alt=""
-                  width={36}
-                  height={36}
-                />
-                {item.name}
-              </li>
-            ))}
-          </ul>
+        <section className="feature-grid" id="models" aria-label="Models">
+          <article>
+            <h3>{AGENT_HEADLINE}</h3>
+            <p>{AGENT_LEDE}</p>
+          </article>
+          <article>
+            <h3>{CHEAP_HEADLINE}</h3>
+            <p>{CHEAP_LEDE}</p>
+          </article>
+          <article>
+            <h3>{BYOK_HEADLINE}</h3>
+            <p>{BYOK_LEDE}</p>
+            <ul className="byok-names">
+              {BYOK_NAMES.map((name) => (
+                <li key={name}>{name}</li>
+              ))}
+            </ul>
+          </article>
         </section>
 
         <section
-          className="band catalog home-jobs"
-          id="use-cases"
-          aria-labelledby="use-cases-title"
+          className="home-routines"
+          id="routines"
+          aria-labelledby="routines-title"
         >
-          <p className="kicker">Use cases</p>
-          <h2 id="use-cases-title" aria-label={JOBS_HEADLINE}>
-            A Bot. Your tools.
-            <br />
-            The <em>job</em>.
-          </h2>
-          <p className="lede tight">
-            Ranked by the aha. Department on each card.{" "}
-            {formatIntegrationCount()} tools in the sentence.
-          </p>
-          <HomeJobStrip />
-          <div className="row home-jobs-more">
-            <Link className="home-integrations-more" to="/use-cases">
-              Browse use cases
-            </Link>
-            <Link className="home-integrations-more" to="/integrations">
-              Browse integrations
-            </Link>
-          </div>
-        </section>
-
-        <section
-          className="phone-free"
-          id="phone"
-          aria-labelledby="phone-title"
-        >
-          <div className="phone-free-copy">
-            <h2 id="phone-title" aria-label={PHONE_HEADLINE}>
-              No <em>Mac Mini</em>
-              <br />
-              is required.
-            </h2>
-            <p className="meet-lede">{PHONE_LEDE}</p>
-          </div>
-          <HandoffScene />
-        </section>
-
-        <section className="talk" id="apps" aria-labelledby="apps-title">
-          <div className="talk-copy">
-            <h2 id="apps-title" aria-label={APPS_HEADLINE}>
-              Connect the bot
-              <br />
-              to any <em>apps</em>.
-            </h2>
-            <p className="meet-lede">{APPS_LEDE}</p>
-          </div>
-          <ul className="apps-grid">
-            {APPS_TOOLS.map((item) => (
-              <li key={item.slug}>
-                <img
-                  src={demoLogo(item.slug)}
-                  alt=""
-                  width={28}
-                  height={28}
-                />
-                {item.name}
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="story" aria-labelledby="story-title">
-          <p className="kicker">How it works</p>
-          <h2 id="story-title">Hire. Talk. They already have a computer.</h2>
-          <ol className="story-beats">
-            {STORY.map((beat, index) => (
-              <li key={beat.id}>
-                <p className="step">
-                  {String(index + 1).padStart(2, "0")} · {beat.kicker}
-                </p>
-                <h3>{beat.title}</h3>
-                <p>{beat.lede}</p>
-              </li>
-            ))}
-          </ol>
+          <h2 id="routines-title">{ROUTINES_HEADLINE}</h2>
+          <RoutineLine />
         </section>
 
         <section
@@ -324,10 +265,7 @@ export function Landing(props: { startUrl: string }) {
             <ul className="compare-chips">
               {COMPARE_LINKS.map((link) => (
                 <li key={link.slug}>
-                  <Link
-                    to="/compare/$slug"
-                    params={{ slug: link.slug }}
-                  >
+                  <Link to="/compare/$slug" params={{ slug: link.slug }}>
                     {link.label}
                   </Link>
                 </li>
@@ -335,25 +273,6 @@ export function Landing(props: { startUrl: string }) {
             </ul>
           </aside>
         </section>
-
-        <section id="how" className="statement">
-          <div className="statement-copy">
-            <h2>Message Bots like teammates</h2>
-            <p className="lede tight">
-              Give work like a coworker. They come back when they need you.
-            </p>
-          </div>
-          <div className="statement-face" aria-hidden>
-            <MascotMark
-              name="Groxbot"
-              color="#e45c9a"
-              shape="circle"
-              size="lg"
-            />
-          </div>
-        </section>
-
-        <DemoShowcase />
 
         <section
           id="hire"
@@ -421,8 +340,8 @@ export function Landing(props: { startUrl: string }) {
             <h2>Enterprise ready.</h2>
             <p className="lede tight">
               Keep Whip Computer on your machines. whip.computer never sees the
-              threads. It still remembers — on your SQLite catalog. Model
-              calls go to the key you paste.
+              threads. It still remembers — on your SQLite catalog. Model calls
+              go to the key you paste.
             </p>
             <div className="row">
               <a className="btn ghost" href={CONTACT_MAILTO}>
@@ -481,48 +400,60 @@ export function Landing(props: { startUrl: string }) {
   );
 }
 
-function DemoShowcase() {
-  const [active, setActive] = useState<(typeof DEMOS)[number]>(DEMOS[0]!);
-
+function HomeHireStrip() {
   return (
-    <section id="jobs" className="demo" aria-label="Integration demos">
-      <div className="demo-copy">
-        <h2>Watch a Bot actually do the work.</h2>
-        <p className="lede tight">
-          One message. LinkedIn, Instagram, Drive, Notion.
-        </p>
-        <div className="demo-list">
-          {DEMOS.map((demo) => (
-            <button
-              key={demo.id}
-              type="button"
-              className={`demo-pick${demo.id === active.id ? " on" : ""}`}
-              aria-pressed={demo.id === active.id}
-              onClick={() => setActive(demo)}
+    <div className="hire-strip">
+      <ul className="hire-strip-track">
+        {HOME_HIRE_STRIP.map((bot) => (
+          <li key={bot.id}>
+            <Link
+              className="hire-card"
+              to="/templates/$slug"
+              params={{ slug: bot.id }}
             >
-              <span className="demo-pick-logos" aria-hidden>
-                {demo.slugs.map((slug) => (
-                  <img
-                    key={slug}
-                    className="demo-logo"
-                    src={demoLogo(slug)}
-                    alt=""
-                    width={20}
-                    height={20}
-                  />
-                ))}
-              </span>
-              <span className="demo-pick-text">
-                <strong>{demo.title}</strong>
-                <span>{demo.blurb}</span>
-                <em>{demo.toolLine}</em>
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-      <DemoThread demo={active} />
-    </section>
+              <p className="hire-card-cat">{bot.category}</p>
+              <h4>{bot.name}</h4>
+              <ul className="hire-card-apps">
+                {bot.apps.map((slug) => {
+                  const app = hireApp(slug);
+                  return (
+                    <li key={slug}>
+                      <img
+                        src={app.logo}
+                        alt=""
+                        width={16}
+                        height={16}
+                        decoding="async"
+                      />
+                      {app.name}
+                    </li>
+                  );
+                })}
+              </ul>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function RoutineLine() {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setIndex((current) => (current + 1) % HOME_ROUTINES.length);
+    }, 2800);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const item = HOME_ROUTINES[index] ?? HOME_ROUTINES[0];
+  if (!item) return null;
+  return (
+    <p className="routine-line" key={item.job}>
+      Runs <em>{item.job}</em> every {item.every} at {item.at}
+    </p>
   );
 }
 
@@ -533,10 +464,7 @@ function AdoptionBoard() {
       {HOME_ADOPTION.map((person, index) => {
         const width = Math.round((person.tasks / lead) * 100);
         return (
-          <li
-            key={person.name}
-            className={index === 0 ? "lead" : undefined}
-          >
+          <li key={person.name} className={index === 0 ? "lead" : undefined}>
             <span className="rank">{index + 1}</span>
             <PersonFace src={person.photo} name={person.name} size="md" />
             <span className="board-who">
@@ -557,7 +485,9 @@ function AdoptionBoard() {
   );
 }
 
-function AdoptPointIcon(props: { name: (typeof ADOPT_POINTS)[number]["icon"] }) {
+function AdoptPointIcon(props: {
+  name: (typeof ADOPT_POINTS)[number]["icon"];
+}) {
   const draw =
     props.name === "people"
       ? "M9.2 9.4a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8zM4.8 19c.3-2.8 2.1-4.4 4.4-4.4s4.1 1.6 4.4 4.4M16.4 10.2a1.9 1.9 0 1 0 0-3.8 1.9 1.9 0 0 0 0 3.8zM14.2 19c.2-1.8 1.1-3 2.4-3.4"
@@ -570,104 +500,6 @@ function AdoptPointIcon(props: { name: (typeof ADOPT_POINTS)[number]["icon"] }) 
       viewBox="0 0 24 24"
       width="22"
       height="22"
-      fill="none"
-      aria-hidden="true"
-    >
-      <path
-        d={draw}
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function HomeJobStrip() {
-  return (
-    <div className="job-strip">
-      <ul className="job-strip-track">
-        {HOME_JOBS.map((job) => (
-          <li key={job.id}>
-            <JobCard job={job} />
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function JobCard(props: { job: HomeJob }) {
-  return (
-    <article className="job-card">
-      <p className="job-dept">{jobDepartmentLabel(props.job.department)}</p>
-      <p className="job-line">
-        {props.job.tokens.map((token, index) => (
-          <JobTokenView key={`${props.job.id}-${index}`} token={token} />
-        ))}
-      </p>
-    </article>
-  );
-}
-
-function JobTokenView(props: { token: JobToken }) {
-  const token = props.token;
-  if (token.kind === "text") {
-    return <span className="job-words">{token.text}</span>;
-  }
-  if (token.kind === "bot") {
-    return (
-      <span className="job-chip">
-        <JobMark icon="bot" />
-        Bot
-      </span>
-    );
-  }
-  if (token.kind === "literal") {
-    return <span className="job-chip job-literal">{token.text}</span>;
-  }
-  if (token.kind === "icon") {
-    return (
-      <span className="job-chip">
-        <JobMark icon={token.icon} />
-        {token.text}
-      </span>
-    );
-  }
-  const app = jobApp(token.slug);
-  return (
-    <span className="job-chip">
-      <img
-        className="chip-logo"
-        src={app.logo}
-        alt=""
-        width={16}
-        height={16}
-        decoding="async"
-      />
-      {app.name}
-    </span>
-  );
-}
-
-function JobMark(props: { icon: JobIcon | "bot" }) {
-  const draw =
-    props.icon === "bot"
-      ? "M8.4 9.2a3.6 3.6 0 1 0 7.2 0 3.6 3.6 0 0 0-7.2 0zM5.2 18.4c.4-3 2.6-4.8 6.8-4.8s6.4 1.8 6.8 4.8"
-      : props.icon === "clock"
-        ? "M12 6.4v6l3.2 1.8M12 4.8a7.2 7.2 0 1 0 0 14.4 7.2 7.2 0 0 0 0-14.4z"
-        : props.icon === "knowledge"
-          ? "M6.4 6.2h5.2c2 0 3.6 1.2 3.6 3.2v8.2H8.8c-1.6 0-2.4-.8-2.4-2.2V6.2zM11.6 6.2v11.4"
-          : props.icon === "site"
-            ? "M12 5.2a6.8 6.8 0 1 0 0 13.6 6.8 6.8 0 0 0 0-13.6zM5.6 12h12.8M12 5.2c2 2.4 3 4.6 3 6.8s-1 4.4-3 6.8M12 5.2C10 7.6 9 9.8 9 12s1 4.4 3 6.8"
-            : "M5.6 8.2 12 5.6l6.4 2.6v6.8c0 2.4-2.6 4-6.4 5.4-3.8-1.4-6.4-3-6.4-5.4V8.2z";
-
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="16"
-      height="16"
       fill="none"
       aria-hidden="true"
     >

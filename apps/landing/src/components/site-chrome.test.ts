@@ -20,7 +20,7 @@ describe("SiteHeader", () => {
   it("hides crowded top links before they wrap over the brand", () => {
     expect(chrome).toContain('className="nav-hide-sm"');
     expect(chrome).toContain('className="nav-hide-xs"');
-    expect(chrome).toContain("to=\"/pricing\"");
+    expect(chrome).toContain('to="/pricing"');
     expect(chrome).toContain("GitHub");
   });
 });
@@ -31,7 +31,9 @@ describe("landing nav chrome", () => {
     expect(css).toMatch(
       /\.nav\s*\{[^}]*flex-wrap:\s*nowrap[^}]*background:\s*transparent/s,
     );
-    expect(css).toMatch(/\.nav\.is-scrolled\s*\{[^}]*background:\s*var\(--bg\)/s);
+    expect(css).toMatch(
+      /\.nav\.is-scrolled\s*\{[^}]*background:\s*var\(--bg\)/s,
+    );
     expect(css).toMatch(/\.nav-hide-xs\s*\{[^}]*display:\s*none/s);
   });
 });
@@ -47,14 +49,20 @@ describe("homepage section washes", () => {
     expect(css).toContain("--band-sand:");
     expect(css).toContain("--band-peach:");
     expect(css).toContain("--band-blush:");
-    expect(css).toMatch(/#talk\s*\{[^}]*--wash-bg:\s*var\(--band-peach\)/s);
-    expect(css).toMatch(/\.adopt-free\s*\{[^}]*--wash-bg:\s*var\(--band-paper\)/s);
+    expect(css).toMatch(
+      /\.how-works\s*\{[^}]*--wash-bg:\s*var\(--band-paper\)/s,
+    );
+    expect(css).toMatch(
+      /\.everywhere\s*\{[^}]*--wash-bg:\s*var\(--band-blush\)/s,
+    );
     expect(css).toMatch(/\.know\s*\{[^}]*--wash-bg:\s*var\(--band-sand\)/s);
     expect(css).toMatch(
-      /\.statement\s*\{[^}]*--wash-bg:\s*var\(--band-peach\)/s,
+      /\.feature-grid\s*\{[^}]*--wash-bg:\s*var\(--band-paper\)/s,
     );
     expect(css).toMatch(
-      /#together\s*\{[^}]*--wash-bg:\s*var\(--band-sand\)/s,
+      /\.home-routines\s*\{[^}]*--wash-bg:\s*var\(--band-blush\)/s,
     );
+    expect(css).toMatch(/#together\s*\{[^}]*--wash-bg:\s*var\(--band-sand\)/s);
+    expect(css).toMatch(/#hire\s*\{[^}]*--wash-bg:\s*var\(--band-blush\)/s);
   });
 });
