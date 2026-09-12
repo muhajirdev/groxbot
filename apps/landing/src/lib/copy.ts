@@ -235,6 +235,12 @@ export const TALK_POINTS = [
   { icon: "up", text: "The company gets more done" },
 ] as const;
 export const TALK_LEDE = `${TALK_POINTS.map((item) => item.text).join(". ")}.`;
+export const ADOPT_HEADLINE = "Track your team's AI adoption.";
+export const ADOPT_POINTS = [
+  { icon: "people", text: "See who put work in motion" },
+  { icon: "heat", text: "A contributions heatmap" },
+  { icon: "spend", text: "Not a spend cockpit" },
+] as const;
 export const KNOW_HEADLINE = "A knowledge base that improves itself.";
 export const KNOW_POINTS = [
   {
@@ -330,8 +336,8 @@ export const THESES = [
   {
     id: "adopt",
     kicker: "Adoption",
-    title: "The best way to get your team to adopt AI is to track it.",
-    lede: "A personal agent hides. Put Bots on the board. That’s how the rest of the team starts.",
+    title: "Track your team's AI adoption.",
+    lede: "A personal agent hides. Put people on the board. That’s how the rest of the team starts.",
   },
   {
     id: "knowledge",

@@ -11,6 +11,8 @@ import {
   HERO_DEMO,
   TALK_DEMO,
   HERO_HEADLINE,
+  ADOPT_HEADLINE,
+  ADOPT_POINTS,
   KNOW_HEADLINE,
   KNOW_POINTS,
   MEET_CHANNELS,
@@ -338,6 +340,12 @@ describe("llms discovery", () => {
       "The company gets more done",
     ]);
     expect(TALK_LEDE).toMatch(/Experts build the agent/);
+    expect(ADOPT_HEADLINE).toBe("Track your team's AI adoption.");
+    expect(ADOPT_POINTS.map((item) => item.text)).toEqual([
+      "See who put work in motion",
+      "A contributions heatmap",
+      "Not a spend cockpit",
+    ]);
     expect(KNOW_HEADLINE).toBe("A knowledge base that improves itself.");
     expect(KNOW_POINTS.map((item) => item.text)).toEqual([
       "Chat is automatically organized onto the knowledge base",
@@ -358,6 +366,9 @@ describe("llms discovery", () => {
         "../components/Landing.tsx",
       ),
       "utf8",
+    );
+    expect(landing.indexOf('id="adopt"')).toBeLessThan(
+      landing.indexOf('id="knowledge"'),
     );
     expect(landing.indexOf('id="meet"')).toBeLessThan(
       landing.indexOf('id="phone"'),
@@ -386,7 +397,7 @@ describe("llms discovery", () => {
     ]);
     expect(THESES.map((item) => item.title)).toEqual([
       "AI is better together.",
-      "The best way to get your team to adopt AI is to track it.",
+      "Track your team's AI adoption.",
       "The company’s knowledge base should evolve from group chats.",
       "No Mac Mini is required.",
     ]);

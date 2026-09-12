@@ -14,6 +14,8 @@ import {
   HERO_HEADLINE,
   HERO_PLATFORMS,
   TALK_DEMO,
+  ADOPT_HEADLINE,
+  ADOPT_POINTS,
   KNOW_HEADLINE,
   KNOW_POINTS,
   MEET_CHANNELS,
@@ -126,6 +128,25 @@ export function Landing(props: { startUrl: string }) {
             </ul>
           </div>
           <HeroDemo demo={TALK_DEMO} id="talk-demo" />
+        </section>
+
+        <section className="adopt-free" id="adopt" aria-labelledby="adopt-title">
+          <h2 id="adopt-title" aria-label={ADOPT_HEADLINE}>
+            Track your team&apos;s
+            <br />
+            <em>AI adoption</em>.
+          </h2>
+          <div className="adopt-free-body">
+            <AdoptionBoard />
+            <ul className="adopt-points">
+              {ADOPT_POINTS.map((item) => (
+                <li key={item.icon}>
+                  <AdoptPointIcon name={item.icon} />
+                  {item.text}
+                </li>
+              ))}
+            </ul>
+          </div>
         </section>
 
         <section className="know" id="knowledge" aria-labelledby="know-title">
@@ -251,40 +272,6 @@ export function Landing(props: { startUrl: string }) {
               ))}
             </ul>
           </aside>
-        </section>
-
-        <section id="adopt" className="adopt" aria-labelledby="thesis-adopt">
-          <div className="adopt-copy">
-            <p className="kicker">{THESES[1].kicker}</p>
-            <h2 id="thesis-adopt">{THESES[1].title}</h2>
-            <p className="lede tight">{THESES[1].lede}</p>
-          </div>
-          <ol className="board">
-            {HOME_ADOPTION.map((person, index) => {
-              const lead = HOME_ADOPTION[0]!.tasks;
-              const width = Math.round((person.tasks / lead) * 100);
-              return (
-                <li
-                  key={person.name}
-                  className={index === 0 ? "lead" : undefined}
-                >
-                  <span className="rank">{index + 1}</span>
-                  <PersonFace src={person.photo} name={person.name} size="md" />
-                  <span className="board-who">
-                    <strong>{person.name}</strong>
-                    <em>{person.role}</em>
-                  </span>
-                  <span className="board-bar" aria-hidden>
-                    <i style={{ width: `${width}%` }} />
-                  </span>
-                  <span className="board-n">
-                    {person.label}
-                    <em>tasks</em>
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
         </section>
 
         <section id="how" className="statement">
@@ -536,6 +523,64 @@ function DemoShowcase() {
       </div>
       <DemoThread demo={active} />
     </section>
+  );
+}
+
+function AdoptionBoard() {
+  const lead = HOME_ADOPTION[0]?.tasks ?? 1;
+  return (
+    <ol className="board">
+      {HOME_ADOPTION.map((person, index) => {
+        const width = Math.round((person.tasks / lead) * 100);
+        return (
+          <li
+            key={person.name}
+            className={index === 0 ? "lead" : undefined}
+          >
+            <span className="rank">{index + 1}</span>
+            <PersonFace src={person.photo} name={person.name} size="md" />
+            <span className="board-who">
+              <strong>{person.name}</strong>
+              <em>{person.role}</em>
+            </span>
+            <span className="board-bar" aria-hidden>
+              <i style={{ width: `${width}%` }} />
+            </span>
+            <span className="board-n">
+              {person.label}
+              <em>tasks</em>
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function AdoptPointIcon(props: { name: (typeof ADOPT_POINTS)[number]["icon"] }) {
+  const draw =
+    props.name === "people"
+      ? "M9.2 9.4a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8zM4.8 19c.3-2.8 2.1-4.4 4.4-4.4s4.1 1.6 4.4 4.4M16.4 10.2a1.9 1.9 0 1 0 0-3.8 1.9 1.9 0 0 0 0 3.8zM14.2 19c.2-1.8 1.1-3 2.4-3.4"
+      : props.name === "heat"
+        ? "M6 16.8h2.2V19H6zM10.2 13.2H12.4V19H10.2zM14.4 9.2H16.6V19H14.4zM6 10.4 10.6 6l4 3.2L18.8 5.6"
+        : "M7 7.2h10.4v9.6H7zM9.2 10.2h6M9.2 13h4.4";
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="22"
+      height="22"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d={draw}
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
