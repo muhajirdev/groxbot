@@ -48,3 +48,11 @@ describe("skills place on a phone", () => {
     expect(src).not.toContain("on the left");
   });
 });
+
+describe("skill peek path", () => {
+  it("resolves SKILL.md to the knowledge file, not a computer basename", () => {
+    expect(src).toContain("resolveOfficeLibraryPath");
+    expect(src).toContain("workspace.files.has(selected)");
+    expect(src).toContain("workspace.files.has(resolvedSelected)");
+  });
+});

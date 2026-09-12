@@ -193,6 +193,19 @@ describe("runPresent", () => {
     });
   });
 
+  it("treats a skill File as knowledge when place is omitted", () => {
+    expect(
+      sanitizePresentTree({
+        $type: "File",
+        path: "skills/sinemart-receipt-fraud-review/SKILL.md",
+      }),
+    ).toMatchObject({
+      $type: "File",
+      path: "skills/sinemart-receipt-fraud-review/SKILL.md",
+      place: "knowledge",
+    });
+  });
+
   it("rejects a File path that walks up", () => {
     expect(
       runPresent({

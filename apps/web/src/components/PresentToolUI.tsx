@@ -11,6 +11,7 @@ import {
 } from "@groxbot/contracts";
 import { type ReactNode, useState } from "react";
 import { z } from "zod";
+import { chatFileOpensKnowledge } from "../lib/chat-link";
 import { computerFileKind } from "../lib/computer-preview";
 import { ImageZoom } from "./assistant-ui/elements/image";
 import {
@@ -33,7 +34,11 @@ function PresentFileChip(props: {
   title?: string;
 }) {
   const path = typeof props.path === "string" ? props.path : "";
-  const place = props.place === "knowledge" ? "knowledge" : "computer";
+  const place = chatFileOpensKnowledge(path)
+    ? "knowledge"
+    : props.place === "knowledge"
+      ? "knowledge"
+      : "computer";
   const title =
     typeof props.title === "string" && props.title.trim()
       ? props.title.trim()

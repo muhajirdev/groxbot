@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   ChatFileLink,
   ComputerFileOpenProvider,
+  KnowledgeFileOpenProvider,
 } from "../components/ChatFileLink";
 
 describe("ChatFileLink", () => {
@@ -60,5 +61,40 @@ describe("ChatFileLink", () => {
     );
     expect(html).toContain('href="#essay-car.md"');
     expect(html).toContain("essay-car.md");
+  });
+
+  it("opens a skill chip in knowledge, not on the computer", () => {
+    const html = renderToStaticMarkup(
+      createElement(
+        KnowledgeFileOpenProvider,
+        { onOpen: () => undefined },
+        createElement(
+          ChatFileLink,
+          { href: "skills/sinemart-receipt-fraud-review/SKILL.md" },
+          "skills/sinemart-receipt-fraud-review/SKILL.md",
+        ),
+      ),
+    );
+    expect(html).toContain(
+      'href="#skills/sinemart-receipt-fraud-review/SKILL.md"',
+    );
+    expect(html).toContain(
+      'title="skills/sinemart-receipt-fraud-review/SKILL.md"',
+    );
+  });
+
+  it("does not treat a skill path as a computer file when knowledge can open it", () => {
+    const html = renderToStaticMarkup(
+      createElement(
+        ComputerFileOpenProvider,
+        { onOpen: () => undefined },
+        createElement(
+          KnowledgeFileOpenProvider,
+          { onOpen: () => undefined },
+          createElement(ChatFileLink, { href: "SKILL.md" }, "SKILL.md"),
+        ),
+      ),
+    );
+    expect(html).toContain('href="#SKILL.md"');
   });
 });

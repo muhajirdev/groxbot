@@ -203,6 +203,25 @@ describe("PresentSurface", () => {
     expect(html).not.toContain("disabled");
   });
 
+  it("treats a skill path as knowledge when the card omitted place", () => {
+    const html = renderToStaticMarkup(
+      createElement(
+        KnowledgeFileOpenProvider,
+        { onOpen: () => undefined },
+        createElement(PresentSurface, {
+          tree: {
+            $type: "File",
+            path: "skills/sinemart-receipt-fraud-review/SKILL.md",
+          },
+        }),
+      ),
+    );
+    expect(html).toContain("Knowledge");
+    expect(html).toContain("SKILL.md");
+    expect(html).not.toContain("disabled");
+    expect(html).not.toContain("Computer");
+  });
+
   it("covers the default vocabulary and the office File type", () => {
     expect(PRESENT_TYPES.filter((type) => type !== "File").sort()).toEqual(
       Object.keys(defaultGenerativeUILibrary).sort(),

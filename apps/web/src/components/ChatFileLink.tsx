@@ -5,7 +5,7 @@ import {
   type ReactNode,
   useContext,
 } from "react";
-import { parseChatHref } from "../lib/chat-link";
+import { chatFileOpensKnowledge, parseChatHref } from "../lib/chat-link";
 
 export type OpenComputerFile = (path: string) => void;
 export type OpenKnowledgeFile = (path: string) => void;
@@ -70,7 +70,8 @@ export function ChatFileLink(props: {
   className?: string;
   children?: ReactNode;
 }) {
-  const open = useOpenComputerFile();
+  const openComputer = useOpenComputerFile();
+  const openKnowledge = useOpenKnowledgeFile();
   const origin = typeof window === "undefined" ? "" : window.location.origin;
   const parsed = parseChatHref(props.href ?? "", origin);
   if (parsed.kind === "external") {
@@ -85,6 +86,12 @@ export function ChatFileLink(props: {
       </a>
     );
   }
+  const open =
+    parsed.kind === "path" &&
+    chatFileOpensKnowledge(parsed.path) &&
+    openKnowledge
+      ? openKnowledge
+      : openComputer;
   if (parsed.kind !== "path" || !open) {
     return <span className={props.className}>{props.children}</span>;
   }
