@@ -119,6 +119,11 @@ const composioList = catalog
 
 export const INTEGRATIONS: Integration[] = [...indieList, ...composioList];
 
+export function formatIntegrationCount(count = INTEGRATIONS.length): string {
+  const rounded = count >= 100 ? Math.floor(count / 100) * 100 : count;
+  return `${rounded.toLocaleString("en-US")}+`;
+}
+
 const bySlug = new Map(INTEGRATIONS.map((item) => [item.slug, item]));
 
 export function getIntegration(slug: string): Integration | undefined {

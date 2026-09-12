@@ -20,6 +20,9 @@ import {
   KNOW_HEADLINE,
   KNOW_POINTS,
   MEET_CHANNELS,
+  APPS_HEADLINE,
+  APPS_LEDE,
+  APPS_TOOLS,
   MEET_HEADLINE,
   PHONE_HEADLINE,
   PHONE_LEDE,
@@ -41,6 +44,7 @@ import {
   type JobIcon,
   type JobToken,
 } from "../lib/home-jobs";
+import { formatIntegrationCount } from "../lib/integrations";
 import { DemoThread } from "./DemoThread";
 import { HeroCompare } from "./HeroCompare";
 import { HeroDemo } from "./HeroDemo";
@@ -117,7 +121,7 @@ export function Landing(props: { startUrl: string }) {
           </ul>
         </section>
 
-        <section className="talk" aria-labelledby="talk-title">
+        <section className="talk" id="talk" aria-labelledby="talk-title">
           <div className="talk-copy">
             <h2 id="talk-title" aria-label={TALK_HEADLINE}>
               Invite your team
@@ -213,6 +217,30 @@ export function Landing(props: { startUrl: string }) {
             <p className="meet-lede">{PHONE_LEDE}</p>
           </div>
           <HandoffScene />
+        </section>
+
+        <section className="talk" id="apps" aria-labelledby="apps-title">
+          <div className="talk-copy">
+            <h2 id="apps-title" aria-label={APPS_HEADLINE}>
+              Connect the bot
+              <br />
+              to any <em>apps</em>.
+            </h2>
+            <p className="meet-lede">{APPS_LEDE}</p>
+          </div>
+          <ul className="apps-grid">
+            {APPS_TOOLS.map((item) => (
+              <li key={item.slug}>
+                <img
+                  src={demoLogo(item.slug)}
+                  alt=""
+                  width={28}
+                  height={28}
+                />
+                {item.name}
+              </li>
+            ))}
+          </ul>
         </section>
 
         <section className="story" aria-labelledby="story-title">
@@ -414,8 +442,8 @@ export function Landing(props: { startUrl: string }) {
             The <em>job</em>.
           </h2>
           <p className="lede tight">
-            Ranked by the aha. Department on each card. 1,000+ tools in the
-            sentence.
+            Ranked by the aha. Department on each card.{" "}
+            {formatIntegrationCount()} tools in the sentence.
           </p>
           <HomeJobMarquee />
           <div className="row home-jobs-more">

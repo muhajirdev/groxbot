@@ -5,6 +5,7 @@ import { startUrl } from "../../lib/app-url";
 import {
   computerIntegrations,
   featuredIntegrations,
+  formatIntegrationCount,
   integrationCategories,
   searchIntegrations,
 } from "../../lib/integrations";
@@ -37,8 +38,9 @@ export const Route = createFileRoute("/integrations/")({
     const q = loaderData?.q;
     return seoHead({
       title: q ? `Integrations matching “${q}”` : "Integrations",
-      description:
-        "Gmail, Slack, GitHub, Typefully — plus a computer for indie tools like DataFast, Postiz, and Post Bridge.",
+      description: q
+        ? "Gmail, Slack, GitHub, Typefully — plus a computer for indie tools like DataFast, Postiz, and Post Bridge."
+        : `${formatIntegrationCount()} integrations. Gmail, Slack, GitHub — plus a computer for indie tools like DataFast, Postiz, and Post Bridge.`,
       path: "/integrations",
       jsonLd: [
         breadcrumbJsonLd([
@@ -70,7 +72,7 @@ function IntegrationsIndex() {
           items={[{ label: "Home", to: "/" }, { label: "Integrations" }]}
         />
         <section className="hero pb-12">
-          <p className="kicker">Integrations</p>
+          <p className="kicker">{formatIntegrationCount()} integrations</p>
           <h1>Gmail, Slack, GitHub — plus a computer for the rest.</h1>
           <p className="lede">
             Connect the tools you already use. DataFast, Postiz, Post Bridge,

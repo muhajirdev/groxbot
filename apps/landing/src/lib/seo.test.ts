@@ -16,6 +16,9 @@ import {
   JOBS_HEADLINE,
   KNOW_HEADLINE,
   KNOW_POINTS,
+  APPS_HEADLINE,
+  APPS_LEDE,
+  APPS_TOOLS,
   MEET_CHANNELS,
   MEET_HEADLINE,
   PHONE_HEADLINE,
@@ -38,6 +41,7 @@ import {
 } from "./discovery";
 import {
   computerIntegrations,
+  formatIntegrationCount,
   getIntegration,
   INTEGRATIONS,
   integrationCategories,
@@ -68,6 +72,11 @@ describe("integrations catalog", () => {
     expect(getIntegration("postiz")?.kind).toBe("computer");
     expect(getIntegration("post-bridge")?.founder).toBe("Jack Friks");
     expect(INTEGRATIONS.length).toBeGreaterThan(1000);
+    expect(formatIntegrationCount()).toMatch(/^\d{1,3}(,\d{3})?\+$/);
+    expect(formatIntegrationCount()).not.toMatch(/composio/i);
+    expect(Number(formatIntegrationCount().replace(/[+,]/g, ""))).toBeLessThanOrEqual(
+      INTEGRATIONS.length,
+    );
   });
 
   it("does not let indie slugs collide with Composio", () => {
@@ -375,11 +384,25 @@ describe("llms discovery", () => {
     expect(landing.indexOf('id="meet"')).toBeLessThan(
       landing.indexOf('id="phone"'),
     );
+    expect(landing.indexOf('id="phone"')).toBeLessThan(
+      landing.indexOf('id="apps"'),
+    );
     expect(landing).toContain("PHONE_HEADLINE");
     expect(landing).toContain("<HandoffScene />");
     expect(landing).toContain("HomeJobMarquee");
     expect(landing).toContain('id="jobs"');
     expect(JOBS_HEADLINE).toBe("A Bot. Your tools. The job.");
+    expect(APPS_HEADLINE).toBe("Connect the bot to any apps.");
+    expect(APPS_LEDE).toBe(`${formatIntegrationCount()} integrations.`);
+    expect(APPS_LEDE).not.toMatch(/composio/i);
+    expect(APPS_TOOLS.map((item) => item.name)).toEqual([
+      "Instagram",
+      "Gmail",
+      "LinkedIn",
+      "Notion",
+      "Google Drive",
+      "GitHub",
+    ]);
     expect(HERO_COMPARE_NAMES).toEqual(["Hermes Agent", "OpenClaw", "Grok Bot"]);
     expect(HERO_LEDE).toMatch(/but for teams/);
     expect(HERO_PLATFORMS_LINE).toBe(

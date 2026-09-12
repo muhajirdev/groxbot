@@ -1,4 +1,5 @@
 import { GROXBOT_EMAIL, GROXBOT_TAGLINE } from "@groxbot/seo";
+import { formatIntegrationCount } from "./integrations";
 
 export const CONTACT_EMAIL = GROXBOT_EMAIL;
 export const CONTACT_MAILTO = `mailto:${CONTACT_EMAIL}`;
@@ -224,6 +225,16 @@ export const MEET_CHANNELS = [
 export const PHONE_HEADLINE = "No Mac Mini is required.";
 export const PHONE_LEDE =
   "Prompt from your phone even when your laptop is shut down.";
+export const APPS_HEADLINE = "Connect the bot to any apps.";
+export const APPS_LEDE = `${formatIntegrationCount()} integrations.`;
+export const APPS_TOOLS = [
+  { name: "Instagram", slug: "instagram" },
+  { name: "Gmail", slug: "gmail" },
+  { name: "LinkedIn", slug: "linkedin" },
+  { name: "Notion", slug: "notion" },
+  { name: "Google Drive", slug: "googledrive" },
+  { name: "GitHub", slug: "github" },
+] as const;
 export const HERO_COMPARE_NAMES = [
   "Hermes Agent",
   "OpenClaw",

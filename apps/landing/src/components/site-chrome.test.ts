@@ -35,3 +35,16 @@ describe("landing nav chrome", () => {
     expect(css).toMatch(/\.nav-hide-xs\s*\{[^}]*display:\s*none/s);
   });
 });
+
+describe("homepage section washes", () => {
+  it("paints each homepage band a distinct color", () => {
+    expect(css).toMatch(/#top > section::before/);
+    expect(css).toContain("--band-paper:");
+    expect(css).toContain("--band-sand:");
+    expect(css).toContain("--band-peach:");
+    expect(css).toContain("--band-blush:");
+    expect(css).toMatch(/#talk\s*\{[^}]*--wash-bg:\s*var\(--band-peach\)/s);
+    expect(css).toMatch(/#apps\s*\{[^}]*--wash-bg:\s*var\(--band-blush\)/s);
+    expect(css).toMatch(/\.know\s*\{[^}]*--wash-bg:\s*var\(--band-sand\)/s);
+  });
+});
