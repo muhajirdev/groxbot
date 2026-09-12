@@ -4,8 +4,8 @@
   "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
-    "start": "wrangler dev",
+    "dev": "wrangler dev --local",
+    "start": "wrangler dev --local",
     "dev:node": "tsx watch src/index.ts",
     "d1:migrate": "wrangler d1 migrations apply groxbot --local",
     "d1:migrate:remote": "wrangler d1 migrations apply groxbot --remote",
