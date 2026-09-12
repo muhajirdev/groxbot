@@ -13,6 +13,7 @@ import {
   HERO_HEADLINE,
   ADOPT_HEADLINE,
   ADOPT_POINTS,
+  JOBS_HEADLINE,
   KNOW_HEADLINE,
   KNOW_POINTS,
   MEET_CHANNELS,
@@ -376,8 +377,9 @@ describe("llms discovery", () => {
     );
     expect(landing).toContain("PHONE_HEADLINE");
     expect(landing).toContain("<HandoffScene />");
-    expect(landing).toContain("HomeIntegrationMarquee");
-    expect(landing).toContain('id="integrations"');
+    expect(landing).toContain("HomeJobMarquee");
+    expect(landing).toContain('id="jobs"');
+    expect(JOBS_HEADLINE).toBe("A Bot. Your tools. The job.");
     expect(HERO_COMPARE_NAMES).toEqual(["Hermes Agent", "OpenClaw", "Grok Bot"]);
     expect(HERO_LEDE).toMatch(/but for teams/);
     expect(HERO_PLATFORMS_LINE).toBe(

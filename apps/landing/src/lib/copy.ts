@@ -214,6 +214,7 @@ export const KNOW_POINTS = [
   { icon: "loop", text: "It updates itself as you work" },
   { icon: "share", text: "The whole team shares one" },
 ] as const;
+export const JOBS_HEADLINE = "A Bot. Your tools. The job.";
 export const MEET_HEADLINE = "Meet your team where they work.";
 export const MEET_CHANNELS = [
   { name: "Slack", slug: "slack" },

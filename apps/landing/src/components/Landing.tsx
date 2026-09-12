@@ -16,6 +16,7 @@ import {
   TALK_DEMO,
   ADOPT_HEADLINE,
   ADOPT_POINTS,
+  JOBS_HEADLINE,
   KNOW_HEADLINE,
   KNOW_POINTS,
   MEET_CHANNELS,
@@ -32,7 +33,14 @@ import {
   THESES,
 } from "../lib/copy";
 import { LANDING_HIRE_BOTS } from "../lib/bot-marketplace";
-import { homeIntegrationMarquee } from "../lib/teasers";
+import {
+  homeJobMarquee,
+  jobApp,
+  jobDepartmentLabel,
+  type HomeJob,
+  type JobIcon,
+  type JobToken,
+} from "../lib/home-jobs";
 import { DemoThread } from "./DemoThread";
 import { HeroCompare } from "./HeroCompare";
 import { HeroDemo } from "./HeroDemo";
@@ -395,20 +403,29 @@ export function Landing(props: { startUrl: string }) {
         </section>
 
         <section
-          className="band catalog home-integrations"
-          id="integrations"
-          aria-labelledby="integrations-title"
+          className="band catalog home-jobs"
+          id="jobs"
+          aria-labelledby="jobs-title"
         >
-          <p className="kicker">Integrations</p>
-          <h2 id="integrations-title">Your tools. In the thread.</h2>
+          <p className="kicker">Use cases</p>
+          <h2 id="jobs-title" aria-label={JOBS_HEADLINE}>
+            A Bot. Your tools.
+            <br />
+            The <em>job</em>.
+          </h2>
           <p className="lede tight">
-            1,000+ tools. LinkedIn, Slack, Notion, GitHub — and a computer for
-            the indie stack.
+            Ranked by the aha. Department on each card. 1,000+ tools in the
+            sentence.
           </p>
-          <HomeIntegrationMarquee />
-          <Link className="home-integrations-more" to="/integrations">
-            Browse all integrations
-          </Link>
+          <HomeJobMarquee />
+          <div className="row home-jobs-more">
+            <Link className="home-integrations-more" to="/use-cases">
+              Browse use cases
+            </Link>
+            <Link className="home-integrations-more" to="/integrations">
+              Browse integrations
+            </Link>
+          </div>
         </section>
 
         <section
@@ -584,10 +601,10 @@ function AdoptPointIcon(props: { name: (typeof ADOPT_POINTS)[number]["icon"] }) 
   );
 }
 
-function HomeIntegrationMarquee() {
-  const { rows } = homeIntegrationMarquee();
+function HomeJobMarquee() {
+  const { rows } = homeJobMarquee();
   return (
-    <div className="int-marquee" aria-hidden="true">
+    <div className="int-marquee job-marquee" aria-hidden="true">
       {rows.map((row, index) => (
         <div
           key={index === 0 ? "fwd" : "rev"}
@@ -596,19 +613,9 @@ function HomeIntegrationMarquee() {
           <div className="int-marquee-track">
             {[0, 1].map((copy) => (
               <ul key={copy}>
-                {row.map((item) => (
-                  <li key={`${copy}-${item.slug}`}>
-                    <span className="chip has-icon">
-                      <img
-                        className="chip-logo"
-                        src={item.logo}
-                        alt=""
-                        width={18}
-                        height={18}
-                        decoding="async"
-                      />
-                      {item.name}
-                    </span>
+                {row.map((job) => (
+                  <li key={`${copy}-${job.id}`}>
+                    <JobCard job={job} />
                   </li>
                 ))}
               </ul>
@@ -617,6 +624,90 @@ function HomeIntegrationMarquee() {
         </div>
       ))}
     </div>
+  );
+}
+
+function JobCard(props: { job: HomeJob }) {
+  return (
+    <article className="job-card">
+      <p className="job-dept">{jobDepartmentLabel(props.job.department)}</p>
+      <p className="job-line">
+        {props.job.tokens.map((token, index) => (
+          <JobTokenView key={`${props.job.id}-${index}`} token={token} />
+        ))}
+      </p>
+    </article>
+  );
+}
+
+function JobTokenView(props: { token: JobToken }) {
+  const token = props.token;
+  if (token.kind === "text") {
+    return <span className="job-words">{token.text}</span>;
+  }
+  if (token.kind === "bot") {
+    return (
+      <span className="job-chip">
+        <JobMark icon="bot" />
+        Bot
+      </span>
+    );
+  }
+  if (token.kind === "literal") {
+    return <span className="job-chip job-literal">{token.text}</span>;
+  }
+  if (token.kind === "icon") {
+    return (
+      <span className="job-chip">
+        <JobMark icon={token.icon} />
+        {token.text}
+      </span>
+    );
+  }
+  const app = jobApp(token.slug);
+  return (
+    <span className="job-chip">
+      <img
+        className="chip-logo"
+        src={app.logo}
+        alt=""
+        width={16}
+        height={16}
+        decoding="async"
+      />
+      {app.name}
+    </span>
+  );
+}
+
+function JobMark(props: { icon: JobIcon | "bot" }) {
+  const draw =
+    props.icon === "bot"
+      ? "M8.4 9.2a3.6 3.6 0 1 0 7.2 0 3.6 3.6 0 0 0-7.2 0zM5.2 18.4c.4-3 2.6-4.8 6.8-4.8s6.4 1.8 6.8 4.8"
+      : props.icon === "clock"
+        ? "M12 6.4v6l3.2 1.8M12 4.8a7.2 7.2 0 1 0 0 14.4 7.2 7.2 0 0 0 0-14.4z"
+        : props.icon === "knowledge"
+          ? "M6.4 6.2h5.2c2 0 3.6 1.2 3.6 3.2v8.2H8.8c-1.6 0-2.4-.8-2.4-2.2V6.2zM11.6 6.2v11.4"
+          : props.icon === "site"
+            ? "M12 5.2a6.8 6.8 0 1 0 0 13.6 6.8 6.8 0 0 0 0-13.6zM5.6 12h12.8M12 5.2c2 2.4 3 4.6 3 6.8s-1 4.4-3 6.8M12 5.2C10 7.6 9 9.8 9 12s1 4.4 3 6.8"
+            : "M5.6 8.2 12 5.6l6.4 2.6v6.8c0 2.4-2.6 4-6.4 5.4-3.8-1.4-6.4-3-6.4-5.4V8.2z";
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d={draw}
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
