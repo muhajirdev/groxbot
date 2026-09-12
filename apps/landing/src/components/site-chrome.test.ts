@@ -45,13 +45,13 @@ describe("homepage section washes", () => {
     expect(css).not.toMatch(/#top > section::before/);
     expect(css).toContain("--band-paper:");
     expect(css).toContain("--band-sand:");
-    expect(css).toContain("--band-peach:");
+    expect(css).toContain("--band-olive:");
     expect(css).toContain("--band-blush:");
-    expect(css).toMatch(/#talk\s*\{[^}]*--wash-bg:\s*var\(--band-peach\)/s);
+    expect(css).toMatch(/#talk\s*\{[^}]*--wash-bg:\s*var\(--band-olive\)/s);
     expect(css).toMatch(/\.adopt-free\s*\{[^}]*--wash-bg:\s*var\(--band-paper\)/s);
     expect(css).toMatch(/\.know\s*\{[^}]*--wash-bg:\s*var\(--band-sand\)/s);
     expect(css).toMatch(
-      /\.statement\s*\{[^}]*--wash-bg:\s*var\(--band-peach\)/s,
+      /\.statement\s*\{[^}]*--wash-bg:\s*var\(--band-olive\)/s,
     );
     expect(css).toMatch(
       /#together\s*\{[^}]*--wash-bg:\s*var\(--band-sand\)/s,
