@@ -10,6 +10,6 @@ pnpm test
 pnpm check
 ```
 
-`pnpm dev` is API + worker + **web**. Landing: `pnpm dev:landing`. Desktop: `pnpm dev:desktop`. Mobile: `pnpm dev:mobile`.
+`pnpm dev` is API + worker + **web**. Landing: `pnpm dev:landing`. Desktop: `pnpm dev:desktop`. Mobile: `pnpm dev:mobile`. Native iOS kit: `swift test --package-path apps/ios`.
 
 CI should run `pnpm test` and `pnpm check`. Default tests stay offline (`ScriptedAgentRuntime`). Product office brain is Pi on the home `RoomActor` (Cap’n Web `/rooms/:roomId/rpc`); owned-message REST turns use the same loop; hosted models still go through the Worker `AI` binding or gateway keys.

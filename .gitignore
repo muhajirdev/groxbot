@@ -22,6 +22,9 @@ apps/mobile/.expo
 apps/mobile/ios
 apps/mobile/android
 apps/mobile/dist
+apps/ios/.build
+apps/ios/.swiftpm
+apps/desktop/release
 apps/desktop/release
 .wrangler
 .gstack/
