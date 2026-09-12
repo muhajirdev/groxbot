@@ -22,7 +22,8 @@ export type WorkspaceMenuItem =
       slug: string;
       current: boolean;
     }
-  | { kind: "create" };
+  | { kind: "create" }
+  | { kind: "invite" };
 
 export type WorkspaceDestination =
   | { to: "workspace" }
@@ -279,7 +280,14 @@ export function workspaceMenuItems(opts: {
         current: false,
       }),
     );
-  return [...current, ...others, { kind: "create" }];
+  return [
+    ...current,
+    ...others,
+    { kind: "create" },
+    ...(current.length
+      ? ([{ kind: "invite" }] satisfies WorkspaceMenuItem[])
+      : []),
+  ];
 }
 
 function catalogHasRoomId(

@@ -29,7 +29,6 @@ import {
   HelpIcon,
   KnowledgeIcon,
   LiveAppsIcon,
-  PeoplePlusIcon,
   PlugIcon,
   PlusIcon,
   SkillsIcon,
@@ -729,9 +728,6 @@ export function Design() {
             </Specimen>
             <Specimen label="Chrome">
               <div className="flex items-center gap-1">
-                <ChromeIconPreview label="Invite">
-                  <PeoplePlusIcon />
-                </ChromeIconPreview>
                 <ChromeIconPreview label="Board" current>
                   <BoardIcon />
                 </ChromeIconPreview>

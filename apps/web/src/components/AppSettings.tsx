@@ -383,13 +383,9 @@ function WorkspaceSettings(props: {
   const navigate = useNavigate();
   const [draft, setDraft] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [email, setEmail] = useState("");
-  const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
-  const [sent, setSent] = useState<{ email: string; url: string } | null>(null);
   const name = draft ?? props.name ?? "";
   const dirty = canSaveWorkspaceName(props.name, name);
   const listed =
@@ -463,34 +459,6 @@ function WorkspaceSettings(props: {
       setError(userFacingError(caught, "Could not update your name"));
     } finally {
       setSavingMember(false);
-    }
-  }
-
-  async function send() {
-    const trimmed = email.trim();
-    if (!trimmed) return;
-    setBusy(true);
-    setError("");
-    setCopied(false);
-    setSent(null);
-    try {
-      const invite = await client.workspaces.invite({ email: trimmed });
-      setSent({ email: invite.email, url: invite.url });
-      setEmail("");
-    } catch (caught) {
-      setError(userFacingError(caught, "Could not send invite"));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function copyLink() {
-    if (!sent) return;
-    try {
-      await navigator.clipboard.writeText(sent.url);
-      setCopied(true);
-    } catch {
-      setError("Copy the link from the field below.");
     }
   }
 
@@ -645,55 +613,7 @@ function WorkspaceSettings(props: {
           </div>
         </>
       ) : null}
-      {props.enabled ? (
-        <>
-          <form
-            className="field"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void send();
-            }}
-          >
-            <span>Invite by email</span>
-            <div className="field-row">
-              <input
-                type="email"
-                value={email}
-                placeholder="teammate@company.com"
-                autoComplete="off"
-                onChange={(event) => setEmail(event.target.value)}
-              />
-              <button
-                className="mini"
-                type="submit"
-                disabled={busy || !email.trim()}
-              >
-                {busy ? "Sending…" : "Send invite"}
-              </button>
-            </div>
-          </form>
-          {error ? <p className="warn">{error}</p> : null}
-          {sent ? (
-            <div className="field">
-              <p className="hint set-lede">
-                Invite emailed to {sent.email}. They open the link and join.
-              </p>
-              <div className="field-row">
-                <input readOnly value={sent.url} />
-                <button
-                  className="mini"
-                  type="button"
-                  onClick={() => void copyLink()}
-                >
-                  {copied ? "Copied" : "Copy"}
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </>
-      ) : (
-        <p className="muted">Create a workspace first, then invite people.</p>
-      )}
+      {error ? <p className="warn">{error}</p> : null}
       {props.enabled && canDeleteWorkspace(membersQuery.data ?? []) ? (
         <div className="set-divide">
           {confirmDelete ? (

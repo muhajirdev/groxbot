@@ -402,13 +402,7 @@ export function YouScreen({ navigation }: Props) {
         onPress={() => void createWorkspace()}
         busy={busy}
       />
-      <Text style={styles.section}>People</Text>
-      {(membersQuery.data ?? []).map((member) => (
-        <Text key={member.userId} style={styles.meta}>
-          {member.name} · {member.email}
-          {member.mine ? " · you" : ""}
-        </Text>
-      ))}
+      <Text style={styles.section}>Invite people</Text>
       <Field
         label="Invite by email"
         value={inviteEmail}
@@ -453,6 +447,13 @@ export function YouScreen({ navigation }: Props) {
           busy={busy}
         />
       )}
+      <Text style={styles.section}>People</Text>
+      {(membersQuery.data ?? []).map((member) => (
+        <Text key={member.userId} style={styles.meta}>
+          {member.name} · {member.email}
+          {member.mine ? " · you" : ""}
+        </Text>
+      ))}
       <Text style={styles.section}>Usage & Billing</Text>
       <Text style={styles.body}>
         {billingQuery.data

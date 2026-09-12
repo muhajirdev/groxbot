@@ -3,8 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { userFacingError } from "../lib/errors";
-import { OFFICE_TO, WORKSPACE_TO, officeParams } from "../lib/office-route";
 import { workspaceListQueryOptions } from "../lib/office-persist";
+import { OFFICE_TO, officeParams, WORKSPACE_TO } from "../lib/office-route";
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
 import { setRpcWorkspaceId } from "../lib/rpc-workspace";
@@ -26,7 +26,8 @@ import {
 } from "../lib/workspace-switcher";
 import { cn } from "../ui";
 import { CreateWorkspaceDialog } from "./CreateWorkspaceDialog";
-import { CheckIcon, ChevronDownIcon, PlusIcon } from "./Icons";
+import { CheckIcon, ChevronDownIcon, PeoplePlusIcon, PlusIcon } from "./Icons";
+import { InvitePeopleDialog } from "./InvitePeopleDialog";
 
 export function WorkspaceSwitcher(props: {
   name?: string | null;
@@ -38,6 +39,7 @@ export function WorkspaceSwitcher(props: {
   const meQuery = useQuery(orpc.me.queryOptions());
   const creating = useRef(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -178,12 +180,19 @@ export function WorkspaceSwitcher(props: {
       setCreateOpen(true);
       return;
     }
+    if (item.kind === "invite") {
+      setNotice(null);
+      setInviteOpen(true);
+      return;
+    }
     if (item.current) return;
     setNotice(null);
     setCached({ id: item.id, name: item.name, slug: item.slug });
-    void client.workspaces.activate({ workspaceId: item.id }).catch((caught) => {
-      setNotice(userFacingError(caught, "Could not switch workspace"));
-    });
+    void client.workspaces
+      .activate({ workspaceId: item.id })
+      .catch((caught) => {
+        setNotice(userFacingError(caught, "Could not switch workspace"));
+      });
     try {
       await enterOffice(item);
     } catch (caught) {
@@ -214,8 +223,9 @@ export function WorkspaceSwitcher(props: {
             side="bottom"
             sideOffset={6}
             align="start"
+            collisionPadding={8}
           >
-            <Menu.Popup className="popover-popup min-w-[200px] max-w-[260px] rounded-[10px] border border-line bg-card p-1 outline-none">
+            <Menu.Popup className="popover-popup max-h-[min(var(--available-height),calc(100dvh-16px))] min-w-[200px] max-w-[min(280px,calc(100vw-24px))] overflow-auto rounded-[10px] border border-line bg-card p-1 outline-none">
               {items.map((item, index) => {
                 if (item.kind === "create") {
                   return (
@@ -232,6 +242,19 @@ export function WorkspaceSwitcher(props: {
                         Create workspace
                       </Menu.Item>
                     </div>
+                  );
+                }
+                if (item.kind === "invite") {
+                  return (
+                    <Menu.Item
+                      key="invite"
+                      className={menuItemClass}
+                      disabled={busy || !remembered.id}
+                      onClick={() => void onItem(item)}
+                    >
+                      <PeoplePlusIcon className="size-3.5 shrink-0 text-muted" />
+                      Invite people
+                    </Menu.Item>
                   );
                 }
                 return (
@@ -271,12 +294,19 @@ export function WorkspaceSwitcher(props: {
         }}
         onCreate={(name) => void onCreate(name)}
       />
+      {remembered.id ? (
+        <InvitePeopleDialog
+          open={inviteOpen}
+          workspaceId={remembered.id}
+          onClose={() => setInviteOpen(false)}
+        />
+      ) : null}
     </>
   );
 }
 
 const menuItemClass = cn(
-  "flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-ink outline-none select-none",
+  "flex w-full min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-ink outline-none select-none max-[720px]:min-h-11",
   "data-highlighted:bg-hover",
   "data-disabled:cursor-not-allowed data-disabled:opacity-50",
 );
