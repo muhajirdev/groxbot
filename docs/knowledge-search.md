@@ -10,6 +10,7 @@ Markdown on R2 is truth. Search is a disposable cache plus an in-memory ranker. 
 - Rebuild on first miss (one R2 `GET` per note). A write patches the snapshot.
 - Leftover `_search/manifest.json` + `_search/s/*.json` shards are read once, then folded into `index.json`.
 - Shared tasks are ordinary notes: `tasks/<name>/TASK.md` (YAML name, description, status) plus sibling `activity.md` for comments. `knowledge.listTasks` is the board catalog; search still indexes the files.
+- First-run may write `org.md` and optional `goal.md` at the knowledge root (YAML `title` / `oneline`). `goal.md` is a hint, not a bot gate.
 
 Library UI uses the same ranked index (`knowledge.search` over oRPC). While the query is in flight, the tree still filters names client-side so the pane never waits. A quiet line under the field says whether results are ranked notes, still searching, or name matches only.
 

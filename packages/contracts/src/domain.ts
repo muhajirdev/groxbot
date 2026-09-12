@@ -512,6 +512,10 @@ export const CreateWorkspaceInput = z.object({
   name: z.string().min(1).max(80),
   /** Client-generated id so the new office can open before the insert returns. */
   id: Id.max(64).optional(),
+  /** Optional knowledge `goal.md` hint. Skip is allowed — not a bot gate. */
+  goal: z.string().max(2_000).optional(),
+  /** Optional who-the-team-is line on `org.md`. */
+  team: z.string().max(240).optional(),
 });
 
 export const UpdateWorkspaceInput = z.object({

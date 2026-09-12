@@ -1,19 +1,12 @@
 import { isRedirect, redirect } from "@tanstack/react-router";
 import { userFacingError } from "./errors";
-import {
-  clearRememberedInvite,
-  readRememberedInvite,
-} from "./invite";
-import { OFFICE_TO, WORKSPACE_TO, officeParams } from "./office-route";
+import { clearRememberedInvite, readRememberedInvite } from "./invite";
+import { OFFICE_TO, officeParams, WORKSPACE_TO } from "./office-route";
 import { orpc, queryClient } from "./orpc";
 import { client } from "./rpc";
 import { setRpcWorkspaceId } from "./rpc-workspace";
-import { defaultWorkspaceName } from "./onboarding";
 import { firstLiveBot, loadBotsForRoute } from "./session";
-import {
-  patchMeWorkspace,
-  rememberListedWorkspace,
-} from "./workspace-catalog";
+import { patchMeWorkspace, rememberListedWorkspace } from "./workspace-catalog";
 import { writeCachedWorkspace } from "./workspace-switcher";
 
 export async function ensureActiveWorkspace(opts?: {
@@ -55,15 +48,7 @@ export async function ensureActiveWorkspace(opts?: {
       slug: me.workspaceSlug,
     };
   }
-  const created = await client.workspaces.create({
-    name: defaultWorkspaceName(me),
-  });
-  rememberListedWorkspace(created);
-  writeCachedWorkspace(created);
-  setRpcWorkspaceId(created.id);
-  patchMeWorkspace(created);
-  await queryClient.fetchQuery(orpc.me.queryOptions());
-  return created;
+  throw new Error("Name this team to open the office.");
 }
 
 function officeRedirect(workspaceSlug: string, roomId?: string) {
@@ -79,7 +64,7 @@ function officeRedirect(workspaceSlug: string, roomId?: string) {
   });
 }
 
-/** Open the office. Create a workspace if this account has none. */
+/** Open the office. First-run with no workspace names the team on /onboarding. */
 export async function redirectAuthedHome(): Promise<never> {
   const invite = readRememberedInvite();
   try {
