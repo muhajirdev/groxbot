@@ -18,6 +18,7 @@ pnpm dev
 
 - API: http://127.0.0.1:3100/health — `database` should be `"ok"`.
 - Web: http://127.0.0.1:5173
+- Magic-link / email OTP writes Better Auth `verification` (plus `user`, `session`, `account`). `0000` creates them; `0001_restore_better_auth_tables.sql` is `CREATE TABLE IF NOT EXISTS` so a catalog that skipped empty auth tables still gets them after `pnpm db:migrate`.
 
 Create a hosted D1 once, then put the real id in `apps/api/wrangler.jsonc`:
 
