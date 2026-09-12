@@ -43,6 +43,7 @@ import {
   OnboardingVideo,
   OnboardingWelcome,
 } from "../components/OnboardingDialog";
+import { OnboardingOrg } from "../components/OnboardingOrg";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { PresentSurface } from "../components/PresentToolUI";
 import { OfficeToast } from "../components/ToastHost";
@@ -206,7 +207,7 @@ export function Design() {
           <Section
             id="onboarding"
             title="Onboarding"
-            lede="Sign in on the left. Product video on the right. Founder letter on first office open."
+            lede="Sign in on the left. Name the team, optional goal as knowledge markdown, then the founder letter."
           >
             <div
               className="auth-card"
@@ -254,6 +255,11 @@ export function Design() {
                 <OnboardingVideo className="auth-video" />
               </aside>
             </div>
+            <Specimen label="Name the team" hint="OnboardingOrg">
+              <div className="overflow-hidden rounded-[12px] border border-line bg-bg">
+                <OnboardingOrg defaultName="" onCreate={() => undefined} />
+              </div>
+            </Specimen>
             <Specimen label="Office founder letter" hint="OnboardingWelcome">
               <div className="overflow-hidden rounded-[12px] border border-line bg-card">
                 <OnboardingWelcome

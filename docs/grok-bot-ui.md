@@ -104,17 +104,20 @@ Copy voice: teammate, job, handoff, come back when you need approval. Not “age
 
 ## Onboarding (copy this sequence)
 
-Login opens the office immediately. No tools or models gate. Workspace is created from the user’s name when they have none. Invite links (`/?invite=`) open a join page (workspace name, who invited you, Join). Sign in if needed, then land in the office.
+Login asks for a team name, then an optional goal. No tools or models gate. First-run with no workspace lands on `/onboarding` (required name, optional what-you’re-building, skip allowed). Those answers become knowledge markdown at `org.md` / `goal.md` — same library as skills and tasks, editable later. `goal.md` is a hint, not a bot gate. Invite links (`/?invite=`) still open a join page. Sign in if needed, then land in the office.
 
 ```
   Sign in (video on the right)
+         |
+         v
+  Name this team (required) → optional goal / who the team is
          |
          v
   Office paints. If this workspace has no live bots:
     founder letter → [ OK, let's see my office ]
          |
          v
-  Empty office. New bot when they want a teammate.
+  Empty office. People, rooms, and proof — New bot when they want a teammate.
   Reload while empty shows the letter again. Hire, and it stops.
 ```
 
@@ -130,7 +133,7 @@ After that, **New** / `Cmd+N` → **Create new agent** → opens **New Agent** �
 
 iPhone: Login with Cursor → first-run tour → choose first Bot → wait for computer → same roster. `+` → New Agent | New Group Chat.
 
-**Our v1 trim:** first-run is sign-in with the product video, then the office, then a short letter from the founder. Each Bot already has a computer (you can ignore it). Skip group chat, shared desk, and takeover. Plugins = Composio when we have it. Models live in Settings, not the first-run gate.
+**Our v1 trim:** first-run is sign-in with the product video, a short team-name step plus optional goal in the knowledge library, then the office and a letter from the founder. Each Bot already has a computer (you can ignore it). Skip group chat, shared desk, and takeover. Plugins = Composio when we have it. Models live in Settings, not the first-run gate.
 
 ### First-task recipe (surface in empty composer)
 

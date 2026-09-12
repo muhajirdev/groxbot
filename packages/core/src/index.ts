@@ -21,6 +21,7 @@ export * from "./guest-token.js";
 export * from "./gadget-files.js";
 export * from "./ids.js";
 export * from "./knowledge.js";
+export * from "./knowledge-org.js";
 export * from "./knowledge-task.js";
 export * from "./knowledge-tasks.js";
 export * from "./knowledge-links.js";

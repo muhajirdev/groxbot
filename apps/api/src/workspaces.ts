@@ -1,26 +1,27 @@
 import { ORGANIZATION_CLIENT_ID_KEY } from "@groxbot/auth";
 import {
   AdminDeleteError,
-  invitationIdFromInput,
-  invitationUrl,
-  ensureWorkspaceBilling,
   deleteOpenInvitation,
   ensureOpenInvitation,
+  ensureWorkspaceBilling,
   getOpenInvitation,
+  invitationIdFromInput,
+  invitationUrl,
   isWorkspaceMember,
   isWorkspaceOwner,
   listPendingInvitations,
+  officeOrgKnowledgeFiles,
   peekInvitation,
   renameWorkspace,
   slugForWorkspace,
   workspaceAuthMessage,
 } from "@groxbot/core";
-import { member, session as authSession } from "@groxbot/db";
-import { eq } from "drizzle-orm";
+import { session as authSession, member } from "@groxbot/db";
 import { ORPCError } from "@orpc/server";
+import { eq } from "drizzle-orm";
+import { deleteAdminWorkspace } from "./admin-purge.js";
 import type { RpcContext } from "./context.js";
 import { requireActor, type SessionUser } from "./session.js";
-import { deleteAdminWorkspace } from "./admin-purge.js";
 
 function toWorkspace(org: { id: string; name: string; slug?: string | null }) {
   return { id: org.id, name: org.name, slug: org.slug || org.id };
@@ -29,7 +30,7 @@ function toWorkspace(org: { id: string; name: string; slug?: string | null }) {
 export async function createWorkspace(
   context: RpcContext,
   user: SessionUser,
-  input: { name: string; id?: string },
+  input: { name: string; id?: string; goal?: string; team?: string },
 ) {
   if (!context.auth) {
     throw new ORPCError("UNAUTHORIZED", { message: "Sign in" });
@@ -70,10 +71,12 @@ export async function createWorkspace(
       message: "Pick another workspace name.",
     });
   }
-  await ensureWorkspaceBilling(
-    context.db,
-    created.id,
-  );
+  await ensureWorkspaceBilling(context.db, created.id);
+  await seedOfficeOrgKnowledge(context, created.id, {
+    name: trimmed,
+    team: input.team,
+    goal: input.goal,
+  });
   try {
     await context.auth.api.setActiveOrganization({
       body: { organizationId: created.id },
@@ -457,6 +460,17 @@ export function throwWorkspaceError(caught: unknown, fallback: string): never {
   throw new ORPCError("BAD_REQUEST", {
     message: workspaceAuthMessage(authMessage(caught), fallback),
   });
+}
+
+async function seedOfficeOrgKnowledge(
+  context: RpcContext,
+  workspaceId: string,
+  input: { name: string; team?: string; goal?: string },
+) {
+  if (!context.knowledge) return;
+  for (const file of officeOrgKnowledgeFiles(input)) {
+    await context.knowledge.write(workspaceId, file);
+  }
 }
 
 function authMessage(caught: unknown): string {
