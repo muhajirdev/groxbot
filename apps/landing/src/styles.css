@@ -21,7 +21,7 @@
   --radius-shell: 12px;
   --radius-pill: var(--pill);
   --shadow-modal: var(--shadow);
-  --font-sans: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --font-sans: "Nunito", ui-rounded, system-ui, sans-serif;
 }
 
 :root {
@@ -56,9 +56,11 @@
   --radius: 16px;
   --radius-shell: 12px;
   --pill: 999px;
-  --sans: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --sans: "Nunito", ui-rounded, system-ui, sans-serif;
+  --display: "Baloo 2", "Nunito", ui-rounded, system-ui, sans-serif;
   --office: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   font-family: var(--sans);
+  font-weight: 500;
 }
 
 * {
@@ -110,8 +112,9 @@ button {
 h1,
 h2,
 h3 {
-  font-weight: 600;
-  letter-spacing: -0.038em;
+  font-family: var(--display);
+  font-weight: 800;
+  letter-spacing: 0;
   margin: 0 0 16px;
 }
 
@@ -131,9 +134,11 @@ h3 {
 }
 
 .kicker {
-  letter-spacing: 0.04em;
+  font-family: var(--display);
+  letter-spacing: 0;
   text-transform: none;
   font-size: 13px;
+  font-weight: 800;
   color: var(--muted);
   margin: 0 0 8px;
 }
@@ -292,9 +297,10 @@ h3 {
   min-width: 0;
   gap: 10px;
   text-decoration: none;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0;
 }
 
 .brand-name em {
@@ -315,7 +321,9 @@ h3 {
   flex: none;
   flex-wrap: nowrap;
   gap: 4px;
-  font-size: 13px;
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .nav-links a {
@@ -347,11 +355,12 @@ h3 {
   border: 0;
   background: var(--ink);
   color: var(--bg);
-  border-radius: var(--pill);
+  border-radius: 14px;
   padding: 10px 16px;
   text-decoration: none;
   display: inline-block;
-  font-weight: 500;
+  font-family: var(--display);
+  font-weight: 700;
   transition:
     transform 0.16s ease,
     background 0.16s ease,
@@ -412,9 +421,11 @@ h3 {
   border: 1px solid var(--line);
   border-radius: var(--pill);
   padding: 6px 12px;
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--muted);
 }
 
@@ -575,8 +586,8 @@ h3 {
 .hero-home h1 {
   margin: 0 0 18px;
   font-size: clamp(56px, 9vw, 92px);
-  font-weight: 700;
-  letter-spacing: -0.058em;
+  font-weight: 800;
+  letter-spacing: 0;
   line-height: 0.94;
 }
 
@@ -645,8 +656,8 @@ h3 {
 .talk h2 {
   margin: 0;
   font-size: clamp(36px, 4.6vw, 58px);
-  font-weight: 700;
-  letter-spacing: -0.052em;
+  font-weight: 800;
+  letter-spacing: 0;
   line-height: 0.98;
 }
 
@@ -737,8 +748,8 @@ h3 {
   margin: 0;
   max-width: 16ch;
   font-size: clamp(36px, 4.6vw, 58px);
-  font-weight: 700;
-  letter-spacing: -0.052em;
+  font-weight: 800;
+  letter-spacing: 0;
   line-height: 0.98;
 }
 
@@ -850,8 +861,8 @@ h3 {
   margin: 0;
   max-width: 14ch;
   font-size: clamp(36px, 4.6vw, 58px);
-  font-weight: 700;
-  letter-spacing: -0.052em;
+  font-weight: 800;
+  letter-spacing: 0;
   line-height: 0.98;
 }
 
@@ -955,8 +966,8 @@ h3 {
   margin: 0;
   max-width: 12ch;
   font-size: clamp(36px, 4.6vw, 58px);
-  font-weight: 700;
-  letter-spacing: -0.052em;
+  font-weight: 800;
+  letter-spacing: 0;
   line-height: 0.98;
 }
 
@@ -1869,7 +1880,7 @@ img.avatar {
 .compare-callout h3 {
   margin: 0 0 10px;
   font-size: clamp(22px, 3vw, 28px);
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
 }
 
 .compare-callout > p:not(.kicker) {
@@ -3017,7 +3028,9 @@ img.avatar {
   padding-top: 28px;
   border-top: 1px solid var(--line);
   color: var(--muted);
-  font-size: 13px;
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .foot a,
@@ -3561,9 +3574,10 @@ a.chip.on .chip-count,
 
 .share-title {
   margin: 0 0 12px;
+  font-family: var(--display);
   font-size: 1.85rem;
-  font-weight: 600;
-  letter-spacing: -0.03em;
+  font-weight: 800;
+  letter-spacing: 0;
 }
 
 .share-lede {
@@ -3754,8 +3768,8 @@ a.chip.on .chip-count,
 .how-works h2 {
   max-width: 16ch;
   font-size: clamp(36px, 4.6vw, 58px);
-  font-weight: 700;
-  letter-spacing: -0.052em;
+  font-weight: 800;
+  letter-spacing: 0;
   line-height: 0.98;
 }
 
@@ -3778,8 +3792,8 @@ a.chip.on .chip-count,
 .how-beats h3 {
   margin: 0 0 10px;
   font-size: clamp(26px, 3.2vw, 36px);
-  font-weight: 700;
-  letter-spacing: -0.04em;
+  font-weight: 800;
+  letter-spacing: 0;
   line-height: 1.05;
 }
 
@@ -3848,8 +3862,10 @@ a.chip.on .chip-count,
 
 .hire-card h4 {
   margin: 0 0 14px;
+  font-family: var(--display);
   font-size: 18px;
-  letter-spacing: -0.03em;
+  font-weight: 800;
+  letter-spacing: 0;
 }
 
 .hire-card-apps {
@@ -3883,8 +3899,8 @@ a.chip.on .chip-count,
 .everywhere h2 {
   max-width: 16ch;
   font-size: clamp(36px, 4.6vw, 58px);
-  font-weight: 700;
-  letter-spacing: -0.052em;
+  font-weight: 800;
+  letter-spacing: 0;
   line-height: 0.98;
 }
 
@@ -3932,7 +3948,7 @@ a.chip.on .chip-count,
 .feature-grid h3 {
   margin: 0 0 10px;
   font-size: 22px;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
 }
 
 .feature-grid p {
@@ -3963,17 +3979,18 @@ a.chip.on .chip-count,
 .home-routines h2 {
   max-width: 16ch;
   font-size: clamp(36px, 4.6vw, 58px);
-  font-weight: 700;
-  letter-spacing: -0.052em;
+  font-weight: 800;
+  letter-spacing: 0;
   line-height: 0.98;
 }
 
 .routine-line {
   margin: 22px 0 0;
   max-width: 28ch;
+  font-family: var(--display);
   font-size: clamp(22px, 3.2vw, 34px);
-  font-weight: 650;
-  letter-spacing: -0.04em;
+  font-weight: 800;
+  letter-spacing: 0;
   line-height: 1.2;
   animation: routine-in 0.45s ease;
 }

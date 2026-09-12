@@ -66,3 +66,18 @@ describe("homepage section washes", () => {
     expect(css).toMatch(/#hire\s*\{[^}]*--wash-bg:\s*var\(--band-blush\)/s);
   });
 });
+
+describe("landing type", () => {
+  it("uses Nunito for body and Baloo 2 for titles, like win.sh", () => {
+    const rootDoc = readFileSync(join(root, "../routes/__root.tsx"), "utf8");
+    expect(css).toContain('--sans: "Nunito"');
+    expect(css).toContain('--display: "Baloo 2"');
+    expect(css).toMatch(
+      /h1,\s*h2,\s*h3\s*\{[^}]*font-family:\s*var\(--display\)/s,
+    );
+    expect(css).not.toContain("Source Sans 3");
+    expect(rootDoc).toContain("family=Nunito");
+    expect(rootDoc).toContain("family=Baloo+2");
+    expect(rootDoc).not.toContain("family=Source+Sans+3");
+  });
+});
