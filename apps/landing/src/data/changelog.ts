@@ -16,13 +16,13 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-09-05",
     title: "Bot marketplace packages",
-    body: "Hire catalog listings ship as full teammate packages: soul, memory, and starter skills — same list in the office and on Templates.",
+    body: "Hire catalog listings ship as full teammate packages: soul, memory, and starter skills — same list in the product and on Templates.",
     href: "/templates",
   },
   {
     date: "2026-09-04",
-    title: "Pi-native office",
-    body: "Office turns run on the home RoomActor with streamed Cap’n Web. Computers stay on that bot’s desk.",
+    title: "Pi-native threads",
+    body: "Turns run on the home RoomActor with streamed Cap’n Web. Computers stay on that bot’s desk.",
   },
   {
     date: "2026-09-03",

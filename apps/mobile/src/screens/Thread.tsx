@@ -1,15 +1,16 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Avatar } from "../components/Avatar";
-import { Header } from "../components/Header";
-import { Screen } from "../components/Screen";
+import { useLayoutEffect } from "react";
+import { StyleSheet, View } from "react-native";
+import { HeaderButton } from "../components/HeaderButton";
+import { Mascot } from "../components/Mascot";
+import { PopIn } from "../components/Motion";
 import { OfficeThread } from "../components/OfficeThread";
+import { Screen } from "../components/Screen";
+import { ThreadTitle } from "../components/ThreadTitle";
 import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
 import type { RootStackParamList } from "../navigation";
-import { colors } from "../theme";
-import { useWorking } from "../working";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Thread">;
 
@@ -19,7 +20,31 @@ export function ThreadScreen({ navigation, route }: Props) {
   const meQuery = useQuery(orpc.me.queryOptions());
   const botQuery = useQuery(orpc.bots.get.queryOptions({ input: { botId } }));
   const bot = botQuery.data;
-  const working = useWorking(botId);
+
+  useLayoutEffect(() => {
+    const name = bot?.name ?? "Thread";
+    navigation.setOptions({
+      title: name,
+      headerTitle: () => (
+        <ThreadTitle
+          name={name}
+          color={bot?.avatarColor}
+          shape={bot?.avatarShape}
+          onPress={() => navigation.navigate("BotSettings", { botId })}
+        />
+      ),
+      headerTitleAlign: "center",
+      headerBackTitle: "",
+      headerBackButtonDisplayMode: "minimal",
+      headerRight: () => (
+        <HeaderButton
+          label="Computer"
+          symbol="desktopcomputer"
+          onPress={() => navigation.navigate("Computer", { botId })}
+        />
+      ),
+    });
+  }, [bot?.avatarColor, bot?.avatarShape, bot?.name, botId, navigation]);
 
   async function unarchive() {
     await client.bots.unarchive({ botId });
@@ -29,91 +54,36 @@ export function ThreadScreen({ navigation, route }: Props) {
 
   return (
     <Screen>
-      <Header
-        title={bot?.name ?? "Thread"}
-        onBack={() => navigation.navigate("Roster")}
-        right={
-          <View style={styles.actions}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => navigation.navigate("Computer", { botId })}
-            >
-              <Text style={styles.link}>Computer</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => navigation.navigate("Apps", { botId })}
-            >
-              <Text style={styles.link}>Apps</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => navigation.navigate("Plugins", { botId })}
-            >
-              <Text style={styles.link}>Plugins</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => navigation.navigate("BotSettings", { botId })}
-            >
-              <Text style={styles.link}>Settings</Text>
-            </Pressable>
-          </View>
-        }
-      />
-      {bot ? (
-        <View style={styles.ident}>
-          <Avatar
-            name={bot.name}
-            color={bot.avatarColor}
-            shape={bot.avatarShape}
-            size={28}
-            working={working}
-          />
-          <Text style={styles.job} numberOfLines={1}>
-            {bot.title || "Teammate"}
-          </Text>
-        </View>
-      ) : null}
       {bot ? (
         <OfficeThread
           botId={bot.id}
           roomId={bot.homeRoomId || bot.id}
           botName={bot.name}
+          avatarColor={bot.avatarColor}
+          avatarShape={bot.avatarShape}
           archived={Boolean(bot.archivedAt)}
           needsModel={Boolean(meQuery.data?.needsModel)}
-          needsHostedPlan={Boolean(meQuery.data?.needsHostedPlan)}
           userId={meQuery.data?.userId}
           userName={meQuery.data?.name}
-          onNeedsModel={() => navigation.navigate("You")}
-          onNeedsHostedPlan={() => navigation.navigate("Billing")}
+          onNeedsModel={() =>
+            navigation.navigate("You")
+          }
           onOpenPath={(path) =>
             navigation.navigate("Computer", { botId: bot.id, path })
           }
           onUnarchive={() => void unarchive()}
         />
       ) : (
-        <Text style={styles.loading}>Opening thread…</Text>
+        <View style={styles.loading} accessibilityLabel="Opening thread">
+          <PopIn>
+            <Mascot size={56} mood="thinking" />
+          </PopIn>
+        </View>
       )}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  actions: {
-    flexDirection: "row",
-    gap: 8,
-    flexWrap: "wrap",
-    justifyContent: "flex-end",
-  },
-  link: { color: colors.muted, fontSize: 13, fontWeight: "500" },
-  ident: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-  },
-  job: { color: colors.muted, fontSize: 13, flex: 1 },
-  loading: { color: colors.muted, padding: 16 },
+  loading: { flex: 1, alignItems: "center", justifyContent: "center" },
 });

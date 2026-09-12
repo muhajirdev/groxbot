@@ -1,6 +1,6 @@
 import { MascotMark } from "@groxbot/mascot";
 import { Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   CONTACT_EMAIL,
   CONTACT_MAILTO,
@@ -10,24 +10,55 @@ import {
 } from "../lib/copy";
 import { SupportChatLink } from "./SupportChat";
 
+export function navScrolled(scrollY: number) {
+  return scrollY > 24;
+}
+
 export function SiteHeader(props: { startUrl: string }) {
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const sync = () => setScrolled(navScrolled(window.scrollY));
+    sync();
+    window.addEventListener("scroll", sync, { passive: true });
+    return () => window.removeEventListener("scroll", sync);
+  }, []);
+
   return (
-    <header className="nav">
-      <Link className="brand" to="/" aria-label="Groxbot home">
+    <header className={scrolled ? "nav is-scrolled" : "nav"}>
+      <Link className="brand" to="/" aria-label="Whip Computer home">
         <MascotMark name="Groxbot" color="#e45c9a" shape="circle" size="sm" />
-        Groxbot
+        <span className="brand-name">
+          <em>Whip</em> Computer
+        </span>
       </Link>
       <nav className="nav-links" aria-label="Site">
-        <Link className="nav-hide-sm" to="/use-cases">
+        <Link
+          className="nav-hide-sm"
+          to="/use-cases"
+          activeProps={{ className: "on" }}
+        >
           Use cases
         </Link>
-        <Link className="nav-hide-sm" to="/templates">
+        <Link
+          className="nav-hide-sm"
+          to="/templates"
+          activeProps={{ className: "on" }}
+        >
           Templates
         </Link>
-        <Link className="nav-hide-sm" to="/pricing">
+        <Link
+          className="nav-hide-sm"
+          to="/pricing"
+          activeProps={{ className: "on" }}
+        >
           Pricing
         </Link>
-        <Link className="nav-hide-sm" to="/integrations">
+        <Link
+          className="nav-hide-sm"
+          to="/integrations"
+          activeProps={{ className: "on" }}
+        >
           Integrations
         </Link>
         <a

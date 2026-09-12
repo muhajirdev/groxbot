@@ -19,7 +19,7 @@ export const Route = createFileRoute("/compare/")({
     seoHead({
       title: "Compare",
       description:
-        "Groxbot vs Hermes vs OpenClaw vs Paperclip — feature tables for multiplayer, knowledge base, BYOK, and more.",
+        "Whip Computer vs Hermes vs OpenClaw vs Paperclip — feature tables for multiplayer, knowledge base, BYOK, and more.",
       path: "/compare",
       jsonLd: [
         breadcrumbJsonLd([
@@ -27,7 +27,7 @@ export const Route = createFileRoute("/compare/")({
           { name: "Compare", path: "/compare" },
         ]),
         itemListJsonLd(
-          "Groxbot comparisons",
+          "Whip Computer comparisons",
           "/compare",
           COMPARE_PAGES.map((page) => ({
             name: page.title,
@@ -49,7 +49,7 @@ function CompareIndex() {
         />
         <section className="hero !py-8 sm:!py-12 sm:!pb-10">
           <p className="kicker">Compare</p>
-          <h1 className="!my-2 !mb-4">Office vs personal vs orchestration.</h1>
+          <h1 className="!my-2 !mb-4">Team vs personal vs orchestration.</h1>
           <p className="lede !mb-3 !text-xl">
             Feature tables with checks and crosses. Multiplayer and a shared
             knowledge base are the gap.

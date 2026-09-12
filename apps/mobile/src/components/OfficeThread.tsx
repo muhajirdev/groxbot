@@ -1,6 +1,10 @@
 import { useExternalStoreRuntime } from "@assistant-ui/core/react";
 import {
-  ActionBarPrimitive,
+  useActionBarCopy,
+  useActionBarEdit,
+  useActionBarReload,
+} from "@assistant-ui/core/react";
+import {
   AssistantRuntimeProvider,
   AttachmentPrimitive,
   AuiIf,
@@ -15,8 +19,10 @@ import {
   useAuiState,
 } from "@assistant-ui/react-native";
 import {
+  type Bot,
   officeUserFromActor,
   PRESENT_TOOL_NAME,
+  type Room,
   withOfficeUserMetadata,
 } from "@groxbot/contracts";
 import {
@@ -25,16 +31,19 @@ import {
 } from "@groxbot/core/browser";
 import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
+import { SymbolView } from "expo-symbols";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Image,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { showActionSheet } from "../lib/action-sheet";
 import { appCardsFromOfficeMessage } from "../lib/app-cards";
 import {
   approvalSummary,
@@ -46,7 +55,6 @@ import { sessionCookie } from "../lib/auth";
 import { lastUiPreview } from "../lib/chat-messages";
 import { composerBannerError } from "../lib/errors";
 import { officeAppUrl } from "../lib/host";
-import { FIRST_TASK } from "../lib/jobs";
 import { peekOfficeMessages, setOfficeMessages } from "../lib/office-cache";
 import { officeUserMessageSender } from "../lib/office-sender";
 import { orpc, queryClient } from "../lib/orpc";
@@ -57,11 +65,16 @@ import { createImmediateSteerQueue } from "../lib/thread-steer-queue";
 import { isWaitingForAssistantTurn } from "../lib/thread-waiting";
 import { useOfficeChat } from "../lib/use-office-chat";
 import { projectedToThreadMessage } from "../lib/use-pi-thread";
+import { tapMedium, tapSoft, tapSuccess } from "../lib/haptics";
+import { officeQueryKey } from "../lib/workspace-switch";
 import { colors, radius } from "../theme";
 import { useSetWorking } from "../working";
 import { AppCard } from "./AppCard";
 import { AskCard, OfficeAskActionsContext } from "./AskCard";
+import { Avatar } from "./Avatar";
 import { ChatMarkdown } from "./ChatMarkdown";
+import { EmptyDesk } from "./EmptyDesk";
+import { usePressScale } from "./Motion";
 import { OfficeSkillSlash } from "./OfficeSkillSlash";
 import { PresentCard } from "./PresentCard";
 import { RoomMentionMenu } from "./RoomMentionMenu";
@@ -77,16 +90,16 @@ export function OfficeThread(props: {
   botName: string;
   archived: boolean;
   needsModel: boolean;
-  needsHostedPlan?: boolean;
   placeholder?: string;
   description?: string;
+  avatarColor?: string;
+  avatarShape?: string;
   kind?: "office" | "room";
   members?: readonly RoomMentionSeat[];
   targetBotId?: string;
   userId?: string;
   userName?: string;
   onNeedsModel: () => void;
-  onNeedsHostedPlan?: () => void;
   onOpenPath?: (path: string) => void;
   onUnarchive: () => void;
 }) {
@@ -99,9 +112,13 @@ export function OfficeThread(props: {
         botName={props.botName}
         archived={props.archived}
         needsModel={props.needsModel}
-        needsHostedPlan={Boolean(props.needsHostedPlan)}
-        placeholder={props.placeholder || FIRST_TASK}
+        placeholder={
+          props.placeholder ||
+          (props.kind === "room" ? "Message" : `Ask ${props.botName}`)
+        }
         description={props.description}
+        avatarColor={props.avatarColor}
+        avatarShape={props.avatarShape}
         kind={props.kind ?? "office"}
         members={props.members ?? []}
         targetBotId={props.targetBotId}
@@ -110,7 +127,6 @@ export function OfficeThread(props: {
         error={error}
         onError={setError}
         onNeedsModel={props.onNeedsModel}
-        onNeedsHostedPlan={props.onNeedsHostedPlan}
         onOpenPath={props.onOpenPath}
       />
       {error ? <Text style={styles.banner}>{error}</Text> : null}
@@ -134,9 +150,10 @@ function OfficeThreadRuntime(props: {
   botName: string;
   archived: boolean;
   needsModel: boolean;
-  needsHostedPlan: boolean;
   placeholder: string;
   description?: string;
+  avatarColor?: string;
+  avatarShape?: string;
   kind: "office" | "room";
   members: readonly RoomMentionSeat[];
   targetBotId?: string;
@@ -145,7 +162,6 @@ function OfficeThreadRuntime(props: {
   error: string;
   onError: (error: string) => void;
   onNeedsModel: () => void;
-  onNeedsHostedPlan?: () => void;
   onOpenPath?: (path: string) => void;
 }) {
   const [cookie, setCookie] = useState("");
@@ -156,14 +172,10 @@ function OfficeThreadRuntime(props: {
   onErrorRef.current = props.onError;
   const onNeedsModelRef = useRef(props.onNeedsModel);
   onNeedsModelRef.current = props.onNeedsModel;
-  const onNeedsHostedPlanRef = useRef(props.onNeedsHostedPlan);
-  onNeedsHostedPlanRef.current = props.onNeedsHostedPlan;
   const archivedRef = useRef(props.archived);
   archivedRef.current = props.archived;
   const needsModelRef = useRef(props.needsModel);
   needsModelRef.current = props.needsModel;
-  const needsHostedPlanRef = useRef(props.needsHostedPlan);
-  needsHostedPlanRef.current = props.needsHostedPlan;
   const botIdRef = useRef(props.botId);
   botIdRef.current = props.botId;
   const sender = officeUserFromActor({
@@ -261,11 +273,6 @@ function OfficeThreadRuntime(props: {
       if (archivedRef.current) {
         return Promise.reject(new Error("Archived"));
       }
-      if (needsHostedPlanRef.current) {
-        onNeedsHostedPlanRef.current?.();
-        onErrorRef.current("Subscribe to Pro to use this workspace.");
-        return Promise.reject(new Error("Hosted plan required"));
-      }
       if (needsModelRef.current) {
         onNeedsModelRef.current();
         onErrorRef.current(
@@ -343,16 +350,19 @@ function OfficeThreadRuntime(props: {
     setOfficeMessages(chatId, messages);
     const preview = lastUiPreview(messages);
     if (!preview) return;
-    queryClient.setQueryData(orpc.bots.list.queryOptions().queryKey, (rows) => {
-      if (!rows) return rows;
-      return rows.map((row) =>
-        row.id === props.botId || row.homeRoomId === chatId
-          ? { ...row, lastPreview: preview }
-          : row,
-      );
-    });
-    queryClient.setQueryData(
-      orpc.rooms.list.queryOptions().queryKey,
+    queryClient.setQueryData<Bot[]>(
+      officeQueryKey(orpc.bots.list.queryOptions().queryKey),
+      (rows) => {
+        if (!rows) return rows;
+        return rows.map((row) =>
+          row.id === props.botId || row.homeRoomId === chatId
+            ? { ...row, lastPreview: preview }
+            : row,
+        );
+      },
+    );
+    queryClient.setQueryData<Room[]>(
+      officeQueryKey(orpc.rooms.list.queryOptions().queryKey),
       (rows) => {
         if (!rows) return rows;
         return rows.map((row) =>
@@ -415,6 +425,8 @@ function OfficeThreadRuntime(props: {
           hideComposer={props.archived}
           placeholder={props.placeholder}
           description={props.description}
+          avatarColor={props.avatarColor}
+          avatarShape={props.avatarShape}
           kind={props.kind}
           members={props.members}
           viewerUserId={props.userId}
@@ -432,6 +444,8 @@ function OfficeThreadView(props: {
   hideComposer: boolean;
   placeholder: string;
   description?: string;
+  avatarColor?: string;
+  avatarShape?: string;
   kind: "office" | "room";
   members: readonly RoomMentionSeat[];
   viewerUserId?: string;
@@ -439,20 +453,22 @@ function OfficeThreadView(props: {
   onOpenPath?: (path: string) => void;
 }) {
   const pending = Boolean(props.pending);
-  const welcome =
-    props.kind === "room"
-      ? props.description?.trim()
-        ? props.description
-        : "This log is the table. Say something and everyone answers. @name someone to talk to one person."
-      : "First message is a real task. A good handoff has an outcome, sources, and when to stop.";
+  useSendHaptic();
   return (
     <ThreadPrimitive.Root style={styles.fill}>
       <ThreadPrimitive.MessagesFlatList
         autoScroll
+        contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.messages}
         ListHeaderComponent={
           <AuiIf condition={(s) => s.thread.isEmpty}>
-            <Text style={styles.welcome}>{welcome}</Text>
+            <EmptyThread
+              botName={props.botName}
+              kind={props.kind}
+              description={props.description}
+              avatarColor={props.avatarColor}
+              avatarShape={props.avatarShape}
+            />
           </AuiIf>
         }
         ListFooterComponent={
@@ -467,8 +483,20 @@ function OfficeThreadView(props: {
               }
             >
               <View style={styles.workingRow}>
-                <ActivityIndicator color={colors.accent} />
-                <Text style={styles.muted}>{props.botName} is working…</Text>
+                {props.avatarColor ? (
+                  <Avatar
+                    name={props.botName}
+                    color={props.avatarColor}
+                    shape={props.avatarShape || "circle"}
+                    size={22}
+                    working
+                  />
+                ) : (
+                  <ActivityIndicator color={colors.accent} />
+                )}
+                <Text style={styles.workingCopy}>
+                  {props.botName} is on it…
+                </Text>
               </View>
             </AuiIf>
             <Followups />
@@ -479,6 +507,7 @@ function OfficeThreadView(props: {
           <ThreadMessage
             botId={props.botId}
             botName={props.botName}
+            kind={props.kind}
             viewerUserId={props.viewerUserId}
             onOpenPath={props.onOpenPath}
           />
@@ -492,6 +521,72 @@ function OfficeThreadView(props: {
         />
       )}
     </ThreadPrimitive.Root>
+  );
+}
+
+const STARTERS = [
+  {
+    label: "Write my job",
+    prompt:
+      "Write a job description for yourself from what you know about this office. Keep it one page.",
+  },
+  {
+    label: "What's on your desk?",
+    prompt:
+      "What's on your computer and in knowledge right now? Give me a short tour.",
+  },
+  {
+    label: "Plan the week",
+    prompt:
+      "Help me plan the week. Ask what matters, then propose a tight list.",
+  },
+] as const;
+
+function useSendHaptic() {
+  const running = useAuiState((s) => s.thread.isRunning);
+  const seen = useRef(running);
+  useEffect(() => {
+    if (running && !seen.current) tapSuccess();
+    seen.current = running;
+  }, [running]);
+}
+
+function EmptyThread(props: {
+  botName: string;
+  kind: "office" | "room";
+  description?: string;
+  avatarColor?: string;
+  avatarShape?: string;
+}) {
+  const room = props.kind === "room";
+  return (
+    <EmptyDesk
+      name={props.botName}
+      color={props.avatarColor}
+      shape={props.avatarShape}
+      title={room ? props.botName : `Hey. I'm ${props.botName}.`}
+      lede={
+        room
+          ? props.description?.trim() ||
+            "This table is the log. Say something and everyone answers."
+          : "Give me a real first task — an outcome, sources, and when to stop."
+      }
+    >
+      {room ? null : (
+        <View style={styles.starters}>
+          {STARTERS.map((item) => (
+            <ThreadPrimitive.Suggestion
+              key={item.prompt}
+              prompt={item.prompt}
+              send
+              style={styles.starter}
+            >
+              <Text style={styles.starterLabel}>{item.label}</Text>
+            </ThreadPrimitive.Suggestion>
+          ))}
+        </View>
+      )}
+    </EmptyDesk>
   );
 }
 
@@ -518,9 +613,42 @@ function Followups() {
   );
 }
 
+function useMessageMenu(role: "user" | "assistant") {
+  const { copy, disabled: copyDisabled } = useActionBarCopy({
+    copyToClipboard,
+  });
+  const { edit, disabled: editDisabled } = useActionBarEdit();
+  const { reload, disabled: reloadDisabled } = useActionBarReload();
+  return useCallback(() => {
+    const items: { label: string; onPress?: () => void; cancel?: boolean }[] =
+      [];
+    if (!copyDisabled) {
+      items.push({ label: "Copy", onPress: () => copy() });
+    }
+    if (role === "user" && !editDisabled) {
+      items.push({ label: "Edit", onPress: edit });
+    }
+    if (role === "assistant" && !reloadDisabled) {
+      items.push({ label: "Retry", onPress: () => reload() });
+    }
+    items.push({ label: "Cancel", cancel: true });
+    if (items.length === 1) return;
+    showActionSheet(undefined, items);
+  }, [
+    copy,
+    copyDisabled,
+    edit,
+    editDisabled,
+    reload,
+    reloadDisabled,
+    role,
+  ]);
+}
+
 function ThreadMessage(props: {
   botId: string;
   botName: string;
+  kind: "office" | "room";
   viewerUserId?: string;
   onOpenPath?: (path: string) => void;
 }) {
@@ -530,6 +658,7 @@ function ThreadMessage(props: {
   if (role === "user") {
     return (
       <UserMessage
+        kind={props.kind}
         viewerUserId={props.viewerUserId}
         onOpenPath={props.onOpenPath}
       />
@@ -539,35 +668,39 @@ function ThreadMessage(props: {
     <AssistantMessage
       botId={props.botId}
       botName={props.botName}
+      kind={props.kind}
       onOpenPath={props.onOpenPath}
     />
   );
 }
 
 function UserMessage(props: {
+  kind: "office" | "room";
   viewerUserId?: string;
   onOpenPath?: (path: string) => void;
 }) {
   const metadata = useAuiState((s) => s.message.metadata);
   const sender = officeUserMessageSender(metadata, props.viewerUserId);
+  const showName = props.kind === "room" && sender;
+  const onMenu = useMessageMenu("user");
   const UserText: TextMessagePartComponent = ({ text }) => (
     <ChatMarkdown text={text} officePaths onOpenPath={props.onOpenPath} />
   );
   return (
     <MessagePrimitive.Root style={styles.userWrap}>
-      {sender ? <Text style={styles.who}>{sender.label}</Text> : null}
-      <View style={styles.userBubble}>
+      {showName ? <Text style={styles.who}>{sender?.label}</Text> : null}
+      <Pressable
+        onLongPress={onMenu}
+        delayLongPress={350}
+        accessibilityHint="Long press for Copy and Edit"
+        style={styles.userBubble}
+      >
         <MessagePrimitive.Parts components={{ Text: UserText }} />
-      </View>
+      </Pressable>
       <MessagePrimitive.Attachments>
         {() => <AttachmentChip />}
       </MessagePrimitive.Attachments>
-      <View style={styles.userBar}>
-        <BranchPicker />
-        <ActionBarPrimitive.Edit style={styles.barBtn}>
-          <Text style={styles.barLabel}>Edit</Text>
-        </ActionBarPrimitive.Edit>
-      </View>
+      <BranchPicker />
     </MessagePrimitive.Root>
   );
 }
@@ -575,73 +708,69 @@ function UserMessage(props: {
 function AssistantMessage(props: {
   botId: string;
   botName: string;
+  kind: "office" | "room";
   onOpenPath?: (path: string) => void;
 }) {
+  const onMenu = useMessageMenu("assistant");
   const runningEmpty = useAuiState((s) => {
     if (s.message.status?.type !== "running") return false;
     return !s.message.parts?.some(
       (part) => part.type === "text" && Boolean(part.text?.trim()),
     );
   });
+  if (runningEmpty) return <MessagePrimitive.Root>{null}</MessagePrimitive.Root>;
   return (
     <MessagePrimitive.Root style={styles.assistantWrap}>
-      <Text style={styles.who}>{props.botName}</Text>
-      {runningEmpty ? (
-        <View style={styles.workingRow}>
-          <ActivityIndicator color={colors.accent} />
-          <Text style={styles.muted}>{props.botName} is working…</Text>
-        </View>
+      {props.kind === "room" ? (
+        <Text style={styles.who}>{props.botName}</Text>
       ) : null}
-      <MessagePrimitive.Content
-        renderText={({ part }) => (
-          <ChatMarkdown
-            text={part.text}
-            officePaths
-            onOpenPath={props.onOpenPath}
-          />
-        )}
-        renderToolCall={({ part }) =>
-          part.toolName === OFFICE_ASK_TOOL_NAME ? (
-            <AskCard
-              toolCallId={part.toolCallId}
-              args={part.args}
-              result={part.result}
+      <Pressable
+        onLongPress={onMenu}
+        delayLongPress={350}
+        accessibilityHint="Long press for Copy and Retry"
+        style={styles.assistantBubble}
+      >
+        <MessagePrimitive.Content
+          renderText={({ part }) => (
+            <ChatMarkdown
+              text={part.text}
+              officePaths
+              onOpenPath={props.onOpenPath}
             />
-          ) : part.toolName === PRESENT_TOOL_NAME ? (
-            <PresentCard tree={part.args} botId={props.botId} />
-          ) : part.toolName === OFFICE_STAMP_APP_TOOL_NAME ? (
-            <View />
-          ) : (
-            <ToolFallback
-              toolName={part.toolName}
-              argsText={
-                part.argsText ||
-                (part.args ? JSON.stringify(part.args, null, 2) : "")
-              }
-            />
-          )
-        }
-        renderImage={({ part }) => <PartImage image={part.image} />}
-        renderFile={({ part }) => (
-          <PartFile name={part.filename} mimeType={part.mimeType} />
-        )}
-        renderReasoning={({ part }) => <Reasoning text={part.text} />}
-      />
-      <OfficeAppCards botId={props.botId} />
-      <ErrorPrimitive.Root style={styles.errorBox}>
-        <ErrorPrimitive.Message style={styles.errorText} />
-      </ErrorPrimitive.Root>
-      <View style={styles.assistantBar}>
-        <BranchPicker />
-        <ActionBarPrimitive.Copy copyToClipboard={copyToClipboard}>
-          {({ isCopied }) => (
-            <Text style={styles.barLabel}>{isCopied ? "Copied" : "Copy"}</Text>
           )}
-        </ActionBarPrimitive.Copy>
-        <ActionBarPrimitive.Reload style={styles.barBtn}>
-          <Text style={styles.barLabel}>Retry</Text>
-        </ActionBarPrimitive.Reload>
-      </View>
+          renderToolCall={({ part }) =>
+            part.toolName === OFFICE_ASK_TOOL_NAME ? (
+              <AskCard
+                toolCallId={part.toolCallId}
+                args={part.args}
+                result={part.result}
+              />
+            ) : part.toolName === PRESENT_TOOL_NAME ? (
+              <PresentCard tree={part.args} botId={props.botId} />
+            ) : part.toolName === OFFICE_STAMP_APP_TOOL_NAME ? (
+              <View />
+            ) : (
+              <ToolFallback
+                toolName={part.toolName}
+                argsText={
+                  part.argsText ||
+                  (part.args ? JSON.stringify(part.args, null, 2) : "")
+                }
+              />
+            )
+          }
+          renderImage={({ part }) => <PartImage image={part.image} />}
+          renderFile={({ part }) => (
+            <PartFile name={part.filename} mimeType={part.mimeType} />
+          )}
+          renderReasoning={({ part }) => <Reasoning text={part.text} />}
+        />
+        <OfficeAppCards botId={props.botId} />
+        <ErrorPrimitive.Root style={styles.errorBox}>
+          <ErrorPrimitive.Message style={styles.errorText} />
+        </ErrorPrimitive.Root>
+      </Pressable>
+      <BranchPicker />
     </MessagePrimitive.Root>
   );
 }
@@ -792,25 +921,48 @@ function Composer(props: {
       <OfficeSkillSlash />
       <ComposerAttachments />
       <ComposerQueue />
-      <ComposerPrimitive.Input
-        placeholder={props.placeholder}
-        placeholderTextColor={colors.faint}
-        multiline
-        style={styles.input}
-        accessibilityLabel="Message input"
-      />
-      <View style={styles.actions}>
-        <View style={styles.actionLeft}>
-          <AttachButton />
-        </View>
+      <View style={styles.composeRow}>
+        <AttachButton />
+        <ComposerPrimitive.Input
+          placeholder={props.placeholder}
+          placeholderTextColor={colors.faint}
+          multiline
+          style={styles.input}
+          accessibilityLabel="Message input"
+        />
         <AuiIf condition={(s) => s.thread.isRunning || pending}>
-          <ComposerPrimitive.Cancel style={styles.stop}>
-            <Text style={styles.stopLabel}>Stop</Text>
+          <ComposerPrimitive.Cancel style={styles.iconHit}>
+            <SymbolView
+              name="stop.fill"
+              tintColor={colors.text}
+              size={16}
+              resizeMode="scaleAspectFit"
+            />
           </ComposerPrimitive.Cancel>
         </AuiIf>
-        <ComposerPrimitive.Send style={styles.send}>
-          <Text style={styles.sendLabel}>Send</Text>
-        </ComposerPrimitive.Send>
+        <AuiIf
+          condition={(s) =>
+            Boolean(s.composer.text.trim()) &&
+            !s.thread.isRunning &&
+            !pending
+          }
+        >
+          <SendDisc />
+        </AuiIf>
+        <AuiIf
+          condition={(s) =>
+            !s.composer.text.trim() && !s.thread.isRunning && !pending
+          }
+        >
+          <View style={styles.iconHit} accessibilityElementsHidden>
+            <SymbolView
+              name="mic"
+              tintColor={colors.muted}
+              size={20}
+              resizeMode="scaleAspectFit"
+            />
+          </View>
+        </AuiIf>
       </View>
     </ComposerPrimitive.Root>
   );
@@ -869,6 +1021,29 @@ function ComposerAttachment() {
   );
 }
 
+function SendDisc() {
+  const press = usePressScale(0.86);
+  return (
+    <Animated.View style={press.style}>
+      <ComposerPrimitive.Send
+        style={styles.send}
+        onPressIn={() => {
+          press.onPressIn();
+          tapMedium();
+        }}
+        onPressOut={press.onPressOut}
+      >
+        <SymbolView
+          name="arrow.up"
+          tintColor={colors.accentInk}
+          size={16}
+          resizeMode="scaleAspectFit"
+        />
+      </ComposerPrimitive.Send>
+    </Animated.View>
+  );
+}
+
 function AttachButton() {
   const aui = useAui();
   const pending = useAuiState((s) => s.composer.attachments.length);
@@ -891,52 +1066,84 @@ function AttachButton() {
     }
   }
 
+  const press = usePressScale(0.88);
   return (
-    <View style={styles.attachBtns}>
+    <Animated.View style={press.style}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Attach a file"
-        onPress={() => void addFiles(pickOfficeFiles)}
-        style={styles.iconBtn}
+        accessibilityLabel="Attach"
+        onPress={() => {
+          showActionSheet(undefined, [
+            {
+              label: "Photo",
+              onPress: () => void addFiles(pickOfficePhotos),
+            },
+            {
+              label: "File",
+              onPress: () => void addFiles(pickOfficeFiles),
+            },
+            { label: "Cancel", cancel: true },
+          ]);
+        }}
+        onPressIn={() => {
+          press.onPressIn();
+          tapSoft();
+        }}
+        onPressOut={press.onPressOut}
+        style={styles.iconHit}
       >
-        <Text style={styles.iconLabel}>File</Text>
+        <SymbolView
+          name="plus"
+          tintColor={colors.text}
+          size={20}
+          resizeMode="scaleAspectFit"
+        />
       </Pressable>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Attach a photo"
-        onPress={() => void addFiles(pickOfficePhotos)}
-        style={styles.iconBtn}
-      >
-        <Text style={styles.iconLabel}>Photo</Text>
-      </Pressable>
-    </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   messages: { paddingHorizontal: 16, paddingVertical: 12, gap: 14 },
-  welcome: {
-    color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 12,
-  },
   workingRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     paddingVertical: 8,
   },
+  workingCopy: { color: colors.accent, fontSize: 14, fontWeight: "600" },
+  starters: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 8,
+  },
+  starter: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.line,
+    backgroundColor: colors.card,
+    borderRadius: radius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  starterLabel: { color: colors.text, fontSize: 14, fontWeight: "500" },
   userWrap: { alignItems: "flex-end", gap: 4 },
   assistantWrap: { alignItems: "flex-start", gap: 6 },
   who: { color: colors.faint, fontSize: 11, fontWeight: "600" },
   userBubble: {
     maxWidth: "85%",
+    backgroundColor: colors.surface,
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  assistantBubble: {
+    maxWidth: "92%",
     backgroundColor: colors.card,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   cards: { gap: 8, marginTop: 4 },
   tool: {
@@ -957,10 +1164,22 @@ const styles = StyleSheet.create({
   },
   errorText: { color: colors.danger, fontSize: 13 },
   composer: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.line,
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingTop: 6,
+    paddingBottom: 4,
     gap: 8,
+    backgroundColor: colors.bg,
+  },
+  composeRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 4,
+    minHeight: 52,
+    paddingLeft: 4,
+    paddingRight: 6,
+    paddingVertical: 4,
+    borderRadius: 26,
+    borderCurve: "continuous",
     backgroundColor: colors.surface,
   },
   editBox: {
@@ -973,10 +1192,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   input: {
+    flex: 1,
     minHeight: 40,
     maxHeight: 120,
     color: colors.text,
-    fontSize: 16,
+    fontSize: 17,
+    lineHeight: 22,
+    paddingTop: 10,
+    paddingBottom: 10,
     paddingHorizontal: 4,
   },
   actions: {
@@ -986,6 +1209,12 @@ const styles = StyleSheet.create({
   },
   actionLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
   attachBtns: { flexDirection: "row", gap: 6 },
+  iconHit: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   attachRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   attachChip: {
     flexDirection: "row",
@@ -1012,10 +1241,13 @@ const styles = StyleSheet.create({
   },
   iconLabel: { color: colors.text, fontSize: 13, fontWeight: "600" },
   send: {
-    backgroundColor: colors.text,
-    borderRadius: radius.pill,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    width: 34,
+    height: 34,
+    marginBottom: 5,
+    backgroundColor: colors.accent,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
   },
   sendLabel: { color: colors.bg, fontWeight: "500" },
   stop: {
@@ -1040,8 +1272,6 @@ const styles = StyleSheet.create({
   archivedCopy: { color: colors.text },
   link: { color: colors.accent, fontWeight: "600" },
   muted: { color: colors.muted, fontSize: 13 },
-  assistantBar: { flexDirection: "row", alignItems: "center", gap: 8 },
-  userBar: { flexDirection: "row", alignItems: "center", gap: 8 },
   barBtn: { paddingHorizontal: 6, paddingVertical: 4 },
   barLabel: { color: colors.muted, fontSize: 12, fontWeight: "600" },
   branch: { flexDirection: "row", alignItems: "center", gap: 4 },

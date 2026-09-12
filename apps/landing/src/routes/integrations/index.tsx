@@ -46,7 +46,7 @@ export const Route = createFileRoute("/integrations/")({
           { name: "Integrations", path: "/integrations" },
         ]),
         itemListJsonLd(
-          "Groxbot integrations",
+          "Whip Computer integrations",
           "/integrations",
           (loaderData?.featured ?? []).map((item) => ({
             name: item.name,

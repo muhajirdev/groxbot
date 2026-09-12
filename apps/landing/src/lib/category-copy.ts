@@ -211,13 +211,13 @@ export function howABotUses(
     case "ai":
       return [
         `Call ${name} only for the task you named. Paste the result into the thread.`,
-        "Treat the output as a draft. You still approve anything that leaves Groxbot.",
+        "Treat the output as a draft. You still approve anything that leaves Whip Computer.",
         "Do not chain mystery tools. One job, then stop.",
       ];
     default:
       return [
         `Use ${name} the way you would: open it, do the task, come back with evidence.`,
-        "Work stays in the Bot thread. Anything leaving Groxbot needs your OK.",
+        "Work stays in the Bot thread. Anything leaving Whip Computer needs your OK.",
         "If it hits a login, 2FA, or a paywall, it stops on the computer for you.",
       ];
   }
@@ -301,7 +301,7 @@ export function integrationFaqs(
 ): Array<{ q: string; a: string }> {
   return [
     {
-      q: `Does Groxbot have a native ${name} integration?`,
+      q: `Does Whip Computer have a native ${name} integration?`,
       a:
         family === "general"
           ? `Connect ${name} under Plugins when it is listed. If not, the Bot still has a real computer — it can work in ${name} in the browser the way you would, then stop when it needs a login or approval.`
@@ -309,7 +309,7 @@ export function integrationFaqs(
     },
     {
       q: `Can a Bot change live ${name} data?`,
-      a: `Not by default. Groxbot is talk-first: draft in the thread, grant access when it hits a wall. Live ${name} writes wait for you.`,
+      a: `Not by default. Whip Computer is talk-first: draft in the thread, grant access when it hits a wall. Live ${name} writes wait for you.`,
     },
     {
       q: "Do I need a workflow builder?",

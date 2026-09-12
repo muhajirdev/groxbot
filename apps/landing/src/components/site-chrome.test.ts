@@ -7,6 +7,15 @@ const root = dirname(fileURLToPath(import.meta.url));
 const css = readFileSync(join(root, "../styles.css"), "utf8");
 const chrome = readFileSync(join(root, "./SiteChrome.tsx"), "utf8");
 
+describe("navScrolled", () => {
+  it("locks the capsule after a short scroll", async () => {
+    const { navScrolled } = await import("./SiteChrome");
+    expect(navScrolled(0)).toBe(false);
+    expect(navScrolled(24)).toBe(false);
+    expect(navScrolled(25)).toBe(true);
+  });
+});
+
 describe("SiteHeader", () => {
   it("hides crowded top links before they wrap over the brand", () => {
     expect(chrome).toContain('className="nav-hide-sm"');
@@ -17,14 +26,12 @@ describe("SiteHeader", () => {
 });
 
 describe("landing nav chrome", () => {
-  it("keeps the sticky top bar opaque so page chrome cannot show through", () => {
+  it("sits in the page wash at the top, then goes opaque in the capsule", () => {
     expect(css).toMatch(/html\s*\{[^}]*scroll-padding-top:\s*72px/s);
     expect(css).toMatch(
-      /\.nav\s*\{[^}]*flex-wrap:\s*nowrap[^}]*background:\s*var\(--bg\)/s,
+      /\.nav\s*\{[^}]*flex-wrap:\s*nowrap[^}]*background:\s*transparent/s,
     );
-    expect(css).not.toMatch(
-      /\.nav\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--bg\) 88%/s,
-    );
+    expect(css).toMatch(/\.nav\.is-scrolled\s*\{[^}]*background:\s*var\(--bg\)/s);
     expect(css).toMatch(/\.nav-hide-xs\s*\{[^}]*display:\s*none/s);
   });
 });

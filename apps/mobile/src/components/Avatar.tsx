@@ -71,7 +71,21 @@ export function Avatar({
           width: size,
           height: size,
           borderRadius: shape === "circle" ? size / 2 : 10,
-          transform: [{ translateY: bounce }],
+          transform: [
+            { translateY: bounce },
+            {
+              scaleY: bounce.interpolate({
+                inputRange: [-4, 0],
+                outputRange: [0.9, 1],
+              }),
+            },
+            {
+              scaleX: bounce.interpolate({
+                inputRange: [-4, 0],
+                outputRange: [1.08, 1],
+              }),
+            },
+          ],
         },
       ]}
     >

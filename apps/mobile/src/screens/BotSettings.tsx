@@ -10,13 +10,12 @@ import {
 } from "@groxbot/contracts";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Avatar } from "../components/Avatar";
 import { Button } from "../components/Button";
 import { Chip } from "../components/Chip";
 import { Field } from "../components/Field";
-import { Header } from "../components/Header";
 import { Screen } from "../components/Screen";
 import { userFacingError } from "../lib/errors";
 import { AVATAR_COLORS, AVATAR_SHAPES } from "../lib/jobs";
@@ -56,12 +55,12 @@ export function BotSettingsScreen({ navigation, route }: Props) {
     setEffort(parseBotEffort(bot.effort));
   }, [bot, modelsQuery.data]);
 
+  useLayoutEffect(() => {
+    navigation.setOptions({ title: bot?.name ?? "Settings" });
+  }, [bot?.name, navigation]);
+
   if (!bot) {
-    return (
-      <Screen>
-        <Header title="Settings" onBack={() => navigation.goBack()} />
-      </Screen>
-    );
+    return <Screen />;
   }
 
   const pinned = isPinnedBot(bot);
@@ -113,7 +112,7 @@ export function BotSettingsScreen({ navigation, route }: Props) {
       if (current.archivedAt) await client.bots.unarchive({ botId });
       else await client.bots.archive({ botId });
       await queryClient.invalidateQueries({ queryKey: orpc.bots.list.key() });
-      navigation.navigate("Roster");
+      navigation.navigate("Office");
     } catch (caught) {
       setError(userFacingError(caught, "Could not archive"));
     }
@@ -130,7 +129,7 @@ export function BotSettingsScreen({ navigation, route }: Props) {
             await queryClient.invalidateQueries({
               queryKey: orpc.bots.list.key(),
             });
-            navigation.navigate("Roster");
+            navigation.navigate("Office");
           });
         },
       },
@@ -139,7 +138,6 @@ export function BotSettingsScreen({ navigation, route }: Props) {
 
   return (
     <Screen scroll>
-      <Header title={bot.name} onBack={() => navigation.goBack()} />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Avatar name={name || bot.name} color={color} shape={shape} size={64} />
       <Field

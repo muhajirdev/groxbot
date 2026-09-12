@@ -191,6 +191,101 @@ public enum KnowledgeTree {
   }
 }
 
+public enum OfficePath {
+  public static func isLibrary(_ path: String) -> Bool {
+    let next = normalize(path)
+    return next == "SKILL.md"
+      || next.hasSuffix("/SKILL.md")
+      || next == "skills"
+      || next.hasPrefix("skills/")
+      || next == "TASK.md"
+      || next.hasSuffix("/TASK.md")
+      || next == "tasks"
+      || next.hasPrefix("tasks/")
+  }
+
+  public static func place(path: String, explicit: String? = nil) -> String {
+    if explicit == "knowledge" || explicit == "computer" { return explicit! }
+    return isLibrary(path) ? "knowledge" : "computer"
+  }
+
+  /// Backtick / chip text that looks like an office file, not `const x`.
+  public static func fileHint(_ raw: String) -> String? {
+    var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    if text.hasPrefix("`"), text.hasSuffix("`"), text.count >= 2 {
+      text = String(text.dropFirst().dropLast())
+    }
+    if text.isEmpty || text.contains(where: \.isWhitespace) { return nil }
+    let path = normalize(text)
+    if path.isEmpty { return nil }
+    let name = path.split(separator: "/").last.map(String.init) ?? path
+    guard name.contains("."), !name.hasPrefix(".") else { return nil }
+    let ext = name.split(separator: ".").last.map(String.init) ?? ""
+    if ext.isEmpty || ext.count > 8 { return nil }
+    return path
+  }
+
+  public static func normalize(_ raw: String) -> String {
+    var next = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    if next.hasPrefix("/") { next.removeFirst() }
+    next = next.replacingOccurrences(of: "\\", with: "/")
+    let parts = next.split(separator: "/").map(String.init).filter { !$0.isEmpty && $0 != "." }
+    if parts.contains("..") { return "" }
+    return parts.joined(separator: "/")
+  }
+
+  public static func fileURL(path: String, place: String? = nil) -> URL? {
+    var components = URLComponents()
+    components.scheme = "groxbot-file"
+    components.host = "open"
+    components.queryItems = [
+      URLQueryItem(name: "place", value: self.place(path: path, explicit: place)),
+      URLQueryItem(name: "path", value: path),
+    ]
+    return components.url
+  }
+
+  public static func parseFileURL(_ url: URL) -> (path: String, place: String)? {
+    guard url.scheme == "groxbot-file" else { return nil }
+    let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+    let path = items.first(where: { $0.name == "path" })?.value ?? ""
+    let place = items.first(where: { $0.name == "place" })?.value
+    if path.isEmpty { return nil }
+    return (path, self.place(path: path, explicit: place))
+  }
+
+  /// Turn `notes/q3.md` chips into tappable office file links.
+  public static func attributed(_ text: String) -> AttributedString {
+    guard let regex = try? NSRegularExpression(pattern: "`([^`]+)`") else {
+      return AttributedString(text)
+    }
+    let ns = text as NSString
+    let matches = regex.matches(in: text, range: NSRange(location: 0, length: ns.length))
+    if matches.isEmpty { return AttributedString(text) }
+    var output = AttributedString()
+    var cursor = 0
+    for match in matches {
+      let before = NSRange(location: cursor, length: match.range.location - cursor)
+      if before.length > 0 {
+        output.append(AttributedString(ns.substring(with: before)))
+      }
+      let inner = ns.substring(with: match.range(at: 1))
+      if let path = fileHint(inner), let url = fileURL(path: path) {
+        var run = AttributedString(inner)
+        run.link = url
+        output.append(run)
+      } else {
+        output.append(AttributedString("`\(inner)`"))
+      }
+      cursor = match.range.location + match.range.length
+    }
+    if cursor < ns.length {
+      output.append(AttributedString(ns.substring(from: cursor)))
+    }
+    return output
+  }
+}
+
 public enum KnowledgeImport {
   public static let placeholder = "owner/repo or a GitHub URL"
 

@@ -22,7 +22,7 @@ export const Route = createFileRoute("/integrations/category/$category")({
     const { category, items } = loaderData;
     return seoHead({
       title: `${category.name} integrations`,
-      description: `Groxbot teammates for ${category.name}: ${category.count} tools, plus a computer when a connector isn’t there.`,
+      description: `Whip Computer teammates for ${category.name}: ${category.count} tools, plus a computer when a connector isn’t there.`,
       path: `/integrations/category/${category.slug}`,
       jsonLd: [
         breadcrumbJsonLd([

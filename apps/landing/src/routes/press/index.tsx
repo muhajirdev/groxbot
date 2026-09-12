@@ -29,7 +29,7 @@ export const Route = createFileRoute("/press/")({
     seoHead({
       title: "Press kit",
       description:
-        "Groxbot logos, naming rules, and boilerplate for journalists and partners.",
+        "Whip Computer logos, naming rules, and boilerplate for journalists and partners.",
       path: "/press",
       jsonLd: [
         breadcrumbJsonLd([
@@ -54,7 +54,7 @@ function PressPage() {
           <p className="kicker">Press kit</p>
           <h1 className="!my-2 !mb-4">Logos, naming, and boilerplate.</h1>
           <p className="lede !mb-5 !text-xl">
-            Use this when you write about Groxbot. The mark is the pink mascot.
+            Use this when you write about Whip Computer. The mark is the pink mascot.
             The name is one word, capital G.
           </p>
           <div className="row">
@@ -118,7 +118,7 @@ function PressPage() {
           <section className="py-2">
             <p className="kicker">Name</p>
             <h2 className="!mb-4 !text-[clamp(28px,4.2vw,40px)]">
-              Groxbot. Not Grokbot.
+              Whip Computer. Not Grokbot.
             </h2>
             <div className="mb-4 grid grid-cols-1 gap-3.5 md:grid-cols-2">
               <article className="card">
@@ -225,7 +225,7 @@ function PressPage() {
           <section className="py-2 pb-6">
             <p className="kicker">Product</p>
             <h2 className="!mb-2.5 !text-[clamp(28px,4.2vw,40px)]">
-              The office is a messaging app.
+              Whip Computer is a messaging app.
             </h2>
             <p className="lede tight !mb-5">
               Sidebar of Bots, one thread, computer pane you can ignore. Use
@@ -292,7 +292,7 @@ function LogoPreview(props: { file: string; label: string }) {
         <span className="inline-flex items-center gap-3.5">
           <MascotMark name="Groxbot" color="#e45c9a" shape="circle" size="lg" />
           <span className="text-[28px] font-semibold tracking-[-0.02em]">
-            Groxbot
+            Whip Computer
           </span>
         </span>
       ) : (

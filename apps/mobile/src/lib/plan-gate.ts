@@ -6,14 +6,14 @@ export function planGateCopy(trialAvailable: boolean): {
   if (trialAvailable) {
     return {
       title: "Start free trial",
-      body: "Three days of Pro. Card on file — cancel before it ends and you are not charged.",
-      cta: "Start free trial",
+      body: "Three days of Pro. Start it in the web office.",
+      cta: "Open web office",
     };
   }
   return {
     title: "Your trial ended",
-    body: "Subscribe to keep talking with your teammates.",
-    cta: "See plans",
+    body: "Change the workspace plan in the web office.",
+    cta: "Open web office",
   };
 }
 

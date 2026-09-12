@@ -3,10 +3,10 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { Button } from "../components/Button";
+import { Chip } from "../components/Chip";
 import { Field } from "../components/Field";
-import { Header } from "../components/Header";
 import { Screen } from "../components/Screen";
 import { userFacingError } from "../lib/errors";
 import { orpc } from "../lib/orpc";
@@ -186,17 +186,18 @@ export function PluginsScreen({ navigation, route }: Props) {
 
   return (
     <Screen scroll>
-      <Header title="Plugins" onBack={() => navigation.goBack()} />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <View style={styles.tabs}>
-        <Pressable onPress={() => setTab("search")}>
-          <Text style={tab === "search" ? styles.on : styles.meta}>Search</Text>
-        </Pressable>
-        <Pressable onPress={() => setTab("installed")}>
-          <Text style={tab === "installed" ? styles.on : styles.meta}>
-            Installed
-          </Text>
-        </Pressable>
+        <Chip
+          label="Search"
+          selected={tab === "search"}
+          onPress={() => setTab("search")}
+        />
+        <Chip
+          label="Installed"
+          selected={tab === "installed"}
+          onPress={() => setTab("installed")}
+        />
       </View>
       <Field placeholder="Search" value={query} onChangeText={setQuery} />
       {tab === "search"
@@ -355,8 +356,7 @@ export function PluginsScreen({ navigation, route }: Props) {
 
 const styles = StyleSheet.create({
   error: { color: colors.danger },
-  tabs: { flexDirection: "row", gap: 16 },
-  on: { color: colors.accent, fontWeight: "700" },
+  tabs: { flexDirection: "row", gap: 10 },
   meta: { color: colors.muted },
   card: {
     borderWidth: 1,

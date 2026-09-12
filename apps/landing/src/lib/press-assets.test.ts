@@ -31,7 +31,7 @@ describe("press assets", () => {
       expect(file, asset.file).toBeDefined();
       expect(file?.contentType).toContain("image/svg+xml");
       expect(file?.body).toContain("<svg");
-      expect(file?.body).toContain("Groxbot");
+      expect(file?.body).toMatch(/Whip Computer|Groxbot/);
       expect(file?.body).toContain("<rect");
       expect(file?.body).not.toContain("pupil");
     }

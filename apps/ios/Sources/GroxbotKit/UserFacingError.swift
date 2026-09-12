@@ -41,6 +41,12 @@ public enum UserFacingError {
     ) != nil {
       return "Could not reach the office API."
     }
+    if text.range(
+      of: "message too long|couldn.?t be completed|timed? ?out|The operation could",
+      options: [.regularExpression, .caseInsensitive]
+    ) != nil {
+      return fallback.isEmpty ? "Could not reach this teammate. Try sending again." : fallback
+    }
     return text
   }
 

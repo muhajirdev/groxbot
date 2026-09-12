@@ -47,7 +47,7 @@ pnpm dev
 - Web: http://127.0.0.1:5173 — `/` sign in, `/{workspace}/room/{roomId}` office
 - Landing: http://127.0.0.1:5174 — marketing (`pnpm dev:landing`)
 
-Public LLM / agent discovery (also on https://groxbot.com):
+Public LLM / agent discovery (also on https://whip.computer):
 
 - `/llms.txt` (and `/llm.txt` → 301)
 - `/llms.html`, `/llms-full.txt`, `/index.md`
@@ -73,7 +73,7 @@ Landing (marketing site, TanStack Start):
 pnpm dev:landing
 ```
 
-Deploy hosted staging to Cloudflare Workers. Config lives in each app’s `wrangler.jsonc`. Secrets stay in `wrangler secret put` / `.dev.vars`, not the repo. Attach `groxbot.com` / `app.groxbot.com` / `api.groxbot.com` in the dashboard when the domain is ready.
+Deploy hosted staging to Cloudflare Workers. Config lives in each app’s `wrangler.jsonc`. Secrets stay in `wrangler secret put` / `.dev.vars`, not the repo. Attach `whip.computer` / `app.whip.computer` / `api.whip.computer` in the dashboard (`groxbot.com` aliases stay attached).
 
 Workers Builds (GitHub → auto deploy) is a pnpm workspace: install at the repo root, then `pnpm deploy:*` on `main` and `pnpm upload:*` (`wrangler versions upload`) on other branches. Re-apply with `infra/scripts/setup-workers-builds.sh`.
 
@@ -92,12 +92,12 @@ Desktop (same web UI in a window):
 
 ```bash
 pnpm dev:desktop
-pnpm dist:desktop   # Groxbot.app in apps/desktop/release (opens https://app.groxbot.com)
+pnpm dist:desktop   # Groxbot.app in apps/desktop/release (opens https://app.whip.computer)
 ```
 
-That loads local Vite + wrangler. A **packaged** desktop build opens **https://app.groxbot.com**, which talks to **https://api.groxbot.com**. Public download: **https://groxbot.com/download** (Apple Silicon; first open is right-click → Open). The marketing site is **https://groxbot.com**.
+That loads local Vite + wrangler. A **packaged** desktop build opens **https://app.whip.computer**, which talks to **https://api.whip.computer**. Public download: **https://whip.computer/download** (Apple Silicon; first open is right-click → Open). The marketing site is **https://whip.computer**.
 
-OAuth callbacks (hosted staging until groxbot.com is attached):
+OAuth callbacks (hosted staging until whip.computer is attached):
 
 - `https://groxbot-api.qalam.workers.dev/api/auth/callback/google`
 - `https://groxbot-api.qalam.workers.dev/api/auth/callback/github`
@@ -115,7 +115,7 @@ swift test --package-path apps/ios
 open apps/ios/Groxbot.xcodeproj
 ```
 
-See [apps/ios/README.md](./apps/ios/README.md). Scheme is `groxbot-ios://` so it can sit next to Expo’s `groxbot://`.
+See [apps/ios/README.md](./apps/ios/README.md). It talks to `https://api.whip.computer` by default. Scheme is `groxbot-ios://` so it can sit next to Expo’s `groxbot://`.
 
 The phone is the same office: roster, assistant-ui thread (Cap’n Web `/rooms/:roomId/rpc` streaming Pi snapshots + events — markdown, copy/edit/retry, branches, attachments, follow-ups), this bot’s computer, knowledge (library + graph), plugins, and settings. Live docs / slides / sheets still open in the web office.
 
@@ -135,4 +135,4 @@ docs/
 
 Fair-code (Apache 2.0 plus conditions). See [LICENSE](./LICENSE).
 
-Self-host for your own organization is free. You may not run a hosted Groxbot for third parties without a commercial license — that is groxbot.com. Not OSI-open, not MIT.
+Self-host for your own organization is free. You may not run a hosted Groxbot for third parties without a commercial license — that is whip.computer. Not OSI-open, not MIT.

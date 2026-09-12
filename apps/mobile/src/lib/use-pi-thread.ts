@@ -16,6 +16,7 @@ import {
 } from "@groxbot/core/browser";
 import { newWebSocketRpcSession, RpcTarget } from "capnweb";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { newId } from "./ids";
 import { textFromAppendMessage } from "./outgoing-user-message";
 
 export type PiThreadStatus = "ready" | "submitted" | "streaming" | "error";
@@ -212,7 +213,7 @@ export function usePiThread(options: {
       if (!host) {
         throw new Error("Could not reach this teammate. Try sending again.");
       }
-      const id = input.id?.trim() || crypto.randomUUID();
+      const id = input.id?.trim() || newId();
       await host.send({
         content: input.content,
         id,
@@ -226,7 +227,7 @@ export function usePiThread(options: {
   const onNew = useCallback(
     async (message: AppendMessage, metadata?: unknown) => {
       const content = textFromAppend(message);
-      const id = crypto.randomUUID();
+      const id = newId();
       const optimistic = userBoundFromText({
         id,
         content,

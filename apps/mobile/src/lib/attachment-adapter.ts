@@ -11,6 +11,7 @@ import {
   type ComputerWrite,
   computerFileNote,
 } from "./computer-attachment";
+import { newId } from "./ids";
 
 export type { ComputerWrite };
 
@@ -30,7 +31,7 @@ export function createWorkspaceAttachmentAdapter(opts: {
       if (file.size > MAX_COMPUTER_WRITE_BYTES) {
         throw new Error("That file is too large for this computer.");
       }
-      const id = crypto.randomUUID();
+      const id = newId();
       pending.add(id);
       return {
         id,

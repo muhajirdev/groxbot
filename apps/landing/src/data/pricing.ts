@@ -14,9 +14,9 @@ export const PRICING_PLANS: PricingPlan[] = [
   {
     id: "pro",
     name: "Pro",
-    blurb: "The office for your team.",
+    blurb: "AI for your team.",
     cta: "Request an invite",
-    note: `Invite only · then a ${PRO_TRIAL_INTERVAL_COUNT}-day trial on hosted groxbot.com`,
+    note: `Invite only · then a ${PRO_TRIAL_INTERVAL_COUNT}-day trial on hosted whip.computer`,
     features: [
       "Teammates with a computer",
       "Knowledge that grows as you work",
@@ -52,10 +52,10 @@ export const PRICING_PLANS: PricingPlan[] = [
 export const PRICING_FAQS = [
   {
     q: "Is self-host free?",
-    a: "Yes. Run Groxbot on your own machines with your own keys. Hosted groxbot.com is the paid product.",
+    a: "Yes. Run Whip Computer on your own machines with your own keys. Hosted whip.computer is the paid product.",
   },
   {
     q: "Do seats multiply the price?",
-    a: "No. Workspace plans are flat for the office. You’ll see hosted prices in the app when you subscribe.",
+    a: "No. Workspace plans are flat for the team. You’ll see hosted prices in the app when you subscribe.",
   },
 ];

@@ -63,11 +63,11 @@ export function AvatarMark(props: {
   mood?: MascotMood;
   size?: "xs" | "sm" | "md" | "lg";
   hero?: boolean;
-  /** Clay photo by default. Shape picks stay geometric. */
+  /** Opt-in clay photo. Office faces are the mascot mark. */
   photo?: boolean;
 }) {
   const size = props.size ?? (props.large ? "lg" : "md");
-  const usePhoto = props.photo !== false;
+  const usePhoto = props.photo === true;
   const [broken, setBroken] = useState(false);
   const src = clayAvatarSrc(props.name);
 
@@ -121,7 +121,6 @@ export function ShapePicks(props: {
             color={props.color}
             shape={shape}
             size="sm"
-            photo={false}
           />
         </button>
       ))}

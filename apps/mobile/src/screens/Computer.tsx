@@ -1,10 +1,10 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { Button } from "../components/Button";
 import { Field } from "../components/Field";
-import { Header } from "../components/Header";
+import { HeaderButton } from "../components/HeaderButton";
 import { Screen } from "../components/Screen";
 import { downloadDataUri } from "../lib/computer-download";
 import {
@@ -151,19 +151,31 @@ export function ComputerScreen({ navigation, route }: Props) {
     });
   }
 
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: botQuery.data?.name
+        ? `${botQuery.data.name}’s computer`
+        : "Computer",
+      headerRight: () => (
+        <HeaderButton
+          label="Settings"
+          onPress={() => navigation.navigate("BotSettings", { botId })}
+        />
+      ),
+      unstable_headerRightItems: () => [
+        {
+          type: "button",
+          label: "Settings",
+          icon: { type: "sfSymbol", name: "gearshape" },
+          variant: "prominent",
+          onPress: () => navigation.navigate("BotSettings", { botId }),
+        },
+      ],
+    });
+  }, [botId, botQuery.data?.name, navigation]);
+
   return (
     <Screen scroll>
-      <Header
-        title={`${botQuery.data?.name ?? "Bot"}’s computer`}
-        onBack={() => navigation.goBack()}
-        right={
-          <Pressable
-            onPress={() => navigation.navigate("BotSettings", { botId })}
-          >
-            <Text style={styles.link}>Settings</Text>
-          </Pressable>
-        }
-      />
       <Field placeholder="Search files" value={query} onChangeText={setQuery} />
       <Tree
         nodes={tree}

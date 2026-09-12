@@ -5,7 +5,7 @@
     "version": "0.0.1",
     "orientation": "portrait",
     "scheme": "groxbot",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,

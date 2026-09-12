@@ -112,7 +112,7 @@ function CompareSlugPage() {
         <section className="py-2 pb-12" aria-labelledby="matrix-heading">
           <h2 id="matrix-heading">Feature table</h2>
           <p className="lede tight !mb-5">
-            Multiplayer and a shared knowledge base are where the office wins.
+            Multiplayer and a shared knowledge base are where Whip Computer wins.
             Green checks and crosses — no fog.
           </p>
           <div className="compare-scroll">

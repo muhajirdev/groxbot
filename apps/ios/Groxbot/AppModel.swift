@@ -17,27 +17,37 @@ final class AppModel: ObservableObject {
   @Published var bots: [Bot] = []
   @Published var rooms: [Room] = []
   @Published var sections: [SidebarSection] = []
+  @Published var workspaces: [Workspace] = []
   @Published var sessionReady = false
   @Published var signedIn = false
   @Published var error = ""
   @Published var invite = ""
   @Published var production: Bool
+  /// Cap’n Web sessions live outside the thread view — same idea as `ensurePiThread`.
+  private var offices: [String: OfficeController] = [:]
 
   init(
     apiOrigin: String? = nil,
     webOrigin: String? = nil,
-    production: Bool = false
+    production: Bool = true
   ) {
     let storedApi = UserDefaults.standard.string(forKey: "groxbot.api")
     let storedWeb = UserDefaults.standard.string(forKey: "groxbot.web")
-    self.production = production || storedApi?.contains("groxbot.com") == true
+    let storedRemote =
+      storedApi?.contains("whip.computer") == true
+      || storedApi?.contains("groxbot.com") == true
+    self.production = production
     self.apiOrigin = GroxbotOrigins.apiOrigin(
-      explicit: apiOrigin ?? storedApi ?? ProcessInfo.processInfo.environment["GROXBOT_API_URL"],
-      production: self.production
+      explicit: apiOrigin
+        ?? ProcessInfo.processInfo.environment["GROXBOT_API_URL"]
+        ?? (storedRemote ? storedApi : nil),
+      production: production
     )
     self.webOrigin = GroxbotOrigins.webOrigin(
-      explicit: webOrigin ?? storedWeb ?? ProcessInfo.processInfo.environment["GROXBOT_WEB_URL"],
-      production: self.production
+      explicit: webOrigin
+        ?? ProcessInfo.processInfo.environment["GROXBOT_WEB_URL"]
+        ?? (storedRemote ? storedWeb : nil),
+      production: production
     )
     self.cookie = UserDefaults.standard.string(forKey: "groxbot.cookie") ?? ""
     self.workspaceId = UserDefaults.standard.string(forKey: "groxbot.workspace")
@@ -48,7 +58,7 @@ final class AppModel: ObservableObject {
   }
 
   var auth: AuthClient {
-    AuthClient(apiOrigin: apiOrigin)
+    AuthClient(apiOrigin: apiOrigin, requestOrigin: webOrigin)
   }
 
   func bootstrap() async {
@@ -82,26 +92,44 @@ final class AppModel: ObservableObject {
     sessionReady = true
   }
 
+  func createSection(name: String) async {
+    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return }
+    do {
+      _ = try await client.sectionsCreate(name: trimmed)
+      await refreshRoster()
+    } catch {
+      self.error = UserFacingError.message(error, fallback: "Could not create that section")
+    }
+  }
+
   func refreshRoster() async {
     do {
       async let botsJson = client.botsList()
       async let roomsJson = client.roomsList()
       async let sectionsJson = client.sectionsList()
+      async let workspacesJson = client.workspacesList()
       bots = JSONList.bots(try await botsJson)
       rooms = JSONList.rooms(try await roomsJson)
       sections = JSONList.sections(try await sectionsJson)
+      workspaces = JSONList.workspaces(try await workspacesJson)
     } catch {
       self.error = UserFacingError.message(error, fallback: "Could not load the office")
     }
   }
 
-  func sendMagicLink(email: String) async {
+  func sendMagicLink(email: String) async -> Bool {
     error = ""
     do {
-      let jar = try await auth.sendMagicLink(email: email, callbackURL: GroxbotOrigins.callbackURL())
+      let jar = try await auth.sendMagicLink(
+        email: email,
+        callbackURL: URL(string: webOrigin) ?? GroxbotOrigins.callbackURL()
+      )
       if !jar.cookie.isEmpty { cookie = jar.cookie }
+      return true
     } catch {
       self.error = UserFacingError.message(error, fallback: "Could not send a sign-in link")
+      return false
     }
   }
 
@@ -142,6 +170,20 @@ final class AppModel: ObservableObject {
     }
   }
 
+  func activateWorkspace(id: String) async -> Bool {
+    error = ""
+    do {
+      let activated = try await client.workspacesActivate(id: id)
+      workspaceId = activated["id"]?.string ?? id
+      await refreshSession()
+      await refreshRoster()
+      return true
+    } catch {
+      self.error = UserFacingError.message(error, fallback: "Could not switch workspace")
+      return false
+    }
+  }
+
   func hire(name: String, visibility: String = "shared") async -> Bot? {
     error = ""
     do {
@@ -161,13 +203,56 @@ final class AppModel: ObservableObject {
     }
   }
 
+  func togglePin(_ bot: Bot) async {
+    do {
+      if bot.isPinned {
+        _ = try await client.botsUnpin(id: bot.id)
+      } else {
+        _ = try await client.botsPin(id: bot.id)
+      }
+      await refreshRoster()
+    } catch {
+      self.error = UserFacingError.message(error, fallback: "Could not update that pin")
+    }
+  }
+
   func signOut() async {
     try? await auth.signOut(cookie: cookie)
+    dropOffices()
     cookie = ""
     me = nil
     bots = []
     rooms = []
     signedIn = false
+  }
+
+  func officeKey(for bot: Bot) -> String {
+    bot.homeRoomId.isEmpty ? bot.id : bot.homeRoomId
+  }
+
+  func office(for bot: Bot) -> OfficeController {
+    let key = officeKey(for: bot)
+    if let existing = offices[key] { return existing }
+    let next = OfficeController()
+    offices[key] = next
+    return next
+  }
+
+  func prefetchOffice(for bot: Bot) {
+    let controller = office(for: bot)
+    Task {
+      await controller.ensureConnected(
+        url: officeURL(for: bot),
+        origin: webOrigin,
+        cookie: cookie,
+        workspaceId: workspaceId
+      )
+    }
+  }
+
+  func dropOffices() {
+    offices.values.forEach { $0.disconnect() }
+    offices.removeAll()
   }
 
   func handle(url: URL) {
@@ -181,7 +266,6 @@ final class AppModel: ObservableObject {
     GroxbotOrigins.officeRpcURL(
       roomId: bot.homeRoomId,
       apiOrigin: apiOrigin,
-      cookie: cookie,
       workspaceId: workspaceId
     )
   }

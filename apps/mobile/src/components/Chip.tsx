@@ -1,5 +1,7 @@
-import { Pressable, StyleSheet, Text } from "react-native";
+import { Animated, Pressable, StyleSheet, Text } from "react-native";
+import { tapSelect } from "../lib/haptics";
 import { colors, radius } from "../theme";
+import { usePressScale } from "./Motion";
 
 export function Chip({
   label,
@@ -10,16 +12,24 @@ export function Chip({
   onPress: () => void;
   selected?: boolean;
 }) {
+  const press = usePressScale();
   return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={[styles.chip, selected ? styles.on : null]}
-    >
-      <Text style={[styles.label, selected ? styles.onLabel : null]}>
-        {label}
-      </Text>
-    </Pressable>
+    <Animated.View style={press.style}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={onPress}
+        onPressIn={() => {
+          press.onPressIn();
+          tapSelect();
+        }}
+        onPressOut={press.onPressOut}
+        style={[styles.chip, selected ? styles.on : null]}
+      >
+        <Text style={[styles.label, selected ? styles.onLabel : null]}>
+          {label}
+        </Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 

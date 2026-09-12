@@ -53,6 +53,46 @@ struct SidebarTests {
     #expect(Sidebar.filterRoster(bots, query: "reja").map(\.name) == ["Reja"])
     #expect(Sidebar.filterRoster(bots, query: "scout").map(\.name) == ["Piper"])
   }
+
+  @Test func groupsUngroupedAboveNamedSections() {
+    let piper = Bot(id: "piper", workspaceId: "ws", name: "Piper", lastAt: "2026-09-02T00:00:00.000Z")
+    let scout = Bot(
+      id: "scout", workspaceId: "ws", name: "Scout",
+      lastAt: "2026-09-01T00:00:00.000Z", sectionId: "sales"
+    )
+    let blank = Bot(
+      id: "blank", workspaceId: "ws", name: "Blank",
+      lastAt: "2026-09-03T00:00:00.000Z", sectionId: "  "
+    )
+    let grouped = Sidebar.group(
+      liveBots: [piper, scout, blank],
+      sections: [SidebarSection(JSONValue.object([
+        "id": .string("sales"),
+        "name": .string("Sales"),
+        "position": .int(0),
+      ]))!]
+    )
+    #expect(grouped.ungrouped.map(\.id) == ["blank", "piper"])
+    #expect(grouped.sections.count == 1)
+    #expect(grouped.sections[0].section.name == "Sales")
+    #expect(grouped.sections[0].bots.map(\.id) == ["scout"])
+  }
+}
+
+@Suite("List time")
+struct ListTimeTests {
+  @Test func nowAndYesterday() {
+    let now = Date()
+    let iso = ISO8601DateFormatter()
+    iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    #expect(ListTime.format(iso.string(from: now.addingTimeInterval(-30)), now: now) == "Now")
+    let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: now)!
+    #expect(ListTime.format(iso.string(from: yesterday), now: now) == "Yesterday")
+  }
+
+  @Test func emptyWhenUnparseable() {
+    #expect(ListTime.format("nope").isEmpty)
+  }
 }
 
 extension Room {
@@ -165,6 +205,45 @@ struct KnowledgeTests {
 
   @Test func importSummary() {
     #expect(KnowledgeImport.summary(imported: ["digest"], skipped: []) == "Imported /digest into skills/.")
+  }
+
+  @Test func chatMarkdownBlocks() {
+    let blocks = ChatMarkdown.blocks(
+      """
+      **Hook first.** Don't take another 6.
+
+      - Content ops aren't short on ideas.
+      - More AI writing tools won't save you.
+
+      Ship first.
+      """
+    )
+    #expect(blocks.count == 3)
+    guard case .paragraph(let hook) = blocks[0] else {
+      Issue.record("expected paragraph")
+      return
+    }
+    #expect(hook.contains("Hook first"))
+    guard case .bullets(let items) = blocks[1] else {
+      Issue.record("expected bullets")
+      return
+    }
+    #expect(items.count == 2)
+  }
+
+  @Test func officePathHints() {
+    #expect(OfficePath.fileHint("essay.md") == "essay.md")
+    #expect(OfficePath.fileHint("skills/digest/SKILL.md") == "skills/digest/SKILL.md")
+    #expect(OfficePath.fileHint("`notes/q3.md`") == "notes/q3.md")
+    #expect(OfficePath.fileHint("const x") == nil)
+    #expect(OfficePath.isLibrary("skills/digest/SKILL.md"))
+    #expect(OfficePath.isLibrary("tasks/ship/TASK.md"))
+    #expect(!OfficePath.isLibrary("inbox/essay.md"))
+    #expect(OfficePath.place(path: "skills/a/SKILL.md") == "knowledge")
+    #expect(OfficePath.place(path: "inbox/a.md", explicit: "knowledge") == "knowledge")
+    let linked = OfficePath.attributed("See `skills/digest/SKILL.md` please")
+    #expect(String(linked.characters).contains("skills/digest/SKILL.md"))
+    #expect(OfficePath.parseFileURL(OfficePath.fileURL(path: "notes/q3.md")!)?.place == "computer")
   }
 
   @Test func nestsLibrary() {

@@ -11,7 +11,7 @@ export const Route = createFileRoute("/download")({
     seoHead({
       title: "Download Mac app",
       description:
-        "Groxbot for Mac (Apple Silicon). A window around the hosted office.",
+        "Whip Computer for Mac (Apple Silicon). A window around the hosted product.",
       path: "/download",
       jsonLd: [
         breadcrumbJsonLd([
@@ -33,9 +33,9 @@ function DownloadPage() {
         />
         <section className="hero !py-8 sm:!py-12 sm:!pb-10">
           <p className="kicker">Mac</p>
-          <h1 className="!my-2 !mb-4">Groxbot for Mac.</h1>
+          <h1 className="!my-2 !mb-4">Whip Computer for Mac.</h1>
           <p className="lede !mb-5 !text-xl">
-            Apple Silicon. Opens the hosted office in a window — same product
+            Apple Silicon. Opens hosted Whip Computer in a window — same product
             as the browser.
           </p>
           <div className="row">
@@ -58,7 +58,7 @@ function DownloadPage() {
               <p className="kicker">1</p>
               <h3 className="!mb-2 !text-xl">Open the disk image</h3>
               <p>
-                Download the .dmg, open it, and drag Groxbot into
+                Download the .dmg, open it, and drag Whip Computer into
                 Applications. The disk image also has a “How to open” note.
               </p>
             </article>
@@ -67,7 +67,7 @@ function DownloadPage() {
               <h3 className="!mb-2 !text-xl">Right-click → Open</h3>
               <p>
                 This build is not signed yet, so a normal double-click is
-                blocked. In Finder, right-click Groxbot, choose Open, then
+                blocked. In Finder, right-click Whip Computer, choose Open, then
                 confirm Open. You only do this once.
               </p>
             </article>
@@ -75,7 +75,7 @@ function DownloadPage() {
               <p className="kicker">3</p>
               <h3 className="!mb-2 !text-xl">Sign in</h3>
               <p>
-                Use the same account as the web office. Apple Silicon only —
+                Use the same account as the web app. Apple Silicon only —
                 Intel Macs are not in this file.
               </p>
             </article>
@@ -86,10 +86,10 @@ function DownloadPage() {
           <p className="kicker">Browser</p>
           <h2>No download needed.</h2>
           <p className="lede tight">
-            The office is the product. The Mac app is a window around it.
+            Whip Computer is the product. The Mac app is a window around it.
           </p>
           <a className="btn lg" href={officeUrl}>
-            Open Groxbot
+            Open Whip Computer
           </a>
           <Link className="btn ghost" to="/pricing">
             Pricing

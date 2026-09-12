@@ -1,4 +1,7 @@
-import { NavigationContainer } from "@react-navigation/native";
+import {
+  NavigationContainer,
+  type LinkingOptions,
+} from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import {
   QueryClientProvider,
@@ -35,22 +38,24 @@ import { RosterScreen } from "./src/screens/Roster";
 import { ThreadScreen } from "./src/screens/Thread";
 import { WelcomeScreen } from "./src/screens/Welcome";
 import { YouScreen } from "./src/screens/You";
-import { colors } from "./src/theme";
+import { colors, glassHeader, navTheme } from "./src/theme";
 import { WorkingProvider } from "./src/working";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const linking = {
+const linking: LinkingOptions<RootStackParamList> = {
   prefixes: [Linking.createURL("/"), "groxbot://"],
   config: {
     screens: {
       Welcome: "",
       Login: "login",
       Onboarding: "onboarding",
-      Roster: "office",
+      Office: "office",
+      You: "you",
       Thread: "t/:botId",
       Room: "room/:roomId",
       Board: "board",
+      Knowledge: "knowledge",
       Billing: "billing",
     },
   },
@@ -95,20 +100,29 @@ function RootNavigator() {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerShown: false,
+        ...glassHeader,
+        headerBackTitle: "Back",
         contentStyle: { backgroundColor: colors.bg },
       }}
     >
       {!signedIn ? (
         <>
-          <Stack.Screen name="Welcome">
+          <Stack.Screen name="Welcome" options={{ headerShown: false }}>
             {(props) => (
               <WelcomeScreen
                 onStart={() => props.navigation.navigate("Login")}
               />
             )}
           </Stack.Screen>
-          <Stack.Screen name="Login">
+          <Stack.Screen
+            name="Login"
+            options={{
+              headerShown: false,
+              presentation: "modal",
+              animation: "slide_from_bottom",
+              gestureEnabled: true,
+            }}
+          >
             {(props) => (
               <LoginScreen
                 invite={props.route.params?.invite}
@@ -120,9 +134,13 @@ function RootNavigator() {
           </Stack.Screen>
         </>
       ) : meQuery.isLoading ? (
-        <Stack.Screen name="Splash" component={Splash} />
+        <Stack.Screen
+          name="Splash"
+          component={Splash}
+          options={{ headerShown: false }}
+        />
       ) : meQuery.data?.needsWorkspace ? (
-        <Stack.Screen name="Onboarding">
+        <Stack.Screen name="Onboarding" options={{ headerShown: false }}>
           {(props) => (
             <OnboardingScreen
               invite={props.route.params?.invite}
@@ -136,21 +154,65 @@ function RootNavigator() {
         </Stack.Screen>
       ) : (
         <>
-          <Stack.Screen name="Roster" component={RosterScreen} />
+          <Stack.Screen
+            name="Office"
+            component={RosterScreen}
+            options={{ headerLargeTitleEnabled: true }}
+          />
+          <Stack.Screen
+            name="You"
+            component={YouScreen}
+            options={{ title: "Settings" }}
+          />
           <Stack.Screen name="Thread" component={ThreadScreen} />
           <Stack.Screen name="Room" component={RoomScreen} />
-          <Stack.Screen name="RoomSettings" component={RoomSettingsScreen} />
-          <Stack.Screen name="CreateRoom" component={CreateRoomScreen} />
-          <Stack.Screen name="Board" component={BoardScreen} />
+          <Stack.Screen
+            name="RoomSettings"
+            component={RoomSettingsScreen}
+            options={{ title: "Members" }}
+          />
+          <Stack.Screen
+            name="CreateRoom"
+            component={CreateRoomScreen}
+            options={{ title: "New room" }}
+          />
           <Stack.Screen name="Computer" component={ComputerScreen} />
-          <Stack.Screen name="BotSettings" component={BotSettingsScreen} />
-          <Stack.Screen name="Hire" component={HireScreen} />
-          <Stack.Screen name="Knowledge" component={KnowledgeScreen} />
-          <Stack.Screen name="Plugins" component={PluginsScreen} />
-          <Stack.Screen name="You" component={YouScreen} />
-          <Stack.Screen name="Billing" component={BillingScreen} />
-          <Stack.Screen name="Apps" component={AppsScreen} />
-          <Stack.Screen name="Onboarding">
+          <Stack.Screen
+            name="BotSettings"
+            component={BotSettingsScreen}
+            options={{ title: "Settings" }}
+          />
+          <Stack.Screen
+            name="Hire"
+            component={HireScreen}
+            options={{ title: "New Bot" }}
+          />
+          <Stack.Screen
+            name="Board"
+            component={BoardScreen}
+            options={{ title: "Board" }}
+          />
+          <Stack.Screen
+            name="Knowledge"
+            component={KnowledgeScreen}
+            options={{ title: "Knowledge base" }}
+          />
+          <Stack.Screen
+            name="Plugins"
+            component={PluginsScreen}
+            options={{ title: "Plugins" }}
+          />
+          <Stack.Screen
+            name="Billing"
+            component={BillingScreen}
+            options={{ title: "Usage & Billing" }}
+          />
+          <Stack.Screen
+            name="Apps"
+            component={AppsScreen}
+            options={{ title: "Apps" }}
+          />
+          <Stack.Screen name="Onboarding" options={{ headerShown: false }}>
             {(props) => (
               <OnboardingScreen
                 invite={props.route.params?.invite}
@@ -161,12 +223,12 @@ function RootNavigator() {
                     props.navigation.reset({
                       index: 1,
                       routes: [
-                        { name: "Roster" },
+                        { name: "Office" },
                         { name: "Thread", params: { botId } },
                       ],
                     });
                   } else {
-                    props.navigation.navigate("Roster");
+                    props.navigation.navigate("Office");
                   }
                 }}
               />
@@ -184,9 +246,13 @@ export function App() {
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <WorkingProvider>
-            <NavigationContainer linking={linking} fallback={<Splash />}>
+            <NavigationContainer
+              theme={navTheme}
+              linking={linking}
+              fallback={<Splash />}
+            >
               <RootNavigator />
-              <StatusBar style="light" />
+              <StatusBar style="dark" />
             </NavigationContainer>
           </WorkingProvider>
         </QueryClientProvider>

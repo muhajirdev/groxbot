@@ -5,7 +5,21 @@ import { describe, expect, it } from "vitest";
 import { INDIE_INTEGRATIONS } from "../data/indie-integrations";
 import { USE_CASES } from "../data/use-cases";
 import { categoryFamily } from "./category-copy";
-import { FOOTER_BLURB, HERO_PITCH, TAGLINE, THESES } from "./copy";
+import {
+  FOOTER_BLURB,
+  HERO_COMPARE_NAMES,
+  HERO_DEMO,
+  TALK_DEMO,
+  HERO_HEADLINE,
+  TALK_HEADLINE,
+  TALK_LEDE,
+  HERO_LEDE,
+  HERO_PLATFORMS_LINE,
+  HERO_PITCH,
+  STORY,
+  TAGLINE,
+  THESES,
+} from "./copy";
 import {
   DISCOVERY_SITEMAP_PATHS,
   discoveryResponse,
@@ -187,7 +201,7 @@ describe("sitemap", () => {
     );
   });
 
-  it("emits xml with canonical groxbot.com urls", () => {
+  it("emits xml with canonical landing urls", () => {
     const xml = sitemapXml();
     expect(xml).toContain(canonicalUrl("/integrations/postiz"));
     expect(xml).toContain(
@@ -266,9 +280,9 @@ describe("compare pages", () => {
 });
 
 describe("llms discovery", () => {
-  it("names Groxbot and points agents at MCP plus use cases", () => {
+  it("names Whip Computer and points agents at MCP plus use cases", () => {
     const txt = landingLlmsTxt();
-    expect(txt.startsWith("# Groxbot\n")).toBe(true);
+    expect(txt.startsWith("# Whip Computer\n")).toBe(true);
     expect(txt).toContain("/mcp");
     expect(txt).toContain("/identity.json");
     expect(txt).toContain("/use-cases/");
@@ -282,9 +296,9 @@ describe("llms discovery", () => {
   it("leads public copy with AI is better together", () => {
     expect(TAGLINE).toBe("AI is better together");
     expect(HERO_PITCH).toBe("Multiplayer. Open source. Invite only.");
-    expect(DEFAULT_TITLE).toBe("Multiplayer. Open source. Invite only. | Groxbot");
+    expect(DEFAULT_TITLE).toBe("Multiplayer. Open source. Invite only. | Whip Computer");
     expect(DEFAULT_DESCRIPTION).toMatch(/^Multiplayer\. Open source\. Invite only\./);
-    expect(FOOTER_BLURB).toMatch(/^AI is better together\./);
+    expect(FOOTER_BLURB).toMatch(/whipping the computer together/);
     expect(landingLlmsTxt()).toContain("AI is better together");
   });
 
@@ -294,7 +308,7 @@ describe("llms discovery", () => {
       "OpenClaw / Hermes",
       "Paperclip",
       "Grok Bot",
-      "Groxbot",
+      "Whip Computer",
     ]);
     expect(COMPARE.some((item) => item.ours)).toBe(true);
     expect(COMPARE_CALLOUT.title).toMatch(/Hermes.*OpenClaw.*Paperclip/i);
@@ -304,6 +318,21 @@ describe("llms discovery", () => {
       "grok-bot-vs-openclaw",
       "grok-bot-vs-paperclip",
     ]);
+  });
+
+  it("opens the homepage with a category headline and a demo slot", () => {
+    expect(HERO_HEADLINE).toBe("AI for teams.");
+    expect(TALK_HEADLINE).toBe(
+      "Invite your team to talk with your AI agents.",
+    );
+    expect(TALK_LEDE).toMatch(/experts build the agents/);
+    expect(HERO_COMPARE_NAMES).toEqual(["Hermes Agent", "OpenClaw", "Grok Bot"]);
+    expect(HERO_LEDE).toMatch(/but for teams/);
+    expect(HERO_PLATFORMS_LINE).toBe("Available for Web, Mac, iOS, Android");
+    expect(HERO_DEMO.youtubeId).toMatch(/^[A-Za-z0-9_-]{11}$/);
+    expect(TALK_DEMO.youtubeId).toMatch(/^[A-Za-z0-9_-]{11}$/);
+    expect(TALK_DEMO.youtubeId).not.toBe(HERO_DEMO.youtubeId);
+    expect(STORY.map((item) => item.id)).toEqual(["hire", "talk", "computer"]);
   });
 
   it("gives each landing thesis its own section headline", () => {
@@ -364,7 +393,7 @@ describe("open graph", () => {
   it("keeps shared notes out of the index", () => {
     const head = seoHead({
       title: "Notes",
-      description: "A shared office note.",
+      description: "A shared note.",
       path: "/s/abc",
       robots: "noindex, nofollow",
     });

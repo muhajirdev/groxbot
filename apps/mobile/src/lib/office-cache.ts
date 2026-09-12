@@ -18,3 +18,7 @@ export function setOfficeMessages(
 export function forgetOfficeMessages(roomId: string): void {
   messages.delete(roomId);
 }
+
+export function clearOfficeMessages(): void {
+  messages.clear();
+}

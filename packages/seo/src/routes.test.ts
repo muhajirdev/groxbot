@@ -17,9 +17,9 @@ describe("discovery routes", () => {
     }
     expect(lookupDiscovery("/llm.txt", origins)?.redirectTo).toBe("/llms.txt");
     expect(lookupDiscovery("/press.md", origins)?.body).toContain(
-      "Groxbot press kit",
+      "Whip Computer press kit",
     );
-    expect(lookupDiscovery("/llms.txt", origins)?.body).toContain("# Groxbot");
+    expect(lookupDiscovery("/llms.txt", origins)?.body).toContain("# Whip Computer");
   });
 
   it("serves MCP discovery at /mcp and well-known cards", () => {
@@ -29,7 +29,7 @@ describe("discovery routes", () => {
     const json = mcpGetResponse("application/json", origins);
     expect(json.body).toContain("streamable-http");
     expect(lookupDiscovery("/.well-known/mcp.json", origins)?.body).toContain(
-      "https://groxbot.com/mcp",
+      "https://whip.computer/mcp",
     );
     expect(lookupDiscovery("/mcp.json", origins)?.body).toContain(
       "io.groxbot/docs",
@@ -60,6 +60,6 @@ describe("discovery routes", () => {
       },
       origins,
     );
-    expect(call.body).toContain("# Groxbot");
+    expect(call.body).toContain("# Whip Computer");
   });
 });

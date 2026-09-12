@@ -1,82 +1,58 @@
-import type { ModelProvider, ThinkingEffort } from "@groxbot/contracts";
 import {
-  CLOUDFLARE_PROVIDER,
   CUSTOM_MODEL_SENTINEL,
   canSaveDefaultModelChoice,
   catalogGroupLabel,
-  DEFAULT_AI_GATEWAY_ID,
-  isGroxbotRouterModel,
-  MOONSHOT_PROVIDER,
-  OPENAI_CODEX_PROVIDER,
-  PROVIDER_META,
-  PROVIDER_ORDER,
   pickerCatalog,
-  THINKING_EFFORT_OPTIONS,
-  ZAI_PROVIDER,
+  PROVIDER_ORDER,
+  type ThinkingEffort,
 } from "@groxbot/contracts";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
 import { useEffect, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { Button } from "../components/Button";
 import { Field } from "../components/Field";
-import { Header } from "../components/Header";
+import { FadeUp } from "../components/Motion";
 import { Screen } from "../components/Screen";
-import { authClient } from "../lib/auth";
+import { SettingsGroup, SettingsRow } from "../components/SettingsRow";
+import { Sheet, SheetRow } from "../components/Sheet";
 import { userFacingError } from "../lib/errors";
+import { webOrigin } from "../lib/host";
 import { orpc } from "../lib/orpc";
-import {
-  AUTO_TIMEZONE,
-  defaultTimezone,
-  readTimezonePref,
-  writeTimezonePref,
-} from "../lib/prefs";
 import { client } from "../lib/rpc";
-import { resetRpcWorkspace, setRpcWorkspaceId } from "../lib/rpc-workspace";
+import {
+  activateWorkspace,
+  confirmSignOut,
+  createWorkspaceOffice,
+} from "../lib/workspace-actions";
 import type { RootStackParamList } from "../navigation";
 import { colors } from "../theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "You">;
 
+function planLabel(plan?: string): string {
+  if (plan === "believers") return "Believers";
+  if (plan === "plus") return "Pro Plus";
+  if (plan === "pro") return "Pro";
+  if (plan === "none" || !plan) return "None";
+  return plan;
+}
+
 export function YouScreen({ navigation }: Props) {
   const queryClient = useQueryClient();
   const meQuery = useQuery(orpc.me.queryOptions());
   const modelsQuery = useQuery(orpc.models.get.queryOptions());
-  const [workspaceName, setWorkspaceName] = useState(
-    meQuery.data?.workspaceName ?? "",
-  );
-  const [openrouterKey, setOpenrouterKey] = useState("");
-  const [anthropicKey, setAnthropicKey] = useState("");
-  const [openaiKey, setOpenaiKey] = useState("");
-  const [zaiKey, setZaiKey] = useState("");
-  const [moonshotKey, setMoonshotKey] = useState("");
-  const [openaiCodexAuth, setOpenaiCodexAuth] = useState("");
-  const [cloudflareToken, setCloudflareToken] = useState("");
-  const [cfAccount, setCfAccount] = useState("");
-  const [cfGateway, setCfGateway] = useState<string>(DEFAULT_AI_GATEWAY_ID);
+  const workspacesQuery = useQuery(orpc.workspaces.list.queryOptions());
+  const billingQuery = useQuery(orpc.billing.status.queryOptions());
   const [defaultModel, setDefaultModel] = useState("");
   const [customModel, setCustomModel] = useState("");
   const [effort, setEffort] = useState<ThinkingEffort>("off");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [memberName, setMemberName] = useState(meQuery.data?.name ?? "");
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteSent, setInviteSent] = useState("");
-  const [timezone, setTimezone] = useState(readTimezonePref);
+  const [modelOpen, setModelOpen] = useState(false);
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [newWorkspace, setNewWorkspace] = useState("");
-  const workspacesQuery = useQuery(orpc.workspaces.list.queryOptions());
-  const membersQuery = useQuery(orpc.workspaces.members.queryOptions());
-  const inviteLinkQuery = useQuery(orpc.workspaces.inviteLink.queryOptions());
-  const billingQuery = useQuery(orpc.billing.status.queryOptions());
-
-  useEffect(() => {
-    if (meQuery.data?.workspaceName) {
-      setWorkspaceName(meQuery.data.workspaceName);
-    }
-    if (meQuery.data?.name) setMemberName(meQuery.data.name);
-  }, [meQuery.data?.workspaceName, meQuery.data?.name]);
 
   useEffect(() => {
     const settings = modelsQuery.data;
@@ -91,35 +67,18 @@ export function YouScreen({ navigation }: Props) {
     );
     setCustomModel(listed ? "" : settings.defaultModelId);
     setEffort(settings.effort);
-    if (settings.keys.find((item) => item.provider === CLOUDFLARE_PROVIDER)) {
-      const cf = settings.keys.find(
-        (item) => item.provider === CLOUDFLARE_PROVIDER,
-      );
-      if (cf?.accountId) setCfAccount(cf.accountId);
-      if (cf?.gatewayId) setCfGateway(cf.gatewayId);
-    }
   }, [modelsQuery.data]);
 
-  async function saveWorkspace() {
-    const name = workspaceName.trim();
-    if (!name) return;
-    setBusy(true);
-    setError("");
-    try {
-      await client.workspaces.update({ name });
-      await queryClient.invalidateQueries({ queryKey: orpc.me.key() });
-    } catch (caught) {
-      setError(userFacingError(caught, "Could not rename workspace"));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const catalog = pickerCatalog(
+    modelsQuery.data?.catalog ?? [],
+    defaultModel || modelsQuery.data?.defaultModelId || "",
+  );
+  const modelLabel =
+    defaultModel === CUSTOM_MODEL_SENTINEL
+      ? customModel.trim() || "Custom"
+      : catalog.find((item) => item.id === defaultModel)?.label || "Choose";
 
-  async function persistChoice(
-    nextModel: string,
-    nextCustom: string,
-    nextEffort: ThinkingEffort,
-  ) {
+  async function persistChoice(nextModel: string, nextCustom: string) {
     const settings = modelsQuery.data;
     if (!settings || !canSaveDefaultModelChoice(nextModel, nextCustom)) return;
     setBusy(true);
@@ -129,7 +88,7 @@ export function YouScreen({ navigation }: Props) {
         defaultModel: nextModel,
         customModel:
           nextModel === CUSTOM_MODEL_SENTINEL ? nextCustom.trim() : undefined,
-        effort: nextEffort,
+        effort,
         keys: [],
       });
       queryClient.setQueryData(orpc.models.get.queryOptions().queryKey, next);
@@ -141,149 +100,20 @@ export function YouScreen({ navigation }: Props) {
     }
   }
 
-  async function saveModels() {
-    const settings = modelsQuery.data;
-    if (!settings) return;
-    setBusy(true);
-    setError("");
-    try {
-      const keys: Array<{
-        provider: ModelProvider;
-        secret?: string;
-        accountId?: string;
-        gatewayId?: string;
-      }> = [];
-      if (openrouterKey.trim()) {
-        keys.push({ provider: "openrouter", secret: openrouterKey.trim() });
-      }
-      if (anthropicKey.trim()) {
-        keys.push({ provider: "anthropic", secret: anthropicKey.trim() });
-      }
-      if (openaiKey.trim()) {
-        keys.push({ provider: "openai", secret: openaiKey.trim() });
-      }
-      if (zaiKey.trim()) {
-        keys.push({ provider: ZAI_PROVIDER, secret: zaiKey.trim() });
-      }
-      if (moonshotKey.trim()) {
-        keys.push({ provider: MOONSHOT_PROVIDER, secret: moonshotKey.trim() });
-      }
-      if (openaiCodexAuth.trim()) {
-        keys.push({
-          provider: OPENAI_CODEX_PROVIDER,
-          secret: openaiCodexAuth.trim(),
-        });
-      }
-      if (cloudflareToken.trim() || cfAccount.trim()) {
-        keys.push({
-          provider: CLOUDFLARE_PROVIDER,
-          secret: cloudflareToken.trim() || undefined,
-          accountId: cfAccount.trim() || undefined,
-          gatewayId: cfGateway.trim() || DEFAULT_AI_GATEWAY_ID,
-        });
-      }
-      const nextModel =
-        defaultModel === CUSTOM_MODEL_SENTINEL
-          ? customModel.trim()
-          : defaultModel || settings.defaultModelId;
-      const next = await client.models.save({
-        defaultModel: nextModel,
-        customModel:
-          defaultModel === CUSTOM_MODEL_SENTINEL
-            ? customModel.trim()
-            : undefined,
-        effort,
-        keys: keys.length > 0 ? keys : [{ provider: "openrouter" }],
-      });
-      queryClient.setQueryData(orpc.models.get.queryOptions().queryKey, next);
-      await queryClient.invalidateQueries({ queryKey: orpc.me.key() });
-      setOpenrouterKey("");
-      setAnthropicKey("");
-      setOpenaiKey("");
-      setZaiKey("");
-      setMoonshotKey("");
-      setOpenaiCodexAuth("");
-      setCloudflareToken("");
-    } catch (caught) {
-      setError(userFacingError(caught, "Could not save models"));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function saveName() {
-    const name = memberName.trim();
-    if (!name) return;
-    setBusy(true);
-    setError("");
-    try {
-      await client.account.update({ name });
-      await queryClient.invalidateQueries({ queryKey: orpc.me.key() });
-      await queryClient.invalidateQueries({
-        queryKey: orpc.workspaces.members.key(),
-      });
-    } catch (caught) {
-      setError(userFacingError(caught, "Could not update your name"));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function sendInvite() {
-    const email = inviteEmail.trim();
-    if (!email.includes("@")) return;
-    setBusy(true);
-    setError("");
-    try {
-      const invite = await client.workspaces.invite({ email });
-      setInviteSent(invite.url);
-      setInviteEmail("");
-    } catch (caught) {
-      setError(userFacingError(caught, "Could not send invite"));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function createInviteLink() {
-    setBusy(true);
-    setError("");
-    try {
-      await client.workspaces.createInviteLink();
-      await queryClient.invalidateQueries({
-        queryKey: orpc.workspaces.inviteLink.key(),
-      });
-    } catch (caught) {
-      setError(userFacingError(caught, "Could not create an invite link"));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function deleteInviteLink() {
-    setBusy(true);
-    setError("");
-    try {
-      await client.workspaces.deleteInviteLink();
-      await queryClient.invalidateQueries({
-        queryKey: orpc.workspaces.inviteLink.key(),
-      });
-    } catch (caught) {
-      setError(userFacingError(caught, "Could not delete the invite link"));
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function switchWorkspace(workspaceId: string) {
     setBusy(true);
     setError("");
     try {
-      setRpcWorkspaceId(workspaceId);
-      await client.workspaces.activate({ workspaceId });
-      queryClient.clear();
-      await queryClient.invalidateQueries({ queryKey: orpc.me.key() });
-      navigation.navigate("Roster");
+      const listed = (workspacesQuery.data ?? []).find(
+        (row) => row.id === workspaceId,
+      );
+      await activateWorkspace({
+        id: workspaceId,
+        name: listed?.name,
+        slug: listed?.slug,
+      });
+      setWorkspaceOpen(false);
+      navigation.navigate("Office");
     } catch (caught) {
       setError(userFacingError(caught, "Could not switch workspace"));
     } finally {
@@ -297,13 +127,10 @@ export function YouScreen({ navigation }: Props) {
     setBusy(true);
     setError("");
     try {
-      const workspace = await client.workspaces.create({ name });
-      setRpcWorkspaceId(workspace.id);
-      await client.workspaces.activate({ workspaceId: workspace.id });
+      await createWorkspaceOffice(name);
       setNewWorkspace("");
-      queryClient.clear();
-      await queryClient.invalidateQueries({ queryKey: orpc.me.key() });
-      navigation.navigate("Roster");
+      setWorkspaceOpen(false);
+      navigation.navigate("Office");
     } catch (caught) {
       setError(userFacingError(caught, "Could not create workspace"));
     } finally {
@@ -311,342 +138,141 @@ export function YouScreen({ navigation }: Props) {
     }
   }
 
-  function confirmDeleteWorkspace() {
-    Alert.alert(
-      "Delete this workspace?",
-      "Teammates, rooms, and this office go away.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            void client.workspaces.delete().then(async (result) => {
-              if (result.next) {
-                setRpcWorkspaceId(result.next.id);
-                await client.workspaces.activate({
-                  workspaceId: result.next.id,
-                });
-              } else {
-                resetRpcWorkspace();
-              }
-              queryClient.clear();
-              navigation.navigate("Roster");
-            });
-          },
-        },
-      ],
-    );
-  }
-
-  async function signOut() {
-    resetRpcWorkspace();
-    await authClient.signOut();
-    queryClient.clear();
-  }
-
   return (
-    <Screen scroll>
-      <Header title="You" onBack={() => navigation.goBack()} />
-      <Text style={styles.body}>{meQuery.data?.email}</Text>
+    <Screen scroll safe={false}>
+      <FadeUp>
+        <View style={styles.ident}>
+          <Text style={styles.name}>{meQuery.data?.name || "You"}</Text>
+          <Text style={styles.email}>{meQuery.data?.email}</Text>
+        </View>
+      </FadeUp>
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Field
-        label="Your name"
-        value={memberName}
-        onChangeText={setMemberName}
-        autoCapitalize="words"
-      />
-      <Button
-        label="Save your name"
-        onPress={() => void saveName()}
-        busy={busy}
-      />
-      <Field
-        label="Workspace"
-        value={workspaceName}
-        onChangeText={setWorkspaceName}
-        autoCapitalize="words"
-      />
-      <Button
-        label="Save workspace name"
-        onPress={() => void saveWorkspace()}
-        busy={busy}
-      />
-      <Text style={styles.section}>Workspaces</Text>
-      {(workspacesQuery.data ?? []).map((workspace) => (
-        <Pressable
-          key={workspace.id}
-          onPress={() => void switchWorkspace(workspace.id)}
-          style={styles.option}
-        >
-          <Text
-            style={
-              workspace.id === meQuery.data?.workspaceId
-                ? styles.on
-                : styles.body
-            }
-          >
-            {workspace.name}
-          </Text>
-        </Pressable>
-      ))}
-      <Field
-        label="New workspace"
-        value={newWorkspace}
-        onChangeText={setNewWorkspace}
-        placeholder="Acme"
-      />
-      <Button
-        label="Create workspace"
-        tone="ghost"
-        onPress={() => void createWorkspace()}
-        busy={busy}
-      />
-      <Text style={styles.section}>Invite people</Text>
-      <Field
-        label="Invite by email"
-        value={inviteEmail}
-        onChangeText={setInviteEmail}
-        keyboardType="email-address"
-        placeholder="friend@company.com"
-      />
-      <Button
-        label="Send invite"
-        onPress={() => void sendInvite()}
-        busy={busy}
-      />
-      {inviteSent ? (
-        <Pressable onPress={() => void Clipboard.setStringAsync(inviteSent)}>
-          <Text style={styles.on}>Invite sent — tap to copy</Text>
-        </Pressable>
-      ) : null}
-      {inviteLinkQuery.data?.url ? (
-        <>
-          <Text style={styles.meta} selectable>
-            {inviteLinkQuery.data.url}
-          </Text>
-          <Button
-            label="Copy invite link"
-            tone="ghost"
-            onPress={() =>
-              void Clipboard.setStringAsync(inviteLinkQuery.data?.url ?? "")
-            }
+
+      <SettingsGroup>
+        <SettingsRow
+          label="Workspace"
+          value={meQuery.data?.workspaceName || "Office"}
+          onPress={() => setWorkspaceOpen(true)}
+        />
+        <SettingsRow
+          label="Model"
+          value={modelLabel}
+          onPress={() => setModelOpen(true)}
+        />
+        <SettingsRow
+          label="Plan"
+          value={
+            billingQuery.data?.enabled
+              ? planLabel(billingQuery.data.plan)
+              : "Self-host"
+          }
+          onPress={() => navigation.navigate("Billing")}
+          last
+        />
+      </SettingsGroup>
+
+      <SettingsGroup>
+        <SettingsRow
+          label="Open web office"
+          onPress={() => void Linking.openURL(webOrigin())}
+          last
+        />
+      </SettingsGroup>
+      <Text style={styles.foot}>
+        Invites, keys, and plan changes live in the web office.
+      </Text>
+
+      <Button label="Sign out" tone="ghost" onPress={confirmSignOut} />
+
+      <Sheet
+        open={workspaceOpen}
+        title="Workspaces"
+        onClose={() => setWorkspaceOpen(false)}
+        scroll
+      >
+        {(workspacesQuery.data ?? []).map((workspace) => (
+          <SheetRow
+            key={workspace.id}
+            label={workspace.name}
+            selected={workspace.id === meQuery.data?.workspaceId}
+            onPress={() => void switchWorkspace(workspace.id)}
+          />
+        ))}
+        <View style={styles.sheetForm}>
+          <Field
+            placeholder="New workspace"
+            value={newWorkspace}
+            onChangeText={setNewWorkspace}
+            autoCapitalize="words"
           />
           <Button
-            label="Delete invite link"
-            tone="ghost"
-            onPress={() => void deleteInviteLink()}
+            label="Create"
+            onPress={() => void createWorkspace()}
             busy={busy}
+            disabled={!newWorkspace.trim()}
           />
-        </>
-      ) : (
-        <Button
-          label="Create invite link"
-          tone="ghost"
-          onPress={() => void createInviteLink()}
-          busy={busy}
-        />
-      )}
-      <Text style={styles.section}>People</Text>
-      {(membersQuery.data ?? []).map((member) => (
-        <Text key={member.userId} style={styles.meta}>
-          {member.name} · {member.email}
-          {member.mine ? " · you" : ""}
-        </Text>
-      ))}
-      <Text style={styles.section}>Usage & Billing</Text>
-      <Text style={styles.body}>
-        {billingQuery.data
-          ? billingQuery.data.enabled
-            ? `Plan: ${billingQuery.data.plan}`
-            : "Billing is off on this host."
-          : "Loading…"}
-      </Text>
-      <Button
-        label="Open billing"
-        tone="ghost"
-        onPress={() => navigation.navigate("Billing")}
-      />
-      <Text style={styles.section}>Timezone</Text>
-      <Pressable
-        onPress={() => {
-          writeTimezonePref(AUTO_TIMEZONE);
-          setTimezone(AUTO_TIMEZONE);
-        }}
-        style={styles.option}
+        </View>
+      </Sheet>
+
+      <Sheet
+        open={modelOpen}
+        title="Default model"
+        onClose={() => setModelOpen(false)}
+        scroll
       >
-        <Text style={timezone === AUTO_TIMEZONE ? styles.on : styles.body}>
-          Auto ({defaultTimezone()})
-        </Text>
-      </Pressable>
-      <Pressable
-        onPress={() => {
-          writeTimezonePref("UTC");
-          setTimezone("UTC");
-        }}
-        style={styles.option}
-      >
-        <Text style={timezone === "UTC" ? styles.on : styles.body}>UTC</Text>
-      </Pressable>
-      <Button
-        label="Support"
-        tone="ghost"
-        onPress={() => void Linking.openURL("https://groxbot.com")}
-      />
-      <Text style={styles.section}>Default model</Text>
-      <Text style={styles.body}>
-        {meQuery.data?.needsModel ? "Add a key to talk. " : ""}
-        Workspace default is used unless a teammate overrides it.
-      </Text>
-      {PROVIDER_ORDER.map((provider) => {
-        const options = pickerCatalog(
-          modelsQuery.data?.catalog ?? [],
-          defaultModel || modelsQuery.data?.defaultModelId || "",
-        ).filter((item) => item.provider === provider);
-        if (options.length === 0) return null;
-        return (
-          <View key={provider}>
-            <Text style={styles.meta}>{catalogGroupLabel(provider)}</Text>
-            {options.map((item) => (
-              <Pressable
-                key={item.id}
-                onPress={() => {
-                  setDefaultModel(item.id);
-                  void persistChoice(item.id, customModel, effort);
-                }}
-                style={styles.option}
-              >
-                <Text
-                  style={defaultModel === item.id ? styles.on : styles.body}
-                >
-                  {item.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        );
-      })}
-      <Pressable
-        onPress={() => setDefaultModel(CUSTOM_MODEL_SENTINEL)}
-        style={styles.option}
-      >
-        <Text
-          style={
-            defaultModel === CUSTOM_MODEL_SENTINEL ? styles.on : styles.body
-          }
-        >
-          Custom model id
-        </Text>
-      </Pressable>
-      {defaultModel === CUSTOM_MODEL_SENTINEL ? (
-        <Field
-          label="Model id"
-          value={customModel}
-          onChangeText={setCustomModel}
-          onBlur={() =>
-            void persistChoice(CUSTOM_MODEL_SENTINEL, customModel, effort)
-          }
-        />
-      ) : null}
-      {isGroxbotRouterModel(defaultModel) ? null : (
-        <>
-          <Text style={styles.section}>Effort</Text>
-          <Text style={styles.body}>
-            How hard the model thinks. Off skips reasoning.
-          </Text>
-          {THINKING_EFFORT_OPTIONS.map((item) => (
-            <Pressable
-              key={item.value}
-              onPress={() => {
-                setEffort(item.value);
-                void persistChoice(defaultModel, customModel, item.value);
-              }}
-              style={styles.option}
-            >
-              <Text style={effort === item.value ? styles.on : styles.body}>
-                {item.label}
+        {PROVIDER_ORDER.map((provider) => {
+          const options = catalog.filter((item) => item.provider === provider);
+          if (options.length === 0) return null;
+          return (
+            <View key={provider}>
+              <Text style={styles.sheetGroup}>
+                {catalogGroupLabel(provider)}
               </Text>
-            </Pressable>
-          ))}
-        </>
-      )}
-      <Text style={styles.section}>Keys</Text>
-      {PROVIDER_ORDER.map((provider) => {
-        const status = modelsQuery.data?.keys.find(
-          (item) => item.provider === provider,
-        );
-        return (
-          <Text key={provider} style={styles.meta}>
-            {PROVIDER_META[provider].label}:{" "}
-            {status?.configured ? "configured" : "not set"}
-          </Text>
-        );
-      })}
-      <Field
-        label="OpenRouter key"
-        value={openrouterKey}
-        onChangeText={setOpenrouterKey}
-        secure
-      />
-      <Field
-        label="Anthropic key"
-        value={anthropicKey}
-        onChangeText={setAnthropicKey}
-        secure
-      />
-      <Field
-        label="OpenAI key"
-        value={openaiKey}
-        onChangeText={setOpenaiKey}
-        secure
-      />
-      <Field
-        label="z.ai (GLM) key"
-        value={zaiKey}
-        onChangeText={setZaiKey}
-        secure
-      />
-      <Field
-        label="Moonshot (Kimi) key"
-        value={moonshotKey}
-        onChangeText={setMoonshotKey}
-        secure
-      />
-      <Field
-        label="ChatGPT auth.json"
-        value={openaiCodexAuth}
-        onChangeText={setOpenaiCodexAuth}
-        multiline
-        placeholder="Paste ~/.codex/auth.json after codex login"
-      />
-      <Field
-        label="Cloudflare account id"
-        value={cfAccount}
-        onChangeText={setCfAccount}
-      />
-      <Field
-        label="Cloudflare token"
-        value={cloudflareToken}
-        onChangeText={setCloudflareToken}
-        secure
-      />
-      <Field label="Gateway id" value={cfGateway} onChangeText={setCfGateway} />
-      <Button label="Save keys" onPress={() => void saveModels()} busy={busy} />
-      <Button
-        label="Delete workspace"
-        tone="danger"
-        onPress={confirmDeleteWorkspace}
-      />
-      <Button label="Sign out" tone="ghost" onPress={() => void signOut()} />
+              {options.map((item) => (
+                <SheetRow
+                  key={item.id}
+                  label={item.label}
+                  selected={defaultModel === item.id}
+                  onPress={() => {
+                    setDefaultModel(item.id);
+                    setModelOpen(false);
+                    void persistChoice(item.id, customModel);
+                  }}
+                />
+              ))}
+            </View>
+          );
+        })}
+      </Sheet>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  body: { color: colors.muted, fontSize: 15 },
-  error: { color: colors.danger },
-  section: { color: colors.text, fontWeight: "700", marginTop: 12 },
-  meta: { color: colors.muted },
-  option: { paddingVertical: 8 },
-  on: { color: colors.accent, fontWeight: "700" },
+  ident: { paddingHorizontal: 4, paddingBottom: 18, gap: 4 },
+  name: {
+    color: colors.text,
+    fontSize: 28,
+    fontWeight: "700",
+    letterSpacing: -0.6,
+  },
+  email: { color: colors.muted, fontSize: 15 },
+  error: { color: colors.danger, marginBottom: 8 },
+  foot: {
+    color: colors.faint,
+    fontSize: 13,
+    lineHeight: 18,
+    paddingHorizontal: 4,
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  sheetForm: { padding: 16, gap: 12 },
+  sheetGroup: {
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: "600",
+    paddingHorizontal: 18,
+    paddingTop: 14,
+    paddingBottom: 2,
+  },
 });

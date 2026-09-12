@@ -19,12 +19,8 @@ export function presentFileOpen(
   botId: string,
   path: string,
   place: unknown,
-):
-  | { screen: "Computer"; botId: string; path: string }
-  | { screen: "Knowledge"; path: string } {
-  if (presentFilePlace(place) === "knowledge") {
-    return { screen: "Knowledge", path };
-  }
+): { screen: "Computer"; botId: string; path: string } | null {
+  if (presentFilePlace(place) === "knowledge") return null;
   return { screen: "Computer", botId, path };
 }
 

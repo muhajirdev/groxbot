@@ -37,7 +37,7 @@ export const INDIE_INTEGRATIONS: IndieIntegration[] = [
     faqs: [
       {
         q: "Is there a DataFast plugin?",
-        a: "Not today. Groxbot still works: the Bot uses the computer, logs into datafa.st the way you would, and brings numbers back to the thread. Marc Lou also ships a DataFast API and MCP — connect those when you want API-level reads.",
+        a: "Not today. Whip Computer still works: the Bot uses the computer, logs into datafa.st the way you would, and brings numbers back to the thread. Marc Lou also ships a DataFast API and MCP — connect those when you want API-level reads.",
       },
       {
         q: "Can it see Stripe revenue in DataFast?",
@@ -68,8 +68,8 @@ export const INDIE_INTEGRATIONS: IndieIntegration[] = [
       "Draft this week's posts in Postiz from the brief. Leave them as drafts. Do not publish.",
     faqs: [
       {
-        q: "Does Groxbot replace Postiz's own agent?",
-        a: "No. Postiz already speaks MCP and CLI. Groxbot is the teammate with a computer: it can drive Postiz, Gmail, and GitHub in one thread, then stop when something would go live.",
+        q: "Does Whip Computer replace Postiz's own agent?",
+        a: "No. Postiz already speaks MCP and CLI. Whip Computer is the teammate with a computer: it can drive Postiz, Gmail, and GitHub in one thread, then stop when something would go live.",
       },
       {
         q: "Self-hosted Postiz?",
@@ -105,7 +105,7 @@ export const INDIE_INTEGRATIONS: IndieIntegration[] = [
       },
       {
         q: "Post Bridge vs Postiz?",
-        a: "Post Bridge is the simple cross-poster. Postiz is the open-source agentic calendar. Groxbot will drive either. You pick the tool; the Bot asks before anything goes live.",
+        a: "Post Bridge is the simple cross-poster. Postiz is the open-source agentic calendar. Whip Computer will drive either. You pick the tool; the Bot asks before anything goes live.",
       },
     ],
   },
@@ -249,7 +249,7 @@ export const INDIE_INTEGRATIONS: IndieIntegration[] = [
     how: [
       "Read Polar for orders, products, and payouts you name. Cite the org.",
       "Draft a product or price change. Never create a live product until you approve.",
-      "Groxbot's own billing research uses Polar at workspace grain — same caution here.",
+      "Whip Computer's own billing research uses Polar at workspace grain — same caution here.",
     ],
     neverWithoutApproval: [
       "Create or archive a product",

@@ -1,5 +1,5 @@
 import * as Linking from "expo-linking";
-import { Fragment, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import {
   type MdInline,
@@ -117,7 +117,7 @@ function Inlines(props: {
       const parsed = parseKnowledgeHref(node.href);
       if (parsed.kind === "external") {
         const href = safeMarkdownUrl(parsed.href);
-        if (!href) return <Fragment key={key}>{node.text}</Fragment>;
+        if (!href) return <Text key={key}>{node.text}</Text>;
         return (
           <Text
             key={key}
@@ -139,15 +139,15 @@ function Inlines(props: {
           </Text>
         );
       }
-      return <Fragment key={key}>{node.text}</Fragment>;
+      return <Text key={key}>{node.text}</Text>;
     }
-    return <Fragment key={key}>{node.text}</Fragment>;
+    return <Text key={key}>{node.text}</Text>;
   });
 }
 
 const styles = StyleSheet.create({
   stack: { gap: 8 },
-  body: { color: colors.text, fontSize: 16, lineHeight: 24 },
+  body: { color: colors.text, fontSize: 17, lineHeight: 24 },
   h1: { color: colors.text, fontSize: 20, fontWeight: "600", lineHeight: 26 },
   h2: { color: colors.text, fontSize: 17, fontWeight: "600", lineHeight: 24 },
   quote: {

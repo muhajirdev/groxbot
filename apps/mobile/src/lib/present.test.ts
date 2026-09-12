@@ -17,13 +17,8 @@ describe("presentFileOpen", () => {
     });
   });
 
-  it("opens a knowledge path in the library", () => {
-    expect(presentFileOpen("bot_1", "skills/q3/SKILL.md", "knowledge")).toEqual(
-      {
-        screen: "Knowledge",
-        path: "skills/q3/SKILL.md",
-      },
-    );
+  it("does not open knowledge paths on mobile", () => {
+    expect(presentFileOpen("bot_1", "skills/q3/SKILL.md", "knowledge")).toBeNull();
   });
 });
 

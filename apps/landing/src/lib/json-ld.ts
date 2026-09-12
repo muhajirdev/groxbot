@@ -32,7 +32,7 @@ export function softwareJsonLd(): Record<string, unknown> {
     url: landingOrigin(),
     image: canonicalUrl(GROXBOT_OG_PATH),
     screenshot: canonicalUrl(GROXBOT_OG_PATH),
-    description: `${GROXBOT_TAGLINE}. Like Grok Bot, for the team. Named teammates with a real computer. If OpenClaw is for personal use, Groxbot is the office. Self-hostable.`,
+    description: `${GROXBOT_TAGLINE}. Like Grok Bot, for the team. Named teammates with a real computer. If OpenClaw is for personal use, Whip Computer is for teams. Self-hostable.`,
     offers: {
       "@type": "Offer",
       price: "0",

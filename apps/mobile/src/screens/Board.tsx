@@ -14,7 +14,7 @@ import {
 } from "@groxbot/core/browser";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -23,7 +23,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Header } from "../components/Header";
+import { HeaderButton } from "../components/HeaderButton";
 import { Screen } from "../components/Screen";
 import { userFacingError } from "../lib/errors";
 import { orpc } from "../lib/orpc";
@@ -44,6 +44,17 @@ export function BoardScreen({ navigation }: Props) {
   const [draftTitle, setDraftTitle] = useState("");
   const [createStatus, setCreateStatus] = useState<TaskStatus>("todo");
   const open = tasks.find((row) => row.name === openName) ?? null;
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: open ? open.description : "Board",
+      headerLeft: open
+        ? () => (
+            <HeaderButton label="Board" onPress={() => setOpenName(null)} />
+          )
+        : undefined,
+    });
+  }, [navigation, open]);
   const me = meQuery.data;
   const trigger = me?.userId
     ? { userId: me.userId, name: me.name.trim() || "Someone" }
@@ -105,19 +116,20 @@ export function BoardScreen({ navigation }: Props) {
 
   if (open) {
     return (
-      <TaskDetailScreen
-        task={open}
-        author={trigger?.name ?? "you"}
-        authorId={trigger?.userId}
-        onBack={() => setOpenName(null)}
-        onRefresh={() => void refresh()}
-      />
+      <Screen>
+        <TaskDetailScreen
+          task={open}
+          author={trigger?.name ?? "you"}
+          authorId={trigger?.userId}
+          onBack={() => setOpenName(null)}
+          onRefresh={() => void refresh()}
+        />
+      </Screen>
     );
   }
 
   return (
     <Screen>
-      <Header title="Board" onBack={() => navigation.navigate("Roster")} />
       {listQuery.isError ? (
         <Text style={styles.error}>Could not load tasks.</Text>
       ) : null}
@@ -140,10 +152,19 @@ export function BoardScreen({ navigation }: Props) {
           <View key={status} style={styles.column}>
             <View style={styles.colHead}>
               <Text style={styles.colTitle}>{TASK_STATUS_LABEL[status]}</Text>
-              <Pressable onPress={() => setCreateStatus(status)}>
+              <Pressable
+                onPress={() => setCreateStatus(status)}
+                hitSlop={8}
+                style={styles.add}
+                accessibilityRole="button"
+                accessibilityLabel={`Add ${TASK_STATUS_LABEL[status]}`}
+              >
                 <Text style={styles.meta}>+</Text>
               </Pressable>
             </View>
+            {(grouped[status] ?? []).length === 0 ? (
+              <Text style={styles.emptyCol}>Nothing here yet.</Text>
+            ) : null}
             {(grouped[status] ?? []).map((task) => (
               <Pressable
                 key={task.path}
@@ -226,9 +247,7 @@ function TaskDetailScreen(props: {
   }
 
   return (
-    <Screen>
-      <Header title={props.task.description} onBack={props.onBack} />
-      <ScrollView contentContainerStyle={styles.detail}>
+    <ScrollView contentContainerStyle={styles.detail}>
         <Text style={styles.meta}>
           {TASK_STATUS_LABEL[parseTaskStatus(props.task.status)]} ·{" "}
           {props.task.path}
@@ -263,7 +282,6 @@ function TaskDetailScreen(props: {
           <Text style={styles.link}>Comment</Text>
         </Pressable>
       </ScrollView>
-    </Screen>
   );
 }
 
@@ -277,6 +295,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   colTitle: { color: colors.text, fontWeight: "700" },
+  add: {
+    minWidth: 32,
+    minHeight: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyCol: { color: colors.faint, fontSize: 13, paddingVertical: 8 },
   card: {
     backgroundColor: colors.card,
     borderRadius: radius.md,

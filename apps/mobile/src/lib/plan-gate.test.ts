@@ -7,7 +7,7 @@ import {
 
 describe("planGateCopy", () => {
   it("offers a trial when Polar still has one", () => {
-    expect(planGateCopy(true).cta).toBe("Start free trial");
+    expect(planGateCopy(true).cta).toBe("Open web office");
   });
 
   it("asks to subscribe after the trial", () => {

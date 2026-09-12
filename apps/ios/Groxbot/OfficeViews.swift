@@ -5,6 +5,7 @@ import GroxbotKit
 struct ComputerView: View {
   @EnvironmentObject private var model: AppModel
   var bot: Bot
+  var initialPath: String? = nil
   @State private var entries: [ComputerEntry] = []
   @State private var query = ""
   @State private var previewPath: String?
@@ -16,7 +17,11 @@ struct ComputerView: View {
     let tree = ComputerTree.filter(ComputerTree.nest(entries), query: query)
     List {
       if !error.isEmpty { Text(error).foregroundStyle(Theme.danger) }
-      outline(tree)
+      ComputerOutline(
+        nodes: tree,
+        collapsed: $collapsed,
+        onOpen: { path in Task { await open(path) } }
+      )
       if let previewPath {
         Section(previewPath) {
           Text(preview.isEmpty ? "…" : preview)
@@ -30,40 +35,11 @@ struct ComputerView: View {
     .background(Theme.bg)
     .searchable(text: $query, prompt: "Files")
     .navigationTitle("Computer")
-    .task { await load() }
-    .refreshable { await load() }
-  }
-
-  @ViewBuilder
-  private func outline(_ nodes: [ComputerTreeNode]) -> some View {
-    ForEach(nodes) { node in
-      if node.kind == "dir" {
-        DisclosureGroup(isExpanded: expansion(node.path)) {
-          outline(node.children)
-        } label: {
-          Label(node.name, systemImage: "folder")
-            .foregroundStyle(Theme.text)
-        }
-        .listRowBackground(Theme.bg)
-      } else {
-        Button {
-          Task { await open(node.path) }
-        } label: {
-          Label(node.name, systemImage: "doc")
-            .foregroundStyle(Theme.text)
-        }
-        .listRowBackground(Theme.bg)
-      }
+    .task {
+      await load()
+      if let initialPath { await open(initialPath) }
     }
-  }
-
-  private func expansion(_ path: String) -> Binding<Bool> {
-    Binding(
-      get: { !collapsed.contains(path) },
-      set: { open in
-        if open { collapsed.remove(path) } else { collapsed.insert(path) }
-      }
-    )
+    .refreshable { await load() }
   }
 
   private func load() async {
@@ -95,8 +71,55 @@ struct ComputerView: View {
   }
 }
 
+private struct ComputerOutline: View {
+  var nodes: [ComputerTreeNode]
+  @Binding var collapsed: Set<String>
+  var onOpen: (String) -> Void
+
+  var body: some View {
+    ForEach(nodes) { node in
+      if node.kind == "dir" {
+        DisclosureGroup(isExpanded: expansion(node.path)) {
+          ComputerOutline(nodes: node.children, collapsed: $collapsed, onOpen: onOpen)
+        } label: {
+          Label(node.name, systemImage: "folder")
+            .foregroundStyle(Theme.text)
+        }
+        .listRowBackground(Theme.bg)
+      } else {
+        Button {
+          Haptics.soft()
+          onOpen(node.path)
+        } label: {
+          HStack {
+            Label(node.name, systemImage: "doc")
+              .foregroundStyle(Theme.text)
+            Spacer()
+            Image(systemName: "chevron.right")
+              .font(.caption.weight(.semibold))
+              .foregroundStyle(Theme.faint)
+          }
+          .contentShape(Rectangle())
+        }
+        .buttonStyle(QuietRowButtonStyle())
+        .listRowBackground(Theme.bg)
+      }
+    }
+  }
+
+  private func expansion(_ path: String) -> Binding<Bool> {
+    Binding(
+      get: { !collapsed.contains(path) },
+      set: { open in
+        if open { collapsed.remove(path) } else { collapsed.insert(path) }
+      }
+    )
+  }
+}
+
 struct KnowledgeView: View {
   @EnvironmentObject private var model: AppModel
+  var initialPath: String? = nil
   @State private var entries: [KnowledgeEntry] = []
   @State private var query = ""
   @State private var selected: String?
@@ -107,7 +130,7 @@ struct KnowledgeView: View {
     let tree = KnowledgeTree.filter(KnowledgeTree.nest(entries), query: query)
     List {
       if !error.isEmpty { Text(error).foregroundStyle(Theme.danger) }
-      outline(tree)
+      KnowledgeOutline(nodes: tree, onOpen: { path in Task { await open(path) } })
       if selected != nil {
         Section("Preview") {
           TextEditor(text: $draft)
@@ -123,22 +146,9 @@ struct KnowledgeView: View {
     .background(Theme.bg)
     .searchable(text: $query, prompt: "Notes")
     .navigationTitle("Knowledge")
-    .task { await load() }
-  }
-
-  @ViewBuilder
-  private func outline(_ nodes: [KnowledgeTreeNode]) -> some View {
-    ForEach(nodes) { node in
-      if node.kind == "dir" {
-        DisclosureGroup(node.name) { outline(node.children) }
-          .listRowBackground(Theme.bg)
-      } else {
-        Button(node.title.isEmpty ? node.name : node.title) {
-          Task { await open(node.path) }
-        }
-        .foregroundStyle(Theme.text)
-        .listRowBackground(Theme.bg)
-      }
+    .task {
+      await load()
+      if let initialPath { await open(initialPath) }
     }
   }
 
@@ -167,6 +177,48 @@ struct KnowledgeView: View {
       _ = try await model.client.knowledgeWrite(path: selected, content: draft)
     } catch {
       self.error = UserFacingError.message(error, fallback: "Could not save")
+    }
+  }
+}
+
+private struct KnowledgeOutline: View {
+  var nodes: [KnowledgeTreeNode]
+  var onOpen: (String) -> Void
+
+  var body: some View {
+    ForEach(nodes) { node in
+      if node.kind == "dir" {
+        DisclosureGroup(node.name) {
+          KnowledgeOutline(nodes: node.children, onOpen: onOpen)
+        }
+        .listRowBackground(Theme.bg)
+      } else {
+        Button {
+          Haptics.soft()
+          onOpen(node.path)
+        } label: {
+          HStack(spacing: 10) {
+            Image(systemName: "doc")
+              .foregroundStyle(Theme.accent)
+            VStack(alignment: .leading, spacing: 2) {
+              Text(node.title.isEmpty ? node.name : node.title)
+                .foregroundStyle(Theme.text)
+              if !node.title.isEmpty, node.title != node.name {
+                Text(node.name)
+                  .font(.caption)
+                  .foregroundStyle(Theme.muted)
+              }
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+              .font(.caption.weight(.semibold))
+              .foregroundStyle(Theme.faint)
+          }
+          .contentShape(Rectangle())
+        }
+        .buttonStyle(QuietRowButtonStyle())
+        .listRowBackground(Theme.bg)
+      }
     }
   }
 }
@@ -220,15 +272,18 @@ struct BotSettingsView: View {
 
 struct YouView: View {
   @EnvironmentObject private var model: AppModel
+  @Environment(\.dismiss) private var dismiss
   @State private var name = ""
   @State private var api = ""
   @State private var error = ""
 
   var body: some View {
     Form {
-      Section("You") {
-        Text(model.me?.email ?? "")
-          .foregroundStyle(Theme.muted)
+      Section {
+        LabeledContent("Email") {
+          Text(model.me?.email ?? "")
+            .foregroundStyle(Theme.muted)
+        }
         TextField("Name", text: $name)
         Button("Save name") {
           Task {
@@ -240,29 +295,56 @@ struct YouView: View {
             }
           }
         }
+      } header: {
+        Text("You")
       }
-      Section("API") {
+
+      Section("Office") {
+        NavigationLink("Knowledge") { KnowledgeView() }
+        NavigationLink("Billing") { BillingView() }
+        NavigationLink("Plugins") { PluginsView() }
+        if let url = URL(string: model.webOrigin) {
+          Link("Open web office", destination: url)
+        }
+      }
+
+      Section {
         TextField("API origin", text: $api)
           .textInputAutocapitalization(.never)
+          .autocorrectionDisabled()
         Button("Use this API") {
           model.apiOrigin = api.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
           UserDefaults.standard.set(model.apiOrigin, forKey: "groxbot.api")
           Task { await model.bootstrap() }
         }
+      } header: {
+        Text("API")
+      } footer: {
+        Text("Leave this on api.whip.computer unless you’re self-hosting.")
       }
-      Section("Office") {
-        NavigationLink("Knowledge") { KnowledgeView() }
-        NavigationLink("Billing") { BillingView() }
-        NavigationLink("Plugins") { PluginsView() }
+
+      if !error.isEmpty {
+        Section {
+          Text(error).foregroundStyle(Theme.danger)
+        }
       }
-      if !error.isEmpty { Text(error).foregroundStyle(Theme.danger) }
-      Button("Sign out", role: .destructive) {
-        Task { await model.signOut() }
+
+      Section {
+        Button("Sign out", role: .destructive) {
+          Task { await model.signOut() }
+        }
       }
     }
-    .scrollContentBackground(.hidden)
-    .background(Theme.bg)
-    .navigationTitle("You")
+    .officeFormChrome()
+    .navigationTitle("Settings")
+    .navigationBarTitleDisplayMode(.inline)
+    .toolbar {
+      ToolbarItem(placement: .confirmationAction) {
+        Button("Done") { dismiss() }
+          .fontWeight(.semibold)
+          .foregroundStyle(Theme.accent)
+      }
+    }
     .onAppear {
       name = model.me?.name ?? ""
       api = model.apiOrigin
@@ -301,8 +383,7 @@ struct BillingView: View {
         }
       }
     }
-    .scrollContentBackground(.hidden)
-    .background(Theme.bg)
+    .officeFormChrome()
     .navigationTitle("Billing")
     .task {
       do { status = try await model.client.billingStatus() } catch {
@@ -332,8 +413,7 @@ struct PluginsView: View {
         .listRowBackground(Theme.bg)
       }
     }
-    .scrollContentBackground(.hidden)
-    .background(Theme.bg)
+    .officeFormChrome()
     .navigationTitle("Plugins")
     .task {
       do { rows = try await model.client.pluginsList() } catch {

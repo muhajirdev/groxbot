@@ -2,14 +2,12 @@ import {
   filterSkillsStore,
   SKILLS_STORE_CATALOG,
 } from "@groxbot/contracts";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { Button } from "../components/Button";
 import { ChatMarkdown } from "../components/ChatMarkdown";
 import { Field } from "../components/Field";
-import { Header } from "../components/Header";
 import { Screen } from "../components/Screen";
 import { bytesToBase64 } from "../lib/computer-attachment";
 import { downloadDataUri } from "../lib/computer-download";
@@ -39,12 +37,13 @@ import { orpc } from "../lib/orpc";
 import { pickOfficeFiles } from "../lib/pick-file";
 import { client } from "../lib/rpc";
 import { shareComputerDownload } from "../lib/share-file";
-import type { RootStackParamList } from "../navigation";
 import { colors, radius } from "../theme";
 
-type Props = NativeStackScreenProps<RootStackParamList, "Knowledge">;
-
-export function KnowledgeScreen({ navigation, route }: Props) {
+export function KnowledgeScreen({
+  route,
+}: {
+  route: { params?: { path?: string } };
+}) {
   const initialPath = route.params?.path;
   const openedPath = useRef<string | null>(null);
   const queryClient = useQueryClient();
@@ -284,8 +283,7 @@ export function KnowledgeScreen({ navigation, route }: Props) {
   }
 
   return (
-    <Screen scroll>
-      <Header title="Knowledge" onBack={() => navigation.goBack()} />
+    <Screen scroll safe={false}>
       <Text style={styles.body}>
         Office library. A SKILL.md anywhere is a playbook.
       </Text>

@@ -8,7 +8,6 @@ import {
   GROXBOT_OG_PATH,
   GROXBOT_OG_TYPE,
   GROXBOT_OG_WIDTH,
-  GROXBOT_THEME_COLOR,
 } from "@groxbot/seo";
 import {
   createRootRoute,
@@ -18,7 +17,12 @@ import {
 } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { NotFoundPage } from "../components/NotFound";
-import { canonicalUrl, DEFAULT_DESCRIPTION, DEFAULT_TITLE } from "../lib/site";
+import {
+  canonicalUrl,
+  DEFAULT_DESCRIPTION,
+  DEFAULT_TITLE,
+  LANDING_THEME_COLOR,
+} from "../lib/site";
 import appCss from "../styles.css?url";
 
 const ogImage = canonicalUrl(GROXBOT_OG_PATH);
@@ -28,15 +32,15 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { name: "theme-color", content: GROXBOT_THEME_COLOR },
-      { name: "color-scheme", content: "dark" },
+      { name: "theme-color", content: LANDING_THEME_COLOR },
+      { name: "color-scheme", content: "light" },
       { title: DEFAULT_TITLE },
       { name: "description", content: DEFAULT_DESCRIPTION },
       { property: "og:title", content: DEFAULT_TITLE },
       { property: "og:description", content: DEFAULT_DESCRIPTION },
       { property: "og:type", content: "website" },
       { property: "og:url", content: canonicalUrl("/") },
-      { property: "og:site_name", content: "Groxbot" },
+      { property: "og:site_name", content: "Whip Computer" },
       { property: "og:locale", content: "en_US" },
       { property: "og:image", content: ogImage },
       { property: "og:image:type", content: GROXBOT_OG_TYPE },
@@ -81,7 +85,7 @@ export const Route = createRootRoute({
       },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,500;0,600;1,400&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap",
       },
       { rel: "stylesheet", href: appCss },
       { rel: "describedby", href: canonicalUrl("/llms.txt") },
@@ -106,7 +110,7 @@ function RootComponent() {
 
 function RootDocument(props: { children: ReactNode }) {
   return (
-    <html lang="en" data-theme="dark">
+    <html lang="en" data-theme="light">
       <head>
         <HeadContent />
       </head>

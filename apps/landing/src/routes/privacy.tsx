@@ -11,7 +11,7 @@ export const Route = createFileRoute("/privacy")({
     seoHead({
       title: "Privacy",
       description:
-        "How Groxbot handles marketing site data and hosted office data. Self-host keeps data on your machines.",
+        "How Whip Computer handles marketing site data and hosted product data. Self-host keeps data on your machines.",
       path: "/privacy",
       jsonLd: [
         breadcrumbJsonLd([
@@ -35,8 +35,8 @@ function PrivacyPage() {
           <p className="kicker">Privacy</p>
           <h1 className="!my-2 !mb-4">Privacy policy.</h1>
           <p className="lede !mb-3 !text-xl">
-            Straight talk about what we collect on groxbot.com and what stays in
-            your office. Last updated September 7, 2026.
+            Straight talk about what we collect on whip.computer and what stays in
+            your workspace. Last updated September 7, 2026.
           </p>
         </section>
 
@@ -55,11 +55,11 @@ function PrivacyPage() {
 
           <section>
             <h2 className="!mb-3 !text-[clamp(24px,3.5vw,32px)]">
-              Hosted product (groxbot.com office)
+              Hosted product (whip.computer)
             </h2>
             <p>
-              When you use hosted Groxbot, we store the account and workspace
-              data needed to run the office: roster, threads, knowledge you
+              When you use hosted Whip Computer, we store the account and workspace
+              data needed to run the product: roster, threads, knowledge you
               file, schedules, billing status, and settings you configure. That
               data is for operating your workspace — not for selling ads.
             </p>
@@ -67,7 +67,7 @@ function PrivacyPage() {
               A Bot talking to a model sends the prompt to the provider behind
               your key (or our hosted gateway when you use hosted models). Pick
               a provider with the retention terms you need. We do not claim
-              zero retention: the office is meant to remember.
+              zero retention: Whip Computer is meant to remember.
             </p>
           </section>
 
@@ -76,10 +76,10 @@ function PrivacyPage() {
               Self-host
             </h2>
             <p>
-              If you self-host, office data stays in your deployment (your
-              SQLite catalog, your Durable Objects, your keys). groxbot.com does not
+              If you self-host, your data stays in your deployment (your
+              SQLite catalog, your Durable Objects, your keys). whip.computer does not
               see those threads. This policy still covers the marketing site and
-              any account you keep on hosted groxbot.com.
+              any account you keep on hosted whip.computer.
             </p>
           </section>
 

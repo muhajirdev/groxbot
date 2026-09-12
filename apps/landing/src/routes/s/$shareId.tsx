@@ -22,8 +22,8 @@ export const Route = createFileRoute("/s/$shareId")({
     const title = loaderData?.data.title ?? "Shared note";
     const description =
       loaderData?.data.kind === "file"
-        ? loaderData.data.description || "A shared office note."
-        : "A shared office folder.";
+        ? loaderData.data.description || "A shared note."
+        : "A shared folder.";
     return seoHead({
       title,
       description,

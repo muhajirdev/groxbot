@@ -4,16 +4,17 @@ import {
   GROXBOT_FAVICON_ICO_PATH,
   GROXBOT_FAVICON_PATH,
   GROXBOT_ICON_PATH,
+  GROXBOT_NAME,
   GROXBOT_OG_ALT,
   GROXBOT_OG_HEIGHT,
   GROXBOT_OG_PATH,
   GROXBOT_OG_TYPE,
   GROXBOT_OG_WIDTH,
-  GROXBOT_THEME_COLOR,
 } from "@groxbot/seo";
 import { HERO_PITCH } from "./copy";
 
-export const SITE_NAME = "Groxbot";
+export const SITE_NAME = GROXBOT_NAME;
+export const LANDING_THEME_COLOR = "#fff6f0";
 export const DEFAULT_TITLE = `${HERO_PITCH} | ${SITE_NAME}`;
 export const DEFAULT_DESCRIPTION = `${HERO_PITCH} Like Grok Bot, for the team. Named teammates, each with a computer. Self-host for your team.`;
 
@@ -68,8 +69,8 @@ export function seoHead(input: SeoInput): {
       { title },
       { name: "description", content: description },
       { name: "robots", content: robots },
-      { name: "theme-color", content: GROXBOT_THEME_COLOR },
-      { name: "color-scheme", content: "dark" },
+      { name: "theme-color", content: LANDING_THEME_COLOR },
+      { name: "color-scheme", content: "light" },
       { property: "og:title", content: title },
       { property: "og:description", content: description },
       { property: "og:type", content: "website" },

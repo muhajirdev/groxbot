@@ -181,8 +181,7 @@ function PresentFile(props: { node: PresentNode; botId?: string }) {
   const path = typeof props.node.path === "string" ? props.node.path : "";
   const place = presentFilePlace(props.node.place);
   const title = presentFileTitle(props.node);
-  const canOpen =
-    Boolean(path) && (place === "knowledge" || Boolean(props.botId));
+  const canOpen = Boolean(path) && place !== "knowledge" && Boolean(props.botId);
   return (
     <Pressable
       accessibilityRole="button"
@@ -191,11 +190,7 @@ function PresentFile(props: { node: PresentNode; botId?: string }) {
       onPress={() => {
         if (!path) return;
         const dest = presentFileOpen(props.botId ?? "", path, place);
-        if (dest.screen === "Knowledge") {
-          navigation.navigate("Knowledge", { path: dest.path });
-          return;
-        }
-        if (!dest.botId) return;
+        if (!dest?.botId) return;
         navigation.navigate("Computer", { botId: dest.botId, path: dest.path });
       }}
       style={styles.file}

@@ -35,7 +35,7 @@ export const Route = createFileRoute("/templates/")({
           { name: "Templates", path: "/templates" },
         ]),
         itemListJsonLd(
-          "Groxbot hire templates",
+          "Whip Computer hire templates",
           "/templates",
           LANDING_HIRE_BOTS.map((bot) => ({
             name: bot.name,
@@ -60,7 +60,7 @@ function TemplatesIndex() {
           <h1 className="!my-2 !mb-4">Hire packages, not Zapier templates.</h1>
           <p className="lede !mb-3 !text-xl">
             Each listing is a full teammate — soul, starter memory, and playbook
-            skills. Same catalog as New bot in the office. {count} packages you
+            skills. Same catalog as New bot. {count} packages you
             can hire today.
           </p>
           <nav className="chips !mb-0" aria-label="Template categories">

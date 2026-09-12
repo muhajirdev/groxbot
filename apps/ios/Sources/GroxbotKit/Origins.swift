@@ -1,9 +1,9 @@
 import Foundation
 
 public enum GroxbotOrigins: Sendable {
-  public static let cloudLanding = "https://groxbot.com"
-  public static let cloudWeb = "https://app.groxbot.com"
-  public static let cloudApi = "https://api.groxbot.com"
+  public static let cloudLanding = "https://whip.computer"
+  public static let cloudWeb = "https://app.whip.computer"
+  public static let cloudApi = "https://api.whip.computer"
   public static let localApi = "http://127.0.0.1:3100"
   public static let localWeb = "http://127.0.0.1:5173"
   /// Native iOS companion. Expo keeps `groxbot://`.
@@ -28,12 +28,15 @@ public enum GroxbotOrigins: Sendable {
     roomId: String,
     apiOrigin: String,
     cookie: String? = nil,
-    workspaceId: String? = nil
+    workspaceId: String? = nil,
+    cookieInQuery: Bool = false
   ) -> URL {
     var url = websocketURL(from: apiOrigin)
     url.append(path: "/rooms/\(encodePath(roomId))/rpc")
     var items: [URLQueryItem] = []
-    if let cookie, !cookie.isEmpty {
+    // Native sets Cookie on the upgrade request. Query Cookie is for Expo / short tokens —
+    // a full Better Auth jar in the URL makes URLSession fail with “Message too long”.
+    if cookieInQuery, let cookie, !cookie.isEmpty, cookie.count < 700 {
       items.append(URLQueryItem(name: "Cookie", value: cookie))
     }
     if let workspaceId, !workspaceId.isEmpty {

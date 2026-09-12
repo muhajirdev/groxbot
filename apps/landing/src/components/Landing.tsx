@@ -9,18 +9,26 @@ import {
   DEMOS,
   demoLogo,
   FAQS,
+  FOOTER_BLURB,
+  HERO_DEMO,
+  HERO_HEADLINE,
+  HERO_PLATFORMS,
+  TALK_DEMO,
+  TALK_HEADLINE,
+  TALK_LEDE,
   HOME_ADOPTION,
   HOME_KNOWLEDGE,
   HOME_MODELS,
-  HERO_PITCH,
   SOURCE_REPO,
   START_CTA,
+  STORY,
   THESES,
 } from "../lib/copy";
 import { LANDING_HIRE_BOTS } from "../lib/bot-marketplace";
 import { HOME_INTEGRATIONS } from "../lib/teasers";
 import { DemoThread } from "./DemoThread";
-import { OfficePreview } from "./OfficePreview";
+import { HeroCompare } from "./HeroCompare";
+import { HeroDemo } from "./HeroDemo";
 import { PersonFace } from "./PersonFace";
 import { SiteChrome } from "./SiteChrome";
 
@@ -29,43 +37,59 @@ export function Landing(props: { startUrl: string }) {
     <SiteChrome startUrl={props.startUrl}>
       <main id="top">
         <section className="hero hero-home">
-          <h1 className="hero-title">
-            <span>Meet</span>
-            <MascotMark
-              name="Groxbot"
-              color="#e45c9a"
-              shape="circle"
-              size="md"
-            />
-            <span>Groxbot</span>
+          <p className="hero-badge">Invite only</p>
+          <h1 aria-label={HERO_HEADLINE}>
+            AI for <em>teams</em>
+            <span className="hero-dot">.</span>
           </h1>
-          <p className="lede hero-tagline">{HERO_PITCH}</p>
-          <p className="thesis">
-            Like Grok Bot, for the team. OpenClaw and Hermes are personal.
-            Paperclip orchestrates agents. Groxbot is the office —{" "}
-            <Link
-              className="thesis-link"
-              to="/compare/$slug"
-              params={{
-                slug: "grok-bot-vs-hermes-vs-openclaw-vs-paperclip",
-              }}
-            >
-              see the comparison
-            </Link>
-            .
-          </p>
+          <HeroCompare />
           <div className="row">
             <a className="btn lg" href={props.startUrl}>
               {START_CTA}
             </a>
-            <Link className="btn ghost" to="/compare">
-              Compare
-            </Link>
+            <a className="btn ghost" href="#demo">
+              Watch the demo
+            </a>
           </div>
-          <p className="home-cta-note">Invite only — we’ll email you a seat.</p>
+          <p className="hero-platforms">
+            <svg
+              viewBox="0 0 16 16"
+              width="16"
+              height="16"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M3.2 8.2 6.4 11.4 12.8 4.6"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span>Available for</span>
+            {HERO_PLATFORMS.map((name) => (
+              <span key={name} className="hero-platform">
+                {name}
+              </span>
+            ))}
+          </p>
+          <HeroDemo demo={HERO_DEMO} id="demo" />
         </section>
 
-        <OfficePreview />
+        <section className="talk" aria-labelledby="talk-title">
+          <div className="talk-copy">
+            <h2 id="talk-title" aria-label={TALK_HEADLINE}>
+              Invite your team
+              <br />
+              to talk with
+              <br />
+              your <em>AI agents</em>.
+            </h2>
+            <p className="talk-lede">{TALK_LEDE}</p>
+          </div>
+          <HeroDemo demo={TALK_DEMO} id="talk-demo" />
+        </section>
 
         <section className="models-line" aria-label="Works with any model">
           <p>
@@ -86,6 +110,22 @@ export function Landing(props: { startUrl: string }) {
               </li>
             ))}
           </ul>
+        </section>
+
+        <section className="story" aria-labelledby="story-title">
+          <p className="kicker">How it works</p>
+          <h2 id="story-title">Hire. Talk. They already have a computer.</h2>
+          <ol className="story-beats">
+            {STORY.map((beat, index) => (
+              <li key={beat.id}>
+                <p className="step">
+                  {String(index + 1).padStart(2, "0")} · {beat.kicker}
+                </p>
+                <h3>{beat.title}</h3>
+                <p>{beat.lede}</p>
+              </li>
+            ))}
+          </ol>
         </section>
 
         <section
@@ -193,7 +233,7 @@ export function Landing(props: { startUrl: string }) {
               ))}
             </div>
             <div className="know-col on">
-              <p className="kicker">Office knowledge</p>
+              <p className="kicker">Shared knowledge</p>
               {HOME_KNOWLEDGE.files.map((file) => (
                 <p key={file.path} className="know-file">
                   <strong>{file.path}</strong>
@@ -232,7 +272,7 @@ export function Landing(props: { startUrl: string }) {
           </div>
         </section>
 
-        <section className="tiles" aria-label="How the office works">
+        <section className="tiles" aria-label="How it works">
           <article className="tile">
             <h3>A computer you can ignore</h3>
             <p>
@@ -288,7 +328,7 @@ export function Landing(props: { startUrl: string }) {
           <h2 id="hire-catalog">Bots you can hire today.</h2>
           <p className="lede tight">
             Each listing is a full teammate package — soul, starter memory, and
-            playbook skills. Same catalog as New bot in the office. Not plugins.
+            playbook skills. Same catalog as New bot. Not plugins.
           </p>
           <div className="cards hire-catalog-cards">
             {LANDING_HIRE_BOTS.slice(0, 9).map((bot) => (
@@ -376,8 +416,8 @@ export function Landing(props: { startUrl: string }) {
             <p className="kicker">Self-host</p>
             <h2>Enterprise ready.</h2>
             <p className="lede tight">
-              Keep the office on your machines. groxbot.com never sees the
-              threads. The office still remembers — on your SQLite catalog. Model
+              Keep Whip Computer on your machines. whip.computer never sees the
+              threads. It still remembers — on your SQLite catalog. Model
               calls go to the key you paste.
             </p>
             <div className="row">
@@ -424,9 +464,9 @@ export function Landing(props: { startUrl: string }) {
 
         <section className="cta">
           <p className="kicker">Invite only</p>
-          <h2>Request an invite.</h2>
+          <h2>{FOOTER_BLURB}</h2>
           <p className="lede tight">
-            Groxbot isn’t open signup yet. Email us and we’ll get you in.
+            Whip Computer isn’t open signup yet. Email us and we’ll get you in.
           </p>
           <a className="btn lg" href={props.startUrl}>
             {START_CTA}

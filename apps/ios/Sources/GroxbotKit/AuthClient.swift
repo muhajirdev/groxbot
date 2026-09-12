@@ -43,10 +43,17 @@ public struct CookieJar: Sendable, Equatable {
 
 public struct AuthClient: Sendable {
   public var apiOrigin: String
+  /// Trusted browser origin. Native URLSession omits Origin; Better Auth requires one.
+  public var requestOrigin: String
   public var transport: any GroxbotTransport
 
-  public init(apiOrigin: String, transport: any GroxbotTransport = URLSessionTransport()) {
+  public init(
+    apiOrigin: String,
+    requestOrigin: String = GroxbotOrigins.cloudWeb,
+    transport: any GroxbotTransport = URLSessionTransport()
+  ) {
     self.apiOrigin = apiOrigin
+    self.requestOrigin = requestOrigin
     self.transport = transport
   }
 
@@ -76,6 +83,7 @@ public struct AuthClient: Sendable {
       url: GroxbotOrigins.authURL(apiOrigin: apiOrigin, path: "/api/auth/get-session"),
       method: "GET"
     )
+    applyOrigin(&request)
     if !cookie.isEmpty {
       request.headers["Cookie"] = cookie
     }
@@ -93,6 +101,7 @@ public struct AuthClient: Sendable {
       method: "POST"
     )
     request.headers["Content-Type"] = "application/json"
+    applyOrigin(&request)
     if !cookie.isEmpty {
       request.headers["Cookie"] = cookie
     }
@@ -112,6 +121,7 @@ public struct AuthClient: Sendable {
   private func post(_ path: String, body: JSONValue) async throws -> (JSONValue, CookieJar) {
     var request = HTTPRequest(url: GroxbotOrigins.authURL(apiOrigin: apiOrigin, path: path), method: "POST")
     request.headers["Content-Type"] = "application/json"
+    applyOrigin(&request)
     request.body = try body.encode()
     let result = try await transport.send(request)
     var jar = CookieJar()
@@ -121,5 +131,11 @@ public struct AuthClient: Sendable {
     }
     let parsed = result.data.isEmpty ? .null : (try? JSONValue.parse(result.data)) ?? .null
     return (parsed, jar)
+  }
+
+  private func applyOrigin(_ request: inout HTTPRequest) {
+    request.headers["Origin"] = requestOrigin
+    request.headers["Referer"] = "\(requestOrigin)/"
+    request.headers["expo-origin"] = requestOrigin
   }
 }

@@ -22,18 +22,18 @@ import {
 const origins = cloudOrigins();
 
 describe("discovery documents", () => {
-  it("uses Groxbot as the llms.txt H1 and names identity.json the same", () => {
+  it("uses Whip Computer as the llms.txt H1 and names identity.json the same", () => {
     expect(cloudOrigins().web).toBe(CLOUD_LANDING_ORIGIN);
     const txt = llmsTxt(origins);
-    expect(txt.startsWith("# Groxbot\n")).toBe(true);
+    expect(txt.startsWith("# Whip Computer\n")).toBe(true);
     expect(txt).toContain("hello@groxbot.com");
     expect(txt).toContain(`](${CLOUD_LANDING_ORIGIN}/llms.txt)`);
     expect(txt).toContain("/press");
     expect(txt).toContain("/og.png");
-    expect(identityJson(origins).name).toBe("Groxbot");
+    expect(identityJson(origins).name).toBe("Whip Computer");
     expect(identityJson(origins).logo).toBe(`${CLOUD_LANDING_ORIGIN}/icon.png`);
     expect(identityJson(origins).image).toBe(`${CLOUD_LANDING_ORIGIN}/og.png`);
-    expect(aiJson(origins).name).toBe("Groxbot");
+    expect(aiJson(origins).name).toBe("Whip Computer");
     const pages = identityJson(origins).sitePages as Array<{ name: string }>;
     expect(pages.some((page) => page.name === "Press kit")).toBe(true);
     expect(pages.some((page) => page.name === "Compare")).toBe(true);
@@ -66,8 +66,8 @@ describe("discovery documents", () => {
 
   it("answers Paperclip and Hermes in faq-ai", () => {
     const faq = faqAiTxt(origins);
-    expect(faq).toMatch(/How is Groxbot different from Paperclip/i);
-    expect(faq).toMatch(/How is Groxbot different from Hermes/i);
+    expect(faq).toMatch(/How is Whip Computer different from Paperclip/i);
+    expect(faq).toMatch(/How is Whip Computer different from Hermes/i);
     expect(faq).toContain(
       "/compare/grok-bot-vs-hermes-vs-openclaw-vs-paperclip",
     );

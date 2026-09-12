@@ -4,7 +4,6 @@ import * as Linking from "expo-linking";
 import { StyleSheet, Text, View } from "react-native";
 import { AppCard } from "../components/AppCard";
 import { Button } from "../components/Button";
-import { Header } from "../components/Header";
 import { Screen } from "../components/Screen";
 import { officeAppUrl, officeThreadUrl } from "../lib/host";
 import { orpc } from "../lib/orpc";
@@ -13,14 +12,13 @@ import { colors } from "../theme";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Apps">;
 
-export function AppsScreen({ navigation, route }: Props) {
+export function AppsScreen({ route }: Props) {
   const { botId } = route.params;
   const appsQuery = useQuery(orpc.apps.list.queryOptions());
   const apps = appsQuery.data ?? [];
 
   return (
     <Screen scroll>
-      <Header title="Apps" onBack={() => navigation.goBack()} />
       <Text style={styles.body}>
         Docs, slides, and sheets live in the office. Open one here to edit it in
         the web app.

@@ -16,7 +16,7 @@ export const Route = createFileRoute("/use-cases/")({
     seoHead({
       title: "Use cases",
       description:
-        "Hire a Groxbot teammate for sales, marketing, SEO, support, and shipping. No workflow builder.",
+        "Hire a Whip Computer teammate for sales, marketing, SEO, support, and shipping. No workflow builder.",
       path: "/use-cases",
       jsonLd: [
         breadcrumbJsonLd([
@@ -24,7 +24,7 @@ export const Route = createFileRoute("/use-cases/")({
           { name: "Use cases", path: "/use-cases" },
         ]),
         itemListJsonLd(
-          "Groxbot use cases",
+          "Whip Computer use cases",
           "/use-cases",
           USE_CASES.map((item) => ({
             name: item.title,

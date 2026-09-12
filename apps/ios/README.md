@@ -23,11 +23,12 @@ swift test --package-path apps/ios
 
 ## Run the app
 
-1. `pnpm dev` so wrangler is on `:3100`.
-2. Open `apps/ios/Groxbot.xcodeproj` in Xcode 16+.
-3. Sign with your team if you want a device build.
-4. On a device, set **You → API origin** to this machine’s LAN URL (`http://192.168.x.x:3100`). Simulator can use `http://127.0.0.1:3100`.
-5. Sign in with email OTP (local API logs mail). Magic-link callbacks use `groxbot-ios://`.
+The companion talks to the hosted Worker (`https://api.whip.computer`) and office (`https://app.whip.computer`). No local wrangler.
+
+1. Open `apps/ios/Groxbot.xcodeproj` in Xcode 16+.
+2. Sign with your team if you want a device build.
+3. Sign in with email OTP. Magic-link callbacks use `groxbot-ios://`.
+4. **You → API origin** can point at a self-host or `http://127.0.0.1:3100` if you need a local Worker.
 
 Live docs / slides / sheets still open in the web office, same as Expo.
 

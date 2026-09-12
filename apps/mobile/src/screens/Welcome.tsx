@@ -1,54 +1,62 @@
 import { StyleSheet, Text, View } from "react-native";
+import { AuthGlow, BuddyPile, FunChip } from "../components/AuthScene";
 import { Button } from "../components/Button";
-import { Mascot } from "../components/Mascot";
+import { FadeUpStack } from "../components/Motion";
 import { Screen } from "../components/Screen";
-import { colors, type } from "../theme";
+import { colors } from "../theme";
 
 export function WelcomeScreen({ onStart }: { onStart: () => void }) {
   return (
-    <Screen scroll>
-      <View style={styles.hero}>
-        <Text style={type.kicker}>Welcome to Groxbot</Text>
-        <View style={styles.titleRow}>
-          <Text style={styles.title}>Meet</Text>
-          <Mascot size={36} />
-          <Text style={styles.title}>Groxbot</Text>
+    <Screen
+      scroll
+      align="center"
+      edges={["top", "left", "right", "bottom"]}
+      backdrop={<AuthGlow />}
+    >
+      <FadeUpStack>
+        <BuddyPile />
+        <Text style={styles.kicker}>Welcome to Groxbot</Text>
+        <Text style={styles.title}>Hey. Your office{"\n"}just got livelier.</Text>
+        <Text style={styles.lede}>
+          Hire teammates who pick work up, use their own computer, and ping you
+          when it’s done.
+        </Text>
+        <View style={styles.chips}>
+          <FunChip label="Own computer" tint="#e45c9a33" />
+          <FunChip label="Real threads" tint="#5b7cff33" />
+          <FunChip label="They finish it" tint="#2f9e6d33" />
         </View>
-        <Text style={styles.lede}>Like Grok Bot, for the whole team.</Text>
-        <Text style={styles.thesis}>
-          Give work the way you would a coworker. They pick it up and comment
-          when done.
-        </Text>
-        <Text style={styles.note}>
-          Each Bot already has a computer. You can ignore it until you need the
-          screen.
-        </Text>
-        <Button label="Get started" onPress={onStart} />
-      </View>
+        <Button label="Let's go" tone="brand" onPress={onStart} />
+      </FadeUpStack>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  hero: { gap: 14, paddingTop: 36 },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 8,
+  kicker: {
+    color: colors.accent,
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
   },
   title: {
     color: colors.text,
     fontSize: 34,
-    fontWeight: "600",
-    letterSpacing: -0.8,
+    fontWeight: "700",
+    letterSpacing: -1,
+    lineHeight: 40,
   },
-  lede: { color: colors.text, fontSize: 18, lineHeight: 26 },
-  thesis: {
+  lede: {
     color: colors.text,
     fontSize: 17,
-    lineHeight: 24,
+    lineHeight: 25,
     opacity: 0.82,
   },
-  note: { color: colors.muted, fontSize: 15, lineHeight: 22, marginBottom: 8 },
+  chips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 8,
+  },
 });

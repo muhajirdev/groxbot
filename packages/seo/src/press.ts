@@ -15,13 +15,13 @@ function abs(origin: string, path: string): string {
   return `${origin.replace(/\/$/, "")}${path}`;
 }
 
-export const PRESS_SHORT = `${GROXBOT_TAGLINE}. Groxbot is Grok Bot for teams: named AI teammates with a real computer. If OpenClaw is for your personal use, Groxbot is for the office. Self-hostable. No workflow builder.`;
+export const PRESS_SHORT = `${GROXBOT_TAGLINE}. Whip Computer is Grok Bot for teams: named AI teammates with a real computer. If OpenClaw is for your personal use, Whip Computer is for teams. Self-hostable. No workflow builder.`;
 
 export const PRESS_MEDIUM = GROXBOT_SUMMARY;
 
 export const PRESS_LONG = `${GROXBOT_NAME} is a messaging app of named AI teammates, not a workflow builder, IDE, or Discord. You hire a Bot — name, optional job, description, avatar — then talk to it in a thread. Each Bot has a real computer, already built in. Live docs, slides, and sheets open from a card in chat.
 
-The name is a joke that stuck: Grok, then grox. It copies Grok Bot’s simplicity (talk first, grant access when they hit a wall) and is fair-code so you can self-host. Bring your own model keys. Gmail, Slack, GitHub, and 1,000+ tools connect in the thread. Indie tools run on the computer. Self-host for your organization is free. Hosted Groxbot for others is groxbot.com.`;
+The product is Whip Computer — teammates with a computer, on whip.computer. It copies Grok Bot’s simplicity (talk first, grant access when they hit a wall) and is fair-code so you can self-host. Bring your own model keys. Gmail, Slack, GitHub, and 1,000+ tools connect in the thread. Indie tools run on the computer. Self-host for your organization is free. Hosted Whip Computer for others is whip.computer.`;
 
 export const PRESS_BOILERPLATE = [
   { id: "short", label: "Short", text: PRESS_SHORT },
@@ -37,13 +37,13 @@ export const PRESS_COLORS = [
   },
   {
     name: "Ink",
-    hex: "#f4f4f4",
-    note: "Type on dark chrome",
+    hex: "#2a211c",
+    note: "Type on the marketing site",
   },
   {
     name: "Background",
-    hex: "#000000",
-    note: "Marketing site and office",
+    hex: "#fff6f0",
+    note: "Marketing site paper",
   },
   {
     name: "Ok",
@@ -53,13 +53,13 @@ export const PRESS_COLORS = [
 ] as const;
 
 export const PRESS_NAMES_OK = [
-  "Groxbot (canonical, one word, capital G)",
-  "groxbot.com (website)",
-  "@groxbot/* (npm packages)",
+  "Whip Computer (canonical product name)",
+  "Whip (short)",
+  "whip.computer (website)",
 ] as const;
 
 export const PRESS_NAMES_NO = [
-  "GroxBot (camel-case B)",
+  "Groxbot (former name)",
   "Grokbot",
   "xAI Grok Bot, Grok Bot by xAI, or Cursor Grok Bot for this project",
   "Grogbot (retired name; grogbot.com is not this product)",
@@ -94,7 +94,7 @@ export const PRESS_ASSETS = [
   {
     file: "groxbot-lockup-dark.svg",
     label: "Lockup on dark",
-    note: "Mascot plus the word Groxbot.",
+    note: "Mascot plus the words Whip Computer.",
   },
   {
     file: "groxbot-lockup-light.svg",

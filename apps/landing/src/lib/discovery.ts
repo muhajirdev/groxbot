@@ -114,10 +114,10 @@ function escapeHtml(value: string): string {
 export function landingLlmsHtml(): string {
   return htmlPage({
     origins: LANDING_ORIGINS,
-    title: "Groxbot for language models",
-    description: `${GROXBOT_TAGLINE}. Like Grok Bot, for the team. Named teammates with a real computer. If OpenClaw is for personal use, Groxbot is the office.`,
+    title: "Whip Computer for language models",
+    description: `${GROXBOT_TAGLINE}. Like Grok Bot, for the team. Named teammates with a real computer. If OpenClaw is for personal use, Whip Computer is for teams.`,
     canonicalPath: "/llms.html",
-    body: `<h1>Groxbot</h1>
+    body: `<h1>Whip Computer</h1>
 <pre>${escapeHtml(landingLlmsTxt())}</pre>`,
   });
 }

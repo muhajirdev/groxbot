@@ -2,11 +2,10 @@ import {
   GROXBOT_APPLE_TOUCH_ICON_PATH,
   GROXBOT_FAVICON_PATH,
   GROXBOT_ICON_PATH,
-  GROXBOT_THEME_COLOR,
   jsonBody,
 } from "@groxbot/seo";
 import { createFileRoute } from "@tanstack/react-router";
-import { DEFAULT_DESCRIPTION, SITE_NAME } from "../lib/site";
+import { DEFAULT_DESCRIPTION, LANDING_THEME_COLOR, SITE_NAME } from "../lib/site";
 
 export const Route = createFileRoute("/site.webmanifest")({
   server: {
@@ -19,8 +18,8 @@ export const Route = createFileRoute("/site.webmanifest")({
             description: DEFAULT_DESCRIPTION,
             start_url: "/",
             display: "browser",
-            background_color: GROXBOT_THEME_COLOR,
-            theme_color: GROXBOT_THEME_COLOR,
+            background_color: LANDING_THEME_COLOR,
+            theme_color: LANDING_THEME_COLOR,
             icons: [
               {
                 src: GROXBOT_FAVICON_PATH,

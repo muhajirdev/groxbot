@@ -531,7 +531,6 @@ export function Design() {
                       shape={shape}
                       size="md"
                       mood="idle"
-                      photo={false}
                     />
                     <figcaption>{shape}</figcaption>
                   </figure>

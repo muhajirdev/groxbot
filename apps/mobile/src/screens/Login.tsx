@@ -3,9 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import * as Linking from "expo-linking";
 import { useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { AuthGlow, BuddyPile } from "../components/AuthScene";
 import { Button } from "../components/Button";
 import { Field } from "../components/Field";
-import { Mascot } from "../components/Mascot";
+import { FadeUpStack, Shake } from "../components/Motion";
 import { Screen } from "../components/Screen";
 import { authClient } from "../lib/auth";
 import { userFacingError } from "../lib/errors";
@@ -146,21 +147,27 @@ export function LoginScreen({
   }
 
   const heading = peek
-    ? `Join ${peek.organizationName}.`
+    ? `You’re invited to ${peek.organizationName}.`
     : inviteId
-      ? "Join a workspace."
-      : "Get started";
+      ? "You’ve got an invite."
+      : "Come on in.";
 
   return (
-    <Screen scroll>
-      <Mascot size={64} mood="happy" />
+    <Screen
+      scroll
+      align="center"
+      edges={["top", "left", "right", "bottom"]}
+      backdrop={<AuthGlow />}
+    >
       {sentTo ? (
-        <View style={styles.block}>
-          <Text style={styles.title}>Check your email</Text>
+        <FadeUpStack key={`otp-${sentTo}`}>
+          <BuddyPile mood="thinking" />
+          <Text style={styles.kicker}>Almost there</Text>
+          <Text style={styles.title}>Psst — check your inbox.</Text>
           <View style={styles.sent}>
             <Text style={styles.body}>
-              Check {sentTo}. Tap Open Groxbot, or enter the 6-digit code.
-              Expires in 15 minutes.
+              We sent a door code to {sentTo}. Tap Open Groxbot, or type the
+              6 digits. It expires in 15 minutes.
             </Text>
             {mailLogged ? (
               <Text style={styles.body}>
@@ -168,7 +175,11 @@ export function LoginScreen({
                 instead of an inbox.
               </Text>
             ) : null}
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+            {error ? (
+              <Shake trigger={error}>
+                <Text style={styles.error}>{error}</Text>
+              </Shake>
+            ) : null}
             <Field
               label="Code"
               value={otp}
@@ -181,7 +192,8 @@ export function LoginScreen({
               maxLength={6}
             />
             <Button
-              label="Enter code"
+              label="Let me in"
+              tone="brand"
               onPress={() => void continueWithCode()}
               busy={busy}
               disabled={otp.length !== 6}
@@ -197,19 +209,27 @@ export function LoginScreen({
               setError("");
             }}
           />
-        </View>
+        </FadeUpStack>
       ) : (
-        <View style={styles.block}>
-          <Text style={type.kicker}>Welcome to Groxbot</Text>
+        <FadeUpStack key="email">
+          <BuddyPile />
+          <Text style={styles.kicker}>Welcome to Groxbot</Text>
           <Text style={styles.title}>{heading}</Text>
-          <Text style={styles.body}>Like Grok Bot, for the whole team.</Text>
+          <Text style={styles.body}>
+            No password to invent. We’ll email you a little code.
+          </Text>
           <Text selectable style={styles.host}>
             {apiOrigin()}
           </Text>
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? (
+            <Shake trigger={error}>
+              <Text style={styles.error}>{error}</Text>
+            </Shake>
+          ) : null}
           {inviteId && peek ? (
             <Button
               label={`Join ${peek.organizationName}`}
+              tone="brand"
               onPress={() => void joinInvite()}
               busy={busy}
             />
@@ -222,7 +242,8 @@ export function LoginScreen({
             keyboardType="email-address"
           />
           <Button
-            label="Email me a link"
+            label="Email me a code"
+            tone="brand"
             onPress={() => void continueWithEmail()}
             busy={busy}
           />
@@ -242,23 +263,36 @@ export function LoginScreen({
               busy={busy}
             />
           ) : null}
-        </View>
+        </FadeUpStack>
       )}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  block: { gap: 14, paddingTop: 24 },
-  title: { ...type.title },
+  kicker: {
+    color: colors.accent,
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  title: {
+    color: colors.text,
+    fontSize: 32,
+    fontWeight: "700",
+    letterSpacing: -0.9,
+    lineHeight: 38,
+  },
   body: { ...type.lede },
-  host: { color: colors.faint, fontSize: 13 },
+  host: { color: colors.faint, fontSize: 12 },
   error: { color: colors.danger, fontSize: 13 },
   sent: {
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.line,
     borderRadius: radius.lg,
+    borderCurve: "continuous",
     padding: 16,
     gap: 12,
   },

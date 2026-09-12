@@ -30,7 +30,7 @@ export const Route = createFileRoute("/integrations/$slug")({
     const { item } = loaderData;
     return seoHead({
       title: `${item.name} integration`,
-      description: `Groxbot + ${item.name}: ${item.description}`.slice(0, 160),
+      description: `Whip Computer + ${item.name}: ${item.description}`.slice(0, 160),
       path: `/integrations/${item.slug}`,
       jsonLd: integrationJsonLd(item),
     });
@@ -70,7 +70,7 @@ function IntegrationPage() {
               </Link>
               {item.founder ? ` · ${item.founder}` : null}
             </p>
-            <h1>Groxbot + {item.name}</h1>
+            <h1>Whip Computer + {item.name}</h1>
             <p className="lede">{item.description}</p>
             <div className="row">
               <a className="btn" href={startUrl}>

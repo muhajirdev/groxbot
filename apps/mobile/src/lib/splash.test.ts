@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const root = dirname(fileURLToPath(import.meta.url));
 const splash = readFileSync(join(root, "../components/Splash.tsx"), "utf8");
+const motion = readFileSync(join(root, "../components/Motion.tsx"), "utf8");
 const app = readFileSync(join(root, "../../App.tsx"), "utf8");
 
 describe("mobile splash", () => {
@@ -16,7 +17,10 @@ describe("mobile splash", () => {
     expect(splash).toContain("Ada");
     expect(splash).toContain("Sam");
     expect(splash).toContain("Kai");
-    expect(splash).toContain("reduceMotion");
+    expect(splash).toContain("Appear");
+    expect(splash).toContain("Breathe");
     expect(splash).toContain("Groxbot");
+    expect(motion).toContain("useReduceMotion");
+    expect(motion).toContain("stiffness: 118");
   });
 });

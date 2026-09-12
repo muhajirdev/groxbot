@@ -1,17 +1,27 @@
-/** Same tokens as apps/web/src/styles.css :root (dark). */
+import { DefaultTheme, type Theme } from "@react-navigation/native";
+import { Platform } from "react-native";
+
+export function isIos26(): boolean {
+  if (Platform.OS !== "ios") return false;
+  const raw = Platform.Version;
+  const n = typeof raw === "number" ? raw : Number.parseFloat(String(raw));
+  return Number.isFinite(n) && n >= 26;
+}
+
+/** Light office. Pink accent stays the brand mark. */
 export const colors = {
-  bg: "#000000",
-  surface: "#161616",
-  surface2: "#2a2a2a",
-  card: "#1c1c1c",
-  line: "#333333",
-  text: "#f4f4f4",
-  muted: "#8a8a8a",
-  faint: "#6b6b6b",
+  bg: "#ffffff",
+  surface: "#f2f2f7",
+  surface2: "#e5e5ea",
+  card: "#f7f7f8",
+  line: "#e5e5ea",
+  text: "#111111",
+  muted: "#6e6e73",
+  faint: "#8e8e93",
   accent: "#e45c9a",
   accentInk: "#ffffff",
-  ok: "#3ecf8e",
-  danger: "#e25d4a",
+  ok: "#1f8a54",
+  danger: "#d70015",
   white: "#fff",
 };
 
@@ -46,5 +56,39 @@ export const type = {
     color: colors.muted,
     fontSize: 16,
     lineHeight: 24,
+  },
+};
+
+export const navTheme: Theme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: colors.accent,
+    background: colors.bg,
+    card: colors.bg,
+    text: colors.text,
+    border: colors.line,
+    notification: colors.accent,
+  },
+};
+
+/**
+ * One white canvas. No system material plate — that reads as a second color.
+ * Delight lives in the title, pink tint, and prominent header items.
+ */
+export const glassHeader = {
+  headerTransparent: false,
+  headerShadowVisible: false,
+  headerLargeTitleShadowVisible: false,
+  headerStyle: {
+    backgroundColor: colors.bg,
+  },
+  headerLargeStyle: {
+    backgroundColor: colors.bg,
+  },
+  headerTintColor: colors.accent,
+  headerTitleStyle: {
+    fontWeight: "600" as const,
+    color: colors.text,
   },
 };

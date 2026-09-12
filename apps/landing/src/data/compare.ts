@@ -5,7 +5,7 @@ export type ProductId = "groxbot" | "hermes" | "openclaw" | "paperclip";
 export type CompareProduct = {
   id: ProductId;
   name: string;
-  /** Search-facing name (e.g. Grok Bot for Groxbot) */
+  /** Search-facing name (e.g. Grok Bot for Whip Computer) */
   searchName: string;
   /** Short label in matrix headers */
   shortName: string;
@@ -42,13 +42,13 @@ export type ComparePage = {
 export const PRODUCTS: Record<ProductId, CompareProduct> = {
   groxbot: {
     id: "groxbot",
-    name: "Groxbot",
+    name: "Whip Computer",
     searchName: "Grok Bot",
-    shortName: "Groxbot",
-    kicker: "The office",
+    shortName: "Whip",
+    kicker: "For teams",
     summary:
       "Self-hostable Grok Bot for teams. Named AI teammates in a messaging UI, shared knowledge, each with a cloud computer.",
-    bestFor: "A company that wants AI adoption visible in one office",
+    bestFor: "A company that wants AI adoption visible in one place",
     ours: true,
   },
   hermes: {
@@ -88,12 +88,12 @@ export const PRODUCTS: Record<ProductId, CompareProduct> = {
 
 /**
  * Shared feature matrix. Booleans render as green check / muted cross.
- * Keep Groxbot’s wins honest: multiplayer + shared knowledge are the gap.
+ * Keep Whip Computer’s wins honest: multiplayer + shared knowledge are the gap.
  */
 export const FEATURE_ROWS: CompareRow[] = [
   {
     label: "Multiplayer",
-    hint: "Whole team in one office",
+    hint: "Whole team in one place",
     values: {
       groxbot: true,
       hermes: false,
@@ -169,7 +169,7 @@ export const FEATURE_ROWS: CompareRow[] = [
     label: "Chat channel gateway",
     hint: "WhatsApp, Telegram, …",
     values: {
-      groxbot: "Office + integrations; not a personal gateway",
+      groxbot: "Team chat + integrations; not a personal gateway",
       hermes: "Gateway support",
       openclaw: true,
       paperclip: false,
@@ -179,7 +179,7 @@ export const FEATURE_ROWS: CompareRow[] = [
     label: "Self-evolving agent",
     hint: "Agent improves its own skills",
     values: {
-      groxbot: "Office skills from work — not a solo learning loop",
+      groxbot: "Team skills from work — not a solo learning loop",
       hermes: true,
       openclaw: "Install / community skills",
       paperclip: false,
@@ -228,12 +228,12 @@ const PICK_WHEN: Record<ProductId, string> = {
 
 const SHARED_FAQS: Array<{ q: string; a: string }> = [
   {
-    q: "Is Groxbot the same as xAI Grok Bot?",
-    a: "Same motion — named teammates you message — but Groxbot is multiplayer and fair-code so you can self-host. xAI Grok Bot is a closed, hosted product. Do not present Groxbot as xAI Grok Bot.",
+    q: "Is Whip Computer the same as xAI Grok Bot?",
+    a: "Same motion — named teammates you message — but Whip Computer is multiplayer and fair-code so you can self-host. xAI Grok Bot is a closed, hosted product. Do not present Whip Computer as xAI Grok Bot.",
   },
   {
-    q: "Can I use Hermes or OpenClaw with Groxbot?",
-    a: "Yes. Guest runtimes are opt-in per bot and off by default. They dial out to Groxbot. Default teammates use hosted models or a workspace BYOK key.",
+    q: "Can I use Hermes or OpenClaw with Whip Computer?",
+    a: "Yes. Guest runtimes are opt-in per bot and off by default. They dial out to Whip Computer. Default teammates use hosted models or a workspace BYOK key.",
   },
 ];
 
@@ -270,16 +270,16 @@ function slugFor(ids: ProductId[]): string {
 
 function descriptionFor(ids: ProductId[]): string {
   if (ids.length === 4) {
-    return "Groxbot is Grok Bot for the team. Compare multiplayer, knowledge base, BYOK, and more vs Hermes, OpenClaw, and Paperclip.";
+    return "Whip Computer is Grok Bot for the team. Compare multiplayer, knowledge base, BYOK, and more vs Hermes, OpenClaw, and Paperclip.";
   }
   const others = ids
     .filter((id) => id !== "groxbot")
     .map((id) => PRODUCTS[id].searchName)
     .join(" and ");
   if (ids.includes("groxbot")) {
-    return `Groxbot vs ${others}: multiplayer office and shared knowledge vs personal agents or orchestration. BYOK, any model, self-host.`;
+    return `Whip Computer vs ${others}: multiplayer teammates and shared knowledge vs personal agents or orchestration. BYOK, any model, self-host.`;
   }
-  return `${titleFor(ids)} compared — and where Groxbot’s multiplayer office fits beside them.`;
+  return `${titleFor(ids)} compared — and where Whip Computer’s team product fits beside them.`;
 }
 
 function ledeFor(ids: ProductId[]): string {
@@ -287,20 +287,20 @@ function ledeFor(ids: ProductId[]): string {
     return "Four names show up in every “which agent?” thread. They are not the same layer.";
   }
   if (ids.includes("groxbot") && ids.includes("hermes") && ids.length === 2) {
-    return "Hermes is a personal agent that learns you. Groxbot is the office the whole team sits in.";
+    return "Hermes is a personal agent that learns you. Whip Computer is the place the whole team sits.";
   }
   if (ids.includes("groxbot") && ids.includes("openclaw") && ids.length === 2) {
-    return "OpenClaw is a personal gateway across chat apps. Groxbot is multiplayer teammates with a shared knowledge base.";
+    return "OpenClaw is a personal gateway across chat apps. Whip Computer is multiplayer teammates with a shared knowledge base.";
   }
   if (
     ids.includes("groxbot") &&
     ids.includes("paperclip") &&
     ids.length === 2
   ) {
-    return "Paperclip orchestrates agents with org charts and budgets. Groxbot is where people hire and message teammates.";
+    return "Paperclip orchestrates agents with org charts and budgets. Whip Computer is where people hire and message teammates.";
   }
   if (ids.includes("hermes") && ids.includes("openclaw") && ids.length === 2) {
-    return "Both are personal. Hermes leans learning loop; OpenClaw leans channel reach. Neither is a team office.";
+    return "Both are personal. Hermes leans learning loop; OpenClaw leans channel reach. Neither is built for a team.";
   }
   if (ids.includes("hermes") && ids.includes("paperclip") && ids.length === 2) {
     return "Hermes is a worker agent. Paperclip is the org chart on top. Different layers.";
@@ -310,47 +310,47 @@ function ledeFor(ids: ProductId[]): string {
     ids.includes("paperclip") &&
     ids.length === 2
   ) {
-    return "OpenClaw is a personal gateway. Paperclip manages a fleet. Groxbot is the company messaging office beside both.";
+    return "OpenClaw is a personal gateway. Paperclip manages a fleet. Whip Computer is the company messaging app beside both.";
   }
   return "Same questions, honest answers — without mixing layers.";
 }
 
 function thesisFor(ids: ProductId[]): string {
   if (ids.length === 4) {
-    return "Hermes and OpenClaw are personal agents on your machine. Paperclip is an org chart for agents. Groxbot is the office: multiplayer teammates, a shared knowledge base, and a self-improving organization — while Hermes still leads the solo self-evolving agent loop.";
+    return "Hermes and OpenClaw are personal agents on your machine. Paperclip is an org chart for agents. Whip Computer is for teams: multiplayer teammates, a shared knowledge base, and a self-improving organization — while Hermes still leads the solo self-evolving agent loop.";
   }
   if (ids.includes("groxbot") && ids.includes("hermes") && ids.length === 2) {
-    return "Hermes wins the self-evolving personal agent. Groxbot wins multiplayer and a self-improving organization — shared knowledge the whole company compounds.";
+    return "Hermes wins the self-evolving personal agent. Whip Computer wins multiplayer and a self-improving organization — shared knowledge the whole company compounds.";
   }
   if (ids.includes("groxbot")) {
-    return "Most personal agents win solo depth or channel breadth. Groxbot wins multiplayer and a knowledge base the company actually shares — the organization improves, not only one agent.";
+    return "Most personal agents win solo depth or channel breadth. Whip Computer wins multiplayer and a knowledge base the company actually shares — the organization improves, not only one agent.";
   }
-  return "These two can compose. For a team office with shared knowledge, that is Groxbot — not a replacement for either layer.";
+  return "These two can compose. For a team with shared knowledge, that is Whip Computer — not a replacement for either layer.";
 }
 
 function faqsFor(ids: ProductId[]): Array<{ q: string; a: string }> {
   const faqs = [...SHARED_FAQS];
   if (ids.includes("hermes") || ids.includes("openclaw")) {
     faqs.push({
-      q: "How is Groxbot different from Hermes and OpenClaw?",
-      a: "Hermes and OpenClaw are personal agents on your machine. Groxbot is multiplayer: named teammates, each with a computer, a shared knowledge base, and a messaging UI the whole company can sit in. Guest runtimes are opt-in and off by default.",
+      q: "How is Whip Computer different from Hermes and OpenClaw?",
+      a: "Hermes and OpenClaw are personal agents on your machine. Whip Computer is multiplayer: named teammates, each with a computer, a shared knowledge base, and a messaging UI the whole company can sit in. Guest runtimes are opt-in and off by default.",
     });
   }
   if (ids.includes("paperclip")) {
     faqs.push({
-      q: "How is Groxbot different from Paperclip?",
-      a: "Paperclip orchestrates a fleet of agents with org charts and budgets. Groxbot is the place people work: hire a Bot, message it, grant tools when it hits a wall. You do not need a workflow builder or a separate management layer to start.",
+      q: "How is Whip Computer different from Paperclip?",
+      a: "Paperclip orchestrates a fleet of agents with org charts and budgets. Whip Computer is the place people work: hire a Bot, message it, grant tools when it hits a wall. You do not need a workflow builder or a separate management layer to start.",
     });
   }
   if (!ids.includes("groxbot")) {
     faqs.push({
-      q: "Where does Groxbot fit?",
-      a: "Beside them. Hermes and OpenClaw can dial into Groxbot as guest runtimes. Paperclip stays an orchestration layer. Groxbot is the multiplayer office with a shared knowledge base.",
+      q: "Where does Whip Computer fit?",
+      a: "Beside them. Hermes and OpenClaw can dial into Whip Computer as guest runtimes. Paperclip stays an orchestration layer. Whip Computer is the multiplayer product with a shared knowledge base.",
     });
   }
   faqs.push({
     q: "Do other tools have multiplayer and a knowledge base?",
-    a: "Personal agents keep memory on one machine. Orchestrators track tickets and budgets. Groxbot is built so the whole team shares threads and office knowledge — that is the gap.",
+    a: "Personal agents keep memory on one machine. Orchestrators track tickets and budgets. Whip Computer is built so the whole team shares threads and knowledge — that is the gap.",
   });
   return faqs;
 }

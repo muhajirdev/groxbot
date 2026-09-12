@@ -78,13 +78,13 @@ function TemplatePage() {
           className="grid grid-cols-1 gap-4 py-2 pb-9 sm:gap-3.5 sm:pb-14 md:grid-cols-2"
           aria-label="Package contents"
         >
-          <article className="rounded-3xl bg-[#141414] px-[22px] py-[22px] pb-6 sm:px-7 sm:py-7 sm:pb-8">
+          <article className="rounded-3xl bg-[var(--wash)] px-[22px] py-[22px] pb-6 sm:px-7 sm:py-7 sm:pb-8">
             <h3 className="!mb-3 !text-[22px] tracking-[-0.03em]">Soul</h3>
             <p className="!m-0 text-[15px] leading-relaxed text-[var(--muted)]">
               {bot.soul}
             </p>
           </article>
-          <article className="rounded-3xl bg-[#141414] px-[22px] py-[22px] pb-6 sm:px-7 sm:py-7 sm:pb-8">
+          <article className="rounded-3xl bg-[var(--wash)] px-[22px] py-[22px] pb-6 sm:px-7 sm:py-7 sm:pb-8">
             <h3 className="!mb-3 !text-[22px] tracking-[-0.03em]">Memory</h3>
             <p className="!m-0 text-[15px] leading-relaxed text-[var(--muted)]">
               {bot.memory}
@@ -96,7 +96,7 @@ function TemplatePage() {
           <p className="kicker">Skills</p>
           <h2 className="!mb-2.5">Starter playbooks</h2>
           <p className="lede tight !mb-5">
-            Installed into office knowledge on hire. Draft for you; nothing goes
+            Installed into shared knowledge on hire. Draft for you; nothing goes
             live until you say so.
           </p>
           <BulletList

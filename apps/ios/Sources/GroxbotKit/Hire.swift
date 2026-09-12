@@ -75,6 +75,8 @@ public enum ListTime {
 
   public static func format(_ iso: String, now: Date = Date()) -> String {
     guard let date = parse(iso) else { return "" }
+    let seconds = now.timeIntervalSince(date)
+    if seconds >= 0, seconds < 120 { return "Now" }
     if Calendar.current.isDate(date, inSameDayAs: now) {
       return timeFormatter().string(from: date)
     }
@@ -82,6 +84,11 @@ public enum ListTime {
       Calendar.current.isDate(date, inSameDayAs: yesterday)
     {
       return "Yesterday"
+    }
+    if let days = Calendar.current.dateComponents([.day], from: date, to: now).day, days > 1, days < 7 {
+      let weekday = DateFormatter()
+      weekday.setLocalizedDateFormatFromTemplate("EEE")
+      return weekday.string(from: date)
     }
     return dayFormatter().string(from: date)
   }

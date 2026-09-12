@@ -139,8 +139,8 @@ export const COMPARE = [
     ours: false,
   },
   {
-    name: "Groxbot",
-    kicker: "The office",
+    name: "Whip Computer",
+    kicker: "For teams",
     line: "Multiplayer. Shared knowledge. Source on GitHub.",
     ours: true,
   },
@@ -159,26 +159,26 @@ export const COMPARE_LINKS = [
 
 export const COMPARE_CALLOUT = {
   kicker: "Compare",
-  title: "Groxbot vs Hermes vs OpenClaw vs Paperclip",
-  lede: "Multiplayer and a shared knowledge base are the gap. Hermes still leads the solo self-evolving agent — Groxbot is the self-improving office.",
+  title: "Whip Computer vs Hermes vs OpenClaw vs Paperclip",
+  lede: "Multiplayer and a shared knowledge base are the gap. Hermes still leads the solo self-evolving agent — Whip Computer is the self-improving team.",
 } as const;
 
 export const FAQS = [
   {
     q: "How is this different from Grok Bot?",
-    a: `Same motion: create a Bot, message it, grant access as needed. Groxbot is for the team — ${GROXBOT_TAGLINE}. Named teammates, each with a computer, live docs from chat — and you can run the source yourself.`,
+    a: `Same motion: create a Bot, message it, grant access as needed. Whip Computer is for the team — ${GROXBOT_TAGLINE}. Named teammates, each with a computer, live docs from chat — and you can run the source yourself.`,
   },
   {
     q: "How is this different from OpenClaw?",
-    a: "OpenClaw is a personal agent on your machine. Groxbot is the office: named teammates, each with a computer, D1 for team data, and a messaging UI the whole company can sit in.",
+    a: "OpenClaw is a personal agent on your machine. Whip Computer is for the team: named teammates, each with a computer, and a messaging UI the whole company can sit in.",
   },
   {
     q: "How is this different from Hermes?",
-    a: "Hermes is a personal agent on your machine, like OpenClaw. Groxbot is the office. Hermes can dial out as a guest runtime if you turn that on — off by default.",
+    a: "Hermes is a personal agent on your machine, like OpenClaw. Whip Computer is for the team. Hermes can dial out as a guest runtime if you turn that on — off by default.",
   },
   {
     q: "How is this different from Paperclip?",
-    a: "Paperclip orchestrates a fleet of agents with org charts and budgets. Groxbot is the place people work: hire a Bot, message it, grant tools when it hits a wall. You do not need a workflow builder or a separate management layer to start.",
+    a: "Paperclip orchestrates a fleet of agents with org charts and budgets. Whip Computer is the place people work: hire a Bot, message it, grant tools when it hits a wall. You do not need a workflow builder or a separate management layer to start.",
   },
   {
     q: "Do I need a workflow builder?",
@@ -190,7 +190,7 @@ export const FAQS = [
   },
   {
     q: "Is it open source?",
-    a: "The source is on GitHub. Self-host for your own team is free. Fair-code: you may not run a hosted Groxbot for third parties without a commercial license — that is groxbot.com.",
+    a: "The source is on GitHub. Self-host for your own team is free. Fair-code: you may not run a hosted Whip Computer for third parties without a commercial license — that is whip.computer.",
   },
   {
     q: "Which tools can a Bot use?",
@@ -198,11 +198,11 @@ export const FAQS = [
   },
   {
     q: "Where do I talk to a Bot?",
-    a: "In the web office — a messaging app of named teammates. Desktop is that same UI in a window. The computer stays in the cloud, so you can leave the laptop and continue on your phone.",
+    a: "In the web app — a messaging app of named teammates. Desktop is that same UI in a window. The computer stays in the cloud, so you can leave the laptop and continue on your phone.",
   },
   {
-    q: "Does the office remember?",
-    a: "Yes. What you decide in a thread is extracted into shared office knowledge — how we work, voice, constraints. Skills live with the workspace, not in one chat. The organization improves; you do not re-explain it every Monday.",
+    q: "Does Whip Computer remember?",
+    a: "Yes. What you decide in a thread is extracted into shared knowledge — how we work, voice, constraints. Skills live with the workspace, not in one chat. The organization improves; you do not re-explain it every Monday.",
   },
   {
     q: "Which models can I use?",
@@ -213,12 +213,12 @@ export const FAQS = [
     a: "Yes — and that’s the point. A personal agent hides on a laptop. Adoption is who put work in motion: people, a contributions heatmap, and the tasks they asked for. Not a spend cockpit.",
   },
   {
-    q: "Does my data leave the office?",
-    a: "Self-host and the office stays in your SQLite catalog and Durable Objects — groxbot.com never sees it. Hosted stores it for you. Either way, a Bot talking to a model sends the prompt to the provider behind your key. Pick one with a zero-retention agreement if you need that. We do not claim zero retention: the office is meant to remember.",
+    q: "Does my data leave Whip Computer?",
+    a: "Self-host and your data stays in your SQLite catalog and Durable Objects — whip.computer never sees it. Hosted stores it for you. Either way, a Bot talking to a model sends the prompt to the provider behind your key. Pick one with a zero-retention agreement if you need that. We do not claim zero retention: Whip Computer is meant to remember.",
   },
   {
     q: "How do I talk to a person?",
-    a: `Email ${CONTACT_EMAIL}. GitHub issues for the source. The office is for the product — this mailbox is for you.`,
+    a: `Email ${CONTACT_EMAIL}. GitHub issues for the source. Whip Computer is for the product — this mailbox is for you.`,
   },
 ] as const;
 
@@ -227,14 +227,75 @@ export const MAC_DMG_FILENAME = "Groxbot-mac-arm64.dmg";
 export const MAC_DMG_URL = `${SOURCE_REPO}/releases/latest/download/${MAC_DMG_FILENAME}`;
 export const TAGLINE = GROXBOT_TAGLINE;
 export const HERO_PITCH = "Multiplayer. Open source. Invite only.";
-export const FOOTER_BLURB = `${GROXBOT_TAGLINE}. For the whole team. Fair-code.`;
+export const HERO_HEADLINE = "AI for teams.";
+export const TALK_HEADLINE = "Invite your team to talk with your AI agents.";
+export const TALK_LEDE =
+  "Let your experts build the agents, and let the rest of the team use it.";
+export const HERO_COMPARE_NAMES = [
+  "Hermes Agent",
+  "OpenClaw",
+  "Grok Bot",
+] as const;
+export const HERO_LEDE = `Like ${HERO_COMPARE_NAMES[0]}, ${HERO_COMPARE_NAMES[1]}, or ${HERO_COMPARE_NAMES[2]} — but for teams.`;
+export const HERO_PLATFORMS = ["Web", "Mac", "iOS", "Android"] as const;
+export const HERO_PLATFORMS_LINE = `Available for ${HERO_PLATFORMS.join(", ")}`;
+/** Swap `youtubeId` for the Whip Computer hero demo. */
+export const HERO_DEMO = {
+  youtubeId: "M7lc1UVf-VE",
+  title: "A morning with the team",
+} as const;
+/** Swap `youtubeId` for the talk-section demo. Different from `HERO_DEMO`. */
+export const TALK_DEMO = {
+  youtubeId: "aqz-KE-bpKQ",
+  title: "Talk with your agents",
+} as const;
+
+export function heroDemoSrc(
+  id = HERO_DEMO.youtubeId,
+  opts: { autoplay?: boolean; mute?: boolean; loop?: boolean } = {},
+) {
+  const params = new URLSearchParams({ rel: "0", playsinline: "1" });
+  if (opts.autoplay) params.set("autoplay", "1");
+  if (opts.mute || opts.autoplay) params.set("mute", "1");
+  if (opts.loop) {
+    params.set("loop", "1");
+    params.set("playlist", id);
+  }
+  return `https://www.youtube-nocookie.com/embed/${id}?${params}`;
+}
+
+export function heroDemoPoster(id = HERO_DEMO.youtubeId) {
+  return `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`;
+}
+export const FOOTER_BLURB = "Let’s start whipping the computer together.";
+
+export const STORY = [
+  {
+    id: "hire",
+    kicker: "Hire",
+    title: "Start with a person, not a workflow.",
+    lede: "Pick a teammate. They show up with a name, a desk, and a computer. Empty until you give them a job.",
+  },
+  {
+    id: "talk",
+    kicker: "Talk",
+    title: "Message them like a coworker.",
+    lede: "Give work in the thread. They come back when they need you. Not a prompt box — a conversation.",
+  },
+  {
+    id: "computer",
+    kicker: "Computer",
+    title: "They already have a computer.",
+    lede: "Built into the bot. Leave the pane open, or don’t. The work still happens.",
+  },
+] as const;
 
 export const THESES = [
   {
     id: "together",
     kicker: "Together",
     title: "AI is better together.",
-    lede: "OpenClaw or Hermes: one person, one laptop. Groxbot: named teammates, one office.",
+    lede: "OpenClaw or Hermes: one person, one laptop. Whip Computer: named teammates, one team.",
   },
   {
     id: "adopt",
@@ -246,7 +307,7 @@ export const THESES = [
     id: "knowledge",
     kicker: "Knowledge",
     title: "The company’s knowledge base should evolve from group chats.",
-    lede: "File what lasts from the thread. Skills live with the office, not one chat. Monday doesn’t start from zero.",
+    lede: "File what lasts from the thread. Skills live with the team, not one chat. Monday doesn’t start from zero.",
   },
   {
     id: "phone",
@@ -302,7 +363,7 @@ export const HOME_ADOPTION = [
 export const HOME_FEATURES = [
   {
     title: "For the whole team",
-    body: "Named teammates in one office — not another agent hiding on a laptop.",
+    body: "Named teammates in one place — not another agent hiding on a laptop.",
   },
   {
     title: "Computer built in",
@@ -310,7 +371,7 @@ export const HOME_FEATURES = [
   },
   {
     title: "Knowledge from the thread",
-    body: "What you decide in chat becomes office knowledge — skills, voice, how you work.",
+    body: "What you decide in chat becomes shared knowledge — skills, voice, how you work.",
   },
 ] as const;
 

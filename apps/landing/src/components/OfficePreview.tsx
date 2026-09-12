@@ -17,9 +17,13 @@ const FILES = [
   { name: "weekly.md", kind: "file" as const, depth: 0 },
 ];
 
-export function OfficePreview() {
+export function OfficePreview(props: { embedded?: boolean } = {}) {
+  const Wrap = props.embedded ? "div" : "section";
   return (
-    <section className="preview-wrap" aria-label="Office preview">
+    <Wrap
+      className={`preview-wrap${props.embedded ? " embedded" : ""}`}
+      aria-label={props.embedded ? undefined : "Product preview"}
+    >
       <div className="preview-shell">
         <div className="preview" aria-hidden>
           <aside className="preview-side">
@@ -180,7 +184,7 @@ export function OfficePreview() {
           </aside>
         </div>
       </div>
-    </section>
+    </Wrap>
   );
 }
 

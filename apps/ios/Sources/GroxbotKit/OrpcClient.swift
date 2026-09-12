@@ -118,6 +118,9 @@ public actor OrpcClient {
     )
   }
   public func workspacesList() async throws -> JSONValue { try await call(["workspaces", "list"]) }
+  public func workspacesActivate(id: String) async throws -> JSONValue {
+    try await call(["workspaces", "activate"], input: .object(["workspaceId": .string(id)]))
+  }
   public func modelsGet() async throws -> JSONValue { try await call(["models", "get"]) }
   public func modelsSave(_ input: JSONValue) async throws -> JSONValue {
     try await call(["models", "save"], input: input)

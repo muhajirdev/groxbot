@@ -8,7 +8,7 @@ import {
   STAGING_WEB_ORIGIN,
 } from "@groxbot/contracts";
 
-export const GROXBOT_NAME = "Groxbot";
+export const GROXBOT_NAME = "Whip Computer";
 export const GROXBOT_VERSION = "0.0.1";
 export const GROXBOT_LANGUAGE = "en-US";
 export const GROXBOT_LICENSE = "Groxbot License (Apache 2.0 plus conditions)";
@@ -18,7 +18,7 @@ export const GROXBOT_EMAIL = "hello@groxbot.com";
 export const GROXBOT_APP = CLOUD_WEB_ORIGIN;
 export const GROXBOT_TAGLINE = "AI is better together";
 export const GROXBOT_SUMMARY =
-  "AI is better together. Like Grok Bot, for the team: named AI teammates with a real computer. If OpenClaw is for personal use, Groxbot is the office. Self-hostable, fair-code. Gmail, Slack, GitHub, and 1,000+ tools — plus a computer for the rest. Bring your own model keys. Self-host for your organization is free; hosted Groxbot for others is groxbot.com.";
+  "AI is better together. Like Grok Bot, for the team: named AI teammates with a real computer. If OpenClaw is for personal use, Whip Computer is for teams. Self-hostable, fair-code. Gmail, Slack, GitHub, and 1,000+ tools — plus a computer for the rest. Bring your own model keys. Self-host for your organization is free; hosted Whip Computer for others is whip.computer.";
 export const GROXBOT_OG_PATH = "/og.png";
 export const GROXBOT_OG_SVG_PATH = "/og.svg";
 export const GROXBOT_OG_WIDTH = 1200;
@@ -60,7 +60,12 @@ export function stagingOrigins(): DiscoveryOrigins {
 export function originsFromWeb(webOrigin: string): DiscoveryOrigins {
   try {
     const { hostname } = new URL(webOrigin);
-    if (hostname === "groxbot.com" || hostname.endsWith(".groxbot.com")) {
+    if (
+      hostname === "whip.computer" ||
+      hostname.endsWith(".whip.computer") ||
+      hostname === "groxbot.com" ||
+      hostname.endsWith(".groxbot.com")
+    ) {
       return cloudOrigins();
     }
     if (isGroxbotStagingOrigin(webOrigin)) {
@@ -73,9 +78,10 @@ export function originsFromWeb(webOrigin: string): DiscoveryOrigins {
 }
 
 export const GROXBOT_ALTERNATE_NAMES = [
-  "Grox Bot",
+  "Whip",
+  "Groxbot",
   "Grok Bot (self-hostable)",
-  "groxbot.com",
+  "whip.computer",
 ] as const;
 
 export const GROXBOT_SERVICES = [
@@ -87,14 +93,14 @@ export const GROXBOT_SERVICES = [
   "Plugins for Gmail, Slack, GitHub, and 1,000+ tools",
   "Bring-your-own model keys — Claude, GPT, Grok, Kimi, DeepSeek; not locked to one vendor",
   "Adoption is who put work in motion — people and a contributions heatmap, not a spend cockpit",
-  "Opt-in guest runtimes (Hermes or OpenClaw) that dial out to Groxbot",
+  "Opt-in guest runtimes (Hermes or OpenClaw) that dial out to Whip Computer",
 ] as const;
 
 export const GROXBOT_NOT_SERVICES = [
   "A visual workflow builder or agent graph editor",
   "A Discord-style community product",
   "Hosted model inference you do not bring keys for",
-  "A competing multi-tenant Groxbot cloud (that is groxbot.com)",
+  "A competing multi-tenant Whip Computer cloud (that is whip.computer)",
 ] as const;
 
 export const GROXBOT_STACK = [

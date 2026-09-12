@@ -144,7 +144,14 @@ describe("loadEnv", () => {
   });
 
   it("trusts the Expo app scheme so magic links can return to a device", () => {
-    expect(loadEnv(base).corsOrigins).toContain("groxbot://");
+    const origins = loadEnv(base).corsOrigins;
+    expect(origins).toContain("https://whip.computer");
+    expect(origins).toContain("https://app.whip.computer");
+    expect(origins).toContain("https://groxbot.com");
+    expect(origins).toContain("groxbot://");
+    expect(origins).toContain("groxbot-ios://");
+    expect(origins).toContain("exp://");
+    expect(origins).toContain("exp+groxbot://");
   });
 
   it("keeps Polar off until an access token is set", () => {
@@ -157,6 +164,12 @@ describe("loadEnv", () => {
   });
 
   it("pairs the landing host with the office origin", () => {
+    expect(
+      loadEnv({
+        ...base,
+        WEB_ORIGIN: "https://app.whip.computer",
+      }).landingOrigin,
+    ).toBe("https://whip.computer");
     expect(
       loadEnv({
         ...base,

@@ -12,7 +12,7 @@ export const Route = createFileRoute("/contact")({
     seoHead({
       title: "Contact",
       description:
-        "Email Groxbot sales and support. Self-host, pricing, or just hello.",
+        "Email Whip Computer sales and support. Self-host, pricing, or just hello.",
       path: "/contact",
       jsonLd: [
         breadcrumbJsonLd([
@@ -36,7 +36,7 @@ function ContactPage() {
           <p className="kicker">Contact</p>
           <h1 className="!my-2 !mb-4">Talk to a person.</h1>
           <p className="lede !mb-5 !text-xl">
-            Sales, self-host, press, or a stuck office. One mailbox. We read it.
+            Sales, self-host, press, or a stuck workspace. One mailbox. We read it.
           </p>
           <div className="row">
             <a className="btn lg" href={CONTACT_MAILTO}>
@@ -79,7 +79,7 @@ function ContactPage() {
               <p className="kicker">Product help</p>
               <h3 className="!mb-2 !text-xl">Chat</h3>
               <p className="!mb-4">
-                Quick questions about the office — open chat from the footer or
+                Quick questions about Whip Computer — open chat from the footer or
                 here.
               </p>
               <div className="mt-auto">
@@ -93,7 +93,7 @@ function ContactPage() {
           <p className="kicker">Primary</p>
           <h2>{CONTACT_EMAIL}</h2>
           <p className="lede tight">
-            That address is for people. The office is for the product.
+            That address is for people. Whip Computer is for the product.
           </p>
           <a className="btn lg" href={CONTACT_MAILTO}>
             Email us

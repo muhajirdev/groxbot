@@ -19,9 +19,9 @@ export function ShareChrome(props: {
   return (
     <div className="share-page">
       <header className="share-nav">
-        <Link className="share-brand" to="/" aria-label="Groxbot home">
+        <Link className="share-brand" to="/" aria-label="Whip Computer home">
           <MascotMark name="Groxbot" color="#e45c9a" shape="circle" size="sm" />
-          Groxbot
+          Whip Computer
         </Link>
         <span className="share-kicker">Shared note</span>
       </header>
@@ -32,7 +32,7 @@ export function ShareChrome(props: {
       <footer className="share-foot">
         Shared from{" "}
         <Link to="/" className="share-foot-link">
-          Groxbot
+          Whip Computer
         </Link>
         . Unlisted link.
       </footer>

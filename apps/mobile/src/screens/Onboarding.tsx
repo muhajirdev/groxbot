@@ -18,12 +18,14 @@ import {
   ZAI_PROVIDER,
 } from "@groxbot/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Avatar } from "../components/Avatar";
 import { Button } from "../components/Button";
 import { Chip } from "../components/Chip";
 import { Field } from "../components/Field";
+import { AuthGlow, BuddyPile } from "../components/AuthScene";
+import { FadeUp, FadeUpStack, Shake } from "../components/Motion";
 import { Screen } from "../components/Screen";
 import { userFacingError } from "../lib/errors";
 import {
@@ -42,6 +44,29 @@ import { orpc } from "../lib/orpc";
 import { client } from "../lib/rpc";
 import { firstLiveBot } from "../lib/sidebar";
 import { colors, radius } from "../theme";
+
+function OnboardPane({
+  scene,
+  children,
+  showPile,
+}: {
+  scene: string;
+  children: ReactNode;
+  showPile?: boolean;
+}) {
+  return (
+    <Screen
+      scroll
+      edges={["top", "left", "right", "bottom"]}
+      backdrop={<AuthGlow />}
+    >
+      <FadeUpStack key={scene}>
+        {showPile ? <BuddyPile /> : null}
+        {children}
+      </FadeUpStack>
+    </Screen>
+  );
+}
 
 const TOOLS = [
   "Gmail",
@@ -287,8 +312,13 @@ export function OnboardingScreen({
 
   if (!phase) {
     return (
-      <Screen>
-        <Text style={styles.kicker}>Groxbot</Text>
+      <Screen
+        edges={["top", "left", "right", "bottom"]}
+        backdrop={<AuthGlow />}
+      >
+        <FadeUp>
+          <Text style={styles.kicker}>Warming up the office…</Text>
+        </FadeUp>
       </Screen>
     );
   }
@@ -296,21 +326,27 @@ export function OnboardingScreen({
   if (phase === "workspace") {
     const pending = invitesQuery.data ?? [];
     return (
-      <Screen scroll>
-        <Text style={styles.kicker}>Your workspace</Text>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+      <OnboardPane scene={`workspace-${workspaceStep}`} showPile>
+        <Text style={styles.kicker}>Your office</Text>
+        {error ? (
+          <Shake trigger={error}>
+            <Text style={styles.error}>{error}</Text>
+          </Shake>
+        ) : null}
         {workspaceStep === "choose" ? (
           <View style={styles.block}>
-            <Text style={styles.title}>Create or join?</Text>
+            <Text style={styles.title}>Start a hangout,{"\n"}or join one.</Text>
             <Text style={styles.body}>
-              A workspace is the office. Bots, files, and people share it.
+              A workspace is the shared office — bots, files, and people under
+              one roof.
             </Text>
             <Button
-              label="Create a workspace"
+              label="Make a new office"
+              tone="brand"
               onPress={() => setWorkspaceStep("create")}
             />
             <Button
-              label="Join with an invite"
+              label="I have an invite"
               tone="ghost"
               onPress={() => setWorkspaceStep("join")}
             />
@@ -329,7 +365,7 @@ export function OnboardingScreen({
         ) : null}
         {workspaceStep === "create" ? (
           <View style={styles.block}>
-            <Text style={styles.title}>Name the office</Text>
+            <Text style={styles.title}>What should we call it?</Text>
             <Field
               label="Workspace"
               value={workspaceName}
@@ -338,7 +374,8 @@ export function OnboardingScreen({
               autoCapitalize="words"
             />
             <Button
-              label="Create"
+              label="Open the doors"
+              tone="brand"
               onPress={() => void createWorkspace()}
               busy={busy}
             />
@@ -351,7 +388,7 @@ export function OnboardingScreen({
         ) : null}
         {workspaceStep === "join" ? (
           <View style={styles.block}>
-            <Text style={styles.title}>Paste an invite</Text>
+            <Text style={styles.title}>Paste the secret knock.</Text>
             <Field
               label="Invite"
               value={inviteId}
@@ -359,7 +396,8 @@ export function OnboardingScreen({
               placeholder="inv_…"
             />
             <Button
-              label="Join"
+              label="Join the office"
+              tone="brand"
               onPress={() => void joinOffice()}
               busy={busy}
             />
@@ -370,41 +408,44 @@ export function OnboardingScreen({
             />
           </View>
         ) : null}
-      </Screen>
+      </OnboardPane>
     );
   }
 
   if (step === 0) {
     return (
-      <Screen scroll>
-        <Text style={styles.kicker}>Tour</Text>
-        <Text style={styles.title}>Bots are teammates.</Text>
+      <OnboardPane scene="tour-0" showPile>
+        <Text style={styles.kicker}>The idea</Text>
+        <Text style={styles.title}>Bots are teammates,{"\n"}not chat boxes.</Text>
         <Text style={styles.body}>
-          Each one has a name, a job, and a computer. You talk in one thread.
+          Each one has a name, a job, and a computer. You talk in one thread —
+          like texting a coworker who actually ships.
         </Text>
-        <Button label="Next" onPress={() => setStep(1)} />
-      </Screen>
+        <Button label="Show me more" tone="brand" onPress={() => setStep(1)} />
+      </OnboardPane>
     );
   }
   if (step === 1) {
     return (
-      <Screen scroll>
-        <Text style={styles.kicker}>Tour</Text>
-        <Text style={styles.title}>The computer is already theirs.</Text>
+      <OnboardPane scene="tour-1">
+        <Text style={styles.kicker}>Their desk</Text>
+        <Text style={styles.title}>They already have{"\n"}a computer.</Text>
         <Text style={styles.body}>
-          Files land on this bot’s screen. You can ignore it until you need it.
+          Files land on this bot’s screen. Ignore it until you want to peek.
+          Fancy, we know.
         </Text>
-        <Button label="Next" onPress={() => setStep(2)} />
-      </Screen>
+        <Button label="Got it" tone="brand" onPress={() => setStep(2)} />
+      </OnboardPane>
     );
   }
   if (step === 2) {
     return (
-      <Screen scroll>
-        <Text style={styles.kicker}>Tools</Text>
-        <Text style={styles.title}>Which tools do you use?</Text>
+      <OnboardPane scene="tour-2">
+        <Text style={styles.kicker}>Your stack</Text>
+        <Text style={styles.title}>Where do you live?</Text>
         <Text style={styles.body}>
-          This only shapes suggestions. Nothing connects yet.
+          Tap the apps you actually open. This only shapes suggestions — nothing
+          connects yet.
         </Text>
         <View style={styles.chips}>
           {TOOLS.map((tool) => (
@@ -422,19 +463,24 @@ export function OnboardingScreen({
             />
           ))}
         </View>
-        <Button label="Continue" onPress={() => setStep(3)} />
-      </Screen>
+        <Button label="That’s me" tone="brand" onPress={() => setStep(3)} />
+      </OnboardPane>
     );
   }
   if (step === 3) {
     return (
-      <Screen scroll>
-        <Text style={styles.kicker}>Models</Text>
-        <Text style={styles.title}>Pick a brain</Text>
+      <OnboardPane scene="tour-3">
+        <Text style={styles.kicker}>Brains</Text>
+        <Text style={styles.title}>Pick a brain.{"\n"}Any brain.</Text>
         <Text style={styles.body}>
-          Groxbot includes a hosted gateway. Paste your own key anytime.
+          Groxbot includes a hosted gateway. Paste your own key whenever you
+          want a different flavor.
         </Text>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? (
+          <Shake trigger={error}>
+            <Text style={styles.error}>{error}</Text>
+          </Shake>
+        ) : null}
         {PROVIDER_ORDER.filter((provider) => grouped.has(provider)).map(
           (provider) => (
             <View key={provider} style={styles.block}>
@@ -506,20 +552,25 @@ export function OnboardingScreen({
           )
         ) : null}
         <Button
-          label="Continue"
+          label="This brain works"
+          tone="brand"
           onPress={() => void saveModels()}
           busy={busy}
           disabled={!canContinueModels && !settings?.hostedGateway}
         />
-      </Screen>
+      </OnboardPane>
     );
   }
 
   return (
-    <Screen scroll>
-      <Text style={styles.kicker}>Hire</Text>
-      <Text style={styles.title}>Meet a teammate</Text>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+    <OnboardPane scene="hire">
+      <Text style={styles.kicker}>First hire</Text>
+      <Text style={styles.title}>Make someone yours.</Text>
+      {error ? (
+        <Shake trigger={error}>
+          <Text style={styles.error}>{error}</Text>
+        </Shake>
+      ) : null}
       <View style={styles.chips}>
         {SUGGESTED_JOBS.map((job) => (
           <Chip
@@ -565,25 +616,29 @@ export function OnboardingScreen({
         ))}
       </View>
       <Button
-        label={`Hire ${name || "this bot"}`}
+        label={`Hire ${name || "this teammate"}`}
+        tone="brand"
         onPress={() => void create()}
         busy={busy}
       />
-    </Screen>
+    </OnboardPane>
   );
 }
 
 const styles = StyleSheet.create({
   kicker: {
-    color: colors.muted,
-    letterSpacing: 0.4,
+    color: colors.accent,
+    letterSpacing: 0.5,
     fontSize: 13,
+    fontWeight: "700",
+    textTransform: "uppercase",
   },
   title: {
     color: colors.text,
-    fontSize: 28,
-    fontWeight: "600",
-    letterSpacing: -0.6,
+    fontSize: 30,
+    fontWeight: "700",
+    letterSpacing: -0.8,
+    lineHeight: 36,
   },
   body: { color: colors.muted, fontSize: 16, lineHeight: 22 },
   error: { color: colors.danger },

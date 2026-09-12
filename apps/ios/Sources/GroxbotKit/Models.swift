@@ -195,6 +195,19 @@ public struct Me: Sendable, Equatable {
   }
 }
 
+public struct Workspace: Sendable, Equatable, Identifiable {
+  public var id: String
+  public var name: String
+  public var slug: String
+
+  public init?(_ json: JSONValue) {
+    guard let id = json["id"]?.string, let name = json["name"]?.string else { return nil }
+    self.id = id
+    self.name = name
+    self.slug = json["slug"]?.string ?? id
+  }
+}
+
 public struct Health: Sendable, Equatable {
   public var ok: Bool
   public var oauth: [String]
@@ -293,6 +306,10 @@ public enum JSONList {
 
   public static func sections(_ json: JSONValue) -> [SidebarSection] {
     array(json).compactMap(SidebarSection.init)
+  }
+
+  public static func workspaces(_ json: JSONValue) -> [Workspace] {
+    array(json).compactMap(Workspace.init)
   }
 
   public static func computerEntries(_ json: JSONValue) -> [ComputerEntry] {

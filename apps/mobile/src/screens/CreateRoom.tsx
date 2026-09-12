@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Button } from "../components/Button";
 import { Field } from "../components/Field";
-import { Header } from "../components/Header";
 import { Screen } from "../components/Screen";
 import { userFacingError } from "../lib/errors";
 import { orpc } from "../lib/orpc";
@@ -57,7 +56,6 @@ export function CreateRoomScreen({ navigation }: Props) {
 
   return (
     <Screen scroll>
-      <Header title="New room" onBack={() => navigation.goBack()} />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Field
         label="Name"

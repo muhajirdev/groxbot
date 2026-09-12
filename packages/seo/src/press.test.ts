@@ -13,7 +13,7 @@ const origins = cloudOrigins();
 describe("press kit", () => {
   it("publishes markdown with boilerplate, names, and SVG links", () => {
     const md = pressMarkdown(origins);
-    expect(md).toContain("# Groxbot press kit");
+    expect(md).toContain("# Whip Computer press kit");
     expect(md).toContain(PRESS_SHORT);
     expect(md).toContain("Do not use");
     expect(md).toContain("Grokbot");
@@ -35,6 +35,6 @@ describe("press kit", () => {
   it("is a discovery document", () => {
     const doc = lookupDiscovery("/press.md", origins);
     expect(doc?.contentType).toContain("text/markdown");
-    expect(doc?.body).toContain("Groxbot press kit");
+    expect(doc?.body).toContain("Whip Computer press kit");
   });
 });

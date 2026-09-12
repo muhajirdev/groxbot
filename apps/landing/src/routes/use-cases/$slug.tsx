@@ -27,7 +27,7 @@ export const Route = createFileRoute("/use-cases/$slug")({
     if (!loaderData?.item) return {};
     const { item } = loaderData;
     return seoHead({
-      title: `${item.title} with Groxbot`,
+      title: `${item.title} with Whip Computer`,
       description: item.lede,
       path: `/use-cases/${item.slug}`,
       jsonLd: useCaseJsonLd(item),
@@ -82,7 +82,7 @@ function UseCasePage() {
           className="grid grid-cols-1 gap-4 py-2 pb-9 sm:gap-3.5 sm:pb-14 md:grid-cols-2"
           aria-label="How the job works"
         >
-          <article className="rounded-3xl bg-[#141414] px-[22px] py-[22px] pb-6 sm:px-7 sm:py-7 sm:pb-8">
+          <article className="rounded-3xl bg-[var(--wash)] px-[22px] py-[22px] pb-6 sm:px-7 sm:py-7 sm:pb-8">
             <h3 className="!mb-3 !text-[22px] tracking-[-0.03em]">
               What the Bot does
             </h3>
@@ -90,7 +90,7 @@ function UseCasePage() {
               <BulletList items={item.whatTheBotDoes} />
             </div>
           </article>
-          <article className="rounded-3xl bg-[#141414] px-[22px] py-[22px] pb-6 sm:px-7 sm:py-7 sm:pb-8">
+          <article className="rounded-3xl bg-[var(--wash)] px-[22px] py-[22px] pb-6 sm:px-7 sm:py-7 sm:pb-8">
             <h3 className="!mb-3 !text-[22px] tracking-[-0.03em]">
               Never without you
             </h3>

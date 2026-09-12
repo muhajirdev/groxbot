@@ -85,7 +85,7 @@ struct OriginsTests {
   @Test func localAndCloud() {
     #expect(GroxbotOrigins.apiOrigin(production: false) == "http://127.0.0.1:3100")
     #expect(GroxbotOrigins.webOrigin(production: false) == "http://127.0.0.1:5173")
-    #expect(GroxbotOrigins.apiOrigin(production: true) == "https://api.groxbot.com")
+    #expect(GroxbotOrigins.apiOrigin(production: true) == "https://api.whip.computer")
     #expect(GroxbotOrigins.apiOrigin(explicit: "http://192.168.1.9:3100/", production: true) == "http://192.168.1.9:3100")
   }
 
@@ -94,10 +94,23 @@ struct OriginsTests {
       roomId: "room_1",
       apiOrigin: "http://127.0.0.1:3100",
       cookie: "better-auth.session_token=abc",
-      workspaceId: "ws_1"
+      workspaceId: "ws_1",
+      cookieInQuery: true
     )
     #expect(url.absoluteString.contains("ws://127.0.0.1:3100/rooms/room_1/rpc"))
     #expect(url.absoluteString.contains("Cookie="))
+    #expect(url.absoluteString.contains("x-workspace-id=ws_1"))
+  }
+
+  @Test func officeRpcKeepsLongCookieOffTheURL() {
+    let fat = String(repeating: "a", count: 800)
+    let url = GroxbotOrigins.officeRpcURL(
+      roomId: "room_1",
+      apiOrigin: "https://api.groxbot.com",
+      cookie: "better-auth.session_token=\(fat)",
+      workspaceId: "ws_1"
+    )
+    #expect(!url.absoluteString.contains("Cookie="))
     #expect(url.absoluteString.contains("x-workspace-id=ws_1"))
   }
 

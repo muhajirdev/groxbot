@@ -1,10 +1,9 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text } from "react-native";
 import { Button } from "../components/Button";
 import { Field } from "../components/Field";
-import { Header } from "../components/Header";
 import { Screen } from "../components/Screen";
 import { userFacingError } from "../lib/errors";
 import { orpc } from "../lib/orpc";
@@ -91,16 +90,19 @@ export function RoomSettingsScreen({ navigation, route }: Props) {
             await queryClient.invalidateQueries({
               queryKey: orpc.rooms.list.key(),
             });
-            navigation.navigate("Roster");
+            navigation.navigate("Office");
           });
         },
       },
     ]);
   }
 
+  useLayoutEffect(() => {
+    navigation.setOptions({ title: room?.name ?? "Members" });
+  }, [navigation, room?.name]);
+
   return (
     <Screen scroll>
-      <Header title={room?.name ?? "Room"} onBack={() => navigation.goBack()} />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Field label="Name" value={name} onChangeText={setName} />
       <Field

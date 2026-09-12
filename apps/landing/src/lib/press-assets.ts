@@ -14,7 +14,7 @@ const FONT = "'Source Sans 3', 'Segoe UI', system-ui, sans-serif";
 function framedMark(bg: string, paintId: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img">
-  <title>Groxbot</title>
+  <title>Whip Computer</title>
   <rect width="128" height="128" rx="28" fill="${bg}" />
   <g transform="translate(14 14)">${mascotMarkElements({ paintId, name: "Groxbot" })}</g>
 </svg>
@@ -26,10 +26,10 @@ function lockup(theme: "dark" | "light"): string {
   const bg = theme === "dark" ? "#000000" : "#f4f4f4";
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 128" role="img">
-  <title>Groxbot</title>
+  <title>Whip Computer</title>
   <rect width="460" height="128" rx="28" fill="${bg}" />
   <g transform="translate(22 22) scale(0.84)">${mascotMarkElements({ paintId: `lockup-${theme}`, name: "Groxbot" })}</g>
-  <text x="128" y="78" fill="${ink}" font-size="42" font-weight="600" font-family="${FONT}">Groxbot</text>
+  <text x="128" y="78" fill="${ink}" font-size="42" font-weight="600" font-family="${FONT}">Whip Computer</text>
 </svg>
 `;
 }
@@ -45,7 +45,7 @@ export function ogCardSvg(): string {
   <rect width="${GROXBOT_OG_WIDTH}" height="${GROXBOT_OG_HEIGHT}" fill="#000000" />
   <ellipse cx="300" cy="315" rx="300" ry="250" fill="#e45c9a" opacity="0.14" />
   <g transform="translate(108 147) scale(3.36)">${mascotMarkElements({ paintId: "og-mark", name: "Groxbot" })}</g>
-  <text x="520" y="262" fill="#f4f4f4" font-size="76" font-weight="600" font-family="${FONT}">Groxbot</text>
+  <text x="520" y="262" fill="#f4f4f4" font-size="76" font-weight="600" font-family="${FONT}">Whip Computer</text>
   <text x="520" y="332" fill="#e45c9a" font-size="34" font-weight="600" font-family="${FONT}">AI is better together</text>
   <text x="520" y="386" fill="#8a8a8a" font-size="24" font-weight="400" font-family="${FONT}">Like Grok Bot, for the team.</text>
   <rect x="0" y="622" width="${GROXBOT_OG_WIDTH}" height="8" fill="#e45c9a" />

@@ -97,7 +97,7 @@ export function sitemapXml(): string {
           ? `
     <image:image>
       <image:loc>${escapeXml(canonicalUrl("/og.png"))}</image:loc>
-      <image:title>Groxbot</image:title>
+      <image:title>Whip Computer</image:title>
     </image:image>`
           : "";
       return `  <url>

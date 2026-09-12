@@ -26,6 +26,15 @@ struct ErrorTests {
     #expect(UserFacingError.humanize("Failed to fetch") == "Could not reach the office API.")
   }
 
+  @Test func rewritesMessageTooLong() {
+    #expect(
+      UserFacingError.humanize(
+        "The operation couldn’t be completed. Message too long",
+        fallback: "Could not reach this teammate. Try sending again."
+      ) == "Could not reach this teammate. Try sending again."
+    )
+  }
+
   @Test func swapsGenericHTTP() {
     #expect(UserFacingError.message(OrpcError(status: 401, message: "Unauthorized"), fallback: "Sign in") == "Sign in")
     #expect(UserFacingError.message(OrpcError(status: 400, message: "Paste a key"), fallback: "Sign in") == "Paste a key")
@@ -82,13 +91,19 @@ struct AuthClientTests {
       let body = try JSONValue.parse(request.body ?? Data())
       #expect(body["email"]?.string == "ada@example.com")
       #expect(body["callbackURL"]?.string == "groxbot-ios://")
+      #expect(request.headers["Origin"] == GroxbotOrigins.cloudWeb)
+      #expect(request.headers["expo-origin"] == GroxbotOrigins.cloudWeb)
       return HTTPResult(
         status: 200,
         data: Data("{}".utf8),
         headers: ["Set-Cookie": "better-auth.session_token=tok; Path=/"]
       )
     }
-    let auth = AuthClient(apiOrigin: "http://127.0.0.1:3100", transport: transport)
+    let auth = AuthClient(
+      apiOrigin: "http://127.0.0.1:3100",
+      requestOrigin: GroxbotOrigins.cloudWeb,
+      transport: transport
+    )
     let jar = try await auth.sendMagicLink(email: "ada@example.com", callbackURL: GroxbotOrigins.callbackURL())
     #expect(jar.cookie.contains("better-auth.session_token=tok"))
   }

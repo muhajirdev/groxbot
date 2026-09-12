@@ -59,7 +59,8 @@ public enum Sidebar {
     for section in ordered { bySection[section.id] = [] }
     var ungrouped: [Bot] = []
     for bot in liveBots {
-      if let sectionId = bot.sectionId, var bucket = bySection[sectionId] {
+      let sectionId = bot.sectionId?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+      if !sectionId.isEmpty, var bucket = bySection[sectionId] {
         bucket.append(bot)
         bySection[sectionId] = bucket
       } else {
@@ -81,9 +82,16 @@ public enum Sidebar {
 
 }
 
-public enum SidebarItem: Sendable, Equatable {
+public enum SidebarItem: Sendable, Equatable, Identifiable {
   case bot(Bot)
   case room(Room)
+
+  public var id: String {
+    switch self {
+    case .bot(let bot): "bot-\(bot.id)"
+    case .room(let room): "room-\(room.id)"
+    }
+  }
 
   var asBotKey: Bot {
     switch self {

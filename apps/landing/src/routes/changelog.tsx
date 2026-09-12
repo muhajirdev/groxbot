@@ -11,7 +11,7 @@ export const Route = createFileRoute("/changelog")({
     seoHead({
       title: "Changelog",
       description:
-        "What shipped in Groxbot — use cases, hire packages, office, knowledge.",
+        "What shipped in Whip Computer — use cases, hire packages, knowledge.",
       path: "/changelog",
       jsonLd: [
         breadcrumbJsonLd([

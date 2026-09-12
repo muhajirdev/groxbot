@@ -53,6 +53,13 @@ public enum JSONValue: Sendable, Equatable, Hashable {
       return .null
     case let value as JSONValue:
       return value
+    case let value as NSNumber:
+      // JSONSerialization boxes numbers as NSNumber; `as Bool` matches 0/1. Use objCType.
+      let objCType = String(cString: value.objCType)
+      if objCType == "c" || objCType == "B" {
+        return .bool(value.boolValue)
+      }
+      return .number(value.doubleValue)
     case let value as Bool:
       return .bool(value)
     case let value as Int:
@@ -61,12 +68,6 @@ public enum JSONValue: Sendable, Equatable, Hashable {
       return .number(Double(value))
     case let value as Double:
       return .number(value)
-    case let value as NSNumber:
-      let objCType = String(cString: value.objCType)
-      if objCType == "c" || objCType == "B" {
-        return .bool(value.boolValue)
-      }
-      return .number(value.doubleValue)
     case let value as String:
       return .string(value)
     case let value as [Any]:
