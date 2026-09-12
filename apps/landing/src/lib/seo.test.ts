@@ -372,6 +372,9 @@ describe("llms discovery", () => {
       "The company’s knowledge base should evolve from group chats.",
       "You should be able to work from your phone.",
     ]);
+    expect(THESES[2]?.lede).toMatch(
+      /automatically organized onto the knowledge base/,
+    );
     expect(THESES[3]?.why).toMatch(/anytime, anywhere/);
     expect(THESES[3]?.why).toMatch(/good decisions and good ideas/);
   });

@@ -52,9 +52,7 @@ describe("skills place on a phone", () => {
 describe("knowledge library copy", () => {
   it("mentions that chat is organized onto the library automatically", () => {
     expect(src).toContain("Chat is organized here automatically");
-    expect(src).toContain(
-      "Playbooks and notes for this office. Pick one.",
-    );
+    expect(src).toContain("Playbooks and notes for this office. Pick one.");
   });
 });
 

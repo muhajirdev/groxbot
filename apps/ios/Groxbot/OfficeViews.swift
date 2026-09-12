@@ -130,9 +130,11 @@ struct KnowledgeView: View {
     let tree = KnowledgeTree.filter(KnowledgeTree.nest(entries), query: query)
     List {
       if !error.isEmpty { Text(error).foregroundStyle(Theme.danger) }
-      Text("Chat is organized here automatically.")
-        .foregroundStyle(Theme.muted)
-        .listRowBackground(Theme.bg)
+      if entries.isEmpty && query.isEmpty {
+        Text("Chat is organized here automatically.")
+          .foregroundStyle(Theme.muted)
+          .listRowBackground(Theme.bg)
+      }
       KnowledgeOutline(nodes: tree, onOpen: { path in Task { await open(path) } })
       if selected != nil {
         Section("Preview") {

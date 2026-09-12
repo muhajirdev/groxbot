@@ -237,7 +237,10 @@ export const TALK_POINTS = [
 export const TALK_LEDE = `${TALK_POINTS.map((item) => item.text).join(". ")}.`;
 export const KNOW_HEADLINE = "A knowledge base that improves itself.";
 export const KNOW_POINTS = [
-  { icon: "file", text: "Chat is automatically organized onto the knowledge base" },
+  {
+    icon: "file",
+    text: "Chat is automatically organized onto the knowledge base",
+  },
   { icon: "loop", text: "It updates itself as you work" },
   { icon: "share", text: "The whole team shares one" },
 ] as const;
