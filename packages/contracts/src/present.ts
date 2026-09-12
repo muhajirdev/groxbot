@@ -269,7 +269,7 @@ export function sanitizePresentTree(
   if (node.$type === "File") {
     const path = safePresentFilePath(str(node.path));
     if (!path) return null;
-    const place = str(node.place) === "knowledge" ? "knowledge" : "computer";
+    const place = presentFilePlace(path, node.place);
     const title = str(node.title);
     return {
       $type: "File",
@@ -345,6 +345,26 @@ export function safePresentFilePath(raw: string): string | null {
   const path = parts.join("/");
   if (!path || path.length > MAX_FILE_PATH) return null;
   return path;
+}
+
+/** Skills and tasks are office-library files, even if the card omitted `place`. */
+export function presentFilePlace(
+  path: string,
+  place: unknown,
+): "knowledge" | "computer" {
+  if (
+    path === "SKILL.md" ||
+    path.endsWith("/SKILL.md") ||
+    path === "skills" ||
+    path.startsWith("skills/") ||
+    path === "TASK.md" ||
+    path.endsWith("/TASK.md") ||
+    path === "tasks" ||
+    path.startsWith("tasks/")
+  ) {
+    return "knowledge";
+  }
+  return str(place) === "knowledge" ? "knowledge" : "computer";
 }
 
 function asNode(value: unknown): PresentNode | null {

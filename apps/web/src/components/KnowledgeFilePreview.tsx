@@ -161,18 +161,18 @@ function LocalFilePreview(props: {
       return <p className="computer-preview-status">Opening…</p>;
     return (
       <TextPreview
-          path={props.path}
-          file={{
-            path: props.path,
-            title: props.filename,
-            description: "",
-            content: text,
-            truncated: false,
-            encoding: "text",
-            mediaType: props.file.type || "text/plain",
-            backlinks: [],
-          }}
-          links={props.links}
+        path={props.path}
+        file={{
+          path: props.path,
+          title: props.filename,
+          description: "",
+          content: text,
+          truncated: false,
+          encoding: "text",
+          mediaType: props.file.type || "text/plain",
+          backlinks: [],
+        }}
+        links={props.links}
       />
     );
   }

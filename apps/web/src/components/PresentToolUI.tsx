@@ -34,9 +34,9 @@ function PresentFileChip(props: {
   title?: string;
 }) {
   const path = typeof props.path === "string" ? props.path : "";
-  const place =
-    props.place === "knowledge" ||
-    (props.place !== "computer" && chatFileOpensKnowledge(path))
+  const place = chatFileOpensKnowledge(path)
+    ? "knowledge"
+    : props.place === "knowledge"
       ? "knowledge"
       : "computer";
   const title =

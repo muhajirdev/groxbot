@@ -96,7 +96,11 @@ describe("knowledgeLinkTarget", () => {
 
   it("resolves SKILL.md to the playbook in the library", () => {
     expect(
-      knowledgeLinkTarget("SKILL.md", FILES, "playbooks/weekly-update/SKILL.md"),
+      knowledgeLinkTarget(
+        "SKILL.md",
+        FILES,
+        "playbooks/weekly-update/SKILL.md",
+      ),
     ).toBe("file");
   });
 });
