@@ -12,66 +12,75 @@ execution: code
 
 ## Goal Capsule
 
-- **Objective:** Restack the Whip Computer homepage so the first half tells a multiplayer story, then features. Not a Granola meeting-notes clone.
-- **Authority:** Product copy and order follow this contract. Voice follows `docs/grok-bot-ui.md` (named teammates, talk first, computer built in, no shared desk). Existing compare/FAQ claims stay true.
-- **Open blockers:** None that block planning. Exact first-half mock (still vs motion) is deferred to planning if copy is settled.
-- **Out of scope:** Office product changes, new testimonials we do not have, a `STRATEGY.md` rewrite, mobile/iOS marketing surfaces, olive wash color (separate).
+- **Objective:** Restack the homepage: hero, then a three-beat how-it-works, then a “runs everywhere” hinge, then a short feature list.
+- **Authority:** This contract. Voice follows `docs/grok-bot-ui.md`. Compare/FAQ claims stay true. Catalog names come from the hire marketplace, not invented roles.
+- **Open blockers:** OQ1 (hire strip auto-scroll vs user scroll).
+- **Out of scope:** Office product changes, fake testimonials, `STRATEGY.md`, olive wash, new marketplace templates just for the strip.
 
 ## Product Contract
 
 ### Summary
 
-The homepage after the hero is a feature catalog. The pitch is already multiplayer. Move that pitch into a three-beat story, then demote models, jobs, apps, catalog, and enterprise to the second half.
+How it works is Hire a bot → Invite the team → Track adoption. A runs-everywhere bar splits story from features. Knowledge, computer/phone, models, and routines are features, not the story.
 
 ### Problem Frame
 
-A visitor who knows Grok Bot, OpenClaw, or Hermes sees feature bands (models, adoption, knowledge, apps) before they see why this is a team product. The hire / talk / computer story exists and sits late. Granola’s useful lesson is one spine then a catalog, not before / during / after a meeting.
+The current page is a catalog after the hero. The visitor needs one loop (get a teammate, put the team on it, see who uses it) before shopping for knowledge, models, and routines.
 
 ### Key Decisions
 
-- KD1. First half is multiplayer, not a personal-agent desk tour. (session-settled: user-approved — chosen over hire-talk-computer-only and a team-day movie: the pitch is already “but for teams.”)
-- KD2. Steal Granola’s spine (story, then features), not Granola’s job. (session-settled: user-directed — chosen over a literal before / during / after meeting clone: Whip is named teammates, not a notepad.)
-- KD3. One hire / talk / computer beat stays inside the multiplayer story so the computer still has a face. Do not drop the computer from the first half.
-- KD4. Keep the incumbent hero (invite only, AI for teams, compare line, CTA, demo). Do not replace it with a Granola-style product-proof mock of notes.
+- KD1. First half is Hire → Invite → Adopt, not Seat / Room / Board and not a desk tour. (session-settled: user-directed — chosen over knowledge as the third beat and over a Granola before / during / after clone.)
+- KD2. Steal Granola’s spine (story, then features), not Granola’s job. (session-settled: user-directed.)
+- KD3. Computer / no Mac Mini is a feature, not a how-it-works beat. Hire still shows a named bot with apps, not a second Computer product.
+- KD4. Keep the incumbent hero (invite only, AI for teams, compare line, CTA, demo).
+- KD5. Adopt’s line is: the best way to get the team on AI is to make use visible. Still not a spend cockpit.
 
 ### Requirements
 
-#### First half — story
+#### How it works (after hero)
 
-- R1. After the hero (and optional short models line), the next three chapters are Seat, Room, Board — in that order — before any catalog strip.
-- R2. Seat: hire a named teammate (person, not a workflow). Show one face and that they already have a computer.
-- R3. Room: the whole team talks to them where they already work (Slack, Discord, Microsoft Teams). Not a private laptop agent.
-- R4. Board: the company can see who started work, and chat files onto a shared knowledge base. Adoption is people plus a heatmap, not a spend cockpit.
-- R5. Contrast stays visible in the first half: one person + laptop vs named teammates + one team. Reuse the existing together / compare claim; do not invent a fifth competitor.
-- R6. First-half copy stays teammate voice (hire, talk, handoff, come back). No “orchestration,” “workflow builder,” or meeting-bot framing.
+- R1. After the hero, the next block is How it works with three numbered beats, in this order, before any feature chapter.
+- R2. Beat 1 — Hire a bot. A long horizontal strip of marketplace bots (Social / media manager, Competitor Watch, and peers). Each card shows the bot name and the apps it connects to. The strip is one row and feels nearly endless.
+- R3. Beat 2 — Invite your team to use the bot. The team talks to that hire where they already work. Not a private laptop agent.
+- R4. Beat 3 — Track your team’s AI adoption. People plus a contributions heatmap. Copy: visibility is how the rest of the team starts. Not spend, not surveillance chrome.
+- R5. How-it-works copy stays teammate voice. No orchestration, workflow builder, or meeting-bot framing.
+- R6. The late three-card “Hire. Talk. They already have a computer.” block is removed so the story is not told twice.
 
-#### Second half — features
+#### Hinge
 
-- R7. After Board, the page may show: no Mac Mini / lid shut, job strip, apps grid, models (if not kept as a thin hero footer), hire catalog, demo showcase, enterprise, FAQ, CTA.
-- R8. Do not invent new feature sections. Reorder and retitle what exists.
-- R9. The late “How it works” three-card STORY block is removed or folded into Seat / Room so hire / talk / computer is not told twice.
+- R7. After Adopt, a “Runs everywhere” bar: Slack, Microsoft Teams, Discord, iOS, Android, web. This is the cut between story and features.
+
+#### Features (after the hinge)
+
+- R8. No Mac Mini / laptop required. Shutdown the laptop; continue from the phone. Reuse the existing phone / handoff claim.
+- R9. Self-improving knowledge base. Chat is organized onto the shared tree and keeps updating. This is the knowledge aha, not a how-it-works beat.
+- R10. Self-improving agent. Maps to existing Learned / soul / memory — the teammate gets better from work. Do not invent a second product.
+- R11. Cheap to run. Open-source / hosted-free models at a fraction of closed-lab cost. Do not name a dollar amount we cannot keep.
+- R12. Use your existing AI subscription. BYOK: Codex, Kimi, z.ai, and the models we already list. Workspace key wins.
+- R13. Routines. “Runs X every day at 3am” (or equivalent). The time/cadence line animates through examples. This is Agents schedules on the home room, not a cron table.
 
 #### Constraints
 
-- R10. Tests that pin homepage order (`apps/landing/src/lib/seo.test.ts`) update to the new story-then-features order. Forbidden copy (“A computer you can ignore” tiles) stays forbidden.
-- R11. `docs/grok-bot-ui.md` still wins on product facts: no shared desk, no Computer Durable Object, no workflow builder.
+- R14. Hire-strip names and apps come from the live marketplace catalog and real integrations. Prefer Competitor Watch and a social/outbound hire that exists; do not mint “Social Media Manager” if the catalog has no such row — use the closest real listing.
+- R15. Do not add feature chapters beyond R8–R13 plus existing compare / hire catalog / FAQ / CTA if those remain as closers.
+- R16. `seo.test.ts` pins the new order: how-it-works (hire, invite, adopt) → runs everywhere → the feature list. Forbidden tiles copy stays forbidden.
+- R17. No shared desk, no Computer Durable Object, no workflow builder.
 
 ### Flows
 
-- F1. New visitor: hero promise → Seat / Room / Board → believes this is a team product → scrolls into jobs / apps / catalog if they want proof.
-- F2. Grok Bot / OpenClaw visitor: first-half contrast answers “why not the thing I already have” before a model list or integration count.
+- F1. New visitor: hero → hire a face → invite the team → see adoption → runs everywhere → features if they keep scrolling.
+- F2. Shopper: skips story, still hits runs-everywhere and features (phone, knowledge, models, routines).
 
 ### Acceptance Examples
 
-- AE1. A screen-reader or source-order walk of the homepage hits Seat, Room, and Board before `#use-cases`, `#apps`, and `#hire`.
-- AE2. A reader can state the difference vs OpenClaw / Hermes / Grok Bot from the first half alone, without the FAQ.
-- AE3. The computer appears as “already theirs” on Seat, not as a second product in the first half.
+- AE1. Source order hits Hire, Invite, Adopt before phone, knowledge, routines, and the hire catalog.
+- AE2. Hire strip shows at least two real catalog bots, each with at least one real app mark.
+- AE3. A reader can state “hire, then the team uses it, then you can see who did” from the first half alone.
 
 ### Outstanding Questions
 
-- OQ1. Does the models line stay under the hero (thin footer) or move to the second half? Default: stay thin under the hero if it does not break the story.
-- OQ2. Does `#together` compare grid stay in the first half (under Board) or move down? Default: a short contrast in Seat or Board, full four-column compare in the second half.
+- OQ1. Is the hire strip user-scrolled (same as the job row) or an auto marquee? Default: user-scrolled, one row, long enough to feel endless.
 
 ### Success
 
-A visitor who stops at Board already has the multiplayer pitch. Features feel like shopping, not the argument.
+Someone who stops at Adopt already knows how Whip works. Features are reasons to stay, not the argument.
