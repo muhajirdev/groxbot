@@ -395,6 +395,8 @@ describe("llms discovery", () => {
     expect(landing).toContain("HomeJobStrip");
     expect(landing).not.toContain("HomeJobMarquee");
     expect(landing).not.toContain("homeJobMarquee");
+    expect(landing).not.toContain("A computer you can ignore");
+    expect(landing).not.toContain("className=\"tiles\"");
     expect(JOBS_HEADLINE).toBe("A Bot. Your tools. The job.");
     expect(APPS_HEADLINE).toBe("Connect the bot to any apps.");
     expect(APPS_LEDE).toBe(`${formatIntegrationCount()} integrations.`);
