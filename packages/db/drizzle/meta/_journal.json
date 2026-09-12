@@ -8,6 +8,13 @@
       "when": 1789141579433,
       "tag": "0000_awesome_bushwacker",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1789182257833,
+      "tag": "0001_restore_better_auth_tables",
+      "breakpoints": true
     }
   ]
 }
