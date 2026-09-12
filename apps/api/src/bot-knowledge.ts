@@ -3,10 +3,10 @@ import { CodemodeConnector, type ConnectorTools } from "@cloudflare/codemode";
 import {
   connectorString,
   encodeComputerBytes,
+  KNOWLEDGE_MARKDOWN_LINK_HINT,
   type KnowledgeConvert,
   type KnowledgeDisk,
   KnowledgeFileError,
-  KNOWLEDGE_MARKDOWN_LINK_HINT,
   KnowledgePathError,
   listKnowledge,
   listKnowledgeBacklinks,
@@ -15,6 +15,7 @@ import {
   readKnowledgeMany,
   removeKnowledge,
   searchKnowledge,
+  type TaskTrigger,
   writeKnowledge,
 } from "@groxbot/core";
 
@@ -33,6 +34,7 @@ export class KnowledgeConnector extends CodemodeConnector {
     private readonly opts: {
       convert?: KnowledgeConvert;
       readComputer?: (path: string) => Promise<Uint8Array | null>;
+      trigger?: () => Promise<TaskTrigger | null> | TaskTrigger | null;
     } = {},
   ) {
     super(ctx, env as never);
@@ -46,7 +48,8 @@ export class KnowledgeConnector extends CodemodeConnector {
     return [
       "Shared office knowledge — not this computer.",
       "Search first, then read. Notes and files that are not skills stay here. Reusable how-to is skill_manage (skills/<name>/SKILL.md), not knowledge.write.",
-      "PDFs and Office docs are allowed. Copy one from this computer with knowledge.write({ path: \"clients/acme/invoice.pdf\", from: \"inbox/invoice.pdf\" }). Search and read use the converted text.",
+      'PDFs and Office docs are allowed. Copy one from this computer with knowledge.write({ path: "clients/acme/invoice.pdf", from: "inbox/invoice.pdf" }). Search and read use the converted text.',
+      "Shared tasks are tasks/<name>/TASK.md (YAML name, description, status, triggeredBy, triggeredByName, triggeredAt). triggeredBy is the human who asked or approved — never you. Comments append to sibling activity.md as `## ISO-8601 Name @userId`.",
       "After a real write, mention that path in one short line in the thread. Don't announce a save you didn't make.",
       KNOWLEDGE_MARKDOWN_LINK_HINT,
     ].join(" ");
@@ -91,7 +94,7 @@ export class KnowledgeConnector extends CodemodeConnector {
       },
       read: {
         description:
-          "Read one office knowledge file. Call knowledge.read({ path: \"skills/weekly-update/SKILL.md\" }). A path string is also accepted.",
+          'Read one office knowledge file. Call knowledge.read({ path: "skills/weekly-update/SKILL.md" }). A path string is also accepted.',
         inputSchema: {
           type: "object",
           properties: { path: PATH },
@@ -140,8 +143,7 @@ export class KnowledgeConnector extends CodemodeConnector {
         },
       },
       write: {
-        description:
-          `Save a file to the office knowledge base so every teammate can use it. Not this computer. Markdown notes use content. PDFs and Office docs: copy from this computer with from (inbox/invoice.pdf). ${KNOWLEDGE_MARKDOWN_LINK_HINT} A folder with SKILL.md (YAML name + description) is a reusable playbook — prefer skills/<name>/. After a successful write, mention that path in one short line in the thread.`,
+        description: `Save a file to the office knowledge base so every teammate can use it. Not this computer. Markdown notes use content. PDFs and Office docs: copy from this computer with from (inbox/invoice.pdf). ${KNOWLEDGE_MARKDOWN_LINK_HINT} A folder with SKILL.md (YAML name + description) is a reusable playbook — prefer skills/<name>/. After a successful write, mention that path in one short line in the thread.`,
         inputSchema: {
           type: "object",
           properties: {
@@ -161,7 +163,10 @@ export class KnowledgeConnector extends CodemodeConnector {
           const path = stringArg(args, "path");
           const from = optionalStringArg(args, "from");
           const content = optionalStringArg(args, "content");
-          const io = { convert: this.opts.convert };
+          const io = {
+            convert: this.opts.convert,
+            trigger: await this.taskTrigger(),
+          };
           if (from) {
             const bytes = await this.opts.readComputer?.(from);
             if (!bytes) {
@@ -238,6 +243,11 @@ export class KnowledgeConnector extends CodemodeConnector {
     const id = this.officeId().trim();
     if (!id) throw new KnowledgePathError("Unknown office.");
     return id;
+  }
+
+  private async taskTrigger(): Promise<TaskTrigger | null> {
+    const next = await this.opts.trigger?.();
+    return next ?? null;
   }
 }
 

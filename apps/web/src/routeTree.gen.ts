@@ -17,6 +17,7 @@ import { Route as AuthedWorkspaceSlugRouteRouteImport } from "./routes/_authed/$
 import { Route as AuthedOnboardingRouteImport } from "./routes/_authed/onboarding"
 import { Route as AuthedWorkspaceSlugIndexRouteImport } from "./routes/_authed/$workspaceSlug/index"
 import { Route as AuthedWorkspaceSlugBoardRouteImport } from "./routes/_authed/$workspaceSlug/board"
+import { Route as AuthedWorkspaceSlugAdoptionRouteImport } from "./routes/_authed/$workspaceSlug/adoption"
 import { Route as AuthedBotBotIdRouteImport } from "./routes/_authed/bot/$botId"
 import { Route as AuthedWorkspaceSlugBotBotIdRouteImport } from "./routes/_authed/$workspaceSlug/bot/$botId"
 import { Route as AuthedWorkspaceSlugRoomRoomIdRouteImport } from "./routes/_authed/$workspaceSlug/room/$roomId"
@@ -63,6 +64,12 @@ const AuthedWorkspaceSlugBoardRoute =
     path: "/board",
     getParentRoute: () => AuthedWorkspaceSlugRouteRoute,
   } as any)
+const AuthedWorkspaceSlugAdoptionRoute =
+  AuthedWorkspaceSlugAdoptionRouteImport.update({
+    id: "/adoption",
+    path: "/adoption",
+    getParentRoute: () => AuthedWorkspaceSlugRouteRoute,
+  } as any)
 const AuthedBotBotIdRoute = AuthedBotBotIdRouteImport.update({
   id: "/bot/$botId",
   path: "/bot/$botId",
@@ -88,6 +95,7 @@ export interface FileRoutesByFullPath {
   "/$workspaceSlug": typeof AuthedWorkspaceSlugRouteRouteWithChildren
   "/onboarding": typeof AuthedOnboardingRoute
   "/$workspaceSlug/board": typeof AuthedWorkspaceSlugBoardRoute
+  "/$workspaceSlug/adoption": typeof AuthedWorkspaceSlugAdoptionRoute
   "/bot/$botId": typeof AuthedBotBotIdRoute
   "/$workspaceSlug/": typeof AuthedWorkspaceSlugIndexRoute
   "/$workspaceSlug/bot/$botId": typeof AuthedWorkspaceSlugBotBotIdRoute
@@ -99,6 +107,7 @@ export interface FileRoutesByTo {
   "/login": typeof LoginRoute
   "/onboarding": typeof AuthedOnboardingRoute
   "/$workspaceSlug/board": typeof AuthedWorkspaceSlugBoardRoute
+  "/$workspaceSlug/adoption": typeof AuthedWorkspaceSlugAdoptionRoute
   "/bot/$botId": typeof AuthedBotBotIdRoute
   "/$workspaceSlug": typeof AuthedWorkspaceSlugIndexRoute
   "/$workspaceSlug/bot/$botId": typeof AuthedWorkspaceSlugBotBotIdRoute
@@ -113,6 +122,7 @@ export interface FileRoutesById {
   "/_authed/$workspaceSlug": typeof AuthedWorkspaceSlugRouteRouteWithChildren
   "/_authed/onboarding": typeof AuthedOnboardingRoute
   "/_authed/$workspaceSlug/board": typeof AuthedWorkspaceSlugBoardRoute
+  "/_authed/$workspaceSlug/adoption": typeof AuthedWorkspaceSlugAdoptionRoute
   "/_authed/bot/$botId": typeof AuthedBotBotIdRoute
   "/_authed/$workspaceSlug/": typeof AuthedWorkspaceSlugIndexRoute
   "/_authed/$workspaceSlug/bot/$botId": typeof AuthedWorkspaceSlugBotBotIdRoute
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | "/$workspaceSlug"
     | "/onboarding"
     | "/$workspaceSlug/board"
+    | "/$workspaceSlug/adoption"
     | "/bot/$botId"
     | "/$workspaceSlug/"
     | "/$workspaceSlug/bot/$botId"
@@ -138,6 +149,7 @@ export interface FileRouteTypes {
     | "/login"
     | "/onboarding"
     | "/$workspaceSlug/board"
+    | "/$workspaceSlug/adoption"
     | "/bot/$botId"
     | "/$workspaceSlug"
     | "/$workspaceSlug/bot/$botId"
@@ -151,6 +163,7 @@ export interface FileRouteTypes {
     | "/_authed/$workspaceSlug"
     | "/_authed/onboarding"
     | "/_authed/$workspaceSlug/board"
+    | "/_authed/$workspaceSlug/adoption"
     | "/_authed/bot/$botId"
     | "/_authed/$workspaceSlug/"
     | "/_authed/$workspaceSlug/bot/$botId"
@@ -222,6 +235,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AuthedWorkspaceSlugBoardRouteImport
       parentRoute: typeof AuthedWorkspaceSlugRouteRoute
     }
+    "/_authed/$workspaceSlug/adoption": {
+      id: "/_authed/$workspaceSlug/adoption"
+      path: "/adoption"
+      fullPath: "/$workspaceSlug/adoption"
+      preLoaderRoute: typeof AuthedWorkspaceSlugAdoptionRouteImport
+      parentRoute: typeof AuthedWorkspaceSlugRouteRoute
+    }
     "/_authed/bot/$botId": {
       id: "/_authed/bot/$botId"
       path: "/bot/$botId"
@@ -248,6 +268,7 @@ declare module "@tanstack/react-router" {
 
 interface AuthedWorkspaceSlugRouteRouteChildren {
   AuthedWorkspaceSlugBoardRoute: typeof AuthedWorkspaceSlugBoardRoute
+  AuthedWorkspaceSlugAdoptionRoute: typeof AuthedWorkspaceSlugAdoptionRoute
   AuthedWorkspaceSlugIndexRoute: typeof AuthedWorkspaceSlugIndexRoute
   AuthedWorkspaceSlugBotBotIdRoute: typeof AuthedWorkspaceSlugBotBotIdRoute
   AuthedWorkspaceSlugRoomRoomIdRoute: typeof AuthedWorkspaceSlugRoomRoomIdRoute
@@ -256,6 +277,7 @@ interface AuthedWorkspaceSlugRouteRouteChildren {
 const AuthedWorkspaceSlugRouteRouteChildren: AuthedWorkspaceSlugRouteRouteChildren =
   {
     AuthedWorkspaceSlugBoardRoute: AuthedWorkspaceSlugBoardRoute,
+    AuthedWorkspaceSlugAdoptionRoute: AuthedWorkspaceSlugAdoptionRoute,
     AuthedWorkspaceSlugIndexRoute: AuthedWorkspaceSlugIndexRoute,
     AuthedWorkspaceSlugBotBotIdRoute: AuthedWorkspaceSlugBotBotIdRoute,
     AuthedWorkspaceSlugRoomRoomIdRoute: AuthedWorkspaceSlugRoomRoomIdRoute,

@@ -355,7 +355,7 @@ A: No. Bring your own keys. OpenRouter is one key for many models, or paste Anth
 ---
 
 Q: Can I measure AI adoption across the team?
-A: Yes — and that’s the point. A personal agent hides on a laptop. Who is putting Bots to work is on the board, plus spend and which models. That’s how the rest of the team starts.
+A: Yes — and that’s the point. A personal agent hides on a laptop. Adoption is who put work in motion: people, a contributions heatmap, and the tasks they asked for. Not a spend cockpit.
 
 ---
 

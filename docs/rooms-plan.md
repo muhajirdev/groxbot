@@ -1,6 +1,6 @@
 # Rooms
 
-The bot is the **roster person**. A room is a **place**. They share one Durable Object **class**, not one instance. There is no stored `rooms.kind`. Product **tasks** are knowledge markdown (`tasks/<name>/TASK.md` + `activity.md`), not rooms and not the D1 `tasks` run table.
+The bot is the **roster person**. A room is a **place**. They share one Durable Object **class**, not one instance. There is no stored `rooms.kind`. Product **tasks** are knowledge markdown (`tasks/<name>/TASK.md` + `activity.md`), not rooms and not the D1 `tasks` run table. Each task records `triggeredBy` (the human who asked or approved). Adoption is a people grid plus a contributions heatmap from those files.
 
 ## One class, two shapes
 

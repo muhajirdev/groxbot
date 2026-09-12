@@ -322,6 +322,13 @@ export const KnowledgeTaskStatus = z.enum([
 ]);
 export type KnowledgeTaskStatus = z.infer<typeof KnowledgeTaskStatus>;
 
+export const KnowledgeTaskActivitySchema = z.object({
+  at: z.string(),
+  author: z.string(),
+  authorId: z.string().optional(),
+});
+export type KnowledgeTaskActivity = z.infer<typeof KnowledgeTaskActivitySchema>;
+
 export const KnowledgeTaskSchema = z.object({
   name: z.string(),
   description: z.string(),
@@ -330,6 +337,10 @@ export const KnowledgeTaskSchema = z.object({
   directory: z.string(),
   activityPath: z.string(),
   body: z.string(),
+  triggeredBy: z.string().optional(),
+  triggeredByName: z.string().optional(),
+  triggeredAt: z.string().optional(),
+  activity: z.array(KnowledgeTaskActivitySchema).optional(),
 });
 export type KnowledgeTask = z.infer<typeof KnowledgeTaskSchema>;
 

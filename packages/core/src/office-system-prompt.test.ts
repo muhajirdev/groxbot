@@ -35,6 +35,7 @@ describe("buildOfficeSystemPrompt", () => {
     expect(prompt).toMatch(/bots\.hire\(\{ marketplaceId \}\)/);
     expect(prompt).toMatch(/cursor\.launch\(\{ repo, prompt \}\)/);
     expect(prompt).toMatch(/tasks\/<name>\/TASK\.md/);
+    expect(prompt).toMatch(/triggeredBy/);
     expect(prompt).toMatch(/activity\.md/);
     expect(prompt).toMatch(/org\.md/);
     expect(prompt).toMatch(/goal\.md/);

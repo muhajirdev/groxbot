@@ -37,12 +37,17 @@ type Props = NativeStackScreenProps<RootStackParamList, "Board">;
 export function BoardScreen({ navigation }: Props) {
   const queryClient = useQueryClient();
   const listQuery = useQuery(orpc.knowledge.listTasks.queryOptions());
+  const meQuery = useQuery(orpc.me.queryOptions());
   const tasks = listQuery.data?.tasks ?? [];
   const grouped = useMemo(() => groupTasksByStatus(tasks), [tasks]);
   const [openName, setOpenName] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
   const [createStatus, setCreateStatus] = useState<TaskStatus>("todo");
   const open = tasks.find((row) => row.name === openName) ?? null;
+  const me = meQuery.data;
+  const trigger = me?.userId
+    ? { userId: me.userId, name: me.name.trim() || "Someone" }
+    : undefined;
 
   async function refresh() {
     await queryClient.invalidateQueries({
@@ -64,6 +69,9 @@ export function BoardScreen({ navigation }: Props) {
           description: title,
           status: createStatus,
           body: "",
+          triggeredBy: trigger?.userId,
+          triggeredByName: trigger?.name,
+          triggeredAt: new Date().toISOString(),
         }),
       });
       setDraftTitle("");
@@ -84,6 +92,9 @@ export function BoardScreen({ navigation }: Props) {
           description: task.description,
           status,
           body: task.body,
+          triggeredBy: task.triggeredBy,
+          triggeredByName: task.triggeredByName,
+          triggeredAt: task.triggeredAt,
         }),
       });
       await refresh();
@@ -96,6 +107,8 @@ export function BoardScreen({ navigation }: Props) {
     return (
       <TaskDetailScreen
         task={open}
+        author={trigger?.name ?? "you"}
+        authorId={trigger?.userId}
         onBack={() => setOpenName(null)}
         onRefresh={() => void refresh()}
       />
@@ -165,6 +178,8 @@ export function BoardScreen({ navigation }: Props) {
 
 function TaskDetailScreen(props: {
   task: KnowledgeTask;
+  author: string;
+  authorId?: string;
   onBack: () => void;
   onRefresh: () => void;
 }) {
@@ -195,7 +210,8 @@ function TaskDetailScreen(props: {
         path: props.task.activityPath,
         content: appendTaskActivity(raw, {
           at: new Date().toISOString(),
-          author: "you",
+          author: props.author,
+          authorId: props.authorId,
           body,
         }),
       });

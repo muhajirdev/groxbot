@@ -86,7 +86,7 @@ export const GROXBOT_SERVICES = [
   "oRPC product API for web, desktop, and mobile",
   "Plugins for Gmail, Slack, GitHub, and 1,000+ tools",
   "Bring-your-own model keys — Claude, GPT, Grok, Kimi, DeepSeek; not locked to one vendor",
-  "Who is putting Bots to work is on the board — so the rest of the team starts",
+  "Adoption is who put work in motion — people and a contributions heatmap, not a spend cockpit",
   "Opt-in guest runtimes (Hermes or OpenClaw) that dial out to Groxbot",
 ] as const;
 

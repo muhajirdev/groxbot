@@ -30,6 +30,7 @@ import {
   type SkillImportHttp,
   searchKnowledge,
   searchSkillsStore,
+  type TaskTrigger,
   writeKnowledge,
 } from "@groxbot/core";
 
@@ -50,7 +51,11 @@ export type KnowledgeAccess = {
   download(workspaceId: string, path: string): Promise<ComputerDownload>;
   backlinks(workspaceId: string, path: string): Promise<{ sources: string[] }>;
   graph(workspaceId: string): Promise<KnowledgeGraph>;
-  write(workspaceId: string, input: KnowledgeWrite): Promise<{ path: string }>;
+  write(
+    workspaceId: string,
+    input: KnowledgeWrite,
+    trigger?: TaskTrigger | null,
+  ): Promise<{ path: string }>;
   importSkill(
     workspaceId: string,
     input: KnowledgeImportInput,
@@ -77,8 +82,8 @@ export function knowledgeAccess(
       sources: await listKnowledgeBacklinks(disk, workspaceId, path),
     }),
     graph: (workspaceId) => listKnowledgeGraph(disk, workspaceId),
-    write: (workspaceId, input) =>
-      writeKnowledge(disk, workspaceId, input, { convert }),
+    write: (workspaceId, input, trigger) =>
+      writeKnowledge(disk, workspaceId, input, { convert, trigger }),
     importSkill: (workspaceId, input) => {
       if (!http) {
         throw new SkillImportError("Could not fetch that skill.");

@@ -52,11 +52,15 @@ export type IconProps = Omit<SVGProps<SVGSVGElement>, "strokeWidth"> & {
   strokeWidth?: number;
 };
 
-function OfficeSvg(
-  props: IconProps & { kind: string; children: ReactNode },
-) {
-  const { kind, size = 18, strokeWidth = 1.5, className, children, ...rest } =
-    props;
+function OfficeSvg(props: IconProps & { kind: string; children: ReactNode }) {
+  const {
+    kind,
+    size = 18,
+    strokeWidth = 1.5,
+    className,
+    children,
+    ...rest
+  } = props;
   return (
     <svg
       viewBox="0 0 24 24"
@@ -213,6 +217,26 @@ export function BoardIcon(props: IconProps) {
       <rect className="col col-a" x="3.5" y="4" width="5" height="16" rx="1" />
       <rect className="col col-b" x="9.5" y="4" width="5" height="10" rx="1" />
       <rect className="col col-c" x="15.5" y="4" width="5" height="13" rx="1" />
+    </OfficeSvg>
+  );
+}
+
+/** GitHub-style contribution grid — team adoption, not a personal streak. */
+export function AdoptionIcon(props: IconProps) {
+  return (
+    <OfficeSvg kind="adoption" {...props}>
+      <rect x="3.5" y="6.5" width="3.2" height="3.2" rx="0.6" />
+      <rect x="8.4" y="6.5" width="3.2" height="3.2" rx="0.6" />
+      <rect x="13.3" y="6.5" width="3.2" height="3.2" rx="0.6" />
+      <rect x="18.2" y="6.5" width="3.2" height="3.2" rx="0.6" />
+      <rect x="3.5" y="11.4" width="3.2" height="3.2" rx="0.6" />
+      <rect x="8.4" y="11.4" width="3.2" height="3.2" rx="0.6" />
+      <rect x="13.3" y="11.4" width="3.2" height="3.2" rx="0.6" />
+      <rect x="18.2" y="11.4" width="3.2" height="3.2" rx="0.6" />
+      <rect x="3.5" y="16.3" width="3.2" height="3.2" rx="0.6" />
+      <rect x="8.4" y="16.3" width="3.2" height="3.2" rx="0.6" />
+      <rect x="13.3" y="16.3" width="3.2" height="3.2" rx="0.6" />
+      <rect x="18.2" y="16.3" width="3.2" height="3.2" rx="0.6" />
     </OfficeSvg>
   );
 }

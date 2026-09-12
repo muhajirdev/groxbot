@@ -44,11 +44,14 @@ describe("listKnowledgeTasks", () => {
         description: "Ship the landing page",
         status: "in_progress",
         body: "Hero first.",
+        triggeredBy: "usr_ada",
+        triggeredByName: "Ada",
+        triggeredAt: "2026-09-11T18:00:00.000Z",
       }),
     );
     await disk.put(
       "ws_office/tasks/ship-landing/activity.md",
-      "## 2026-09-11T18:00:00.000Z you\nStart with the hero.\n",
+      "## 2026-09-11T18:00:00.000Z Ada @usr_ada\nStart with the hero.\n",
     );
     await disk.put(
       "ws_office/skills/weekly-update/SKILL.md",
@@ -66,6 +69,16 @@ describe("listKnowledgeTasks", () => {
           directory: "tasks/ship-landing",
           activityPath: "tasks/ship-landing/activity.md",
           body: "Hero first.",
+          triggeredBy: "usr_ada",
+          triggeredByName: "Ada",
+          triggeredAt: "2026-09-11T18:00:00.000Z",
+          activity: [
+            {
+              at: "2026-09-11T18:00:00.000Z",
+              author: "Ada",
+              authorId: "usr_ada",
+            },
+          ],
         },
       ],
       truncated: false,

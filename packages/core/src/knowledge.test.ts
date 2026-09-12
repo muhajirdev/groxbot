@@ -176,6 +176,34 @@ describe("write and read", () => {
     expect(note.content).toBe("Never send mail without approval.");
   });
 
+  it("stamps who triggered a task write", async () => {
+    const disk = new MemoryKnowledge();
+    await writeKnowledge(
+      disk,
+      OFFICE,
+      {
+        path: "tasks/ship-landing/TASK.md",
+        content: `---\nname: ship-landing\ndescription: Ship it\nstatus: todo\n---\nHero.\n`,
+      },
+      { trigger: { userId: "usr_ada", name: "Ada" } },
+    );
+    const file = await readKnowledge(disk, OFFICE, "tasks/ship-landing/TASK.md");
+    expect(file.content).toMatch(/triggeredBy: usr_ada/);
+    expect(file.content).toMatch(/triggeredByName: Ada/);
+    await writeKnowledge(
+      disk,
+      OFFICE,
+      {
+        path: "tasks/ship-landing/TASK.md",
+        content: `---\nname: ship-landing\ndescription: Ship it\nstatus: in_progress\n---\nHero.\n`,
+      },
+      { trigger: { userId: "usr_sam", name: "Sam" } },
+    );
+    const kept = await readKnowledge(disk, OFFICE, "tasks/ship-landing/TASK.md");
+    expect(kept.content).toMatch(/triggeredBy: usr_ada/);
+    expect(kept.content).toMatch(/status: in_progress/);
+  });
+
   it("indexes markdown links and hides the snapshot from the tree", async () => {
     const disk = new MemoryKnowledge();
     await writeKnowledge(disk, OFFICE, {

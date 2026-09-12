@@ -118,3 +118,22 @@ export function lastOfficeHumanUserId(
   }
   return null;
 }
+
+/** Person who asked this turn. Walks past hidden kicks; never the bot. */
+export function lastOfficeTaskTrigger(
+  messages: ReadonlyArray<{
+    metadata?: unknown;
+    message?: { role?: string };
+  }>,
+): { userId: string; name: string } | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const row = messages[i];
+    if (row?.message?.role !== "user") continue;
+    if (isHiddenOfficeUserMessage({ role: "user", metadata: row.metadata })) {
+      continue;
+    }
+    const user = parseOfficeUserMeta(row.metadata);
+    if (user) return { userId: user.userId, name: user.name };
+  }
+  return null;
+}

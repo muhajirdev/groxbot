@@ -898,7 +898,10 @@ export const appRouter = os.router({
       const actor = await requireActor(context);
       try {
         if (!context.knowledge) throw new KnowledgeWriteError();
-        return await context.knowledge.write(actor.workspaceId, input);
+        return await context.knowledge.write(actor.workspaceId, input, {
+          userId: actor.userId,
+          name: actor.name,
+        });
       } catch (error) {
         throwKnowledgeError(error);
       }

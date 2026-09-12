@@ -214,6 +214,7 @@ describe("Computer Worker shell wiring", () => {
     expect(readSrc("bot-actor.ts")).toMatch(/readDocument/);
     expect(readSrc("bot-office-tools.ts")).toMatch(/isFailedToolValue/);
     expect(readSrc("bot-knowledge.ts")).toMatch(/inbox\/invoice\.pdf/);
+    expect(readSrc("bot-actor.ts")).toMatch(/lastOfficeTaskTrigger/);
     expect(readSrc("bot-knowledge.ts")).toMatch(/readComputer/);
     expect(readSrc("bot-actor.ts")).toMatch(/readFileBytes/);
     expect(readSrc("worker.ts")).toMatch(/bindToMarkdown\(env\.AI\)/);
@@ -223,8 +224,10 @@ describe("Computer Worker shell wiring", () => {
     const wrangler = readFileSync(join(src, "../wrangler.jsonc"), "utf8");
     const date = wrangler.match(/"compatibility_date":\s*"([^"]+)"/)?.[1];
     expect(date).toBeTruthy();
+    expect(readSrc("app-runtime-code.ts")).toContain(
+      `compatibilityDate: "${date}"`,
+    );
     const runtime = readSrc("app-runtime-do.ts");
-    expect(runtime).toContain(`compatibilityDate: "${date}"`);
     expect(runtime).toMatch(/claimed !== workspaceId/);
     expect(runtime).toMatch(/storage\.put\("initialized", true\)/);
     expect(runtime).toMatch(/facets\.delete\("gadget"\)/);
