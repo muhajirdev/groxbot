@@ -158,28 +158,26 @@ h3 {
 
 #top > section {
   position: relative;
-  isolation: isolate;
+  background-color: var(--wash-bg, transparent);
+  box-shadow: 0 0 0 100vmax var(--wash-bg, transparent);
+  clip-path: inset(0 -100vmax);
 }
 
-#top > section::before {
-  content: "";
-  position: absolute;
-  inset: 0 calc(50% - 50vw);
-  z-index: -1;
-  background: var(--wash-bg, transparent);
-  pointer-events: none;
+#top > section:not(.hero-home):not(.models-line) {
+  padding-block: 72px;
 }
 
-.hero-home {
-  --wash-bg: transparent;
-}
-
+.hero-home,
 .models-line {
-  --wash-bg: var(--band-paper);
+  --wash-bg: transparent;
 }
 
 #talk {
   --wash-bg: var(--band-peach);
+}
+
+.adopt-free {
+  --wash-bg: var(--band-paper);
 }
 
 .know {
@@ -190,42 +188,36 @@ h3 {
   --wash-bg: var(--band-paper);
 }
 
-#apps {
+.home-jobs {
   --wash-bg: var(--band-blush);
 }
 
-.story {
+#phone {
   --wash-bg: var(--band-cream);
+}
+
+#apps {
+  --wash-bg: var(--band-sand);
+}
+
+.story {
+  --wash-bg: var(--band-paper);
 }
 
 #together {
   --wash-bg: var(--band-sand);
 }
 
-.adopt-free {
-  --wash-bg: var(--band-cream);
-}
-
-#phone {
-  --wash-bg: var(--band-peach);
-}
-
 .statement {
-  --wash-bg: var(--band-sand);
+  --wash-bg: var(--band-peach);
 }
 
 .demo {
-  --wash-bg: var(--band-peach);
+  --wash-bg: var(--band-paper);
 }
 
 #hire {
-  --wash-bg: var(--band-cream);
-  padding: 56px 0;
-}
-
-.home-jobs {
   --wash-bg: var(--band-sand);
-  padding: 56px 0;
 }
 
 .enterprise {
@@ -3240,7 +3232,10 @@ a.chip.on .chip-count,
 
   .talk {
     grid-template-columns: 1fr;
-    padding: 20px 0 28px;
+  }
+
+  #top > section:not(.hero-home):not(.models-line) {
+    padding-block: 48px;
   }
 
   .apps-grid {
@@ -3248,7 +3243,7 @@ a.chip.on .chip-count,
   }
 
   .know {
-    padding: 28px 0 36px;
+    padding-block: 48px;
   }
 
   .know-body {
@@ -3257,12 +3252,9 @@ a.chip.on .chip-count,
     gap: 24px;
   }
 
-  .phone-free {
-    padding: 28px 0 36px;
-  }
-
+  .phone-free,
   .adopt-free {
-    padding: 28px 0 36px;
+    padding-block: 48px;
   }
 
   .adopt-free-body {
@@ -3372,7 +3364,7 @@ a.chip.on .chip-count,
   }
 
   .thesis-section {
-    padding: 40px 0 20px;
+    padding-block: 48px;
   }
 
   .chapter h2,

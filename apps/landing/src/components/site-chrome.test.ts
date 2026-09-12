@@ -37,14 +37,24 @@ describe("landing nav chrome", () => {
 });
 
 describe("homepage section washes", () => {
-  it("paints each homepage band a distinct color", () => {
-    expect(css).toMatch(/#top > section::before/);
+  it("paints each homepage band on the section, not behind the page", () => {
+    expect(css).toMatch(
+      /#top > section\s*\{[^}]*background-color:\s*var\(--wash-bg/s,
+    );
+    expect(css).toMatch(/box-shadow:\s*0 0 0 100vmax var\(--wash-bg/s);
+    expect(css).not.toMatch(/#top > section::before/);
     expect(css).toContain("--band-paper:");
     expect(css).toContain("--band-sand:");
     expect(css).toContain("--band-peach:");
     expect(css).toContain("--band-blush:");
     expect(css).toMatch(/#talk\s*\{[^}]*--wash-bg:\s*var\(--band-peach\)/s);
-    expect(css).toMatch(/#apps\s*\{[^}]*--wash-bg:\s*var\(--band-blush\)/s);
+    expect(css).toMatch(/\.adopt-free\s*\{[^}]*--wash-bg:\s*var\(--band-paper\)/s);
     expect(css).toMatch(/\.know\s*\{[^}]*--wash-bg:\s*var\(--band-sand\)/s);
+    expect(css).toMatch(
+      /\.statement\s*\{[^}]*--wash-bg:\s*var\(--band-peach\)/s,
+    );
+    expect(css).toMatch(
+      /#together\s*\{[^}]*--wash-bg:\s*var\(--band-sand\)/s,
+    );
   });
 });
