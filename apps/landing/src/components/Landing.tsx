@@ -1,12 +1,13 @@
 import { MascotMark } from "@groxbot/mascot";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { LANDING_HIRE_BOTS } from "../lib/bot-marketplace";
 import {
-  AGENT_HEADLINE,
-  AGENT_LEDE,
   ADOPT_HEADLINE,
   ADOPT_LEDE,
   ADOPT_POINTS,
+  AGENT_HEADLINE,
+  AGENT_LEDE,
   BYOK_HEADLINE,
   BYOK_LEDE,
   BYOK_NAMES,
@@ -41,8 +42,7 @@ import {
   TALK_POINTS,
   THESES,
 } from "../lib/copy";
-import { LANDING_HIRE_BOTS } from "../lib/bot-marketplace";
-import { hireApp, HOME_HIRE_STRIP } from "../lib/home-hire-strip";
+import { HOME_HIRE_STRIP, hireApp } from "../lib/home-hire-strip";
 import { HeroCompare } from "./HeroCompare";
 import { HeroDemo } from "./HeroDemo";
 import { KnowGraph } from "./KnowGraph";
@@ -265,10 +265,7 @@ export function Landing(props: { startUrl: string }) {
             <ul className="compare-chips">
               {COMPARE_LINKS.map((link) => (
                 <li key={link.slug}>
-                  <Link
-                    to="/compare/$slug"
-                    params={{ slug: link.slug }}
-                  >
+                  <Link to="/compare/$slug" params={{ slug: link.slug }}>
                     {link.label}
                   </Link>
                 </li>
@@ -343,8 +340,8 @@ export function Landing(props: { startUrl: string }) {
             <h2>Enterprise ready.</h2>
             <p className="lede tight">
               Keep Whip Computer on your machines. whip.computer never sees the
-              threads. It still remembers — on your SQLite catalog. Model
-              calls go to the key you paste.
+              threads. It still remembers — on your SQLite catalog. Model calls
+              go to the key you paste.
             </p>
             <div className="row">
               <a className="btn ghost" href={CONTACT_MAILTO}>
@@ -451,7 +448,8 @@ function RoutineLine() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const item = HOME_ROUTINES[index]!;
+  const item = HOME_ROUTINES[index] ?? HOME_ROUTINES[0];
+  if (!item) return null;
   return (
     <p className="routine-line" key={item.job}>
       Runs <em>{item.job}</em> every {item.every} at {item.at}
@@ -466,10 +464,7 @@ function AdoptionBoard() {
       {HOME_ADOPTION.map((person, index) => {
         const width = Math.round((person.tasks / lead) * 100);
         return (
-          <li
-            key={person.name}
-            className={index === 0 ? "lead" : undefined}
-          >
+          <li key={person.name} className={index === 0 ? "lead" : undefined}>
             <span className="rank">{index + 1}</span>
             <PersonFace src={person.photo} name={person.name} size="md" />
             <span className="board-who">
@@ -490,7 +485,9 @@ function AdoptionBoard() {
   );
 }
 
-function AdoptPointIcon(props: { name: (typeof ADOPT_POINTS)[number]["icon"] }) {
+function AdoptPointIcon(props: {
+  name: (typeof ADOPT_POINTS)[number]["icon"];
+}) {
   const draw =
     props.name === "people"
       ? "M9.2 9.4a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8zM4.8 19c.3-2.8 2.1-4.4 4.4-4.4s4.1 1.6 4.4 4.4M16.4 10.2a1.9 1.9 0 1 0 0-3.8 1.9 1.9 0 0 0 0 3.8zM14.2 19c.2-1.8 1.1-3 2.4-3.4"
@@ -516,7 +513,6 @@ function AdoptPointIcon(props: { name: (typeof ADOPT_POINTS)[number]["icon"] }) 
     </svg>
   );
 }
-
 
 function HandoffScene() {
   return (

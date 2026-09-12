@@ -202,8 +202,7 @@ export const TALK_POINTS = [
 export const TALK_LEDE = `${TALK_POINTS.map((item) => item.text).join(". ")}.`;
 export const HOW_HEADLINE = "Hire. Invite. See who started.";
 export const HIRE_BEAT_HEADLINE = "Hire a bot.";
-export const HIRE_BEAT_LEDE =
-  "A named teammate, already wired to their apps.";
+export const HIRE_BEAT_LEDE = "A named teammate, already wired to their apps.";
 export const INVITE_HEADLINE = "Invite your team to use the bot.";
 export const INVITE_LEDE =
   "They talk to that hire where they already work. Not a private laptop agent.";
@@ -233,7 +232,14 @@ export const CHEAP_LEDE =
 export const BYOK_HEADLINE = "Use the AI you already pay for.";
 export const BYOK_LEDE =
   "Paste Codex, Kimi, z.ai, or any key. Workspace BYOK wins.";
-export const BYOK_NAMES = ["Codex", "Kimi", "z.ai", "Claude", "GPT", "Grok"] as const;
+export const BYOK_NAMES = [
+  "Codex",
+  "Kimi",
+  "z.ai",
+  "Claude",
+  "GPT",
+  "Grok",
+] as const;
 export const ROUTINES_HEADLINE = "Routines.";
 export const HOME_ROUTINES = [
   { job: "the Reddit digest", every: "day", at: "8am" },

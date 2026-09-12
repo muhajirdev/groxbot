@@ -6,37 +6,37 @@ import { INDIE_INTEGRATIONS } from "../data/indie-integrations";
 import { USE_CASES } from "../data/use-cases";
 import { categoryFamily } from "./category-copy";
 import {
-  FOOTER_BLURB,
-  HERO_COMPARE_NAMES,
-  HERO_DEMO,
-  TALK_DEMO,
-  HERO_HEADLINE,
   ADOPT_HEADLINE,
   ADOPT_POINTS,
-  HOW_HEADLINE,
-  HIRE_BEAT_HEADLINE,
-  INVITE_HEADLINE,
-  RUNS_HEADLINE,
-  JOBS_HEADLINE,
-  KNOW_HEADLINE,
-  KNOW_POINTS,
   APPS_HEADLINE,
   APPS_LEDE,
   APPS_TOOLS,
+  FAQS,
+  FOOTER_BLURB,
+  HERO_COMPARE_NAMES,
+  HERO_DEMO,
+  HERO_HEADLINE,
+  HERO_LEDE,
+  HERO_PITCH,
+  HERO_PLATFORMS_LINE,
+  HIRE_BEAT_HEADLINE,
+  HOW_HEADLINE,
+  INVITE_HEADLINE,
+  JOBS_HEADLINE,
+  KNOW_HEADLINE,
+  KNOW_POINTS,
   MEET_CHANNELS,
   MEET_HEADLINE,
   PHONE_HEADLINE,
   PHONE_LEDE,
+  RUNS_HEADLINE,
+  STORY,
+  TAGLINE,
+  TALK_DEMO,
   TALK_HEADLINE,
   TALK_LEDE,
   TALK_POINTS,
-  HERO_LEDE,
-  HERO_PLATFORMS_LINE,
-  HERO_PITCH,
-  STORY,
-  TAGLINE,
   THESES,
-  FAQS,
 } from "./copy";
 import {
   DISCOVERY_SITEMAP_PATHS,
@@ -78,9 +78,9 @@ describe("integrations catalog", () => {
     expect(INTEGRATIONS.length).toBeGreaterThan(1000);
     expect(formatIntegrationCount()).toMatch(/^\d{1,3}(,\d{3})?\+$/);
     expect(formatIntegrationCount()).not.toMatch(/composio/i);
-    expect(Number(formatIntegrationCount().replace(/[+,]/g, ""))).toBeLessThanOrEqual(
-      INTEGRATIONS.length,
-    );
+    expect(
+      Number(formatIntegrationCount().replace(/[+,]/g, "")),
+    ).toBeLessThanOrEqual(INTEGRATIONS.length);
   });
 
   it("does not let indie slugs collide with Composio", () => {
@@ -320,8 +320,12 @@ describe("llms discovery", () => {
   it("leads public copy with AI is better together", () => {
     expect(TAGLINE).toBe("AI is better together");
     expect(HERO_PITCH).toBe("Multiplayer. Open source. Invite only.");
-    expect(DEFAULT_TITLE).toBe("Multiplayer. Open source. Invite only. | Whip Computer");
-    expect(DEFAULT_DESCRIPTION).toMatch(/^Multiplayer\. Open source\. Invite only\./);
+    expect(DEFAULT_TITLE).toBe(
+      "Multiplayer. Open source. Invite only. | Whip Computer",
+    );
+    expect(DEFAULT_DESCRIPTION).toMatch(
+      /^Multiplayer\. Open source\. Invite only\./,
+    );
     expect(FOOTER_BLURB).toMatch(/whipping the computer together/);
     expect(landingLlmsTxt()).toContain("AI is better together");
   });
@@ -346,9 +350,7 @@ describe("llms discovery", () => {
 
   it("opens the homepage with a category headline and a demo slot", () => {
     expect(HERO_HEADLINE).toBe("AI for teams.");
-    expect(TALK_HEADLINE).toBe(
-      "Invite your team to talk with your AI agents.",
-    );
+    expect(TALK_HEADLINE).toBe("Invite your team to talk with your AI agents.");
     expect(TALK_POINTS.map((item) => item.text)).toEqual([
       "Experts build the agent",
       "The team uses it",
@@ -423,7 +425,7 @@ describe("llms discovery", () => {
     expect(landing).not.toContain("<DemoShowcase");
     expect(landing).not.toContain('className="statement"');
     expect(landing).not.toContain("A computer you can ignore");
-    expect(landing).not.toContain("className=\"tiles\"");
+    expect(landing).not.toContain('className="tiles"');
     expect(JOBS_HEADLINE).toBe("A Bot. Your tools. The job.");
     expect(APPS_HEADLINE).toBe("Connect the bot to any apps.");
     expect(APPS_LEDE).toBe(`${formatIntegrationCount()} integrations.`);
@@ -436,7 +438,11 @@ describe("llms discovery", () => {
       "Google Drive",
       "GitHub",
     ]);
-    expect(HERO_COMPARE_NAMES).toEqual(["Hermes Agent", "OpenClaw", "Grok Bot"]);
+    expect(HERO_COMPARE_NAMES).toEqual([
+      "Hermes Agent",
+      "OpenClaw",
+      "Grok Bot",
+    ]);
     expect(HERO_LEDE).toMatch(/but for teams/);
     expect(HERO_PLATFORMS_LINE).toBe(
       "Available for Web, Mac, iOS, Android, Discord, Slack, Microsoft Teams",
