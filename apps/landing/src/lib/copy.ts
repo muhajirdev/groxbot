@@ -165,60 +165,24 @@ export const COMPARE_CALLOUT = {
 
 export const FAQS = [
   {
-    q: "How is this different from Grok Bot?",
-    a: `Same motion: create a Bot, message it, grant access as needed. Whip Computer is for the team — ${GROXBOT_TAGLINE}. Named teammates, each with a computer, live docs from chat — and you can run the source yourself.`,
-  },
-  {
-    q: "How is this different from OpenClaw?",
-    a: "OpenClaw is a personal agent on your machine. Whip Computer is for the team: named teammates, each with a computer, and a messaging UI the whole company can sit in.",
-  },
-  {
-    q: "How is this different from Hermes?",
-    a: "Hermes is a personal agent on your machine, like OpenClaw. Whip Computer is for the team. Hermes can dial out as a guest runtime if you turn that on — off by default.",
-  },
-  {
-    q: "How is this different from Paperclip?",
-    a: "Paperclip orchestrates a fleet of agents with org charts and budgets. Whip Computer is the place people work: hire a Bot, message it, grant tools when it hits a wall. You do not need a workflow builder or a separate management layer to start.",
+    q: "How is this different from OpenClaw or Hermes?",
+    a: "Those are personal agents on your machine. Whip Computer is for the team: named teammates, each with a cloud computer, a shared knowledge base, and a messaging UI the whole company can sit in.",
   },
   {
     q: "Do I need a workflow builder?",
     a: "No. Create a Bot, message it, grant access as needed. There isn’t anything to learn — it’s like bringing on a coworker.",
   },
   {
-    q: "Where does the computer live?",
-    a: "In the cloud, on that bot — not on your laptop. Hire a teammate and they already have a computer. Shut the machine, close the pane, pick up the thread on your phone. The work keeps going.",
-  },
-  {
     q: "Is it open source?",
     a: "The source is on GitHub. Self-host for your own team is free. Fair-code: you may not run a hosted Whip Computer for third parties without a commercial license — that is whip.computer.",
-  },
-  {
-    q: "Which tools can a Bot use?",
-    a: "LinkedIn, Instagram, Google Drive, Docs, Sheets, Notion, Gmail, Slack, GitHub, and 1,000+ more. Indie tools like DataFast and Postiz run on the Bot’s computer. Grant access when they hit a wall — not in a 20-field wizard.",
-  },
-  {
-    q: "Where do I talk to a Bot?",
-    a: "In the web app — a messaging app of named teammates. Desktop is that same UI in a window. The computer stays in the cloud, so you can leave the laptop and continue on your phone.",
-  },
-  {
-    q: "Does Whip Computer remember?",
-    a: "Yes. What you decide in a thread is extracted into shared knowledge — how we work, voice, constraints. Skills live with the workspace, not in one chat. The organization improves; you do not re-explain it every Monday.",
   },
   {
     q: "Which models can I use?",
     a: "Any of them. Bring your own keys — OpenRouter is one key for many models, or paste Anthropic, OpenAI, or Cloudflare. Claude, GPT, Grok, Kimi, DeepSeek. You are not locked to one vendor.",
   },
   {
-    q: "Can I see adoption across the team?",
-    a: "Yes — and that’s the point. A personal agent hides on a laptop. Adoption is who put work in motion: people, a contributions heatmap, and the tasks they asked for. Not a spend cockpit.",
-  },
-  {
     q: "Does my data leave Whip Computer?",
-    a: "Self-host and your data stays in your SQLite catalog and Durable Objects — whip.computer never sees it. Hosted stores it for you. Either way, a Bot talking to a model sends the prompt to the provider behind your key. Pick one with a zero-retention agreement if you need that. We do not claim zero retention: Whip Computer is meant to remember.",
-  },
-  {
-    q: "How do I talk to a person?",
-    a: `Email ${CONTACT_EMAIL}. GitHub issues for the source. Whip Computer is for the product — this mailbox is for you.`,
+    a: "Self-host and your data stays in your SQLite catalog and Durable Objects — whip.computer never sees it. Hosted stores it for you. A Bot talking to a model sends the prompt to the provider behind your key. We do not claim zero retention: Whip Computer is meant to remember.",
   },
 ] as const;
 
@@ -235,9 +199,18 @@ export const TALK_POINTS = [
   { icon: "up", text: "The company gets more done" },
 ] as const;
 export const TALK_LEDE = `${TALK_POINTS.map((item) => item.text).join(". ")}.`;
+export const ADOPT_HEADLINE = "Track your team's AI adoption.";
+export const ADOPT_POINTS = [
+  { icon: "people", text: "See who put work in motion" },
+  { icon: "heat", text: "A contributions heatmap" },
+  { icon: "spend", text: "Not a spend cockpit" },
+] as const;
 export const KNOW_HEADLINE = "A knowledge base that improves itself.";
 export const KNOW_POINTS = [
-  { icon: "file", text: "Chat becomes the knowledge base" },
+  {
+    icon: "file",
+    text: "Chat is automatically organized onto the knowledge base",
+  },
   { icon: "loop", text: "It updates itself as you work" },
   { icon: "share", text: "The whole team shares one" },
 ] as const;
@@ -247,6 +220,9 @@ export const MEET_CHANNELS = [
   { name: "Discord", slug: "discord" },
   { name: "Microsoft Teams", slug: "microsoft_teams" },
 ] as const;
+export const PHONE_HEADLINE = "No Mac Mini is required.";
+export const PHONE_LEDE =
+  "Prompt from your phone even when your laptop is shut down.";
 export const HERO_COMPARE_NAMES = [
   "Hermes Agent",
   "OpenClaw",
@@ -324,20 +300,20 @@ export const THESES = [
   {
     id: "adopt",
     kicker: "Adoption",
-    title: "The best way to get your team to adopt AI is to track it.",
-    lede: "A personal agent hides. Put Bots on the board. That’s how the rest of the team starts.",
+    title: "Track your team's AI adoption.",
+    lede: "A personal agent hides. Put people on the board. That’s how the rest of the team starts.",
   },
   {
     id: "knowledge",
     kicker: "Knowledge",
     title: "The company’s knowledge base should evolve from group chats.",
-    lede: "File what lasts from the thread. Skills live with the team, not one chat. Monday doesn’t start from zero.",
+    lede: "Chat is automatically organized onto the knowledge base. Skills live with the team, not one chat. Monday doesn’t start from zero.",
   },
   {
     id: "phone",
     kicker: "Phone",
-    title: "You should be able to work from your phone.",
-    lede: "Shut the laptop. The computer stays in the cloud. The thread is still yours.",
+    title: "No Mac Mini is required.",
+    lede: "Prompt from your phone even when your laptop is shut down.",
     why: "Ideas come anytime, anywhere. Execution is no longer the bottleneck — agents do the work. What matters now is good decisions and good ideas.",
   },
 ] as const;
@@ -395,11 +371,9 @@ export const HOME_FEATURES = [
   },
   {
     title: "Knowledge from the thread",
-    body: "What you decide in chat becomes shared knowledge — skills, voice, how you work.",
+    body: "Chat is automatically organized onto the knowledge base — skills, voice, how you work.",
   },
 ] as const;
-
-export const HOME_FAQS = FAQS.slice(0, 6);
 
 export const HOME_KNOWLEDGE = {
   thread: [

@@ -285,7 +285,8 @@ export function KnowledgeScreen({
   return (
     <Screen scroll safe={false}>
       <Text style={styles.body}>
-        Office library. A SKILL.md anywhere is a playbook.
+        Office library. Chat is organized here automatically. A SKILL.md
+        anywhere is a playbook.
       </Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {notice ? <Text style={styles.notice}>{notice}</Text> : null}

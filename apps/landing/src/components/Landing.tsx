@@ -14,10 +14,14 @@ import {
   HERO_HEADLINE,
   HERO_PLATFORMS,
   TALK_DEMO,
+  ADOPT_HEADLINE,
+  ADOPT_POINTS,
   KNOW_HEADLINE,
   KNOW_POINTS,
   MEET_CHANNELS,
   MEET_HEADLINE,
+  PHONE_HEADLINE,
+  PHONE_LEDE,
   TALK_HEADLINE,
   TALK_POINTS,
   HOME_ADOPTION,
@@ -28,7 +32,7 @@ import {
   THESES,
 } from "../lib/copy";
 import { LANDING_HIRE_BOTS } from "../lib/bot-marketplace";
-import { HOME_INTEGRATIONS } from "../lib/teasers";
+import { homeIntegrationMarquee } from "../lib/teasers";
 import { DemoThread } from "./DemoThread";
 import { HeroCompare } from "./HeroCompare";
 import { HeroDemo } from "./HeroDemo";
@@ -126,6 +130,25 @@ export function Landing(props: { startUrl: string }) {
           <HeroDemo demo={TALK_DEMO} id="talk-demo" />
         </section>
 
+        <section className="adopt-free" id="adopt" aria-labelledby="adopt-title">
+          <h2 id="adopt-title" aria-label={ADOPT_HEADLINE}>
+            Track your team&apos;s
+            <br />
+            <em>AI adoption</em>.
+          </h2>
+          <div className="adopt-free-body">
+            <AdoptionBoard />
+            <ul className="adopt-points">
+              {ADOPT_POINTS.map((item) => (
+                <li key={item.icon}>
+                  <AdoptPointIcon name={item.icon} />
+                  {item.text}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
         <section className="know" id="knowledge" aria-labelledby="know-title">
           <h2 id="know-title" aria-label={KNOW_HEADLINE}>
             A knowledge base
@@ -166,6 +189,22 @@ export function Landing(props: { startUrl: string }) {
               </li>
             ))}
           </ul>
+        </section>
+
+        <section
+          className="phone-free"
+          id="phone"
+          aria-labelledby="phone-title"
+        >
+          <div className="phone-free-copy">
+            <h2 id="phone-title" aria-label={PHONE_HEADLINE}>
+              No <em>Mac Mini</em>
+              <br />
+              is required.
+            </h2>
+            <p className="meet-lede">{PHONE_LEDE}</p>
+          </div>
+          <HandoffScene />
         </section>
 
         <section className="story" aria-labelledby="story-title">
@@ -233,51 +272,6 @@ export function Landing(props: { startUrl: string }) {
               ))}
             </ul>
           </aside>
-        </section>
-
-        <section id="adopt" className="adopt" aria-labelledby="thesis-adopt">
-          <div className="adopt-copy">
-            <p className="kicker">{THESES[1].kicker}</p>
-            <h2 id="thesis-adopt">{THESES[1].title}</h2>
-            <p className="lede tight">{THESES[1].lede}</p>
-          </div>
-          <ol className="board">
-            {HOME_ADOPTION.map((person, index) => {
-              const lead = HOME_ADOPTION[0]!.tasks;
-              const width = Math.round((person.tasks / lead) * 100);
-              return (
-                <li
-                  key={person.name}
-                  className={index === 0 ? "lead" : undefined}
-                >
-                  <span className="rank">{index + 1}</span>
-                  <PersonFace src={person.photo} name={person.name} size="md" />
-                  <span className="board-who">
-                    <strong>{person.name}</strong>
-                    <em>{person.role}</em>
-                  </span>
-                  <span className="board-bar" aria-hidden>
-                    <i style={{ width: `${width}%` }} />
-                  </span>
-                  <span className="board-n">
-                    {person.label}
-                    <em>tasks</em>
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-        </section>
-
-        <section id="phone" className="thesis-section" aria-labelledby="thesis-phone">
-          <p className="kicker">{THESES[3].kicker}</p>
-          <h2 id="thesis-phone">{THESES[3].title}</h2>
-          <p className="lede">{THESES[3].lede}</p>
-          <div className="thesis-proof">
-            <HandoffScene />
-          </div>
-          <p className="kicker why">Why it matters</p>
-          <p className="thesis-why">{THESES[3].why}</p>
         </section>
 
         <section id="how" className="statement">
@@ -400,36 +394,21 @@ export function Landing(props: { startUrl: string }) {
           </div>
         </section>
 
-        <section className="band catalog">
+        <section
+          className="band catalog home-integrations"
+          id="integrations"
+          aria-labelledby="integrations-title"
+        >
           <p className="kicker">Integrations</p>
-          <h2>Your tools. In the thread.</h2>
+          <h2 id="integrations-title">Your tools. In the thread.</h2>
           <p className="lede tight">
-            LinkedIn, Instagram, Google Drive, Notion — plus Gmail, Slack, and
-            GitHub. A computer for the indie stack.
+            1,000+ tools. LinkedIn, Slack, Notion, GitHub — and a computer for
+            the indie stack.
           </p>
-          <div className="chips">
-            {HOME_INTEGRATIONS.map((item) => (
-              <Link
-                key={item.slug}
-                className="chip has-icon"
-                to="/integrations/$slug"
-                params={{ slug: item.slug }}
-              >
-                <img
-                  className="chip-logo"
-                  src={demoLogo(item.slug)}
-                  alt=""
-                  width={18}
-                  height={18}
-                  decoding="async"
-                />
-                {item.name}
-              </Link>
-            ))}
-            <Link className="chip chip-all" to="/integrations">
-              All integrations
-            </Link>
-          </div>
+          <HomeIntegrationMarquee />
+          <Link className="home-integrations-more" to="/integrations">
+            Browse all integrations
+          </Link>
         </section>
 
         <section
@@ -544,6 +523,100 @@ function DemoShowcase() {
       </div>
       <DemoThread demo={active} />
     </section>
+  );
+}
+
+function AdoptionBoard() {
+  const lead = HOME_ADOPTION[0]?.tasks ?? 1;
+  return (
+    <ol className="board">
+      {HOME_ADOPTION.map((person, index) => {
+        const width = Math.round((person.tasks / lead) * 100);
+        return (
+          <li
+            key={person.name}
+            className={index === 0 ? "lead" : undefined}
+          >
+            <span className="rank">{index + 1}</span>
+            <PersonFace src={person.photo} name={person.name} size="md" />
+            <span className="board-who">
+              <strong>{person.name}</strong>
+              <em>{person.role}</em>
+            </span>
+            <span className="board-bar" aria-hidden>
+              <i style={{ width: `${width}%` }} />
+            </span>
+            <span className="board-n">
+              {person.label}
+              <em>tasks</em>
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function AdoptPointIcon(props: { name: (typeof ADOPT_POINTS)[number]["icon"] }) {
+  const draw =
+    props.name === "people"
+      ? "M9.2 9.4a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8zM4.8 19c.3-2.8 2.1-4.4 4.4-4.4s4.1 1.6 4.4 4.4M16.4 10.2a1.9 1.9 0 1 0 0-3.8 1.9 1.9 0 0 0 0 3.8zM14.2 19c.2-1.8 1.1-3 2.4-3.4"
+      : props.name === "heat"
+        ? "M6 16.8h2.2V19H6zM10.2 13.2H12.4V19H10.2zM14.4 9.2H16.6V19H14.4zM6 10.4 10.6 6l4 3.2L18.8 5.6"
+        : "M7 7.2h10.4v9.6H7zM9.2 10.2h6M9.2 13h4.4";
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="22"
+      height="22"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d={draw}
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function HomeIntegrationMarquee() {
+  const { rows } = homeIntegrationMarquee();
+  return (
+    <div className="int-marquee" aria-hidden="true">
+      {rows.map((row, index) => (
+        <div
+          key={index === 0 ? "fwd" : "rev"}
+          className={index === 0 ? "int-marquee-row" : "int-marquee-row rev"}
+        >
+          <div className="int-marquee-track">
+            {[0, 1].map((copy) => (
+              <ul key={copy}>
+                {row.map((item) => (
+                  <li key={`${copy}-${item.slug}`}>
+                    <span className="chip has-icon">
+                      <img
+                        className="chip-logo"
+                        src={item.logo}
+                        alt=""
+                        width={18}
+                        height={18}
+                        decoding="async"
+                      />
+                      {item.name}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 

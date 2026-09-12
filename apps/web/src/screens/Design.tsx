@@ -777,7 +777,7 @@ export function Design() {
           <Section
             id="knowledge"
             title="Knowledge"
-            lede="Library: tree plus a document reader. A File chip peeks the note beside chat."
+            lede="Library: tree plus a document reader. Chat is organized here automatically. A File chip peeks the note beside chat."
           >
             <Specimen label="Note">
               <div className="design-knowledge-read">

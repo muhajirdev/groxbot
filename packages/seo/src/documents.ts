@@ -345,7 +345,7 @@ A: Guest runtimes are opt-in per bot and off by default. They dial out to Whip C
 ---
 
 Q: Does the office remember? Is knowledge shared?
-A: Yes. What you decide in a thread is extracted into shared office knowledge — how we work, voice, constraints. Skills live with the workspace, not in one person's chat. The organization improves; you do not re-explain it every Monday.
+A: Yes. Chat is automatically organized onto the knowledge base — how we work, voice, constraints. Skills live with the workspace, not in one person's chat. The organization improves; you do not re-explain it every Monday.
 
 ---
 

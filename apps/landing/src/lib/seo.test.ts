@@ -11,10 +11,14 @@ import {
   HERO_DEMO,
   TALK_DEMO,
   HERO_HEADLINE,
+  ADOPT_HEADLINE,
+  ADOPT_POINTS,
   KNOW_HEADLINE,
   KNOW_POINTS,
   MEET_CHANNELS,
   MEET_HEADLINE,
+  PHONE_HEADLINE,
+  PHONE_LEDE,
   TALK_HEADLINE,
   TALK_LEDE,
   TALK_POINTS,
@@ -24,6 +28,7 @@ import {
   STORY,
   TAGLINE,
   THESES,
+  FAQS,
 } from "./copy";
 import {
   DISCOVERY_SITEMAP_PATHS,
@@ -336,9 +341,15 @@ describe("llms discovery", () => {
       "The company gets more done",
     ]);
     expect(TALK_LEDE).toMatch(/Experts build the agent/);
+    expect(ADOPT_HEADLINE).toBe("Track your team's AI adoption.");
+    expect(ADOPT_POINTS.map((item) => item.text)).toEqual([
+      "See who put work in motion",
+      "A contributions heatmap",
+      "Not a spend cockpit",
+    ]);
     expect(KNOW_HEADLINE).toBe("A knowledge base that improves itself.");
     expect(KNOW_POINTS.map((item) => item.text)).toEqual([
-      "Chat becomes the knowledge base",
+      "Chat is automatically organized onto the knowledge base",
       "It updates itself as you work",
       "The whole team shares one",
     ]);
@@ -348,6 +359,25 @@ describe("llms discovery", () => {
       "Discord",
       "Microsoft Teams",
     ]);
+    expect(PHONE_HEADLINE).toBe("No Mac Mini is required.");
+    expect(PHONE_LEDE).toMatch(/phone even when your laptop is shut down/);
+    const landing = readFileSync(
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        "../components/Landing.tsx",
+      ),
+      "utf8",
+    );
+    expect(landing.indexOf('id="adopt"')).toBeLessThan(
+      landing.indexOf('id="knowledge"'),
+    );
+    expect(landing.indexOf('id="meet"')).toBeLessThan(
+      landing.indexOf('id="phone"'),
+    );
+    expect(landing).toContain("PHONE_HEADLINE");
+    expect(landing).toContain("<HandoffScene />");
+    expect(landing).toContain("HomeIntegrationMarquee");
+    expect(landing).toContain('id="integrations"');
     expect(HERO_COMPARE_NAMES).toEqual(["Hermes Agent", "OpenClaw", "Grok Bot"]);
     expect(HERO_LEDE).toMatch(/but for teams/);
     expect(HERO_PLATFORMS_LINE).toBe(
@@ -357,6 +387,14 @@ describe("llms discovery", () => {
     expect(TALK_DEMO.youtubeId).toMatch(/^[A-Za-z0-9_-]{11}$/);
     expect(TALK_DEMO.youtubeId).not.toBe(HERO_DEMO.youtubeId);
     expect(STORY.map((item) => item.id)).toEqual(["hire", "talk", "computer"]);
+    expect(FAQS).toHaveLength(5);
+    expect(FAQS.map((item) => item.q)).toEqual([
+      "How is this different from OpenClaw or Hermes?",
+      "Do I need a workflow builder?",
+      "Is it open source?",
+      "Which models can I use?",
+      "Does my data leave Whip Computer?",
+    ]);
   });
 
   it("gives each landing thesis its own section headline", () => {
@@ -368,10 +406,14 @@ describe("llms discovery", () => {
     ]);
     expect(THESES.map((item) => item.title)).toEqual([
       "AI is better together.",
-      "The best way to get your team to adopt AI is to track it.",
+      "Track your team's AI adoption.",
       "The company’s knowledge base should evolve from group chats.",
-      "You should be able to work from your phone.",
+      "No Mac Mini is required.",
     ]);
+    expect(THESES[2]?.lede).toMatch(
+      /automatically organized onto the knowledge base/,
+    );
+    expect(THESES[3]?.lede).toMatch(/phone even when your laptop is shut down/);
     expect(THESES[3]?.why).toMatch(/anytime, anywhere/);
     expect(THESES[3]?.why).toMatch(/good decisions and good ideas/);
   });

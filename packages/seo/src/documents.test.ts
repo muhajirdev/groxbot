@@ -110,6 +110,12 @@ describe("discovery documents", () => {
     expect(llmsTxt(origins)).toMatch(/Each bot has a computer/i);
   });
 
+  it("says chat is organized onto the knowledge base automatically", () => {
+    expect(faqAiTxt(origins)).toMatch(
+      /automatically organized onto the knowledge base/i,
+    );
+  });
+
   it("uses AI is better together as the product tagline", () => {
     expect(GROXBOT_TAGLINE).toBe("AI is better together");
     expect(llmsTxt(origins)).toContain(GROXBOT_TAGLINE);

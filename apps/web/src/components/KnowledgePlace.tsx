@@ -399,7 +399,7 @@ export function KnowledgeLibrary(props: {
                   : "Pick a playbook."
                 : selected && !workspace.files.has(selected)
                   ? "A folder. New file or upload lands here."
-                  : "Playbooks and notes for this office. Pick one."}
+                  : "Chat is organized here automatically. Playbooks and notes for this office. Pick one."}
             </KnowledgeEmpty>
           )}
         </section>
@@ -1246,7 +1246,7 @@ function KnowledgeTree(props: {
   if (props.empty) {
     return (
       <p className="explorer-empty">
-        Nothing here yet. New, upload, or import a playbook.
+        Chat is organized here automatically. New, upload, or import a playbook.
       </p>
     );
   }
