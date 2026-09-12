@@ -30,7 +30,7 @@ import {
   THESES,
 } from "../lib/copy";
 import { LANDING_HIRE_BOTS } from "../lib/bot-marketplace";
-import { HOME_INTEGRATIONS } from "../lib/teasers";
+import { homeIntegrationMarquee } from "../lib/teasers";
 import { DemoThread } from "./DemoThread";
 import { HeroCompare } from "./HeroCompare";
 import { HeroDemo } from "./HeroDemo";
@@ -407,36 +407,21 @@ export function Landing(props: { startUrl: string }) {
           </div>
         </section>
 
-        <section className="band catalog">
+        <section
+          className="band catalog home-integrations"
+          id="integrations"
+          aria-labelledby="integrations-title"
+        >
           <p className="kicker">Integrations</p>
-          <h2>Your tools. In the thread.</h2>
+          <h2 id="integrations-title">Your tools. In the thread.</h2>
           <p className="lede tight">
-            LinkedIn, Instagram, Google Drive, Notion — plus Gmail, Slack, and
-            GitHub. A computer for the indie stack.
+            1,000+ tools. LinkedIn, Slack, Notion, GitHub — and a computer for
+            the indie stack.
           </p>
-          <div className="chips">
-            {HOME_INTEGRATIONS.map((item) => (
-              <Link
-                key={item.slug}
-                className="chip has-icon"
-                to="/integrations/$slug"
-                params={{ slug: item.slug }}
-              >
-                <img
-                  className="chip-logo"
-                  src={demoLogo(item.slug)}
-                  alt=""
-                  width={18}
-                  height={18}
-                  decoding="async"
-                />
-                {item.name}
-              </Link>
-            ))}
-            <Link className="chip chip-all" to="/integrations">
-              All integrations
-            </Link>
-          </div>
+          <HomeIntegrationMarquee />
+          <Link className="home-integrations-more" to="/integrations">
+            Browse all integrations
+          </Link>
         </section>
 
         <section
@@ -551,6 +536,42 @@ function DemoShowcase() {
       </div>
       <DemoThread demo={active} />
     </section>
+  );
+}
+
+function HomeIntegrationMarquee() {
+  const { rows } = homeIntegrationMarquee();
+  return (
+    <div className="int-marquee" aria-hidden="true">
+      {rows.map((row, index) => (
+        <div
+          key={index === 0 ? "fwd" : "rev"}
+          className={index === 0 ? "int-marquee-row" : "int-marquee-row rev"}
+        >
+          <div className="int-marquee-track">
+            {[0, 1].map((copy) => (
+              <ul key={copy}>
+                {row.map((item) => (
+                  <li key={`${copy}-${item.slug}`}>
+                    <span className="chip has-icon">
+                      <img
+                        className="chip-logo"
+                        src={item.logo}
+                        alt=""
+                        width={18}
+                        height={18}
+                        decoding="async"
+                      />
+                      {item.name}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 

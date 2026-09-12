@@ -364,6 +364,8 @@ describe("llms discovery", () => {
     );
     expect(landing).toContain("PHONE_HEADLINE");
     expect(landing).toContain("<HandoffScene />");
+    expect(landing).toContain("HomeIntegrationMarquee");
+    expect(landing).toContain('id="integrations"');
     expect(HERO_COMPARE_NAMES).toEqual(["Hermes Agent", "OpenClaw", "Grok Bot"]);
     expect(HERO_LEDE).toMatch(/but for teams/);
     expect(HERO_PLATFORMS_LINE).toBe(

@@ -1511,6 +1511,7 @@ img.avatar {
 #adopt,
 #knowledge,
 #phone,
+#integrations,
 #demo {
   scroll-margin-top: 72px;
 }
@@ -3408,6 +3409,19 @@ a.chip.on .chip-count,
     animation: none;
   }
 
+  .int-marquee-track {
+    animation: none;
+  }
+
+  .int-marquee-track ul + ul {
+    display: none;
+  }
+
+  .int-marquee {
+    overflow-x: auto;
+    mask-image: none;
+  }
+
   .btn,
   .chip {
     transition: none;
@@ -3660,15 +3674,55 @@ a.chip.on .chip-count,
   margin-right: auto;
 }
 
-.home-integrations .chips {
-  justify-content: center;
-  margin-bottom: 0;
+.home-integrations {
+  overflow: hidden;
+}
+
+.int-marquee {
+  display: grid;
+  gap: 10px;
+  margin: 20px -24px 8px;
+  overflow: hidden;
+  mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 6%,
+    #000 94%,
+    transparent
+  );
+}
+
+.int-marquee-row {
+  overflow: hidden;
+}
+
+.int-marquee-track {
+  display: flex;
+  width: max-content;
+  gap: 0;
+  animation: int-marquee 72s linear infinite;
+}
+
+.int-marquee-row.rev .int-marquee-track {
+  animation-duration: 88s;
+  animation-direction: reverse;
+}
+
+.int-marquee-track ul {
+  display: flex;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0 8px 0 0;
+}
+
+.int-marquee:hover .int-marquee-track {
+  animation-play-state: paused;
 }
 
 .home-integrations-more {
-  display: block;
-  text-align: center;
-  margin-top: 20px;
+  display: inline-block;
+  margin-top: 12px;
   font-size: 14px;
   color: var(--muted);
   text-decoration: none;
@@ -3676,6 +3730,15 @@ a.chip.on .chip-count,
 
 .home-integrations-more:hover {
   color: var(--ink);
+}
+
+@keyframes int-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
 }
 
 .home-faq h2 {
